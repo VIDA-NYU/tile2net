@@ -96,7 +96,7 @@ with the Raster module.
 `generate`, as its name indicates, generates the project structure, downloads the weights and in case your region of
 interest is supported by Tile2Net, also prepares the image tiles, and finally outputs a JSON text regarding the raster
 specifications and the paths to the various resources. To know more about the basic concepts behind the tool, please
-read our [getting started guide.](https://github.com/VIDA-NYU/tile2net/blob/main/BASICS.md)
+read [this.](https://github.com/VIDA-NYU/tile2net/blob/main/BASICS.md)
 
 `inference` will then run the semantic segmentation model on the prepared tiles (or your own tile data which should be
 prepared following the guidelines [here](https://github.com/VIDA-NYU/tile2net/blob/main/DATA_PREPARE.md)), detect roads,
