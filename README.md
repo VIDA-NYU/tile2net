@@ -5,7 +5,7 @@
 <img src="./images/overview.png" alt="Overview" width="50%">
 </p>
 
-Tile2Net is an end-to-end tool for automated mapping of pedestrian infrastructure using aerial imagery. We trained a
+Tile2Net is an end-to-end tool for automated mapping of pedestrian infrastructure from aerial imagery. We trained a
 semantic segmentation model to detect roads, sidewalk, crosswalk, and footpath from orthorectified imagery. The results
 are then converted to geo-referenced polygons and finally a topologically interconnected centerline network is
 generated. This work is as an important step towards a robust and open-source framework that enables comprehensive
