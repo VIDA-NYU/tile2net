@@ -1,0 +1,19 @@
+# Run inference on your own data with our pretrained model
+
+CMD: "python -m inference.py"
+
+HPARAMS: [
+  {
+   dataset: satellite,
+   syncbn: False,
+   apex: False,
+   fp16: False,
+   bs_val: 1,
+   eval: test,
+   eval_folder: '<PATH TO YOUR IMAGE FOLDER>',
+   snapshot: "ASSETS_PATH/seg_weights/satellite_2021.pth",
+   arch: ocrnet.HRNet_Mscale,
+   trunk: hrnetv2, 
+   result_dir: LOGDIR,
+  },
+]
