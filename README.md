@@ -48,7 +48,7 @@ Maryam Hosseini, Andres Sevtsuk, Fabio Miranda, Roberto M. Cesar Jr, Claudio T. 
 
 ## What is New?
 
-This is the Beta Version release of our code, featuring updated API and imprived model compared to our baseline and
+This is the Beta Version release of our code, featuring updated API and improved model compared to our baseline and
 published results.  
 During this experimental release, we encourage and welcome your feedback to help us improve the tool before publishing
 it as a PyPI and Conda package.
