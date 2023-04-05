@@ -3,24 +3,30 @@ import os
 import glob
 import math
 import shutil
-import numpy as np
-import pandas as pd
 from PIL import Image
 import psutil
 import random
 
 
-
 def deg2num(lat_deg, lon_deg, zoom):
     """
-    converts decimal deg lat and long of the tile box to tile numbers
+    converts lat/lon to pixel coordinates in given zoom of the EPSG:3857 pyramid
+    Parameters
+    ----------
+    lat_deg: float
+        latitude in degrees
+    lon_deg: float
+        longitude in degrees
+    zoom: int
+        zoom level of the tile
 
-    :param lat_deg:
-    :param lon_deg:
-    :param zoom:
-    :return:
+    Returns
+    -------
+    xtile: int
+        xcoodrinate of the tile in xyz system
+    ytile: int
+        ycoodrinate of the tile in xyz system
     """
-
     lat_rad = math.radians(lat_deg)
     n = 2.0 ** zoom
     xtile: float = int((lon_deg + 180.0) / 360.0 * n)
@@ -30,13 +36,23 @@ def deg2num(lat_deg, lon_deg, zoom):
 
 def num2deg(xtile, ytile, zoom):
     """
-    converts tile numbers to lat and long of the tile box
-    This returns the NW-corner of the square. Use the function with xtile+1 and/or ytile+1 to get the other corners.
-    With xtile+0.5 & ytile+0.5 it will return the center of the tile.
-    :param xtile:
-    :param ytile:
-    :param zoom:
-    :return:
+    converts pixel coordinates in given zoom of the EPSG:3857 pyramid to lat/lon
+    Parameters
+    ----------
+    xtile: int
+        xcoodrinate of the tile in xyz system
+    ytile: int
+        ycoodrinate of the tile in xyz system
+    zoom: int
+        zoom level of the tile
+
+    Returns
+    -------
+    lat_deg: float
+
+    lon_deg: float
+
+
     """
     n = 2.0 ** zoom
     lon_deg: float = xtile / n * 360.0 - 180.0
@@ -46,6 +62,17 @@ def num2deg(xtile, ytile, zoom):
 
 
 def path_check(pathchk):
+    """
+    Checks if the output file exists and asks the user if he wants to overwrite it or not
+    Parameters
+    ----------
+    pathchk
+
+    Returns
+    -------
+    pathchk : str
+        The path to the output file
+    """
     filename = os.path.basename(pathchk)
     dir_path = os.path.dirname(pathchk)
     exten = "." + str(filename.split(".")[-1])
@@ -66,6 +93,15 @@ def path_check(pathchk):
 
 
 def change_name(src_path, *args):
+    """
+    Changes the name of the images in the folder
+    Parameters
+    ----------
+    src_path: str
+        path to the folder
+    args: str
+        name of the class
+    """
     imgs = glob.glob(src_path)
     dest_path = src_path[:-6] + '/new_name_class/'
     if not os.path.exists(dest_path):
@@ -76,6 +112,17 @@ def change_name(src_path, *args):
 
 
 def move_img_ann(img_src, ann_src, ann_dest):
+    """
+    Moves the images and annotations to a new folder
+    Parameters
+    ----------
+    img_src : str
+        path to the image folder
+    ann_src: str
+        path to the annotation folder
+    ann_dest: str
+        path to the destination folder
+    """
     # ann_dest = os.path.join()
     if not os.path.exists(ann_dest):
         os.makedirs(ann_dest)
@@ -86,6 +133,15 @@ def move_img_ann(img_src, ann_src, ann_dest):
 
 
 def move_ann(src, ann_src):
+    """
+    Moves the images and annotations to a new folder
+    Parameters
+    ----------
+    src : str
+        path to the folder
+    ann_src: str
+        path to the annotation folder
+    """
     ann_dest = os.path.join(src, 'removed')
     if not os.path.exists(ann_dest):
         os.makedirs(ann_dest)
@@ -99,62 +155,22 @@ def move_ann(src, ann_src):
 
 # classes = {'bldg': [255, 0, 0], 'road':[0,128, 0], 'sw': [0, 0, 255], 'background': [0, 0, 0] }
 
-def data_splitter(src_dir, frac_train) -> None:
-    ''' This function splits data to train, validation and test sets.
-
-        Args:
-            src_dir (str): source directory containing the raw dataset to be splited
-            frac_train (float): the fraction dedicated to training
-
-        Returns:
-            None
-        '''
-    img_src_dir = os.path.join(src_dir, 'images', '*.png')
-    annot_src_dir = os.path.join(src_dir, 'annotations', '*.png')
-    frac2 = (1 + frac_train) / 2
-    imgdf = pd.DataFrame(glob.glob(img_src_dir), columns=['im'])
-    #     imgdf = pd.DataFrame(glob.glob(src_dir+ '/*.png'), columns=['im'])
-    #     print(imgdf.iloc[0,:])
-
-    train, val, test = np.split(imgdf.sample(frac=1, random_state=200),
-                                [int(frac_train * len(imgdf)), int(frac2 * len(imgdf))])
-    train.to_csv('train.csv')
-    test.to_csv('test.csv')
-    val.to_csv('val.csv')
-    folds = ['train', 'val', 'test']
-    data = [train, val, test]
-
-    for c, df in enumerate(data):
-
-        img_dst_dir_ = src_dir + '/images/' + folds[c]
-        # img_dst_dir_ = src_dir+'/annotations-rswcw/'+ folds[c]
-
-        # img_dst_dir_ = src_dir+ folds[c]
-        if not os.path.exists(img_dst_dir_):
-            os.makedirs(img_dst_dir_)
-
-        annot_dst_dir_ = src_dir + '/annotations/' + folds[c]
-        gr_dst_dir_ = src_dir + '/annotations/' + '/gray/' + folds[c]
-        # gr_dst_dir_ = src_dir+'/annotations-swcw/'+ folds[c]
-        if not os.path.exists(annot_dst_dir_):
-            os.makedirs(annot_dst_dir_)
-        if not os.path.exists(gr_dst_dir_):
-            os.makedirs(gr_dst_dir_)
-
-        for idx, row in df.iterrows():
-            shutil.copy(row.im, img_dst_dir_)
-            # gr_annot = os.path.join(src_dir, 'annotations-rswcw','gray',row.im.split('/')[-1])
-            # annot = os.path.join(src_dir, 'annotations-rswcw', 'gray', row.im.split('/')[-1])
-            annot = os.path.join(src_dir, 'annotations', row.im.split('/')[-1])
-            gr_annot = os.path.join(src_dir, 'annotations', 'gray', row.im.split('/')[-1])
-
-            # #             print(gr_annot)
-            shutil.copy(gr_annot, gr_dst_dir_)
-            shutil.copy(annot, annot_dst_dir_)
 
 
 # #
 def createfolder(path):  # creates folder if not exists
+    """
+    Creates a folder if it does not exist
+    Parameters
+    ----------
+    path : str
+        path to the folder
+
+    Returns
+    -------
+    path : str
+        path to the folder
+    """
     if path_exist(path):
         return path
     else:
@@ -163,24 +179,58 @@ def createfolder(path):  # creates folder if not exists
 
 
 def find_file_startpattern(path, pattern):
+    """
+    Finds the file in the folder that starts with the pattern
+    Parameters
+    ----------
+    path : str
+        path to the folder
+    pattern : str
+        pattern to search for
+
+    Returns
+    -------
+    target : str
+        name of the file
+    """
     target = [f for f in os.listdir(path) if f.startswith(pattern)]
     if len(target) > 0:
         return target[0]
     else:
         return -1
-    # for img in os.listdir(path):
-    #     if img.startswith(pattern):
-    #         return img
-    #     else:
-    #         continue
 
 
 def generate_path(src_path, filename):
+    """
+    Generates the path of the file
+    Parameters
+    ----------
+    src_path : str
+        path to the folder
+    filename : str
+        name of the file
+    Returns
+    -------
+    fpath : str
+        path to the file
+    """
     fpath = os.path.join(src_path, filename)
     return fpath
 
 
 def path_exist(path):
+    """
+    Checks if the path exists
+    Parameters
+    ----------
+    path : str
+        path to the folder
+
+    Returns
+    -------
+    bool
+        True if the path exists
+    """
     if os.path.exists(path):
         return True
     else:
@@ -189,12 +239,19 @@ def path_exist(path):
 
 def read_img_folder(input_path, file_format):
     """
-    reads files in the folder (excludes files starting with '.'
-    :param input_path: (str)
-    :param file_format: (str) png, jpg, ...
-    :return: list of file names without extension
-    """
+    Reads the images in the folder
+    Parameters
+    ----------
+    input_path  : str
+        path to the folder
+    file_format : str
+        format of the image
 
+    Returns
+    -------
+    imgs_names : list
+        list of image names
+    """
     file_format = file_format.lower()
     with os.scandir(input_path) as it:
         items = [entry for entry in it if not entry.name.startswith('.')]
@@ -207,9 +264,17 @@ def read_img_folder(input_path, file_format):
 
 def find_image_ends_with(image_names_ls, pattern):
     """
-    take list of image names (w/o extension) and finds the file names that end in the specified pattern.
-    pattern: str
-"""
+    Finds the image that ends with the pattern
+    Parameters
+    ----------
+    image_names_ls : list
+        list of image names
+    pattern
+
+    Returns
+    -------
+
+    """
     found = [i for i in image_names_ls if i.endswith(pattern)]
     if len(found) == 1:
         return found[0]
@@ -223,7 +288,17 @@ def find_image_ends_with(image_names_ls, pattern):
 
 def disk_size_convert(size_bytes):
     """
-    Convert size in bytes to proper readable units
+    Converts the size of the disk to human readable format
+    Parameters
+    ----------
+    size_bytes  : int
+        size of the disk in bytes
+
+    Returns
+    -------
+    size
+    unit
+
     """
     if size_bytes == 0:
         return '0B'
@@ -235,7 +310,17 @@ def disk_size_convert(size_bytes):
 
 
 def get_free_space_bytes(dirname):
-    """Gets directory path and return free space in that drive in Bytes."""
+    """
+
+    Parameters
+    ----------
+    dirname : str or path-like object
+        path to the directory
+
+    Returns
+    -------
+    free space in bytes
+    """
     usage = psutil.disk_usage(dirname)
     return usage.free
 
@@ -301,6 +386,22 @@ def split_dataset(src_image_dir, src_annotation_dir, validation_ratio):
 
 
 def copy_splitted(img_ls, src_annotation_dir, dest_dir):
+    """
+    Copies the splited images and annotations to the destination directory
+    Parameters
+    ----------
+    img_ls: list
+        list of image paths
+    src_annotation_dir: str
+        path to the annotation directory
+    dest_dir: str
+        path to the destination directory
+
+    Returns
+    -------
+    None
+
+    """
     for img_path in img_ls:
         file_name = os.path.basename(img_path)
         src_annot_path = os.path.join(src_annotation_dir, file_name)

@@ -30,7 +30,10 @@ def image_splitter(src_path) -> None:
 			os.makedirs(annot_dest)
 		labimg.save(annot_dest + name)
 
+
 classes = {'sw': [0, 0, 255], 'road': [0, 128, 0], 'crosswalk': [255, 0, 0], 'background': [0, 0, 0]}
+
+
 def direct2gray(src_path, classes) -> None:
 	"""Creates one channel gray annotation masks from the colored masks
 	and saves them in a new directory.
@@ -50,22 +53,29 @@ def direct2gray(src_path, classes) -> None:
 			mask = np.all(data==classes[c], axis=-1)*idx if idx==1 else mask + np.all(
 				data==classes[c],
 				axis=-1
-				)*idx
+			)*idx
 		imsave(os.path.join(dest, pathlib.PurePath(img_file).name), mask.astype(np.uint8))
 
 
-def resize_image(src_path, size):
-	images = glob.glob(src_path)
-	dest_path = src_path[:-6] + '/resized/'
-	if not os.path.exists(dest_path):
-		os.makedirs(dest_path)
-	for img in images:
-		image = Image.open(img)
-		new_image = image.resize(size)
-		new_image.save(os.path.join(dest_path, pathlib.PurePath(img).name))
-
-
 def overlay(img_path, label_path, alpha, sbs=None):
+	"""
+	Overlays the segmentation mask on the original image.
+	Parameters
+	----------
+	img_path: str
+		Path to the original image
+	label_path: str
+		Path to the segmentation mask
+	alpha: float
+		Transparency of the segmentation mask
+	sbs: bool
+		Whether the image is side by side or not
+
+	Returns
+	-------
+	None
+	saves the overlayed image in the same directory as the original image
+	"""
 	images = glob.glob(img_path)
 	dest = os.path.join(pathlib.PurePath(label_path).parent, 'overlay')
 	if not os.path.exists(dest):
@@ -98,6 +108,15 @@ def overlay(img_path, label_path, alpha, sbs=None):
 
 
 def sbs(src_path, label_path):
+	"""
+	Combine images and labels side by side
+	Parameters
+	----------
+	src_path: str
+		path to the images
+	label_path: str
+		path to the labels
+	"""
 	images = glob.glob(src_path)
 	dest = os.path.join(pathlib.PurePath(src_path).parent, 'side-by-side')
 	if not os.path.exists(dest):
@@ -123,6 +142,14 @@ def sbs(src_path, label_path):
 
 
 def fill_colormap():
+	"""
+	Fill colormap with appropriate values corresponding to the classes
+	for the segmentation mask of Tile2Net
+	Returns
+	-------
+	palette : list
+		Colormap for the segmentation mask
+	"""
 	palette = [0, 0, 0,
 	           0, 0, 255,
 	           0, 128, 0,
@@ -153,14 +180,34 @@ def colorize_mask(src_dir):
 
 
 def im_has_alpha(img_arr):
-	'''
-	returns True for Image with alpha channel
-	'''
+	"""
+	Checks if image has alpha channel
+	Parameters
+	----------
+	img_arr: np.array
+		Image array
+
+	Returns
+	-------
+	True if image has alpha channel, False otherwise
+	"""
 	h, w, c = img_arr.shape
 	return True if c==4 else False
 
 
 def has_transparency(img):
+	"""
+	Checks if image has transparency
+	Parameters
+	----------
+	img : PIL Image
+		Image to check
+
+	Returns
+	-------
+	True if image has transparency, False otherwise
+
+	"""
 	if img.info.get("transparency", None) is not None:
 		return True
 	if img.mode=="P":
