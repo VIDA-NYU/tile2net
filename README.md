@@ -5,15 +5,16 @@
 <img src="./images/overview.png" alt="Overview" width="50%">
 </p>
 
-Tile2Net is an end-to-end tool for automated mapping of pedestrian infrastructure from aerial imagery. We trained a
-semantic segmentation model to detect roads, sidewalk, crosswalk, and footpath from orthorectified imagery. The results
-are then converted to geo-referenced polygons and finally a topologically interconnected centerline network is
+Tile2Net is an end-to-end tool for automated mapping of pedestrian infrastructure from aerial imagery. 
+It provides information on **where** sidewalks are, and **how** they are connected. 
+
+To achieve that, we trained a semantic segmentation model to detect roads, sidewalk, crosswalk, and footpath from orthorectified imagery. 
+The results are then converted to geo-referenced polygons and finally a topologically interconnected centerline network is
 generated. This work is as an important step towards a robust and open-source framework that enables comprehensive
 digitization of pedestrian infrastructure, which we argue to be a key missing link to more accurate and reliable
 pedestrian modeling and analyses. By offering low-cost solutions to create planimetric dataset describing pedestrian
 environment, we enable cities with a tight budget to create datasets describing pedestrian environment which otherwise
-would
-not be possible at a comparable cost and time.
+would not be possible at a comparable cost and time.
 
 The model is presented in our [paper](https://www.sciencedirect.com/science/article/pii/S0198971523000133) published at
 the *Computers Environment and Urban Systems* journal.
