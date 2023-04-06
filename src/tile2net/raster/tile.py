@@ -3,6 +3,7 @@ from functools import cached_property
 import time
 from typing import  Optional
 import numpy as np
+import pandas as pd
 import skimage
 import shapely
 import geopandas as gpd
@@ -39,7 +40,9 @@ class Tile:
 
 
     def __post_init__(self):
-
+        """
+        Initialize the tile object
+        """
         self.top = num2deg(self.xtile, self.ytile, self.zoom)[0]  # latitude of top left
 
         self.left = num2deg(self.xtile, self.ytile, self.zoom)[1]  # longitude of top left
@@ -58,7 +61,7 @@ class Tile:
 
     @cached_property
     def ped_poly(self):
-
+        """Return the pedestrian polygon for the tile"""
         return gpd.GeoDataFrame()
 
     def __hash__(self):
@@ -88,6 +91,18 @@ class Tile:
         pass
 
     def get_download_link(self, location_abr: str) -> Optional[str]:
+        """
+        Get the download link for the tile
+        Parameters
+        ----------
+        location_abr: str
+            Abbreviation of the location
+
+        Returns
+        -------
+        Optional[str]
+            The download link for the tile
+        """
         # TODO: add support to check whether the data exists
         # TODO: add support to report the imagery capture date (this is easy)
         # remove any whitespaces added by mistake
@@ -127,6 +142,18 @@ class Tile:
         return dl_links.get(location, None)
 
     def dl_me(self, dest, source):
+        """
+        Download the tile
+        Parameters
+        ----------
+        dest: str
+        source: str
+
+        Returns
+        -------
+        bool:
+            True if the tile was downloaded successfully, False otherwise
+        """
         output_name = f'{self.xtile}_{self.ytile}_{self.idd}.png'
         output_path = os.path.join(dest, output_name)
         time.sleep(1)  # Wait 1 second as to not overload the server
@@ -159,6 +186,12 @@ class Tile:
 
     @property
     def bbox(self):
+        """
+        Returns the bounding box of the tile
+        Returns
+        -------
+        tuple
+        """
         self.setLatlon()
         return self.bottom, self.top, self.left, self.right
 
@@ -173,6 +206,165 @@ class Tile:
         self.setLatlon()
         tfm = from_bounds(self.left, self.bottom, self.right, self.top, self.size, self.size)
         return tfm
+
+    def create_gray_image(self):
+        im = np.ones((self.size, self.size)) * 50
+        blck = Image.fromarray(np.uint8(im)).convert('RGB')
+        return blck
+
+    def tile2poly(self, *bounds):
+        """Create a polygon geometry for the tile
+
+        Parameters
+        ----------
+        bounds : tuple, optional
+            A tuple containing the left, bottom, right, and top bounds of the tile.
+            If not provided, the function will use the `left`, `bottom`, `right`,
+            and `top` attributes of the `self` object.
+
+        Returns
+        -------
+        polygon : shapely.geometry.Polygon
+            A polygon geometry object representing the tile bounds.
+        """
+        self.setLatlon()
+        if len(bounds) > 0:
+            left, bottom, right, top = bounds
+            poly = Polygon.from_bounds(left, bottom, right, top)
+        else:
+            # fix the rounding issues in plotting
+            poly = Polygon.from_bounds(self.left, self.bottom - 0.00001, self.right,
+                                                  self.top - 0.00001)
+        # poly.set_crs(epsg=crs)
+        return poly
+
+    def tile2gdf(self, *bounds):
+        """Create a tile GeoDataFrame
+        Returns (GeoDataFrame): A GeoDataFrame of a single tile
+        """
+        if len(bounds) > 0:
+            poly = self.tile2poly(*bounds)
+        else:
+            poly = self.tile2poly()
+        tgdf = gpd.GeoDataFrame(gpd.GeoSeries(poly), columns=['geometry'], crs=self.crs)
+        return tgdf
+
+
+    def find_tile_neighbors_pos(self, d):
+        """Returns the neighbors of a tile
+        given the tile is topleft one, returns d**2-1 neighbors (d on column and d on the row)
+        Parameters
+        ----------
+        d : int
+            the size of the merge/stitch (how many tiles should be stitched on the row and columns)
+
+        Returns
+        -------
+        list.
+            list of the neighboring tiles (x,y)
+        """
+        return [[self.position[0] + r, self.position[1] + c] for r in range(0, d) for c in
+                range(0, d)]
+
+    def get_metric(self):
+        """
+        transform tile polygon to metric (3857) coordinate
+        Args:
+            tilepoly(GeoDataframe): the polygon of the tile
+        Returns:
+            the top,left, bottom, right coordinates of the tile
+        """
+        tilepoly = self.tile2gdf()
+        tilepoly.to_crs(3857, inplace=True)
+        # geopandas bounds method returns
+        left, bottom, right, top = tilepoly.at[0, 'geometry'].bounds
+        return left, top, right, bottom
+
+    def get_individual(self, gdf):
+        """Convert all multi-type geometries to single ones
+        multipolygon to polygon
+
+        Arguments
+        ---------
+
+         Returns
+        -------
+        """
+        gdf_new = gdf.explode()
+        return gdf_new
+
+    def mask2poly(self, src_img, img_array=None):
+        """Converts a raster mask to a GeoDataFrame of polygons
+        Parameters
+        ----------
+        src_img : str
+            path to the image
+        img_array : array, optional
+            if the image is already read, pass the array to avoid reading it again
+        Returns
+        -------
+        geoms : GeoDataFrame
+            GeoDataFrame of polygons
+        """
+        swcw = []
+        if img_array:
+            mask_image = src_img
+        else:
+            mask_image = skimage.io.imread(os.path.join(src_img, f'{self.im_name}'))
+        # using the masks defined here, the sidewalks are blue and hence index 2(3rd position in RGB)
+        # sidewalks
+        tfm_ = self.tfm
+        sidewalk = mask_image[:, :, 2]
+        geoms_sw = self.mask_to_poly_geojson(sidewalk)
+        geoms_sw['geometry'] = geoms_sw['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
+        geoms_sw = geoms_sw.set_crs(epsg=str(self.crs))
+        geoms_sw['f_type'] = 'sidewalk'
+        swcw.append(geoms_sw)
+
+        # crosswalks
+        cw = mask_image[:, :, 0]  # red channel
+        geoms_cw = self.mask_to_poly_geojson(cw)
+        geoms_cw = geoms_cw.set_crs(epsg=str(self.crs))
+        geoms_cw['geometry'] = geoms_cw['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
+        geoms_cw['f_type'] = 'crosswalk'
+        swcw.append(geoms_cw)
+
+        # Roads
+        rd = mask_image[:, :, 1]  # green channel
+        geoms_rd = self.mask_to_poly_geojson(rd)
+        geoms_rd = geoms_rd.set_crs(epsg=str(self.crs))
+        geoms_rd['geometry'] = geoms_rd['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
+        geoms_rd['f_type'] = 'road'
+        swcw.append(geoms_rd)
+
+        rswcw = pd.concat(swcw)
+        rswcw.reset_index(drop=True, inplace=True)
+        self.ped_poly = rswcw
+        return swcw
+
+    def get_region(self, df, spatial_index):
+        """
+        clips the overlapping region between the dataframe and tile extent
+        Args:
+            tile: the tile object to overlay
+            df: the
+
+        Returns:
+
+        """
+        tilepoly = self.tile2gdf()
+        df.to_crs(tilepoly.crs, inplace=True)
+        # fix rounding issues
+        possible_matches_index = list(spatial_index.intersection(tilepoly.at[0, 'geometry'].bounds))
+
+        possible_matches = df.iloc[possible_matches_index]
+        region = gpd.clip(possible_matches, tilepoly)
+        region.to_crs(epsg=3857, inplace=True)
+        if len(region) > 0:
+            return region
+        else:
+            return -1
+
 
     def preds_to_binary(self, pred_arr, channel_scaling=None, bg_threshold=0):
         """From Solaris
@@ -351,48 +543,6 @@ class Tile:
 
         return polygon_gdf
 
-    def create_gray_image(self):
-        im = np.ones((self.size, self.size)) * 50
-        blck = Image.fromarray(np.uint8(im)).convert('RGB')
-        return blck
-
-    def tile2poly(self, *bounds):
-        """Create a polygon geometry for the tile
-
-        Parameters
-        ----------
-        bounds : tuple, optional
-            A tuple containing the left, bottom, right, and top bounds of the tile.
-            If not provided, the function will use the `left`, `bottom`, `right`,
-            and `top` attributes of the `self` object.
-
-        Returns
-        -------
-        polygon : shapely.geometry.Polygon
-            A polygon geometry object representing the tile bounds.
-        """
-        self.setLatlon()
-        if len(bounds) > 0:
-            left, bottom, right, top = bounds
-            poly = Polygon.from_bounds(left, bottom, right, top)
-        else:
-            # fix the rounding issues in plotting
-            poly = Polygon.from_bounds(self.left, self.bottom - 0.00001, self.right,
-                                                  self.top - 0.00001)
-        # poly.set_crs(epsg=crs)
-        return poly
-
-    def tile2gdf(self, *bounds):
-        """Create a tile GeoDataFrame
-        Returns (GeoDataFrame): A GeoDataFrame of a single tile
-        """
-        if len(bounds) > 0:
-            poly = self.tile2poly(*bounds)
-        else:
-            poly = self.tile2poly()
-        tgdf = gpd.GeoDataFrame(gpd.GeoSeries(poly), columns=['geometry'], crs=self.crs)
-        return tgdf
-
 
     def get_geo_transform(self, raster_src):
         """From Solaris
@@ -494,103 +644,4 @@ class Tile:
 
         return xformed_g
 
-    def get_region(self, df, spatial_index):
-        """
-        clips the overlapping region between the dataframe and tile extent
-        Args:
-            tile: the tile object to overlay
-            df: the
-
-        Returns:
-
-        """
-        tilepoly = self.tile2gdf()
-        df.to_crs(tilepoly.crs, inplace=True)
-        # fix rounding issues
-        possible_matches_index = list(spatial_index.intersection(tilepoly.at[0, 'geometry'].bounds))
-
-        possible_matches = df.iloc[possible_matches_index]
-        region = gpd.clip(possible_matches, tilepoly)
-        region.to_crs(epsg=3857, inplace=True)
-        if len(region) > 0:
-            return region
-        else:
-            return -1
-
-    def find_tile_neighbors_pos(self, d):
-        """Returns the neighbors of a tile
-        given the tile is topleft one, returns d**2-1 neighbors (d on column and d on the row)
-        Parameters
-        ----------
-        d : int
-            the size of the merge/stitch (how many tiles should be stitched on the row and columns)
-
-        Returns
-        -------
-        list.
-            list of the neighboring tiles (x,y)
-        """
-        return [[self.position[0] + r, self.position[1] + c] for r in range(0, d) for c in
-                range(0, d)]
-
-    def get_metric(self):
-        """
-        transform tile polygon to metric (3857) coordinate
-        Args:
-            tilepoly(GeoDataframe): the polygon of the tile
-        Returns:
-            the top,left, bottom, right coordinates of the tile
-        """
-        tilepoly = self.tile2gdf()
-        tilepoly.to_crs(3857, inplace=True)
-        # geopandas bounds method returns
-        left, bottom, right, top = tilepoly.at[0, 'geometry'].bounds
-        return left, top, right, bottom
-
-    def get_individual(self, gdf):
-        """Convert all multi-type geometries to single ones
-        multipolygon to polygon
-
-        Arguments
-        ---------
-
-         Returns
-        -------
-        """
-        gdf_new = gdf.explode()
-        return gdf_new
-
-    def mask2poly(self, src_img, img_array=None):
-        if img_array:
-            mask_image = src_img
-        else:
-            mask_image = skimage.io.imread(os.path.join(src_img, f'{self.im_name}'))
-        # using the masks defined here, the sidewalks are blue and hence index 2(3rd position in RGB)
-        # sidewalks
-        tfm_ = self.tfm
-        sidewalk = mask_image[:, :, 2]
-        geoms_sw = self.mask_to_poly_geojson(sidewalk)
-        geoms_sw['geometry'] = geoms_sw['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
-        geoms_sw = geoms_sw.set_crs(epsg=str(self.crs))
-        geoms_sw['f_type'] = 'sidewalk'
-
-        # crosswalks
-        cw = mask_image[:, :, 0]  # red channel
-        geoms_cw = self.mask_to_poly_geojson(cw)
-        geoms_cw = geoms_cw.set_crs(epsg=str(self.crs))
-        geoms_cw['geometry'] = geoms_cw['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
-        geoms_cw['f_type'] = 'crosswalk'
-        swcw = geoms_sw.append(geoms_cw)
-
-        # Roads
-        rd = mask_image[:, :, 1]  # green channel
-        geoms_rd = self.mask_to_poly_geojson(rd)
-        geoms_rd = geoms_rd.set_crs(epsg=str(self.crs))
-        geoms_rd['geometry'] = geoms_rd['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
-        geoms_rd['f_type'] = 'road'
-        rswcw = swcw.append(geoms_rd)
-
-        rswcw.reset_index(drop=True, inplace=True)
-        self.ped_poly = rswcw
-        return swcw
 
