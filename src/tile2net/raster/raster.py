@@ -30,7 +30,7 @@ import matplotlib.pyplot as plt
 
 from tile2net.raster.grid import Grid
 from tile2net.raster.tile_utils.genutils import createfolder
-from tile2net.raster.tile_utils.geodata_utils import prepare_gdf, prepare_spaindex, read_dataframe
+from tile2net.raster.tile_utils.geodata_utils import prepare_gdf, read_dataframe, prepare_spindex
 from tile2net.raster.project import Project
 from tile2net.raster.source import Source
 import toolz
@@ -48,6 +48,17 @@ class Raster(Grid):
 
     @classmethod
     def from_nyc(cls, outdir: PathLike = None) -> 'Raster':
+        """
+        Create a Raster object for NYC
+        Parameters
+        ----------
+        outdir: PathLike
+            Path to the output directory
+
+        Returns
+        -------
+        Raster
+        """
         return cls(
             location=[
                 40.91766362458114,
@@ -61,6 +72,25 @@ class Raster(Grid):
 
     @classmethod
     def from_info(cls, info: PathLike | dict) -> 'Raster':
+        """
+        Create a Raster object from a json file
+        Parameters
+        ----------
+        info: PathLike | dict
+            Path to a json file or a dictionary containing the following keys:
+            - location: list
+                Bounding box of the region of interest
+            - name: str
+                Name of the region
+            - output_dir: PathLike
+                Path to the output directory
+            - source: PathLike
+                Path to the source directory
+
+        Returns
+        -------
+        Raster
+        """
         if not isinstance(info, dict):
             with open(info) as f:
                 kwargs = json.load(f)
@@ -75,6 +105,29 @@ class Raster(Grid):
 
     @classmethod
     def from_stitched(cls, info: PathLike | dict, tile_step=4) -> 'Raster':
+        """
+        Create a Raster object from stitched tiles
+        Parameters
+        ----------
+        info: PathLike | dict
+            Path to a json file or a dictionary containing the following keys:
+            - location: list
+                Bounding box of the region of interest
+            - name: str
+                Name of the region
+            - output_dir: PathLike
+                Path to the output directory
+            - source: PathLike
+                Path to the source directory
+            - tile_step: int
+                Step size for the tiles
+        tile_step: int
+            Step size for the tiles
+
+        Returns
+        -------
+        Raster
+        """
         if not isinstance(info, dict):
             with open(info) as f:
                 kwargs = json.load(f)
@@ -107,22 +160,32 @@ class Raster(Grid):
     ):
         """
 
-        :param location:        An address string, e.g. 'New York City, NY, USA',
-                                or a list of coordinates,
-                                e.g. [40.7128, -74.0060, 40.7128, -74.0060]
-
-        :param name:            This will name the folder within the output_dir
-        :param input_dir:       The directory containing the tiles, if they are local.
-        :param output_dir:      The directory that will contain the results.
-        :param num_class:       The number of classes for annotation creation.
-        :param base_tilesize:   The size of the tiles in pixels.
-        :param zoom:            The zoom level of the tiles.
-        :param crs:             The coordinate reference system of the tiles.
-        :param tile_step:       The number of tiles to skip when stitching.
-        :param boundary_path:   The path to a shapefile to filter out of boundary tiles.
-        :param padding:         Whether to pad the tiles to the same size.
-        :param extension:       The extension of the tiles.
-
+        Parameters
+        ----------
+        location: list | str
+            region of interest to get its bounding box
+        name: str
+            name of the project
+        input_dir: PathLike
+            path to the directory containing the input images
+        output_dir: PathLike
+            path to the directory containing the output images
+        num_class: int
+            # of classes for annotation creation
+        base_tilesize: int
+            size of the base tile in pixels (default: 256)
+        zoom: int
+            zoom level of the tiles (default: None)
+        crs: int
+            coordinate reference system (default: 4326)
+        tile_step: int
+            step size for the tiles (default: 1)
+        boundary_path: str
+            path to a shapefile to filter out of boundary tiles (default: None)
+        padding: bool
+            whether to pad the tiles to the base tile size (default: True)
+        extension:
+            extension of the input images (default: 'png')
         """
         if isinstance(location, str):
             try:
@@ -222,21 +285,25 @@ class Raster(Grid):
     def create_config_json(self):
         raise NotImplementedError
 
-    """
-    Download Tiles 
-    """
+
 
     def download_google_api(self, api_key) -> None:
         raise NotImplementedError
 
-    """
-    Stitch Tiles
-    """
+
 
     def check_tile_size(self, img_path: str):
         """
-        Checks the actual tile size to match the user input and general tile convention
-        img: image path
+        Check if the input tile image size is the same as the base tile size
+        Parameters
+        ----------
+        img_path: str
+            Path to the input tile image
+
+        Returns
+        -------
+        bool
+            True if the input tile image size is the same as the base tile size
         """
         im = Image.open(img_path)
         if im.size[0] == im.size[1] == self.base_tilesize:
@@ -248,6 +315,10 @@ class Raster(Grid):
                              ' Grid tile size "{self.tile_size}"!')
         else:
             return False
+
+    """
+    Stitch Tiles
+    """
 
     def stitch(self, step: int) -> None:
         """Stitch tiles
@@ -354,6 +425,18 @@ class Raster(Grid):
             return imageio.v2.imread(file)
 
         def gen_infiles():
+            """
+            Generator that yields lists of lists of input files.
+            Each list of input files is a list of files to merge into a single output file.
+            The generator yields a list of input files each time a list of output files is yielded.
+            This allows the generator to preemptively load the next list of input files while the
+            current list of input files is being processed.
+
+            Returns
+            -------
+            list[list[str]]
+                List of lists of input files.
+            """
             it_infiles = iter(list_infiles)
             # load first two lists
             # first: list[Future] = [
@@ -366,7 +449,7 @@ class Raster(Grid):
             ]
             try:
                 second: list[Future] = [
-                    threads.submit(imageio.v2.imread, infile)
+                    threads.submit(imread, infile)
                     for infile in next(it_infiles)
                 ]
             except StopIteration:
@@ -387,7 +470,7 @@ class Raster(Grid):
             while True:
                 try:
                     second = [
-                        threads.submit(imageio.v2.imread, infile)
+                        threads.submit(imread, infile)
                         for infile in next(it_infiles)
                     ]
                 except StopIteration:
@@ -427,8 +510,16 @@ class Raster(Grid):
             write.result()
         threads.shutdown(wait=True)
 
-
+    """
+    Download Tiles 
+    """
     def download(self):
+        """
+        Download tiles from the source.
+        Returns
+        -------
+        None
+        """
         self.project.tiles.static.path.mkdir(parents=True, exist_ok=True)
         with (
             ThreadPoolExecutor(max_workers=5) as threads,
@@ -502,7 +593,25 @@ class Raster(Grid):
 
     def create_mask(self, dest_path=None, **kwargs) -> None:
         """
-        creates annotated masks for training the cv models, using the publicly available data
+        create the annotation label masks for the tiles
+        Parameters
+        ----------
+        dest_path: str
+            path to the folder where the masks will be saved
+        kwargs:
+            class: dict
+            path: str
+                path to the shapefile
+            usecols: list
+                list of columns to be used
+            col: dict
+                column name to be used as the label
+            if the column is a string, the label will be the same as the column name
+            if the column is a dict, the label will be the value of the key
+
+        Returns
+        -------
+        None
         """
         logger.info(f'{self.num_tiles} annotation masks will be created')
 
@@ -544,7 +653,7 @@ class Raster(Grid):
                 ax.get_yaxis().set_visible(False)
                 ax.set_facecolor('black')
                 for c2, ugdf in enumerate(urb_gdf):
-                    spind = prepare_spaindex(ugdf)
+                    spind = prepare_spindex(ugdf)
                     ucls = tile.get_region(ugdf, spind)
                     if isinstance(ucls, pd.DataFrame):
                         name = list(kwargs.keys())[inds[c2]]
@@ -572,6 +681,15 @@ class Raster(Grid):
 
 
     def save_info_json(self, **kwargs):
+        """
+        saves the grid info as a json file
+        Parameters
+        ----------
+        kwargs
+            new_tstep: int
+                if the tile size is changed, the new tile size is saved in the json file
+            return_dict: bool
+        """
         city_info = {
             'name': self.name,
             'bbox': self.bbox,
@@ -600,12 +718,30 @@ class Raster(Grid):
             self.write_json_file(self.project.structure.__fspath__(), dict(self.project.structure))
 
     def write_json_file(self, file_path, data):
+        """
+        writes a json file
+        Parameters
+        ----------
+        file_path: str
+            path to the json file
+        data: dict
+            data to be written
+        """
         path = Path(file_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open('w+') as f:
             json.dump(data, f, indent=4)
 
     def generate(self, step):
+        """
+        generates the project structure,
+        creates the tiles and saves the info json file
+
+        Parameters
+        ----------
+        step: int
+            tile step to stitch the tiles
+        """
         self.stitch(step)
         self.save_info_json(new_tstep=step)
         logger.info(f'Dumping to {self.project.tiles.info}')
@@ -620,6 +756,13 @@ class Raster(Grid):
         self,
         eval_folder: str = None,
     ):
+        """
+        runs the inference on the tiles
+        Parameters
+        ----------
+        eval_folder: str
+            path to the folder containing the images to run inference on
+        """
         info = toolz.get_in(
             'project tiles info'.split(),
             self.save_info_json(return_dict=True),
