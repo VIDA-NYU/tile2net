@@ -145,6 +145,13 @@ path printed in front of `INFO       Dumping to`:
 python tile2net inference --city_info <path to your region info json>
 ```
 
+
+Or, you can pip the whole process and run it using only one line of code! (note than in piping scenario, you don't need to pass `city_info` argument. 
+
+```
+python tile2net generate -l <coordinate or address> -n <project name> -o <path to output directory> | python tile2net inference
+```
+
 ## Running Interactively
 
 Tile2Net may also be run interactively in a Jupyter notebook by importing with `from tile2net import Raster`. To view
