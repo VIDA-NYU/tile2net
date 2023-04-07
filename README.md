@@ -127,14 +127,14 @@ To run the model in the terminal, you need to pass three main arguments:  _locat
 There are other default parameters that you can modify, such as zoom level, tile_step, stitch_step, but the first three
 are required to create a `Raster` object for your region.
 
-Currently `python tile2net generate` and `python tile2net inference` are supported. The tool also supports
-piping results e.g. `python tile2net generate <args> | python tile2net inference` to allow for the whole process to be
+Currently `python -m tile2net generate` and `python -m tile2net inference` are supported. The tool also supports
+piping results e.g. `python -m tile2net generate <args> | python -m tile2net inference` to allow for the whole process to be
 run in a single command.
 
 To run the program in the terminal you can use the following command (replace <> with the appropriate information):
 
 ```
-python tile2net generate -l <coordinate or address> -n <project name> -o <path to output directory>
+python -m tile2net generate -l <coordinate or address> -n <project name> -o <path to output directory>
 ```
 
 Once that command is run and generate the respective files, use the command below to run inference and get the polygons
@@ -142,14 +142,14 @@ and network. You can find the path to your city_info JSON file from the output o
 path printed in front of `INFO       Dumping to`:
 
 ```
-python tile2net inference --city_info <path to your region info json>
+python -m tile2net inference --city_info <path to your region info json>
 ```
 
 
 Or, you can pip the whole process and run it using only one line of code! (note that in piping scenario, you don't need to pass `city_info` argument. 
 
 ```
-python tile2net generate -l <coordinate or address> -n <project name> -o <path to output directory> | python -m tile2net inference
+python -m tile2net generate -l <coordinate or address> -n <project name> -o <path to output directory> | python -m tile2net inference
 ```
 
 ## Running Interactively
