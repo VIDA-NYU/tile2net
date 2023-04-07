@@ -149,7 +149,7 @@ python tile2net inference --city_info <path to your region info json>
 Or, you can pip the whole process and run it using only one line of code! (note that in piping scenario, you don't need to pass `city_info` argument. 
 
 ```
-python tile2net generate -l <coordinate or address> -n <project name> -o <path to output directory> | python tile2net inference
+python tile2net generate -l <coordinate or address> -n <project name> -o <path to output directory> | python -m tile2net inference
 ```
 
 ## Running Interactively
