@@ -286,10 +286,8 @@ class Raster(Grid):
         raise NotImplementedError
 
 
-
     def download_google_api(self, api_key) -> None:
         raise NotImplementedError
-
 
 
     def check_tile_size(self, img_path: str):
@@ -346,7 +344,6 @@ class Raster(Grid):
             raise RuntimeError(
                 'No source or input directory specified. Cannot stitch tiles.'
             )
-        # todo: only stitch tiles that are unstitched
         outfiles = pipe(
             self.tiles[::step, ::step],
             self.project.tiles.stitched.files,
@@ -367,24 +364,21 @@ class Raster(Grid):
             toolz.curry(np.fromiter, dtype=object)
         )
 
-        # for file in infiles:
-        #     if not os.path.exists(file):
-        #         raise FileNotFoundError(
-        #             f'File {file} does not exist. Cannot stitch tiles. '
-        #         )
         indices = np.arange(self.height * self.width).reshape((self.width, self.height))
+        r = indices.shape[0] // step * step
+        c = indices.shape[1] // step * step
         indices = (
             indices
             # iterate by step to get the top left tile of each new merged tile
-            [::step, ::step]
+            [:r:step, :c:step]
             # reshape to broadcast so offsets can be added
             .reshape((-1, 1, 1))
             # add offsets to get the indices of the tiles to merge
             .__add__(indices[:step, :step])
             # flatten to get a list of merged tiles
             .reshape((-1, step * step))
-                # filter for tiles that are not stitched
-            [not_exists]
+            # filter for tiles that are not stitched
+            # [not_exists]
         )
         list_infiles = (
             # get files from 2d indices to get list of lists
@@ -513,6 +507,7 @@ class Raster(Grid):
     """
     Download Tiles 
     """
+
     def download(self):
         """
         Download tiles from the source.
@@ -615,7 +610,6 @@ class Raster(Grid):
         """
         logger.info(f'{self.num_tiles} annotation masks will be created')
 
-
         # stitched_dir_name = f'{self.name}_stitched-{self.base_tilesize * step}'
         # dest_path = createfolder(os.path.join(tile_group_dir_path, stitched_dir_name))
 
@@ -630,7 +624,7 @@ class Raster(Grid):
                 urb_gdf.append(gdf)
                 inds.append(c)
             assert isinstance(kwargs[cls],
-                              dict), f"incorrect class config file, expected a path for class {cls}."
+                dict), f"incorrect class config file, expected a path for class {cls}."
 
         for c, tile in enumerate(self.tiles.flatten()):
             if tile.active:
