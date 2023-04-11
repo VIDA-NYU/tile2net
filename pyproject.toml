@@ -38,6 +38,7 @@ requires = [
 [tool.setuptools]
 include-package-data = true
 
+
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements-dev.txt"] }
 
@@ -47,3 +48,4 @@ include = ["tile2net*"]
 
 [tool.setuptools.package-data]
 "tile2net.artifacts.sample.brk_sw_lines" = ["*"]
+"tile2net" = ["logging.conf"]

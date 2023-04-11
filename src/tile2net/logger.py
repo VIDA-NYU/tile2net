@@ -4,10 +4,14 @@ import logging.config
 
 import tqdm
 from toolz import pipe
-
+path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logging.conf')
+print(path)
+print(__file__)
+conf = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logging.conf')
+print(f'{conf} exists: {os.path.exists(conf)}')
 
 pipe(
-    os.path.join(os.path.dirname(__file__), 'logging.conf'),
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logging.conf'),
     logging.config.fileConfig
 )
 # todo: when release, set to USER
