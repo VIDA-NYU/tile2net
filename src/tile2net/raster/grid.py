@@ -353,7 +353,6 @@ class Grid(BaseGrid):
         """
         self.update_hw()
         if self.tile_step > 1:
-            step = self.stitch_step * self.tile_step
             self.tiles = np.array([[Tile(self.xtile + col_idx,
                                          self.ytile + row_idx,
                                          position=(col_idx // self.tile_step, row_idx // self.tile_step),
