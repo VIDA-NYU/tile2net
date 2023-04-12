@@ -5,9 +5,8 @@ import logging.config
 import tqdm
 from toolz import pipe
 
-
 pipe(
-    os.path.join(os.path.dirname(__file__), 'logging.conf'),
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logging.conf'),
     logging.config.fileConfig
 )
 # todo: when release, set to USER
