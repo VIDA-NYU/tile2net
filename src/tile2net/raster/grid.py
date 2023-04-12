@@ -324,9 +324,22 @@ class Grid(BaseGrid):
         """
 
         # How many vertical tiles to cover the bbox (number of rows)
-        self.height = (self.base_height + self.pad['h']) // self.tile_step
+        # self.height = (self.base_height + self.pad['h']) // self.tile_step
+        self.height = (
+            (self.base_height + self.pad['h'])
+            // self.tile_step
+            // self.stitch_step
+            * self.stitch_step
+        )
         # How many horizontal tiles to cover the bbox (number of columns)
-        self.width = (self.base_width + self.pad['w']) // self.tile_step
+        # self.width = (self.base_width + self.pad['w']) // self.tile_step
+        self.width = (
+            (self.base_width + self.pad['w'])
+            // self.tile_step
+            // self.stitch_step
+            * self.stitch_step
+        )
+
 
     def update_tiles(self):
         """Update the tiles and their positions based on the new height/width values.
