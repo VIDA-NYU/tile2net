@@ -264,16 +264,10 @@ class Grid(BaseGrid):
         calculates the width and height padding
 
         """
-        # if self.stitch_step == 1:
-        #     step = self.tile_step
-        # else:
-        #     step = self.stitch_step
-        if self.stitch_step != 1:
-            # being stitched; must pad for the stitch
-            step = self.stitch_step
-        else:
-            # being constructed; must pad for pre-stitched
+        if self.stitch_step == 1:
             step = self.tile_step
+        else:
+            step = self.stitch_step
 
         if step > 1:
             if not self.base_width % step == 0:
