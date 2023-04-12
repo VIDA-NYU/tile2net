@@ -264,10 +264,17 @@ class Grid(BaseGrid):
         calculates the width and height padding
 
         """
-        if self.stitch_step == 1:
-            step = self.tile_step
-        else:
+        # if self.stitch_step == 1:
+        #     step = self.tile_step
+        # else:
+        #     step = self.stitch_step
+        if self.stitch_step != 1:
+            # being stitched; must pad for the stitch
             step = self.stitch_step
+        else:
+            # being constructed; must pad for pre-stitched
+            step = self.tile_step
+
         if step > 1:
             if not self.base_width % step == 0:
                 if self.allow_pad:
@@ -324,9 +331,22 @@ class Grid(BaseGrid):
         """
 
         # How many vertical tiles to cover the bbox (number of rows)
-        self.height = (self.base_height + self.pad['h']) // self.tile_step
+        # self.height = (self.base_height + self.pad['h']) // self.tile_step
+        self.height = (
+            (self.base_height + self.pad['h'])
+            // self.tile_step
+            // self.stitch_step
+            * self.stitch_step
+        )
         # How many horizontal tiles to cover the bbox (number of columns)
-        self.width = (self.base_width + self.pad['w']) // self.tile_step
+        # self.width = (self.base_width + self.pad['w']) // self.tile_step
+        self.width = (
+            (self.base_width + self.pad['w'])
+            // self.tile_step
+            // self.stitch_step
+            * self.stitch_step
+        )
+
 
     def update_tiles(self):
         """Update the tiles and their positions based on the new height/width values.
@@ -339,6 +359,7 @@ class Grid(BaseGrid):
         """
         self.update_hw()
         if self.tile_step > 1:
+            step = self.stitch_step * self.tile_step
             self.tiles = np.array([[Tile(self.xtile + col_idx,
                                          self.ytile + row_idx,
                                          position=(col_idx // self.tile_step, row_idx // self.tile_step),

@@ -332,8 +332,13 @@ class Raster(Grid):
             Nothing is returned.
         """
         logger.info(f'Starting Stitching Tiles...')
+        # decrease stitch step if tiles already stitched for computing tiles
+        # step /= self.tile_step
+        # stitch_step = self.stitch_step
         self.stitch_step = step
+        # self.stitch_step = stitch_step
         self.calculate_padding()
+        # change stitch_step to original so that filenames and metadata are correct
         self.update_tiles()
         self.download()
         self.project.tiles.stitched.path.mkdir(parents=True, exist_ok=True)
@@ -344,10 +349,11 @@ class Raster(Grid):
             raise RuntimeError(
                 'No source or input directory specified. Cannot stitch tiles.'
             )
-        r = self.width // step * step
-        c = self.height // step * step
+        # r = self.width // step * step
+        # c = self.height // step * step
         outfiles = pipe(
-            self.tiles[:r:step, :c:step],
+            # self.tiles[:r:step, :c:step],
+            self.tiles[::step, ::step],
             self.project.tiles.stitched.files,
             list
         )
@@ -370,7 +376,8 @@ class Raster(Grid):
         indices = (
             indices
             # iterate by step to get the top left tile of each new merged tile
-            [:r:step, :c:step]
+            # [:r:step, :c:step]
+            [::step, ::step]
             # reshape to broadcast so offsets can be added
             .reshape((-1, 1, 1))
             # add offsets to get the indices of the tiles to merge
