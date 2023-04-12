@@ -86,7 +86,7 @@ cd tile2net
 Activate your virtual environment and install locally:
 
 ```
-python -m pip install .
+python -m pip install -e .
 ```
 
 ## Create Your First Project
