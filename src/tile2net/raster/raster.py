@@ -344,7 +344,10 @@ class Raster(Grid):
             raise RuntimeError(
                 'No source or input directory specified. Cannot stitch tiles.'
             )
+        # r = self.width // step * step
+        # c = self.height // step * step
         outfiles = pipe(
+            # self.tiles[:r:step, :c:step],
             self.tiles[::step, ::step],
             self.project.tiles.stitched.files,
             list
@@ -365,12 +368,11 @@ class Raster(Grid):
         )
 
         indices = np.arange(self.height * self.width).reshape((self.width, self.height))
-        r = indices.shape[0] // step * step
-        c = indices.shape[1] // step * step
         indices = (
             indices
             # iterate by step to get the top left tile of each new merged tile
-            [:r:step, :c:step]
+            # [:r:step, :c:step]
+            [::step, ::step]
             # reshape to broadcast so offsets can be added
             .reshape((-1, 1, 1))
             # add offsets to get the indices of the tiles to merge
