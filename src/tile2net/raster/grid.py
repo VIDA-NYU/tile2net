@@ -268,7 +268,6 @@ class Grid(BaseGrid):
             step = self.tile_step
         else:
             step = self.stitch_step
-
         if step > 1:
             if not self.base_width % step == 0:
                 if self.allow_pad:
