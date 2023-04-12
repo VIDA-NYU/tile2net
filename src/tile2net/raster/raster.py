@@ -332,13 +332,8 @@ class Raster(Grid):
             Nothing is returned.
         """
         logger.info(f'Starting Stitching Tiles...')
-        # decrease stitch step if tiles already stitched for computing tiles
-        # step /= self.tile_step
-        # stitch_step = self.stitch_step
         self.stitch_step = step
-        # self.stitch_step = stitch_step
         self.calculate_padding()
-        # change stitch_step to original so that filenames and metadata are correct
         self.update_tiles()
         self.download()
         self.project.tiles.stitched.path.mkdir(parents=True, exist_ok=True)
