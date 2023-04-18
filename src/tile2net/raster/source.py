@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import ABCMeta, ABC, abstractmethod
 from functools import cached_property
 
@@ -182,3 +184,4 @@ if __name__ == '__main__':
     ]
     source = Source[coverage]
     print(cls)
+
