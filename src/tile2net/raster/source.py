@@ -167,6 +167,7 @@ class EastOregon(Source):
     ], crs=3857).to_crs(4326)
 
     def __getitem__(self, item: Iterator[Tile]):
+        """https://imagery.oregonexplorer.info/arcgis/rest/services/OSIP_2017/OSIP_2017_WM/ImageServer/tile/19/186453/85422"""
         for tile in item:
             yield (
                 f'https://imagery.oregonexplorer.info/arcgis/rest/services/'
@@ -185,3 +186,7 @@ if __name__ == '__main__':
     source = Source[coverage]
     print(cls)
 
+def func() -> Thing:
+    ...
+class Thing:
+    ...
