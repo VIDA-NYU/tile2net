@@ -15,7 +15,7 @@ import itertools
 from tqdm import tqdm
 # from itertools import *
 from more_itertools import *
-from typing import Iterator, Optional, Union
+from typing import Iterator, Optional, Type, Union
 
 from pathlib import Path
 from os import PathLike as _PathLike
@@ -160,6 +160,7 @@ class Raster(Grid):
         boundary_path: str = None,  # path to a shapefile to filter out of boundary tiles
         padding=True,
         # extension: str = 'png',
+        source: Source | Type[Source] = None,
     ):
         """
 
@@ -221,17 +222,30 @@ class Raster(Grid):
             tile2net.raster.util.southwest_northeast,
         )
 
-        if input_dir is None:
+        if source is not None:
+            if isinstance(source, type):
+                source = source()
+            self.source = source
+        if input_dir is not None:
+            if source is not None:
+                raise ValueError('Cannot specify both source and input_dir')
+            self.input_dir = input_dir
+        if (
+            input_dir is None
+            and source is None
+        ):
             try:
                 self.source = Source[location]
             except KeyError:
                 logger.warning('No source found for this location. ')
                 self.source = None
-            else:
-                if zoom is None:
-                    zoom = self.source.zoom
-        else:
-            self.source = None
+
+
+        if (
+            zoom is None
+            and self.source is not None
+        ):
+            zoom = self.source.zoom
         if zoom is None:
             raise ValueError('Zoom level must be specified')
 
@@ -369,7 +383,7 @@ class Raster(Grid):
             not os.path.exists(outfile)
             for outfile in outfiles
         ]
-        if not force:
+        if force:
             outfiles = list(itertools.compress(outfiles, not_exists))
         if not outfiles:
             logger.info(f'All tiles already stitched.')
@@ -391,9 +405,9 @@ class Raster(Grid):
             .__add__(indices[:step, :step])
             # flatten to get a list of merged tiles
             .reshape((-1, step * step))
-                # filter for tiles that are not stitched
+            # filter for tiles that are not stitched
         )
-        if not force:
+        if force:
             # filter for tiles that are not stitched
             indices = indices[not_exists]
         list_infiles = pipe(
@@ -550,7 +564,7 @@ class Raster(Grid):
             self.project.tiles.static.path.mkdir(parents=True, exist_ok=True)
 
             paths = self.project.tiles.static.files()
-            urls = list(self.source[self.tiles])
+            urls = list(self.source[self.tiles.flat])
             desc = f"Checking {self.tiles.size:,} files..."
             desc = desc.rjust(len(desc) + 11).ljust(50)
             downloads = {

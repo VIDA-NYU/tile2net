@@ -351,7 +351,7 @@ def buff_dfs(gdf, crs):
 	GeoDataFrame:
 		merged GeoDataFrame of the three classes
 	"""
-	gdf.geometry.to_crs(3857, inplace=True)
+	gdf.to_crs(3857, inplace=True)
 	gdf.geometry = gdf.simplify(0.2)
 	dfsw = prepare_class_gdf(gdf, 'sidewalk')
 	dfcw = prepare_class_gdf(gdf, 'crosswalk')

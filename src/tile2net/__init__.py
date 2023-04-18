@@ -15,4 +15,4 @@ from tile2net.raster.tile import Tile
 from tile2net.raster.pednet import PedNet
 from tile2net.raster.project import Project
 from tile2net.logger import logger
-
+from tile2net.raster.source import Source
