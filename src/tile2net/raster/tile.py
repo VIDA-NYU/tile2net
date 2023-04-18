@@ -3,7 +3,6 @@ from functools import cached_property
 import time
 from typing import  Optional
 import numpy as np
-import pandas as pd
 import skimage
 import shapely
 import geopandas as gpd
@@ -294,19 +293,6 @@ class Tile:
         return gdf_new
 
     def mask2poly(self, src_img, img_array=None):
-        """Converts a raster mask to a GeoDataFrame of polygons
-        Parameters
-        ----------
-        src_img : str
-            path to the image
-        img_array : array, optional
-            if the image is already read, pass the array to avoid reading it again
-        Returns
-        -------
-        geoms : GeoDataFrame
-            GeoDataFrame of polygons
-        """
-        swcw = []
         if img_array:
             mask_image = src_img
         else:
@@ -319,7 +305,6 @@ class Tile:
         geoms_sw['geometry'] = geoms_sw['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
         geoms_sw = geoms_sw.set_crs(epsg=str(self.crs))
         geoms_sw['f_type'] = 'sidewalk'
-        swcw.append(geoms_sw)
 
         # crosswalks
         cw = mask_image[:, :, 0]  # red channel
@@ -327,7 +312,7 @@ class Tile:
         geoms_cw = geoms_cw.set_crs(epsg=str(self.crs))
         geoms_cw['geometry'] = geoms_cw['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
         geoms_cw['f_type'] = 'crosswalk'
-        swcw.append(geoms_cw)
+        swcw = geoms_sw.append(geoms_cw)
 
         # Roads
         rd = mask_image[:, :, 1]  # green channel
@@ -335,9 +320,8 @@ class Tile:
         geoms_rd = geoms_rd.set_crs(epsg=str(self.crs))
         geoms_rd['geometry'] = geoms_rd['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
         geoms_rd['f_type'] = 'road'
-        swcw.append(geoms_rd)
+        rswcw = swcw.append(geoms_rd)
 
-        rswcw = pd.concat(swcw)
         rswcw.reset_index(drop=True, inplace=True)
         self.ped_poly = rswcw
         return swcw

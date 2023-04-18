@@ -35,6 +35,7 @@ class Source(ABC, metaclass=SourceMeta):
     name: str
     coverage: GeoSeries
     zoom = 19
+    extension = 'png'
 
     def __getitem__(self, item: np.ndarray) -> Iterable[str]:
         ...

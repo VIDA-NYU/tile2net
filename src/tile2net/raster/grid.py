@@ -324,7 +324,6 @@ class Grid(BaseGrid):
         """
 
         # How many vertical tiles to cover the bbox (number of rows)
-        # self.height = (self.base_height + self.pad['h']) // self.tile_step
         self.height = (
             (self.base_height + self.pad['h'])
             // self.tile_step
@@ -332,14 +331,12 @@ class Grid(BaseGrid):
             * self.stitch_step
         )
         # How many horizontal tiles to cover the bbox (number of columns)
-        # self.width = (self.base_width + self.pad['w']) // self.tile_step
         self.width = (
             (self.base_width + self.pad['w'])
             // self.tile_step
             // self.stitch_step
             * self.stitch_step
         )
-
 
     def update_tiles(self):
         """Update the tiles and their positions based on the new height/width values.
@@ -363,7 +360,6 @@ class Grid(BaseGrid):
                                     for row_idx in np.arange(0, self.base_height, self.tile_step)]
                                    for col_idx in np.arange(0, self.base_width, self.tile_step)])
             self.pose_dict = {tile.idd: tile.position for col in self.tiles for tile in col}
-            # self.pose_dict
 
             for col_idx in range(self.width):
                 for row_idx in range(self.height):
@@ -380,11 +376,7 @@ class Grid(BaseGrid):
                                     for row_idx in np.arange(0, self.height)]
                                    for col_idx in np.arange(0, self.width)])
             self.pose_dict = {tile.idd: tile.position for col in self.tiles for tile in col}
-            # selfq.pose_dict
 
-        #
-        self.bbox
-        self.num_tiles
 
     @property
     def num_tiles(self):
