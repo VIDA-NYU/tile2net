@@ -369,7 +369,7 @@ class Raster(Grid):
             not os.path.exists(outfile)
             for outfile in outfiles
         ]
-        if not force:
+        if force:
             outfiles = list(itertools.compress(outfiles, not_exists))
         if not outfiles:
             logger.info(f'All tiles already stitched.')
@@ -393,7 +393,7 @@ class Raster(Grid):
             .reshape((-1, step * step))
                 # filter for tiles that are not stitched
         )
-        if not force:
+        if force:
             # filter for tiles that are not stitched
             indices = indices[not_exists]
         list_infiles = pipe(
