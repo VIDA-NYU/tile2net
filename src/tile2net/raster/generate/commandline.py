@@ -24,7 +24,9 @@ commandline = compose_left(
     ),
     arg(
         '--input', '-i', type=str, dest='input_dir',
-        help='The path to the input directory, if using local tiles.',
+        help='The path to the input directory, implicating the format of the files, '
+             'containing the xtile, ytile, and extension, and possibly containing the zoom level, '
+             'e.g. path/to/tiles/z/x/y.ext or path/to/tiles/x_y.ext'
     ),
     arg(
         '--output', '-o', type=str, dest='output_dir',

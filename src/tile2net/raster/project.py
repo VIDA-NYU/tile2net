@@ -206,7 +206,7 @@ class Config(File):
     def __fspath__(self):
         # returns path of one and only one config file
         return self.project.tile2net.joinpath(
-            'tile2net',
+            # 'tile2net',
             'tileseg',
             f'{self.name}.py',
         ).__fspath__()
@@ -291,7 +291,7 @@ class Static(Directory):
                 f'{raster.base_tilesize}_{raster.zoom}'
             )
         elif raster.input_dir:
-            return raster.input_dir
+            return raster.input_dir.__fspath__()
         else:
             raise ValueError('raster has no source or input_dir')
 
@@ -303,10 +303,17 @@ class Static(Directory):
         if isinstance(tiles, ndarray):
             tiles = tiles.flat
         extension = raster.extension
-        path = self.path
-        path.mkdir(parents=True, exist_ok=True)
-        for tile in tiles:
-            yield path / f'{tile.xtile}_{tile.ytile}.{extension}'
+        dir = self.path
+        dir.mkdir(parents=True, exist_ok=True)
+        # yield from raster.input_dir(tiles)
+        if raster.input_dir:
+            yield from raster.input_dir(tiles)
+        else:
+            yield from (
+                dir / f'{tile.xtile}_{tile.ytile}.{extension}'
+                for tile in tiles
+            )
+
 
 
 class Stitched(Directory):

@@ -1,3 +1,5 @@
+from weakref import WeakKeyDictionary
+
 import toolz
 import inspect
 import json
@@ -23,3 +25,23 @@ def unpack_relevant(cls, info) -> object:
     )
     res = cls(**relevant)
     return res
+
+class cached_descriptor(property):
+
+    def __init__(self, fget):
+        super().__init__(fget)
+        self.cache = WeakKeyDictionary()
+
+    # noinspection PyMethodOverriding
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self
+        if instance not in self.cache:
+            self.cache[instance] = self.fget(instance)
+        return self.cache[instance]
+
+    def __set__(self, instance, value):
+        self.cache[instance] = value
+
+    def __delete__(self, instance):
+        del self.cache[instance]
