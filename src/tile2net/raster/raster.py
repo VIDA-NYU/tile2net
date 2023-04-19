@@ -241,6 +241,7 @@ class Raster(Grid):
             tile2net.raster.util.southwest_northeast,
         )
 
+
         if source is not None:
             if isinstance(source, type):
                 source = source()
