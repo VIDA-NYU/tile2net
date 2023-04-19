@@ -47,7 +47,8 @@ from toolz import pipe
 from tile2net.tileseg.config import cfg
 from tile2net.tileseg.utils.attr_dict import AttrDict
 import toolz
-import logging
+# import logging
+from tile2net.logger import logger
 from tile2net.raster.project import Project
 
 
@@ -491,14 +492,13 @@ class Namespace(
             project = json.loads(
                 sys.stdin.read()
             )
-            logging.debug('Inference piped')
+            logger.debug('Inference piped')
         else:
-            logging.debug('Inference unpiped')
+            logger.debug('Inference unpiped')
             if self.city_info_path is not None:
                 with open(self.city_info_path) as f:
                     city_info = json.load(f)
                 project = city_info['project']
-
 
         # if project has been determined, get from it; otherwise raise where not defined
         if project is not None:
@@ -531,14 +531,14 @@ class Namespace(
             self.model.snapshot = (
                 Project.resources.assets.weights.satellite_2021.__fspath__()
             )
-            logging.info(
+            logger.info(
                 f'No snapshot specified, using default: {self.model.snapshot}'
             )
         if not self.model.hrnet_checkpoint:
             self.model.hrnet_checkpoint = (
                 Project.resources.assets.weights.hrnetv2_w48_imagenet_pretrained.__fspath__()
             )
-            logging.info(
+            logger.info(
                 f'No hrnet_checkpoint specified, using default: {self.model.hrnet_checkpoint}'
             )
         if not self.city_info_path:
@@ -681,9 +681,9 @@ while equivalents:
             setattr(equivalent.right, right_key, left)
 
 for v in not_found:
-    logging.error(v)
+    logger.error(v)
 for v in mismatch:
-    logging.error(v)
+    logger.error(v)
 assert (
         not not_found
         and not mismatch

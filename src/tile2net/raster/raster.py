@@ -1,9 +1,11 @@
 import inspect
 import subprocess
 import os
-
+import time
+import certifi
 import geopy
 import imageio.v2
+from geopy.exc import GeocoderTimedOut
 from geopy.geocoders import Nominatim
 import sys
 
@@ -196,6 +198,8 @@ class Raster(Grid):
             whether to pad the tiles to the base tile size (default: True)
         extension:
             extension of the input images (default: 'png')
+        source: Source | Type[Source] | str
+            tile source (default: None)
         """
         if isinstance(location, str):
             try:
@@ -206,7 +210,22 @@ class Raster(Grid):
                     self.round_loc
                 )
             except (ValueError, AttributeError):  # fails if address or list
-                nom: geopy.Location = Nominatim(user_agent='tile2net').geocode(location)
+                sleep = 10
+                while True:
+                    try:
+                        nom: geopy.Location = Nominatim(user_agent='tile2net').geocode(location)
+                    # except GeocoderTimedOut:
+                    except (
+                            geopy.exc.GeocoderTimedOut,
+                            geopy.exc.GeocoderUnavailable,
+                    ):
+                        logger.info(
+                            f"Geocoding '{location}' timed out, retrying in {sleep} seconds..."
+                        )
+                        time.sleep(sleep)
+                        sleep *= 2
+                    else:
+                        break
                 logger.info(f"Geocoded '{location}' to\n\t'{nom.raw['display_name']}'")
                 location = pipe(
                     nom.raw['boundingbox'],
@@ -225,14 +244,20 @@ class Raster(Grid):
         if source is not None:
             if isinstance(source, type):
                 source = source()
+            elif isinstance(source, str):
+                source = Source[source]
+            elif isinstance(source, Source):
+                pass
+            else:
+                raise ValueError('Source must be a string or a Source object')
             self.source = source
         if input_dir is not None:
             if source is not None:
                 raise ValueError('Cannot specify both source and input_dir')
             self.input_dir = input_dir
         if (
-            input_dir is None
-            and source is None
+                input_dir is None
+                and source is None
         ):
             try:
                 self.source = Source[location]
@@ -240,10 +265,9 @@ class Raster(Grid):
                 logger.warning('No source found for this location. ')
                 self.source = None
 
-
         if (
-            zoom is None
-            and self.source is not None
+                zoom is None
+                and self.source is not None
         ):
             zoom = self.source.zoom
         if zoom is None:
@@ -273,8 +297,9 @@ class Raster(Grid):
             self.input_dir = input_dir
         if self.input_dir:
             self.extension = self.input_dir.extension
-        else:
+        elif self.source:
             self.extension = self.source.extension
+        #     self.extension = self.source.extension
 
         if boundary_path:
             self.boundary_path = boundary_path
@@ -345,7 +370,7 @@ class Raster(Grid):
     Stitch Tiles
     """
 
-    def stitch(self, step: int, force=True) -> None:
+    def stitch(self, step: int, force=False) -> None:
         """Stitch tiles
         Args:
             step (int): Stitch step. How many adjacent tiles on row/colum to stitch together.
@@ -383,7 +408,7 @@ class Raster(Grid):
             not os.path.exists(outfile)
             for outfile in outfiles
         ]
-        if force:
+        if not force:
             outfiles = list(itertools.compress(outfiles, not_exists))
         if not outfiles:
             logger.info(f'All tiles already stitched.')
@@ -407,7 +432,7 @@ class Raster(Grid):
             .reshape((-1, step * step))
             # filter for tiles that are not stitched
         )
-        if force:
+        if not force:
             # filter for tiles that are not stitched
             indices = indices[not_exists]
         list_infiles = pipe(
@@ -567,8 +592,9 @@ class Raster(Grid):
             urls = list(self.source[self.tiles.flat])
             desc = f"Checking {self.tiles.size:,} files..."
             desc = desc.rjust(len(desc) + 11).ljust(50)
+            submit = partial(session.get, verify=certifi.where())
             downloads = {
-                threads.submit(session.get, url): path
+                threads.submit(submit, url=url): path
                 for url, path
                 in tqdm(
                     zip(urls, paths),
@@ -619,6 +645,11 @@ class Raster(Grid):
                     write,
                     list
                 )
+                if not writes:
+                    logger.warning(
+                        f'Downloads were attempted, but not a single image was written to file. '
+                        f'Check that everything is correct for {self.source=}.'
+                    )
             else:
                 writes = []
 
