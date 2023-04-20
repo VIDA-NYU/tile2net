@@ -103,14 +103,20 @@ def geocode(location) -> list[float]:
 
 def name_from_location(location: str | list[float]):
     if isinstance(location, list):
-        name = pipe(
-            location,
-            curried.curry(round_loc, decimals=2),
-            southwest_northeast,
-            curried.map(str),
-            '_'.join
-        )[:32]
-        return name
+        geolocator = Nominatim(user_agent='tile2net')
+        point = (
+            (location[0] + location[2]) / 2,
+            (location[1] + location[3]) / 2,
+        )
+        location = geolocator.reverse(point).address
+        # name = pipe(
+        #     location,
+        #     curried.curry(round_loc, decimals=2),
+        #     southwest_northeast,
+        #     curried.map(str),
+        #     '_'.join
+        # )[:32]
+        # return name
     if isinstance(location, str):
         try:
             name = pipe(
@@ -136,4 +142,4 @@ def name_from_location(location: str | list[float]):
 
 if __name__ == '__main__':
     print(name_from_location('New York, NY, USA'))
-    print(name_from_location([1.22456789, 2.3456789, 3.456789, 4.56789]))
+    print(name_from_location([40.7128, -74.0060, 40.7128, -74.0060]))
