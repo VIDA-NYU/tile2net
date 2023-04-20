@@ -336,7 +336,7 @@ class Raster(Grid):
         None.
             Nothing is returned.
         """
-        logger.info(f'Starting Stitching Tiles...')
+        logger.info(f'Stitching Tiles...')
         self.stitch_step = step
         self.calculate_padding()
         self.update_tiles()
@@ -349,11 +349,11 @@ class Raster(Grid):
             raise RuntimeError(
                 'No source or input directory specified. Cannot stitch tiles.'
             )
-        # todo: only stitch tiles that are unstitched
-        r = self.height
-        c = self.width
+        # r = self.height
+        # c = self.width
         outfiles = pipe(
-            self.tiles[:r:step, :c:step],
+            # self.tiles[:r:step, :c:step],
+            self.tiles[::step, ::step],
             self.project.tiles.stitched.files,
             list
         )
@@ -372,27 +372,27 @@ class Raster(Grid):
             self.project.tiles.static.files,
             toolz.curry(np.fromiter, dtype=object)
         )
-        indices = np.arange(self.tiles.size).reshape(self.tiles.shape)
+        indices = np.arange(self.tiles.size).reshape((self.width, self.height))
         indices = (
             indices
             # iterate by step to get the top left tile of each new merged tile
-            [:r:step, :c:step]
+            # [:r:step, :c:step]
+            [::step, ::step]
             # reshape to broadcast so offsets can be added
             .reshape((-1, 1, 1))
             # add offsets to get the indices of the tiles to merge
             .__add__(indices[:step, :step])
             # flatten to get a list of merged tiles
             .reshape((-1, step * step))
-            # filter for tiles that are not stitched
         )
         if not force:
             # filter for tiles that are not stitched
             indices = indices[not_exists]
-        list_infiles = pipe(
+        list_infiles =(
             # get files from 2d indices to get list of lists
             infiles
             [indices]
-            .tolist(),
+            .tolist()
         )
         assert len(list_infiles) == len(outfiles)
         if not list_infiles:
