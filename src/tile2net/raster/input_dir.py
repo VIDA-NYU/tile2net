@@ -4,7 +4,7 @@ import re
 from collections import deque
 from os import PathLike
 from pathlib import Path
-from typing import Iterable, Iterator, Type
+from typing import Iterable, Iterator, Type, Union
 
 from numpy import ndarray
 from toolz import curried, curry as cur, pipe
@@ -17,7 +17,7 @@ if False:
     from tile2net.raster.raster import Raster
     from tile2net.raster.tile import Tile
 
-class InputDir(property):
+class InputDir:
     @cached_descriptor
     def format(self):
         ...
@@ -46,6 +46,8 @@ class InputDir(property):
     }
 
     def __set__(self, instance: Raster, value: str | PathLike):
+        if value is None:
+            return
         if isinstance(value, Path):
             value = str(value)
 
@@ -109,7 +111,8 @@ class InputDir(property):
         self.format = format
 
     # noinspection PyMethodOverriding
-    def __get__(self, instance, owner):
+    # def __get__(self, instance, owner) -> Union[str, InputDir]:
+    def __get__(self, instance: Raster, owner: Type[Raster]) -> InputDir:
         from tile2net.raster.raster import Raster
         self.raster: Raster = instance
         self.Raster: Type[Raster] = owner
