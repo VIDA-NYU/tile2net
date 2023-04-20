@@ -26,9 +26,9 @@ class validate:
         #     print('Generating')
         #
         # if self.name == 'inference':
-            # print('Inference')
-
-        result =  self.func(raster, *args, **kwargs)
+        # print('Inference')
+        assert raster.tiles.shape == (raster.width, raster.height)
+        result = self.func(raster, *args, **kwargs)
 
         # print('Done')
 

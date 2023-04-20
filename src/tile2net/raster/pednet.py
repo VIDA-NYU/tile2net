@@ -1,17 +1,12 @@
 import logging
-
-import math
-import os.path
-from timeit import default_timer as timer
 import datetime
 import pandas as pd
-
+import os
+os.environ['USE_PYGEOS'] = '0'
+import geopandas as gpd
 
 pd.options.mode.chained_assignment = None
 
-os.environ['USE_PYGEOS'] = '0'
-
-from shapely.ops import transform
 from tile2net.raster.tile_utils.topology import *
 from tile2net.raster.tile_utils.geodata_utils import set_gdf_crs, geo2geodf, buffer_union_erode
 from tile2net.raster.tile_utils.topology import morpho_atts
@@ -25,9 +20,9 @@ class PedNet():
     """
 
     def __init__(
-        self,
-        poly: gpd.GeoDataFrame,
-        project: Project
+            self,
+            poly: gpd.GeoDataFrame,
+            project: Project
     ):
 
         self.polygons = poly
@@ -58,6 +53,7 @@ class PedNet():
 
     def find_medianisland(self, swp, cwp, max_area=230):
         """
+        Finds the median islands between sidewalks and crosswalks
         Args:
             swp: swidewalks polygons
             cwp: crosswalk polygons
@@ -68,7 +64,7 @@ class PedNet():
 
         # query to find crosswalks intersecting with two or more sidewalks
         inp, res = swp.geometry.values.sindex.query_bulk(cwp.geometry.values,
-            predicate="intersects")
+                                                         predicate="intersects")
         unique, counts = np.unique(inp, return_counts=True)
         meds = np.unique(res[np.isin(inp, unique[counts >= 2])])
 
@@ -103,7 +99,7 @@ class PedNet():
 
     def make_longer(self, line, thr):
         """
-
+        Extends a line by a given ratio
         Parameters
         ----------
         line: shapely.LineString
@@ -141,7 +137,7 @@ class PedNet():
         cwrectgdf = geo2geodf(cwrect)
 
         cwin, swin = swl.geometry.values.sindex.query_bulk(cwrectgdf.geometry.values,
-            predicate="intersects")
+                                                           predicate="intersects")
         indsect = list(zip(cwin, swin))
         inds = []
         updated_geom = []
@@ -157,11 +153,7 @@ class PedNet():
 
     def create_crosswalk(self):
         """
-        create the centerline of crosswalks
-        Args:
-            dest_path: destination path to save the files
-        Returns:
-            None
+        Create crosswalks centerlines from polygons
         """
         # from .tile_utils.topology import morpho_atts
 
@@ -170,7 +162,7 @@ class PedNet():
             cw_lin_geom = []
             nt_cw.geometry = nt_cw.simplify(0.6)
             cw_union = buffer_union_erode(nt_cw, 1, -0.95, 0.6, 0.8,
-                0.8)  # union, erode, simplify before union, simp
+                                          0.8)  # union, erode, simplify before union, simp
             # after union, simpl after erode
             cw_explode = cw_union.reset_index(drop=True).explode().reset_index(drop=True)
             cw_explode_ = morpho_atts(cw_explode)
@@ -189,13 +181,13 @@ class PedNet():
                         if geom_er.type == "MultiPolygon":
                             for g in list(geom_er.geoms):  # shapely 2
                                 if g.area > 2:
-                                    cnl = to_cline(g, 0.5, 1)
+                                    cnl = to_cline(g, 0.3, 1)
                                     tr_line_ = trim_checkempty(cnl, 4.5, 2)
                                     if tr_line_.length < 6:
                                         extended = self.make_longer(tr_line_, 2 / 3)
                                         extended_line = extend_lines(geo2geodf([extended]),
-                                            tolerance=5,
-                                            target=geo2geodf([geom.boundary]), extension=0)
+                                                                     tolerance=5,
+                                                                     target=geo2geodf([geom.boundary]), extension=0)
                                         for gi in extended_line.geometry:
                                             cw_lin_geom.append(gi)
                                     else:
@@ -210,8 +202,8 @@ class PedNet():
                                 if tr_line_.length < 6:
                                     extended = self.make_longer(tr_line_, 3 / 4)
                                     extended_line = extend_lines(geo2geodf([extended]),
-                                        target=geo2geodf([geom.boundary]), tolerance=5,
-                                        extension=0)
+                                                                 target=geo2geodf([geom.boundary]), tolerance=5,
+                                                                 extension=0)
                                     for g in extended_line.geometry:
                                         cw_lin_geom.append(g)
                                 else:
@@ -226,7 +218,7 @@ class PedNet():
                         if line.length < 6:
                             extended = self.make_longer(line, 3 / 4)
                             extended_line = extend_lines(geo2geodf([extended]),
-                                target=geo2geodf([geom.boundary]), tolerance=5, extension=0)
+                                                         target=geo2geodf([geom.boundary]), tolerance=5, extension=0)
                             for g in extended_line.geometry:
                                 cw_lin_geom.append(g)
                         else:
@@ -245,20 +237,17 @@ class PedNet():
 
     def create_lines(self, gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         """
-        Args:
-            gdf:
-
-        Returns:
+        Create centerlines from polygons
+        Parameters
+        ----------
+        gdf: gpd.GeoDataFrame
+            geodataframes of polygons
+        -------
 
         """
-        dest_path = self.project.network.path
-
         lin_geom = []
-        s1 = timer()
-
         gdf_atts = morpho_atts(gdf)
         for c, geom in enumerate(gdf.geometry):
-            a2p = gdf_atts.iloc[c, gdf_atts.columns.get_loc(gdf_atts.ari_peri.name)]
             corners = gdf_atts.iloc[c, gdf_atts.columns.get_loc(gdf_atts.corners.name)]
             minpr = 2 * math.sqrt(math.pi * abs(geom.area))
             trim1 = 20
@@ -301,7 +290,7 @@ class PedNet():
             else:
                 line_tr = tr_line.simplify(1)
                 extended_line = extend_lines(geo2geodf([line_tr]),
-                    target=geo2geodf([geom.boundary]), tolerance=6, extension=0)
+                                             target=geo2geodf([geom.boundary]), tolerance=6, extension=0)
                 lin_geom.append(extended_line)
 
         if len(lin_geom) > 0:
@@ -310,7 +299,12 @@ class PedNet():
             return smoothed
 
     def create_sidewalks(self):
-
+        """
+        Create sidewalk network
+        Returns
+        -------
+        None
+        """
         sw_all = self.prepare_class_gdf('sidewalk')
         cwp = self.prepare_class_gdf('crosswalk')
 
@@ -350,7 +344,7 @@ class PedNet():
 
     def convert_whole_poly2line(self):
         """
-        creates network from the full polygon dataset
+        Create network from the full polygon dataset
         """
         logging.info('Starting network creation...')
 
@@ -363,7 +357,7 @@ class PedNet():
         # query LineString geometry to identify points intersecting 2 geometries
         # cwgeom = self.crosswalk.geometry.values
         inp, res = self.crosswalk.sindex.query_bulk(geo2geodf(points).geometry,
-            predicate="intersects")
+                                                    predicate="intersects")
         unique, counts = np.unique(inp, return_counts=True)
         ends = np.unique(res[np.isin(inp, unique[counts == 1])])
 
@@ -440,7 +434,7 @@ class PedNet():
                 for k, v in indcwnear:
                     island_lines.append(
                         shapely.shortest_line(self.island.geometry.values[v],
-                            pdfb.geometry.values[k]))
+                                              pdfb.geometry.values[k]))
 
                 island = gpd.GeoDataFrame(geometry=island_lines)
 

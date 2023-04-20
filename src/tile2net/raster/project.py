@@ -510,15 +510,15 @@ class Project(Directory):
         :param outdir:
         :param raster:
         """
-        if ' ' in name:
-            raise ValueError('Avoid spaces in project name')
-        if '.' in name:
-            raise ValueError('Avoid periods in project name')
-        if len(name) > 31:
-            raise ValueError(
-                'Avoid using long names for project since it will '
-                'be added to beginning of each image name!'
-            )
+        # if ' ' in name:
+        #     raise ValueError('Avoid spaces in project name')
+        # if '.' in name:
+        #     raise ValueError('Avoid periods in project name')
+        # if len(name) > 31:
+        #     raise ValueError(
+        #         'Avoid using long names for project since it will '
+        #         'be added to beginning of each image name!'
+        #     )
         if outdir is None:
             outdir = os.path.join(tempfile.gettempdir(), 'tile2net')
 
