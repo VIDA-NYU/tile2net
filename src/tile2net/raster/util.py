@@ -65,8 +65,7 @@ def geocode(location) -> list[float]:
             location: list[float] = pipe(
                 location.split(','),
                 curried.map(float),
-                list,
-                round_loc
+                list
             )
         except (ValueError, AttributeError):  # fails if address or list
             sleep = 10
