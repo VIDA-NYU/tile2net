@@ -1,4 +1,5 @@
 import inspect
+from tile2net.raster import util
 import subprocess
 import os
 import time
@@ -50,6 +51,7 @@ PathLike = Union[str, _PathLike]
 
 class Raster(Grid):
     Project = Project
+    input_dir = InputDir()
 
     @classmethod
     def from_nyc(cls, outdir: PathLike = None) -> 'Raster':
@@ -150,7 +152,7 @@ class Raster(Grid):
         self,
         *,
         location: list | str,  # region of interest to get its bounding box
-        name: str,
+        name: str = None,
         # source: PathLike = None,
         input_dir: PathLike = None,
         output_dir: PathLike = None,
@@ -201,81 +203,34 @@ class Raster(Grid):
         source: Source | Type[Source] | str
             tile source (default: None)
         """
-        if isinstance(location, str):
-            try:
-                location: list[float] = pipe(
-                    location.split(','),
-                    curried.map(float),
-                    list,
-                    self.round_loc
-                )
-            except (ValueError, AttributeError):  # fails if address or list
-                sleep = 10
-                while True:
-                    try:
-                        nom: geopy.Location = Nominatim(user_agent='tile2net').geocode(location)
-                    # except GeocoderTimedOut:
-                    except (
-                            geopy.exc.GeocoderTimedOut,
-                            geopy.exc.GeocoderUnavailable,
-                    ):
-                        logger.info(
-                            f"Geocoding '{location}' timed out, retrying in {sleep} seconds..."
-                        )
-                        time.sleep(sleep)
-                        sleep *= 2
-                    else:
-                        break
-                logger.info(f"Geocoded '{location}' to\n\t'{nom.raw['display_name']}'")
-                location = pipe(
-                    nom.raw['boundingbox'],
-                    # convert lon, lon, lat, lat
-                    # to lat, lon, lat, lon
-                    curried.get([0, 2, 1, 3]),
-                )
-        location = pipe(
-            location,
-            curried.map(float),
-            list,
-            self.round_loc,
-            tile2net.raster.util.southwest_northeast,
-        )
-
-
-        if source is not None:
-            if isinstance(source, type):
-                source = source()
-            elif isinstance(source, str):
-                source = Source[source]
-            elif isinstance(source, Source):
-                pass
+        if name is None:
+            name = util.name_from_location(location)
+        location = util.geocode(location)
+        if (
+                input_dir is not None
+                and source is not None
+        ):
+            raise ValueError('Cannot specify both source and input_dir')
+        if input_dir is None:
+            if source is None:
+                source = Source[location]
+                if source is None:
+                    logger.warning(
+                        f'No source found for {location=}'
+                    )
             else:
-                raise ValueError('Source must be a string or a Source object')
-            self.source = source
-        if input_dir is not None:
-            if source is not None:
-                raise ValueError('Cannot specify both source and input_dir')
-            self.input_dir = input_dir
-        if (
-                input_dir is None
-                and source is None
-        ):
-            try:
-                self.source = Source[location]
-            except KeyError:
-                logger.warning('No source found for this location. ')
-                self.source = None
-
-        if (
-                zoom is None
-                and self.source is not None
-        ):
-            zoom = self.source.zoom
-        if zoom is None:
-            raise ValueError('Zoom level must be specified')
-
-        # if zoom is not None:
-        #     zoom = zoom
+                if isinstance(source, type):
+                    source = source()
+                elif isinstance(source, str):
+                    source = Source[source]
+                elif isinstance(source, Source):
+                    pass
+                else:
+                    raise TypeError(
+                        f'Invalid source type: {type(source)}'
+                    )
+            if zoom is None:
+                zoom = source.zoom
 
         if base_tilesize < 256:
             raise ValueError(
@@ -285,8 +240,10 @@ class Raster(Grid):
                 'Tile size must be a multiple of 256'
             )
 
+        self.zoom = zoom
+        self.source = source
+        self.zoom = zoom
         self.location = location
-        # self.extension = extension
         self.num_class = num_class
         self.class_names = []
         self.class_colors = []
@@ -294,13 +251,8 @@ class Raster(Grid):
         self.dest = ''
         self.name = name
         self.boundary_path = ''
-        if input_dir is not None:
-            self.input_dir = input_dir
-        if self.input_dir:
-            self.extension = self.input_dir.extension
-        elif self.source:
-            self.extension = self.source.extension
-        #     self.extension = self.source.extension
+        self.input_dir = input_dir
+        self.source = source
 
         if boundary_path:
             self.boundary_path = boundary_path
@@ -876,8 +828,11 @@ class Raster(Grid):
     def __eq__(self, other):
         return self is other
 
-    input_dir = InputDir()
-
     @cached_property
     def extension(self):
-        raise ValueError('Extension has not been set')
+        if self.source:
+            return self.source.extension
+        elif self.input_dir:
+            return self.input_dir.extension
+        else:
+            raise ValueError('No source or input_dir specified')

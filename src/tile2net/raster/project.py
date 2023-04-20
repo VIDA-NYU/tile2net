@@ -514,9 +514,9 @@ class Project(Directory):
             raise ValueError('Avoid spaces in project name')
         if '.' in name:
             raise ValueError('Avoid periods in project name')
-        if len(name) > 15:
+        if len(name) > 31:
             raise ValueError(
-                'Using long names for project since it will '
+                'Avoid using long names for project since it will '
                 'be added to beginning of each image name!'
             )
         if outdir is None:
