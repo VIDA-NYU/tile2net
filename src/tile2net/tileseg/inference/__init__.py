@@ -51,9 +51,6 @@ import numpy as np
 import json
 import copy
 
-
-sys.path.insert(0, '/home/maryam/kashi/src/')
-
 # Import autoresume module
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 AutoResume = None
