@@ -239,6 +239,9 @@ class Raster(Grid):
             raise ValueError(
                 'Tile size must be a multiple of 256'
             )
+        if zoom is None:
+            raise ValueError('Zoom level must be specified with input_dir')
+
 
         self.zoom = zoom
         self.source = source
@@ -251,7 +254,7 @@ class Raster(Grid):
         self.dest = ''
         self.name = name
         self.boundary_path = ''
-        self.input_dir = input_dir
+        self.input_dir: InputDir = input_dir
         self.source = source
 
         if boundary_path:
@@ -740,12 +743,13 @@ class Raster(Grid):
             'crs': self.crs,
             'tile_step': self.tile_step,
             'project': dict(self.project.structure),
-            'source': str(self.source),
         }
         if self.output_dir:
             city_info['output_dir'] = str(self.output_dir)
         if self.input_dir:
             city_info['input_dir'] = str(self.input_dir)
+        if self.source:
+            city_info['source'] = str(self.source)
 
         if 'new_tstep' in kwargs:
             city_info['size'] = self.tile_size * kwargs['new_tstep']
