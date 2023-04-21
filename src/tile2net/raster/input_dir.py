@@ -4,12 +4,11 @@ import re
 from collections import deque
 from os import PathLike
 from pathlib import Path
-from typing import Iterable, Iterator, Type, Union
+from typing import Iterable, Iterator, Type
 
 from numpy import ndarray
 from toolz import curried, curry as cur, pipe
 
-# from tile2net import Tile
 from tile2net.raster.util import cached_descriptor
 
 
