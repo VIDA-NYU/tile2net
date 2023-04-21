@@ -138,7 +138,7 @@ class InputDir:
         return self.format is not None
 
     def __fspath__(self):
-        return self.root
+        return self.dir
 
     def __repr__(self):
         return self.original
