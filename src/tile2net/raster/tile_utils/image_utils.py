@@ -7,51 +7,56 @@ from PIL import Image
 from skimage.io import imsave
 
 
-def image_splitter(src_path) -> None:
-	"""Splits the side by side segmention results to image and annotations
-		and places them in the corresponding folders.
-		Args:
-		src_path(str):the path to the source files with *.jpg format
+def image_splitter(src_path: str) -> None:
+	"""
+	Splits the side by side segmention results to image and annotations
+	Parameters
+	----------
+	src_path: str
+		the path to the source files with *.png format
 	"""
 	imgs = glob.glob(src_path)
+	img_dest = os.path.join(pathlib.PurePath(src_path).parent, 'splitted', 'images')
+	if not os.path.exists(img_dest):
+		os.makedirs(img_dest)
+	annot_dest = os.path.join(pathlib.PurePath(src_path).parent, 'splitted', 'annotations')
+	if not os.path.exists(annot_dest):
+		os.makedirs(annot_dest)
 	for im in imgs:
 		name = pathlib.PurePath(im).name
 		img = np.array(Image.open(im))
 		lable = img[:, int(img.shape[1]/2): img.shape[1], :]
 		phot = img[:, 0:int(img.shape[1]/2), :]
 		phimg = Image.fromarray(phot)
-		img_dest = os.path.join(pathlib.PurePath(src_path).parent, 'splitted', 'images')
-		if not os.path.exists(img_dest):
-			os.makedirs(img_dest)
-		phimg.save(img_dest + name)
+		phimg.save(os.path.join(img_dest, name))
+		# mask
 		labimg = Image.fromarray(lable)
-		annot_dest = os.path.join(pathlib.PurePath(src_path).parent, 'splitted', 'annotations/')
-		if not os.path.exists(annot_dest):
-			os.makedirs(annot_dest)
-		labimg.save(annot_dest + name)
+		labimg.save(os.path.join(annot_dest, name))
 
 
 classes = {'sw': [0, 0, 255], 'road': [0, 128, 0], 'crosswalk': [255, 0, 0], 'background': [0, 0, 0]}
 
 
-def direct2gray(src_path, classes) -> None:
-	"""Creates one channel gray annotation masks from the colored masks
-	and saves them in a new directory.
-	Args:
-	 src_path: the path to the colored annotation files, it should be  ./../*.png
-	 classes : dictionary of different materials and their RGB values
+def direct2gray(src_path: str, classes: dict) -> None:
 	"""
-
+	Creates one channel gray annotation masks from the colored masks
+	Parameters
+	----------
+	src_path: str
+		the path to the colored annotation files, it should be  ./../*.png
+	classes: dict
+		dictionary of different materials and their RGB values
+	"""
+	dest = os.path.join(pathlib.PurePath(src_path).parent, 'gray')
+	if not os.path.exists(dest):
+		os.makedirs(dest)
 	for img_file in glob.glob(src_path):
 		img = Image.open(img_file).convert('RGB')
 		data = np.array(img)
 		mask = np.zeros(data.shape)
-		dest = src_path[:-6] + '/gray/'
-		if not os.path.exists(dest):
-			os.makedirs(dest)
 		for idx, (c, v) in enumerate(classes.items(), 1):
-			mask = np.all(data==classes[c], axis=-1)*idx if idx==1 else mask + np.all(
-				data==classes[c],
+			mask = np.all(data == classes[c], axis=-1)*idx if idx == 1 else mask + np.all(
+				data == classes[c],
 				axis=-1
 			)*idx
 		imsave(os.path.join(dest, pathlib.PurePath(img_file).name), mask.astype(np.uint8))
