@@ -55,7 +55,7 @@ it as a PyPI and Conda package.
 
 If your region of interest is not supported by our tool yet, but the high-resolution orthorectified tiles are publicly
 available, you can add the information of your region together with the link to the tiles
-under [this](https://github.com/VIDA-NYU/tile2net/issues/2) topic, and we will do our best to include that region to our
+under [this](https://github.com/VIDA-NYU/tile2net/issues/11) topic, and we will do our best to include that region to our
 catalogue of supported regions.
 
 Compared to our 2022 trained model (published in Feb. 2023), the semantic segmentation model is now trained on more
