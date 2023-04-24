@@ -41,7 +41,6 @@ class SourceMeta(ABCMeta):
         cls: Type[Source],
         item: list[float] | str | shapely.geometry.base.BaseGeometry,
     ) -> Optional['Source']:
-
         if isinstance(item, list):
             s, w, n, e = item
             item = shapely.geometry.box(w, s, e, n)
@@ -58,7 +57,8 @@ class SourceMeta(ABCMeta):
                 .loc[lambda x: x.intersects(item)]
             )
             if matches.empty:
-                raise KeyError(f'No source found for {item}')
+                return None
+                # raise KeyError(f'No source found for {item}')
             item = (
                 matches.intersection(item)
                 .area
@@ -68,7 +68,8 @@ class SourceMeta(ABCMeta):
 
         if isinstance(item, str):
             if item not in cls.catalog:
-                raise KeyError(f'No source found for {item}')
+                return None
+                # raise KeyError(f'No source found for {item}')
             source = cls.catalog[item]
 
         else:

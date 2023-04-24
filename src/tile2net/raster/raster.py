@@ -214,23 +214,23 @@ class Raster(Grid):
         if input_dir is None:
             if source is None:
                 source = Source[location]
-                if source is None:
-                    logger.warning(
-                        f'No source found for {location=}'
-                    )
+            elif isinstance(source, type):
+                source = source()
+            elif isinstance(source, str):
+                source = Source[source]
+            elif isinstance(source, Source):
+                pass
             else:
-                if isinstance(source, type):
-                    source = source()
-                elif isinstance(source, str):
-                    source = Source[source]
-                elif isinstance(source, Source):
-                    pass
-                else:
-                    raise TypeError(
-                        f'Invalid source type: {type(source)}'
-                    )
-            if zoom is None:
-                zoom = source.zoom
+                raise TypeError(
+                    f'Invalid source type: {type(source)}'
+                )
+            if source is None:
+                logger.warning(
+                    f'No source found for {location=}'
+                )
+            else:
+                if zoom is None:
+                    zoom = source.zoom
 
         if base_tilesize < 256:
             raise ValueError(
