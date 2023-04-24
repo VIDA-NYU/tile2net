@@ -41,6 +41,7 @@ class SourceMeta(ABCMeta):
         cls: Type[Source],
         item: list[float] | str | shapely.geometry.base.BaseGeometry,
     ) -> Optional['Source']:
+        original = item
         if isinstance(item, list):
             s, w, n, e = item
             item = shapely.geometry.box(w, s, e, n)
@@ -73,7 +74,7 @@ class SourceMeta(ABCMeta):
             source = cls.catalog[item]
 
         else:
-            raise TypeError(f'Invalid type {type(item)} for {item}')
+            raise TypeError(f'Invalid type {type(original)} for {original}')
         return source()
 
     def __init__(self: Type[Source], name, bases, attrs, **kwargs):
