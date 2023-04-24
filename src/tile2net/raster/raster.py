@@ -182,6 +182,8 @@ class Raster(Grid):
             path/to/files/x/y.ext
             path/to/files/z/x_y.ext
             path/to/files/z/y/x.ext
+
+            if input_dir is passed, zoom must be passed as well
         output_dir: PathLike
             path to the directory containing the output images
         num_class: int
