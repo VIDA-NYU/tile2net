@@ -39,7 +39,7 @@ commandline = compose_left(
         '--base_tilesize', help='The base tile size', default=256, type=int
     ),
     arg(
-        '--zoom', '-z', help='The slippy zoom level', type=int)
+        '--zoom', '-z', help='The slippy zoom level', default=19, type=int)
     ,
     arg(
         '--crs', help='The coordinate reference system', default=4326, type=int
