@@ -304,12 +304,12 @@ class Static(Directory):
         if isinstance(tiles, ndarray):
             tiles = tiles.flat
         extension = raster.extension
-        dir = self.path
-        dir.mkdir(parents=True, exist_ok=True)
         # yield from raster.input_dir(tiles)
         if raster.input_dir:
             yield from raster.input_dir(tiles)
         else:
+            dir = self.path
+            dir.mkdir(parents=True, exist_ok=True)
             yield from (
                 dir / f'{tile.xtile}_{tile.ytile}.{extension}'
                 for tile in tiles

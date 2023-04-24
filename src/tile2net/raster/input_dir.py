@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import re
 from collections import deque
 from os import PathLike
@@ -157,6 +158,19 @@ if __name__ == '__main__':
             self.extension = '.png'
             self.input_dir = input_dir
 
+    @dataclasses.dataclass
+    class Tile:
+        xtile: int
+        ytile: int
+        zoom: int
+    tiles = [
+        Tile(1, 2, 3),
+        Tile(4, 5, 6),
+        Tile(7, 8, 9),
+    ]
+
+    test = Test('/home/maryam/Documents/Projects/milan/118052/org/z/x/y.png')
+    list(test.input_dir(tiles))
     test = Test('input/dir/x/y/z.png')
     test = Test('input/dir/x_y_z.png')
     test = Test('input/dir/y/x/z.png')
