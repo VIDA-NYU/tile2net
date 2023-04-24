@@ -744,6 +744,8 @@ class Raster(Grid):
             'tile_step': self.tile_step,
             'project': dict(self.project.structure),
         }
+        if self.source:
+            city_info['source'] = str(self.source)
         if self.output_dir:
             city_info['output_dir'] = str(self.output_dir)
         if self.input_dir:
