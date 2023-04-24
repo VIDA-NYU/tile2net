@@ -14,6 +14,7 @@ from weakref import WeakKeyDictionary
 import gdown
 import numpy as np
 import psutil
+import toolz.curried
 from more_itertools import *
 from numpy import ndarray
 from toolz.curried import *

@@ -4,12 +4,11 @@ import re
 from collections import deque
 from os import PathLike
 from pathlib import Path
-from typing import Iterable, Iterator, Type, Union
+from typing import Iterable, Iterator, Type
 
 from numpy import ndarray
 from toolz import curried, curry as cur, pipe
 
-# from tile2net import Tile
 from tile2net.raster.util import cached_descriptor
 
 
@@ -98,20 +97,19 @@ class InputDir:
                 f'{self.name} failed to parse {value!r} '
             )
 
-        characters = CHARACTERS.copy()
         parts = []
         r = result[0]
         parts.append(r[0])
-        parts.append(f'{{{characters[r[1]]}}}')
+        parts.append(f'{{{r[1]}}}')
         parts.append(r[2])
         for r in list(result)[1:]:
-            parts.append(f'{{{characters[r[1]]}}}')
+            parts.append(f'{{{r[1]}}}')
             parts.append(r[2])
         format = ''.join(parts)
         self.format = format
+        self.dir = parts[0].rsplit('/', 1)[0]
 
     # noinspection PyMethodOverriding
-    # def __get__(self, instance, owner) -> Union[str, InputDir]:
     def __get__(self, instance: Raster, owner: Type[Raster]) -> InputDir:
         from tile2net.raster.raster import Raster
         self.raster: Raster = instance
@@ -128,16 +126,24 @@ class InputDir:
             tiles: Iterable[Tile] = tiles.flat
         format = self.format
         for tile in tiles:
-            yield Path(format.format(tile.xtile, tile.ytile, tile.zoom))
+            res = format.format(
+                x=tile.xtile,
+                y=tile.ytile,
+                z=tile.zoom,
+            )
+            yield Path(res)
 
     def __bool__(self):
         return self.format is not None
 
     def __fspath__(self):
-        return self.original
+        return self.dir
 
     def __repr__(self):
-        return self.__fspath__()
+        return self.original
+
+    def __str__(self):
+        return self.original
 
     def __set_name__(self, owner, name):
         self.name = name
@@ -180,3 +186,6 @@ if __name__ == '__main__':
         print(e)
     else:
         raise AssertionError
+
+    test = Test('input/dir/arst_x_y_z.png')
+    test

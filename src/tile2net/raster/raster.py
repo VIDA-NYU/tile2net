@@ -214,23 +214,23 @@ class Raster(Grid):
         if input_dir is None:
             if source is None:
                 source = Source[location]
-                if source is None:
-                    logger.warning(
-                        f'No source found for {location=}'
-                    )
+            elif isinstance(source, type):
+                source = source()
+            elif isinstance(source, str):
+                source = Source[source]
+            elif isinstance(source, Source):
+                pass
             else:
-                if isinstance(source, type):
-                    source = source()
-                elif isinstance(source, str):
-                    source = Source[source]
-                elif isinstance(source, Source):
-                    pass
-                else:
-                    raise TypeError(
-                        f'Invalid source type: {type(source)}'
-                    )
-            if zoom is None:
-                zoom = source.zoom
+                raise TypeError(
+                    f'Invalid source type: {type(source)=}'
+                )
+            if source is None:
+                logger.warning(
+                    f'No source found for {location=}'
+                )
+            else:
+                if zoom is None:
+                    zoom = source.zoom
 
         if base_tilesize < 256:
             raise ValueError(
@@ -239,6 +239,9 @@ class Raster(Grid):
             raise ValueError(
                 'Tile size must be a multiple of 256'
             )
+        if zoom is None:
+            raise ValueError('Zoom level must be specified with input_dir')
+
 
         self.zoom = zoom
         self.source = source
@@ -251,7 +254,7 @@ class Raster(Grid):
         self.dest = ''
         self.name = name
         self.boundary_path = ''
-        self.input_dir = input_dir
+        self.input_dir: InputDir = input_dir
         self.source = source
 
         if boundary_path:
@@ -747,6 +750,8 @@ class Raster(Grid):
             city_info['output_dir'] = str(self.output_dir)
         if self.input_dir:
             city_info['input_dir'] = str(self.input_dir)
+        if self.source:
+            city_info['source'] = str(self.source)
 
         if 'new_tstep' in kwargs:
             city_info['size'] = self.tile_size * kwargs['new_tstep']

@@ -68,22 +68,24 @@ def geocode(location) -> list[float]:
                 list
             )
         except (ValueError, AttributeError):  # fails if address or list
-            sleep = 10
-            while True:
-                try:
-                    nom: geopy.Location = Nominatim(user_agent='tile2net').geocode(location)
-                # except GeocoderTimedOut:
-                except (
-                        geopy.exc.GeocoderTimedOut,
-                        geopy.exc.GeocoderUnavailable,
-                ):
-                    logger.info(
-                        f"Geocoding '{location}' timed out, retrying in {sleep} seconds..."
-                    )
-                    time.sleep(sleep)
-                    sleep *= 2
-                else:
-                    break
+            # sleep = 10
+            # while True:
+            #     try:
+            #         nom: geopy.Location = Nominatim(user_agent='tile2net').geocode(location)
+            #     # except GeocoderTimedOut:
+            #     except (
+            #             geopy.exc.GeocoderTimedOut,
+            #             geopy.exc.GeocoderUnavailable,
+            #     ):
+            #         logger.info(
+            #             f"Geocoding '{location}' timed out, retrying in {sleep} seconds..."
+            #         )
+            #         time.sleep(sleep)
+            #         sleep *= 2
+            #     else:
+            #         break
+            logger.info(f"Geocoding {location}, this may take awhile...")
+            nom: geopy.Location = Nominatim(user_agent='tile2net').geocode(location, timeout=None)
             logger.info(f"Geocoded '{location}' to\n\t'{nom.raw['display_name']}'")
             location = pipe(
                 nom.raw['boundingbox'],
@@ -99,47 +101,57 @@ def geocode(location) -> list[float]:
         southwest_northeast,
     )
     return location
+def name_from_location(location: str | list[float, str]):
 
-
-def name_from_location(location: str | list[float]):
-    if isinstance(location, list):
-        geolocator = Nominatim(user_agent='tile2net')
-        point = (
-            (location[0] + location[2]) / 2,
-            (location[1] + location[3]) / 2,
-        )
-        location = geolocator.reverse(point).address
-        # name = pipe(
-        #     location,
-        #     curried.curry(round_loc, decimals=2),
-        #     southwest_northeast,
-        #     curried.map(str),
-        #     '_'.join
-        # )[:32]
-        # return name
     if isinstance(location, str):
         try:
-            name = pipe(
+            # location is bbox
+            location = pipe(
                 location.split(','),
                 curried.map(float),
                 list,
-                curried.curry(round_loc, decimals=2),
-                southwest_northeast,
-                curried.map(str),
-                '_'.join
-            )[:32]
+            )
+        except (ValueError, AttributeError):  # fails if already address
+            # location is address
+            ...
+    if isinstance(location, list):
+        # location is bbox
+        centroid = (
+            (location[0] + location[2]) / 2,
+            (location[1] + location[3]) / 2,
+        )
+        logger.info(f"Geocoding {centroid}, this may take awhile...")
+        nom: geopy.Location = Nominatim(user_agent='tile2net').reverse(centroid, timeout=None)
+        logger.info(f"Geocoded '{centroid}' to\n\t'{nom.raw['display_name']}'")
+        location = nom.raw['display_name']
+        # geolocator = Nominatim(user_agent='tile2net')
+        # location = geolocator.reverse(centroid)
+        # sleep = 10
+        # while True:
+            # try:
+            #     location = geolocator.reverse(centroid, )
+            # except GeocoderTimedOut:
+            #     logger.info(
+            #         f"Geocoding '{centroid}' timed out, retrying in {sleep} seconds..."
+            #     )
+            #     time.sleep(sleep)
+            #     sleep *= 2
+            # else:
+            #     break
 
-        except (ValueError, AttributeError):  # fails if address or list
-            name = pipe(
-                location.split(',')[0]
-                .replace(' ', '_')
-                .casefold(),
-                os.path.normcase
-            )[:32]
+
+    if isinstance(location, str):
+        # location is address
+        name = pipe(
+            location.split(',')[0]
+            .replace(' ', '_')
+            .casefold(),
+            os.path.normcase
+        )
         return name
     raise TypeError(f"location must be str or list, not {type(location)}")
-    # name = location.split(',')[0]
 
 if __name__ == '__main__':
     print(name_from_location('New York, NY, USA'))
-    print(name_from_location([40.7128, -74.0060, 40.7128, -74.0060]))
+    print(name_from_location([1.22456789, 2.3456789, 3.456789, 4.56789]))
+
