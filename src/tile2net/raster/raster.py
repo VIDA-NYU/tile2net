@@ -222,7 +222,7 @@ class Raster(Grid):
                 pass
             else:
                 raise TypeError(
-                    f'Invalid source type: {type(source)}'
+                    f'Invalid source type: {type(source)=}'
                 )
             if source is None:
                 logger.warning(
