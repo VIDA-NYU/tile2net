@@ -101,8 +101,8 @@ def geocode(location) -> list[float]:
         southwest_northeast,
     )
     return location
-
 def name_from_location(location: str | list[float, str]):
+
     if isinstance(location, str):
         try:
             # location is bbox
@@ -154,3 +154,4 @@ def name_from_location(location: str | list[float, str]):
 if __name__ == '__main__':
     print(name_from_location('New York, NY, USA'))
     print(name_from_location([1.22456789, 2.3456789, 3.456789, 4.56789]))
+

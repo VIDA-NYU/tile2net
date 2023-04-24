@@ -150,11 +150,11 @@ def fill_colormap():
 	palette : list
 		Colormap for the segmentation mask
 	"""
-	palette = [0, 0, 0,
-	           0, 0, 255,
+	palette = [0, 0, 255,
 	           0, 128, 0,
-	           255, 0, 0]
-	zero_pad = 256*3 - len(palette)
+	           255, 0, 0,
+			   0, 0, 0]
+	zero_pad = 255*3 - len(palette)
 	for i in range(zero_pad):
 		palette.append(0)
 	return palette
