@@ -231,6 +231,13 @@ class Raster(Grid):
             else:
                 if zoom is None:
                     zoom = source.zoom
+        if (
+            input_dir is not None
+            and zoom is None
+        ):
+            raise ValueError(
+                'Zoom level must be specified with input_dir'
+            )
 
         if base_tilesize < 256:
             raise ValueError(
