@@ -536,7 +536,7 @@ class Grid(BaseGrid):
         """
 
         # create the pseudo tiles for the grid
-        g = self.geodataframe()
+        g = self.create_grid_gdf()
         # get the boundary shapefile
         bound = self.get_boundary(city, address, path)
         if bound.crs != self.crs:
@@ -544,8 +544,8 @@ class Grid(BaseGrid):
         # clip the pseudo tiles with boundary
         new = gpd.clip(g, bound).copy()
         self.num_inside = len(new)
-        inactive = g[~(g.position.isin(new.position))].copy()
-        self.make_inactive(list(inactive.loc[:, 'position']))
+        inactive = g[~(g.idd.isin(new.idd))].copy()
+        self.make_inactive(list(inactive.loc[:, 'idd']))
         if clipped:
             return new
 
