@@ -556,7 +556,7 @@ class Grid(BaseGrid):
         :param lst: list of tile ids to exclude
         """
         for pos in lst:
-            self.tiles[int(pos[0]), int(pos[1])].active = False
+            self.tiles.flatten()[int(pos)].active = False
         self.num_active = self.num_tiles - len(lst)
 
     # noinspection PyTypeChecker
