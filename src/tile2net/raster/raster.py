@@ -1,9 +1,12 @@
 import inspect
+from tile2net.raster import util
 import subprocess
 import os
-
+import time
+import certifi
 import geopy
 import imageio.v2
+from geopy.exc import GeocoderTimedOut
 from geopy.geocoders import Nominatim
 import sys
 
@@ -15,7 +18,7 @@ import itertools
 from tqdm import tqdm
 # from itertools import *
 from more_itertools import *
-from typing import Iterator, Union
+from typing import Iterator, Optional, Type, Union
 
 from pathlib import Path
 from os import PathLike as _PathLike
@@ -36,6 +39,9 @@ from tile2net.raster.source import Source
 import toolz
 from toolz import curried, pipe
 import tile2net.raster.util
+from tile2net.raster.input_dir import InputDir
+from functools import cached_property
+from tile2net.raster.validate import validate
 
 # import logging
 from tile2net.logger import logger
@@ -45,6 +51,7 @@ PathLike = Union[str, _PathLike]
 
 class Raster(Grid):
     Project = Project
+    input_dir = InputDir()
 
     @classmethod
     def from_nyc(cls, outdir: PathLike = None) -> 'Raster':
@@ -145,7 +152,7 @@ class Raster(Grid):
         self,
         *,
         location: list | str,  # region of interest to get its bounding box
-        name: str,
+        name: str = None,
         # source: PathLike = None,
         input_dir: PathLike = None,
         output_dir: PathLike = None,
@@ -156,7 +163,8 @@ class Raster(Grid):
         tile_step: int = 1,
         boundary_path: str = None,  # path to a shapefile to filter out of boundary tiles
         padding=True,
-        extension: str = 'png',
+        # extension: str = 'png',
+        source: Source | Type[Source] = None,
     ):
         """
 
@@ -166,8 +174,16 @@ class Raster(Grid):
             region of interest to get its bounding box
         name: str
             name of the project
-        input_dir: PathLike
-            path to the directory containing the input images
+        input_dir: str
+            path to the directory containing the input images;
+            this must implicate the format of the contained files,
+            containing the xtile, ytile, and extension,
+            and may or may not contain the zoom level, e.g.
+            path/to/files/x/y.ext
+            path/to/files/z/x_y.ext
+            path/to/files/z/y/x.ext
+
+            if input_dir is passed, zoom must be passed as well
         output_dir: PathLike
             path to the directory containing the output images
         num_class: int
@@ -186,49 +202,44 @@ class Raster(Grid):
             whether to pad the tiles to the base tile size (default: True)
         extension:
             extension of the input images (default: 'png')
+        source: Source | Type[Source] | str
+            tile source (default: None)
         """
-        if isinstance(location, str):
-            try:
-                location: list[float] = pipe(
-                    location.split(','),
-                    curried.map(float),
-                    list,
-                    self.round_loc
-                )
-            except (ValueError, AttributeError):  # fails if address or list
-                nom: geopy.Location = Nominatim(user_agent='tile2net').geocode(location)
-                logger.info(f"Geocoded '{location}' to\n\t'{nom.raw['display_name']}'")
-                location = pipe(
-                    nom.raw['boundingbox'],
-                    # convert lon, lon, lat, lat
-                    # to lat, lon, lat, lon
-                    curried.get([0, 2, 1, 3]),
-                )
-        location = pipe(
-            location,
-            curried.map(float),
-            list,
-            self.round_loc,
-            tile2net.raster.util.southwest_northeast,
-        )
-
-        self.input_dir = input_dir
+        if name is None:
+            name = util.name_from_location(location)
+        location = util.geocode(location)
+        if (
+                input_dir is not None
+                and source is not None
+        ):
+            raise ValueError('Cannot specify both source and input_dir')
         if input_dir is None:
-            try:
-                self.source = Source[location]
-            except KeyError:
-                logger.warning('No source found for this location. ')
-                self.source = None
+            if source is None:
+                source = Source[location]
+            elif isinstance(source, type):
+                source = source()
+            elif isinstance(source, str):
+                source = Source[source]
+            elif isinstance(source, Source):
+                pass
+            else:
+                raise TypeError(
+                    f'Invalid source type: {type(source)=}'
+                )
+            if source is None:
+                logger.warning(
+                    f'No source found for {location=}'
+                )
             else:
                 if zoom is None:
-                    zoom = self.source.zoom
-        else:
-            self.source = None
-        if zoom is None:
-            raise ValueError('Zoom level must be specified')
-
-        # if zoom is not None:
-        #     zoom = zoom
+                    zoom = source.zoom
+        if (
+            input_dir is not None
+            and zoom is None
+        ):
+            raise ValueError(
+                'Zoom level must be specified with input_dir'
+            )
 
         if base_tilesize < 256:
             raise ValueError(
@@ -237,9 +248,14 @@ class Raster(Grid):
             raise ValueError(
                 'Tile size must be a multiple of 256'
             )
+        if zoom is None:
+            raise ValueError('Zoom level must be specified with input_dir')
 
+
+        self.zoom = zoom
+        self.source = source
+        self.zoom = zoom
         self.location = location
-        self.extension = extension
         self.num_class = num_class
         self.class_names = []
         self.class_colors = []
@@ -247,6 +263,9 @@ class Raster(Grid):
         self.dest = ''
         self.name = name
         self.boundary_path = ''
+        self.input_dir: InputDir = input_dir
+        self.source = source
+
         if boundary_path:
             self.boundary_path = boundary_path
             self.get_in_boundary(path=boundary_path)
@@ -285,10 +304,8 @@ class Raster(Grid):
     def create_config_json(self):
         raise NotImplementedError
 
-
     def download_google_api(self, api_key) -> None:
         raise NotImplementedError
-
 
     def check_tile_size(self, img_path: str):
         """
@@ -318,7 +335,7 @@ class Raster(Grid):
     Stitch Tiles
     """
 
-    def stitch(self, step: int) -> None:
+    def stitch(self, step: int, force=False) -> None:
         """Stitch tiles
         Args:
             step (int): Stitch step. How many adjacent tiles on row/colum to stitch together.
@@ -331,7 +348,7 @@ class Raster(Grid):
         None.
             Nothing is returned.
         """
-        logger.info(f'Starting Stitching Tiles...')
+        logger.info(f'Stitching Tiles...')
         self.stitch_step = step
         self.calculate_padding()
         self.update_tiles()
@@ -344,8 +361,8 @@ class Raster(Grid):
             raise RuntimeError(
                 'No source or input directory specified. Cannot stitch tiles.'
             )
-        # r = self.width // step * step
-        # c = self.height // step * step
+        # r = self.height
+        # c = self.width
         outfiles = pipe(
             # self.tiles[:r:step, :c:step],
             self.tiles[::step, ::step],
@@ -356,18 +373,18 @@ class Raster(Grid):
             not os.path.exists(outfile)
             for outfile in outfiles
         ]
-        outfiles = list(itertools.compress(outfiles, not_exists))
+        if not force:
+            outfiles = list(itertools.compress(outfiles, not_exists))
         if not outfiles:
             logger.info(f'All tiles already stitched.')
             return
-        # logger.info(f'Stitching {len(outfiles):,} tiles...'.ljust(25))
+        # print(self.project.tiles.static.files)
         infiles: np.ndarray = pipe(
             self.tiles,
             self.project.tiles.static.files,
             toolz.curry(np.fromiter, dtype=object)
         )
-
-        indices = np.arange(self.height * self.width).reshape((self.width, self.height))
+        indices = np.arange(self.tiles.size).reshape((self.width, self.height))
         indices = (
             indices
             # iterate by step to get the top left tile of each new merged tile
@@ -379,10 +396,11 @@ class Raster(Grid):
             .__add__(indices[:step, :step])
             # flatten to get a list of merged tiles
             .reshape((-1, step * step))
-            # filter for tiles that are not stitched
-            # [not_exists]
         )
-        list_infiles = (
+        if not force:
+            # filter for tiles that are not stitched
+            indices = indices[not_exists]
+        list_infiles =(
             # get files from 2d indices to get list of lists
             infiles
             [indices]
@@ -402,7 +420,7 @@ class Raster(Grid):
                 f'No relevant tiles found in {self.project.tiles.static.path}. '
             )
         sample: np.ndarray = next(
-            imageio.v2.imread(file)
+            imageio.v3.imread(file)
             for file in itertools.chain.from_iterable(list_infiles)
             if os.path.exists(file)
         )
@@ -412,13 +430,16 @@ class Raster(Grid):
                 f'expected tile size {self.base_tilesize}.'
             )
 
-        gray = np.full((self.base_tilesize, self.base_tilesize, 3), 50, dtype=np.uint8)
+        gval = 50
+        gray = np.full((self.base_tilesize, self.base_tilesize, 3), gval, dtype=np.uint8)
+        gval = np.full(3, 50)
 
         def imread(file) -> np.ndarray:
             # just returns a gray tile if the file doesn't exist
             if not os.path.exists(file):
                 return gray
-            return imageio.v2.imread(file)
+            res = imageio.v3.imread(file)
+            return res
 
         def gen_infiles():
             """
@@ -483,10 +504,12 @@ class Raster(Grid):
 
         size = self.base_tilesize
         writes = []
-        shape = self.base_tilesize * step, self.base_tilesize * step, 3
+        shape = self.base_tilesize * step, self.base_tilesize * step, 4
         desc = f"Stitching {len(outfiles):,} tiles..."
         desc = desc.rjust(len(desc) + 11).ljust(50)
         # shape = imageio.imread_v2(infiles[0]).shape
+        CANVAS = np.zeros(shape, dtype=np.uint8)
+        CANVAS[:, :, 3] = 255
         for infiles, outfile in tqdm(
                 zip(gen_infiles(), outfiles),
                 total=len(outfiles),
@@ -494,13 +517,18 @@ class Raster(Grid):
                 # disable when piping
                 # disable=not sys.stdout.isatty()
         ):
-            canvas: np.ndarray = np.zeros(shape, dtype=np.uint8)
+            canvas = CANVAS.copy()
             for i, infile in enumerate(infiles):
                 # the grid is transposed so the row and column indices are swapped
                 r = i % step * size
                 c = i // step * size
-                canvas[r:r + size, c:c + size] = np.array(infile)[:, :, :3]
-            writes.append(threads.submit(imageio.v2.imwrite, outfile, canvas))
+                infile = np.array(infile)
+                canvas[r:r + size, c:c + size, :infile.shape[2]] = infile
+            loc = canvas[:, :, 3] != 255
+            loc |= (canvas[:, :, :3] == 0).all(axis=2)
+            canvas[loc, :3] = gval
+            canvas = canvas[:, :, :3]
+            writes.append(threads.submit(imageio.v3.imwrite, outfile, canvas))
 
         for write in writes:
             write.result()
@@ -510,34 +538,28 @@ class Raster(Grid):
     Download Tiles 
     """
 
-    def download(self):
+    def download(self, retry: bool = True):
         """
         Download tiles from the source.
         Returns
         -------
         None
         """
-        self.project.tiles.static.path.mkdir(parents=True, exist_ok=True)
         with (
             ThreadPoolExecutor(max_workers=5) as threads,
             requests.Session() as session,
         ):
-            writes = []
             if not self.source:
-                pipe(
-                    writes,
-                    as_completed,
-                    curried.map(Future.result),
-                    consume,
-                )
                 return
+            self.project.tiles.static.path.mkdir(parents=True, exist_ok=True)
 
             paths = self.project.tiles.static.files()
-            urls = self.source[self.tiles]
+            urls = list(self.source[self.tiles.flat])
             desc = f"Checking {self.tiles.size:,} files..."
             desc = desc.rjust(len(desc) + 11).ljust(50)
+            submit = partial(session.get, verify=certifi.where())
             downloads = {
-                threads.submit(session.get, url): path
+                threads.submit(submit, url=url): path
                 for url, path
                 in tqdm(
                     zip(urls, paths),
@@ -549,6 +571,17 @@ class Raster(Grid):
                 if not path.exists()
             }
 
+            def submit(
+                path: Path,
+                content: bytes,
+            ) -> Optional[Path]:
+                # return path if failed
+                path.write_bytes(content)
+                try:
+                    imageio.v3.imread(path)
+                except ValueError:
+                    path.unlink()
+                    return path
 
             def write(futures: Iterator[Future]):
                 for future in futures:
@@ -559,12 +592,12 @@ class Raster(Grid):
                     except requests.exceptions.HTTPError:
                         continue
                     else:
-                        yield threads.submit(path.write_bytes, response.content)
+                        yield threads.submit(submit, path, response.content)
 
             if downloads:
                 desc = f"Downloading {len(downloads):,} tiles..."
                 desc = desc.rjust(len(desc) + 11).ljust(50)
-                pipe(
+                writes = pipe(
                     downloads,
                     as_completed,
                     curry(
@@ -575,18 +608,43 @@ class Raster(Grid):
                         # disable=not sys.stdout.isatty(),
                     ),
                     write,
-                    curried.map(writes.append),
-                    consume,
+                    list
                 )
+                if not writes:
+                    logger.warning(
+                        f'Downloads were attempted, but not a single image was written to file. '
+                        f'Check that everything is correct for {self.source=}.'
+                    )
+            else:
+                writes = []
 
-            pipe(
+            failed_paths = pipe(
                 writes,
                 as_completed,
                 curried.map(Future.result),
-                consume,
+                curried.filter(Path.__instancecheck__),
+                list,
             )
+            if any(failed_paths):
+                path: Path = failed_paths[0]
+                i = next(
+                    i
+                    for i, p in enumerate(downloads.values())
+                    if p == path
+                )
+                url = urls[i]
+                if retry:
+                    logger.error(
+                        f'{len(failed_paths):,} tiles failed to serialize, one of which is '
+                        f'{failed_paths[0]} from {url}. Trying again.'
+                    )
+                    self.download(retry=False)
+                else:
+                    raise FileNotFoundError(
+                        f'{len(failed_paths):,} tiles failed to serialize, one of which is '
+                        f'{failed_paths[0]} from {url}.'
+                    )
             logger.info(f'All {self.tiles.size} tiles are on disk.', )
-
 
     def create_mask(self, dest_path=None, **kwargs) -> None:
         """
@@ -675,7 +733,6 @@ class Raster(Grid):
             else:
                 continue
 
-
     def save_info_json(self, **kwargs):
         """
         saves the grid info as a json file
@@ -695,12 +752,15 @@ class Raster(Grid):
             'crs': self.crs,
             'tile_step': self.tile_step,
             'project': dict(self.project.structure),
-            'source': str(self.source),
         }
+        if self.source:
+            city_info['source'] = str(self.source)
         if self.output_dir:
             city_info['output_dir'] = str(self.output_dir)
         if self.input_dir:
             city_info['input_dir'] = str(self.input_dir)
+        if self.source:
+            city_info['source'] = str(self.source)
 
         if 'new_tstep' in kwargs:
             city_info['size'] = self.tile_size * kwargs['new_tstep']
@@ -728,6 +788,7 @@ class Raster(Grid):
         with path.open('w+') as f:
             json.dump(data, f, indent=4)
 
+    @validate
     def generate(self, step):
         """
         generates the project structure,
@@ -748,6 +809,7 @@ class Raster(Grid):
             indent=4,
         )
 
+    @validate
     def inference(
         self,
         eval_folder: str = None,
@@ -774,3 +836,18 @@ class Raster(Grid):
         if eval_folder:
             args.extend(['--eval_folder', str(eval_folder)])
         subprocess.run(args, check=True)
+
+    def __hash__(self):
+        return id(self)
+
+    def __eq__(self, other):
+        return self is other
+
+    @cached_property
+    def extension(self):
+        if self.source:
+            return self.source.extension
+        elif self.input_dir:
+            return self.input_dir.extension
+        else:
+            raise ValueError('No source or input_dir specified')

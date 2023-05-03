@@ -14,6 +14,7 @@ from weakref import WeakKeyDictionary
 import gdown
 import numpy as np
 import psutil
+import toolz.curried
 from more_itertools import *
 from numpy import ndarray
 from toolz.curried import *
@@ -206,7 +207,7 @@ class Config(File):
     def __fspath__(self):
         # returns path of one and only one config file
         return self.project.tile2net.joinpath(
-            'tile2net',
+            # 'tile2net',
             'tileseg',
             f'{self.name}.py',
         ).__fspath__()
@@ -291,7 +292,7 @@ class Static(Directory):
                 f'{raster.base_tilesize}_{raster.zoom}'
             )
         elif raster.input_dir:
-            return raster.input_dir
+            return raster.input_dir.__fspath__()
         else:
             raise ValueError('raster has no source or input_dir')
 
@@ -303,10 +304,17 @@ class Static(Directory):
         if isinstance(tiles, ndarray):
             tiles = tiles.flat
         extension = raster.extension
-        path = self.path
-        path.mkdir(parents=True, exist_ok=True)
-        for tile in tiles:
-            yield path / f'{tile.xtile}_{tile.ytile}.{extension}'
+        # yield from raster.input_dir(tiles)
+        if raster.input_dir:
+            yield from raster.input_dir(tiles)
+        else:
+            dir = self.path
+            dir.mkdir(parents=True, exist_ok=True)
+            yield from (
+                dir / f'{tile.xtile}_{tile.ytile}.{extension}'
+                for tile in tiles
+            )
+
 
 
 class Stitched(Directory):
@@ -503,15 +511,15 @@ class Project(Directory):
         :param outdir:
         :param raster:
         """
-        if ' ' in name:
-            raise ValueError('Avoid spaces in project name')
-        if '.' in name:
-            raise ValueError('Avoid periods in project name')
-        if len(name) > 15:
-            raise ValueError(
-                'Using long names for project since it will '
-                'be added to beginning of each image name!'
-            )
+        # if ' ' in name:
+        #     raise ValueError('Avoid spaces in project name')
+        # if '.' in name:
+        #     raise ValueError('Avoid periods in project name')
+        # if len(name) > 31:
+        #     raise ValueError(
+        #         'Avoid using long names for project since it will '
+        #         'be added to beginning of each image name!'
+        #     )
         if outdir is None:
             outdir = os.path.join(tempfile.gettempdir(), 'tile2net')
 
