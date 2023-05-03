@@ -22,8 +22,8 @@ the `Raster.stitch` method.
 Tile2Net only supports the PNG image format. More formats may be supported in upcoming versions.  
 If tile images that you already have are in TIFF format, they need to be converted to XYZ in PNG.
 To do that you can use QGIS and the “Generate XYZ Tiles (Directory)” tool to do the conversion.
-Once that’s created, you can bring the folder into the defined location in the project. Do not forget to flatten them
-before use. (see folder structure section)
+Once that’s created, you can pass its path implicating the format of the files, e.g. path/to/tiles/z/x/y.ext
+To see an example, check out our [jupyter notebook](examples/inference.ipynb)
 
 #### Tile Transparency
 
