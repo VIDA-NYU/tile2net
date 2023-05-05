@@ -449,8 +449,9 @@ class PedNet():
 
         combined.dropna(inplace=True)
         combined.geometry = combined.geometry.set_crs(3857)
-        combined.geometry.to_crs(4326)
+        combined.geometry = combined.geometry.to_crs(4326)
         combined.dropna(inplace=True)
+        combined.reset_index(drop=True, inplace=True)
         path = self.project.network.path
 
         path.mkdir(parents=True, exist_ok=True)
