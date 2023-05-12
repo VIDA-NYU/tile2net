@@ -216,41 +216,38 @@ class Raster(Grid):
         if input_dir is None:
             if source is None:
                 source = Source[location]
+                if source is not None:
+                    logger.info(
+                        f'Using {source.__class__.__name__} as the source at {location=}'
+                    )
             elif isinstance(source, type):
                 source = source()
             elif isinstance(source, str):
                 source = Source[source]
             elif isinstance(source, Source):
-                pass
+                ...
             else:
-                raise TypeError(
-                    f'Invalid source type: {type(source)=}'
-                )
+                raise TypeError(f'Invalid source type: {type(source)=}')
+
             if source is None:
-                logger.warning(
-                    f'No source found for {location=}'
-                )
+                logger.warning(f'No source found for {location=}')
             else:
                 if zoom is None:
                     zoom = source.zoom
-        if (
-            input_dir is not None
-            and zoom is None
-        ):
-            raise ValueError(
-                'Zoom level must be specified with input_dir'
-            )
+                    logger.info(f'Using {zoom=} from source')
+                base_tilesize = source.tilesize
+                logger.info(f'Using {base_tilesize=} from source')
+        else:
+
+            if base_tilesize is None:
+                raise ValueError('Tile size must be specified with input_dir')
 
         if base_tilesize < 256:
-            raise ValueError(
-                'Tile sizes cannot be smaller than 256')
+            raise ValueError('Tile sizes cannot be smaller than 256')
         if not base_tilesize % 256 == 0:
-            raise ValueError(
-                'Tile size must be a multiple of 256'
-            )
+            raise ValueError('Tile size must be a multiple of 256' )
         if zoom is None:
-            raise ValueError('Zoom level must be specified with input_dir')
-
+            raise ValueError('Zoom level must be specified')
 
         self.zoom = zoom
         self.source = source
@@ -400,7 +397,7 @@ class Raster(Grid):
         if not force:
             # filter for tiles that are not stitched
             indices = indices[not_exists]
-        list_infiles =(
+        list_infiles = (
             # get files from 2d indices to get list of lists
             infiles
             [indices]
