@@ -86,6 +86,8 @@ def geocode(location) -> list[float]:
             #         break
             logger.info(f"Geocoding {location}, this may take awhile...")
             nom: geopy.Location = Nominatim(user_agent='tile2net').geocode(location, timeout=None)
+            if nom is None:
+                raise ValueError(f"Could not geocode '{location}'")
             logger.info(f"Geocoded '{location}' to\n\t'{nom.raw['display_name']}'")
             location = pipe(
                 nom.raw['boundingbox'],

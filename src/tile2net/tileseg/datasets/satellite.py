@@ -115,8 +115,10 @@ class Loader(BaseLoader):
                       'val': 'val',
                       'test': 'tests'}
             split_name = splits[mode]
-            img_ext = 'png'
-            mask_ext = 'png'
+            # img_ext = 'png'
+            # mask_ext = 'png'
+            img_ext = '*'
+            mask_ext = '*'
             img_root = os.path.join(root, split_name, 'images')
 #            print(img_root)
             mask_root = os.path.join(root, split_name, 'annotations')

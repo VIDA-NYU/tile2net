@@ -16,6 +16,7 @@ import shapely.ops
 from geopandas import GeoSeries
 from toolz import curry, pipe
 
+from tile2net.logger import logger
 
 if False:
     from tile2net.raster.tile import Tile
@@ -60,12 +61,18 @@ class SourceMeta(ABCMeta):
             if matches.empty:
                 return None
                 # raise KeyError(f'No source found for {item}')
-            item = (
+            items = (
                 matches.intersection(item)
                 .area
                 .__truediv__(matches.area)
-                .idxmax()
+                # .idxmax()
             )
+            if len(items) > 1:
+                logger.info(
+                    f'Found multiple sources for the location, in descending IOU: '
+                    f'{items.sort_values(ascending=False).index.tolist()}'
+                )
+            item = items.idxmax()
 
         if isinstance(item, str):
             if item not in cls.catalog:
@@ -90,8 +97,8 @@ class SourceMeta(ABCMeta):
                 raise ValueError(f'{self} name already in use')
             self.catalog[self.name] = self
 
-            for attr in class_attr.relevant_to(self):
-                attr.__get__(None, self)
+            # for attr in class_attr.relevant_to(self):
+            #     attr.__get__(None, self)
 
 class Source(ABC, metaclass=SourceMeta):
     name: str = None
@@ -99,6 +106,7 @@ class Source(ABC, metaclass=SourceMeta):
     zoom: int = None
     extension = 'png'
     tiles: str = None
+    tilesize: int = 256
 
     def __getitem__(self, item: Iterator[Tile]):
         tiles = self.tiles
@@ -224,6 +232,8 @@ class KingCountyWashington(ArcGis):
 class WashingtonDC(ArcGis):
     server = 'https://imagery.dcgis.dc.gov/dcgis/rest/services/Ortho/Ortho_2021/ImageServer'
     name = 'dc'
+    tilesize = 512
+    extension = 'jpeg'
 
     def __getitem__(self, item: Iterator[Tile]):
         for tile in item:
@@ -237,7 +247,8 @@ class WashingtonDC(ArcGis):
     @class_attr
     @property
     def zoom(cls):
-        return 20
+        return 19
+        # return 20
 
 class LosAngeles(ArcGis):
     server = 'https://cache.gis.lacounty.gov/cache/rest/services/LACounty_Cache/LACounty_Aerial_2014/MapServer'
@@ -264,3 +275,7 @@ if __name__ == '__main__':
         max(lon1, lon2),
     ]
     # source = Source[coverage]
+
+if __name__ == '__main__':
+    NewYorkCity.metadata
+    NewYorkCity.metadata
