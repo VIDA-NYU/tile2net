@@ -64,6 +64,9 @@ commandline = compose_left(
     arg(
         '--quiet', '-q', action='store_true', default=False, dest='quiet'
     ),
+    arg(
+        '--source', '-s', default=None, type=str,
+    )
 )
 
 class Namespace(argh.ArghNamespace):
@@ -81,3 +84,4 @@ class Namespace(argh.ArghNamespace):
     tile_step: int
     stitch_step: int
     quiet: bool
+    source: str

@@ -265,6 +265,10 @@ class EastOregon(ArcGis, init=False):
     name = 'e_or'
     extension = 'jpeg'
 
+class NewJersey(ArcGis):
+    server = 'https://maps.nj.gov/arcgis/rest/services/Basemap/Orthos_Natural_2020_NJ_WM/MapServer'
+    name = 'nj'
+
 if __name__ == '__main__':
     lat1, lon1 = 40.59477460446395, -73.96014473965148
     lat2, lon2 = 40.636082070035755, -73.92478249851513

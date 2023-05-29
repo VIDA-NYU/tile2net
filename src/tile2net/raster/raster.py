@@ -415,6 +415,7 @@ class Raster(Grid):
         ):
             raise FileNotFoundError(
                 f'No relevant tiles found in {self.project.tiles.static.path}. '
+                f'If multiple sources were matched, consider specifying a different source.'
             )
         sample: np.ndarray = next(
             imageio.v3.imread(file)
