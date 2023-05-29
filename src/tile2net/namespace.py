@@ -489,9 +489,18 @@ class Namespace(
 
         project = None
         if not sys.stdin.isatty():
-            project = json.loads(
-                sys.stdin.read()
-            )
+            # project = json.loads(
+            #     sys.stdin.read()
+            # )
+            text = sys.stdin.read()
+
+            # project = json.loads(text)
+            try:
+                project = json.loads(text)
+            except json.JSONDecodeError as e:
+                logger.error(f'Could not parse JSON from stdin: {e}')
+                logger.error(f'JSON: {text}')
+                raise
             logger.debug('Inference piped')
         else:
             logger.debug('Inference unpiped')
