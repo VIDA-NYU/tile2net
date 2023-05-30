@@ -19,6 +19,7 @@ from tile2net.raster import util
 
 from tile2net.logger import logger
 
+
 if False:
     from tile2net.raster.tile import Tile
 
@@ -51,12 +52,16 @@ class SourceMeta(ABCMeta):
         )
         if isinstance(item, list):
             s, w, n, e = item
-            display_name = util.reverse_geocode(item)
+            display_name = util.reverse_geocode(item).casefold()
             loc = [
-                source.keyword in display_name
+                source.keyword.casefold() in display_name
                 for source in cls.catalog.values()
             ]
             matches = matches.loc[loc]
+            if matches.empty:
+                logger.warning(
+                    f'No source was found to have a matching keyword with {display_name}'
+                )
             item = shapely.geometry.box(w, s, e, n)
 
         if isinstance(item, shapely.geometry.base.BaseGeometry):
@@ -241,7 +246,7 @@ class Massachusetts(ArcGis):
 class KingCountyWashington(ArcGis):
     server = 'https://gismaps.kingcounty.gov/arcgis/rest/services/BaseMaps/KingCo_Aerial_2021/MapServer'
     name = 'king'
-    keyword = 'King County'
+    keyword = 'King'
 
 class WashingtonDC(ArcGis):
     server = 'https://imagery.dcgis.dc.gov/dcgis/rest/services/Ortho/Ortho_2021/ImageServer'
@@ -249,7 +254,6 @@ class WashingtonDC(ArcGis):
     tilesize = 512
     extension = 'jpeg'
     keyword = 'Columbia'
-
 
     def __getitem__(self, item: Iterator[Tile]):
         for tile in item:
@@ -288,7 +292,6 @@ class NewJersey(ArcGis):
     server = 'https://maps.nj.gov/arcgis/rest/services/Basemap/Orthos_Natural_2020_NJ_WM/MapServer'
     name = 'nj'
     keyword = 'New Jersey'
-
 
 if __name__ == '__main__':
     lat1, lon1 = 40.59477460446395, -73.96014473965148
