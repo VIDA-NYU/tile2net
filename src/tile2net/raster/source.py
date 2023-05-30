@@ -70,7 +70,7 @@ class SourceMeta(ABCMeta):
             ).transform
             item = shapely.ops.transform(trans, item)
 
-            loc = matches.intersection(item)
+            loc = matches.intersects(item)
             matches = matches.loc[loc]
             if matches.empty:
                 return None
