@@ -277,7 +277,6 @@ class Raster(Grid):
             padding=padding,
             output_dir=output_dir,
         )
-        # project.mkdirs()
 
     def __repr__(self):
         if self.boundary_path != -1:

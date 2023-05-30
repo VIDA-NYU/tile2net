@@ -143,6 +143,13 @@ class Source(ABC, metaclass=SourceMeta):
         # complains if gets kwargs
         super().__init_subclass__()
 
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return self.name == other
+        if isinstance(other, Source):
+            return self.__class__ == other.__class__
+        return NotImplemented
+
 class class_attr:
     # caches properties to the class if class is not abc
     cache = WeakKeyDictionary()
@@ -294,16 +301,18 @@ class NewJersey(ArcGis):
     keyword = 'New Jersey'
 
 if __name__ == '__main__':
-    lat1, lon1 = 40.59477460446395, -73.96014473965148
-    lat2, lon2 = 40.636082070035755, -73.92478249851513
-    coverage = [
-        min(lat1, lat2),
-        max(lat1, lat2),
-        min(lon1, lon2),
-        max(lon1, lon2),
-    ]
-    # source = Source[coverage]
+    from tile2net import Raster
+    assert Raster(location='New Brunswick, New Jersey').source == 'nj'
+    assert Raster(location='New York City').source == 'nyc'
+    assert Raster(location='New York').source in ('nyc', 'ny')
+    assert Raster(location='Massachusetts').source == 'ma'
+    assert Raster(location='King County, Washington').source == 'king'
+    assert Raster(location='Washington, DC').source == 'dc'
+    assert Raster(location='Los Angeles').source == 'la'
+    assert Raster(location='Jersey City').source == 'nj'
+    assert Raster(location='Hoboken').source == 'nj'
 
-if __name__ == '__main__':
-    NewYorkCity.metadata
-    NewYorkCity.metadata
+
+
+
+
