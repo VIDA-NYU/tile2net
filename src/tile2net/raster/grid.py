@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, Any, Union
 import shapely
 import rasterio
+import affine
 from affine import Affine
 import osmnx as ox
 from dataclasses import dataclass, field
@@ -325,17 +326,17 @@ class Grid(BaseGrid):
 
         # How many vertical tiles to cover the bbox (number of rows)
         self.height = (
-            (self.base_height + self.pad['h'])
-            // self.tile_step
-            // self.stitch_step
-            * self.stitch_step
+                (self.base_height + self.pad['h'])
+                // self.tile_step
+                // self.stitch_step
+                * self.stitch_step
         )
         # How many horizontal tiles to cover the bbox (number of columns)
         self.width = (
-            (self.base_width + self.pad['w'])
-            // self.tile_step
-            // self.stitch_step
-            * self.stitch_step
+                (self.base_width + self.pad['w'])
+                // self.tile_step
+                // self.stitch_step
+                * self.stitch_step
         )
 
     def update_tiles(self):
@@ -602,7 +603,8 @@ class Grid(BaseGrid):
         unioned.dropna(inplace=True)
         unioned.to_crs(self.crs, inplace=True)
         self.ntw_poly = unioned
-        unioned.to_file(os.path.join(poly_fold, f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}'))
+        unioned.to_file(
+            os.path.join(poly_fold, f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}'))
         logging.info('Polygons are generated and saved!')
 
 
@@ -625,7 +627,7 @@ class Grid(BaseGrid):
         return nt
 
     # adopted from solaris library to overcome dependency issues
-    def get_geo_transform(self, raster_src):
+    def get_geo_transform(self, raster_src: str):
         """From Solaris
         Get the geotransform for a raster image source.
 
@@ -650,8 +652,11 @@ class Grid(BaseGrid):
 
         return affine_obj
 
-    def convert_poly_coords(self, geom, raster_src=None, affine_obj=None, inverse=False,
-                            precision=None):
+    def convert_poly_coords(self, geom: gpd.GeoDataFrame,
+                            raster_src: str = None,
+                            affine_obj: list | affine.Affine = None,
+                            inverse: bool = False,
+                            precision: int = None):
         """From Solaris
         Georegister geometry objects currently in pixel coords or vice versa.
         raster_src : str, optional
@@ -720,16 +725,18 @@ class Grid(BaseGrid):
         return xformed_g
 
     @staticmethod
-    def get_exclusion_list(src_pth):
+    def get_exclusion_list(src_pth: str) -> list:
         """
 
         Parameters
         ----------
-        src_pth
+        src_pth: str
+            path to the csv file containing the ids to be excluded
 
         Returns
         -------
-
+        list
+            list of ids to be excluded from the grid
         """
         blacks = pd.read_csv(src_pth)
         blacks.ids = blacks.ids.astype(int)

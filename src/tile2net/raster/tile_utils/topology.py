@@ -15,10 +15,16 @@ import collections
 from tile2net.raster.tile_utils.momepy_shapes import *
 
 
-def morpho_atts(gdf):
+def morpho_atts(gdf) -> gpd.GeoDataFrame:
     """Using momepy but removed the import since it was slow and depends on pygeos
     Create shape descriptor for the polygon geodataframe.
+    Parameters
+    ----------
+    gdf: GeoDataFrame
 
+    Returns
+    -------
+    gdf: GeoDataFrame
     """
 
     gdf['ari'] = gdf.area
@@ -26,15 +32,15 @@ def morpho_atts(gdf):
     gdf['ari_peri'] = gdf.area / gdf.length
     gdf['corners'] = Corners(gdf).series
     gdf['elongation'] = Elongation(gdf).series
-    gdf['comp'] = CircularCompactness(gdf, 'ari').series
+    # gdf['comp'] = CircularCompactness(gdf, 'ari').series
     gdf['squ_comp'] = SquareCompactness(gdf).series
-    gdf['rect'] = Rectangularity(gdf, 'ari').series
     gdf['squareness'] = Squareness(gdf).series
+    gdf['rect'] = Rectangularity(gdf, 'ari').series
     gdf['convexity'] = Convexity(gdf).series
     return gdf
 
 
-def replace_straight_polys(gdf, convex=0.8, compact=0.2):
+def replace_straight_polys(gdf, convex=0.8, rect=0.65, buf = -0.5, elong=1, ari=40):
     """
 
     Args:
@@ -44,10 +50,12 @@ def replace_straight_polys(gdf, convex=0.8, compact=0.2):
     Returns:
         geopandas geodataframe
     """
+    if gdf.crs != 3857:
+        gdf.geometry = gdf.geometry.to_crs(3857)
     # find the straight polygons
-    straights = gdf[(gdf.convexity > convex) & (gdf.comp < compact)].copy()
+    straights = gdf[(gdf.convexity > convex) & (gdf.rect > rect) & (gdf.ari > ari) & (gdf.elongation < elong)].copy()
     # replace them with the minimum bounding box
-    gdf.loc[straights.index, 'geometry'] = [g.minimum_rotated_geotangle for g in straights]
+    gdf.loc[straights.index, 'geometry'] = [g.minimum_rotated_rectangle.buffer(buf) for g in straights.geometry]
     return gdf
 
 
@@ -256,12 +264,20 @@ def to_cline(geom: shapely.geometry.Polygon, t: float, simpl: float, **attribute
         cent = get_crosswalk_cnl(geom)
         return cent
     else:
-        cent = Centerline(geom.simplify(simpl), t).geometry
-        try:
-            line = shapely.ops.linemerge(cent)
-            return line
-        except ValueError:
-            return cent
+        if geom.is_valid:
+            try:
+                cent = Centerline(geom.simplify(simpl), t, **attributes).geometry
+                try:
+                    line = shapely.ops.linemerge(cent)
+                    return line
+                except ValueError:
+                    return cent
+            except:
+                # print("problems")
+                return False
+        else:
+            return False
+
 
 
 def create_line(p1: shapely.geometry.Point, p2: shapely.geometry.Point):

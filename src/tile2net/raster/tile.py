@@ -1,7 +1,7 @@
 import os
 from functools import cached_property
 import time
-from typing import  Optional
+from typing import Optional
 import numpy as np
 import pandas as pd
 import skimage
@@ -19,6 +19,7 @@ from rasterio.transform import from_bounds
 from rasterio import features
 
 from tile2net.raster.tile_utils.genutils import num2deg
+from tile2net.raster.tile_utils.topology import morpho_atts, replace_straight_polys
 from tile2net.raster.tile_utils.geodata_utils import _reduce_geom_precision, list_to_affine, _check_skimage_im_load
 
 from dataclasses import dataclass, field
@@ -38,7 +39,6 @@ class Tile:
     active: bool = field(default=True, repr=False)
     extension: str = 'png'
 
-
     def __post_init__(self):
         """
         Initialize the tile object
@@ -48,12 +48,12 @@ class Tile:
         self.left = num2deg(self.xtile, self.ytile, self.zoom)[1]  # longitude of top left
 
         self.bottom = \
-        num2deg(self.xtile + self.tile_step, self.ytile + self.tile_step, self.zoom)[
-            0]  # latitude of bottom right
+            num2deg(self.xtile + self.tile_step, self.ytile + self.tile_step, self.zoom)[
+                0]  # latitude of bottom right
 
         self.right = \
-        num2deg(self.xtile + self.tile_step, self.ytile + self.tile_step, self.zoom)[
-            1]  # longitude of bottom right
+            num2deg(self.xtile + self.tile_step, self.ytile + self.tile_step, self.zoom)[
+                1]  # longitude of bottom right
 
         self.im_name = f'{self.xtile}_{self.ytile}.{self.extension}'
         # self.ped_poly = gpd.GeoDataFrame()
@@ -172,7 +172,7 @@ class Tile:
             return False
 
     # @property
-    def setLatlon(self):
+    def setLatlon(self) -> None:
         """Sets the lat and long of the topleft and bottomright of the tile
         Arguments
         ---------
@@ -185,7 +185,7 @@ class Tile:
                                           self.ytile + self.tile_step, self.zoom)
 
     @property
-    def bbox(self):
+    def bbox(self) -> tuple[float, float, float, float]:
         """
         Returns the bounding box of the tile
         Returns
@@ -196,7 +196,7 @@ class Tile:
         return self.bottom, self.top, self.left, self.right
 
     @property
-    def tfm(self):
+    def tfm(self) -> Affine:
         """Calculate the affinity object of each tile from its bounding box
 
         Returns
@@ -207,12 +207,12 @@ class Tile:
         tfm = from_bounds(self.left, self.bottom, self.right, self.top, self.size, self.size)
         return tfm
 
-    def create_gray_image(self):
+    def create_gray_image(self) -> Image:
         im = np.ones((self.size, self.size)) * 50
         blck = Image.fromarray(np.uint8(im)).convert('RGB')
         return blck
 
-    def tile2poly(self, *bounds):
+    def tile2poly(self, *bounds) -> Polygon:
         """Create a polygon geometry for the tile
 
         Parameters
@@ -234,11 +234,11 @@ class Tile:
         else:
             # fix the rounding issues in plotting
             poly = Polygon.from_bounds(self.left, self.bottom - 0.00001, self.right,
-                                                  self.top - 0.00001)
+                                       self.top - 0.00001)
         # poly.set_crs(epsg=crs)
         return poly
 
-    def tile2gdf(self, *bounds):
+    def tile2gdf(self, *bounds) -> gpd.GeoDataFrame:
         """Create a tile GeoDataFrame
         Returns (GeoDataFrame): A GeoDataFrame of a single tile
         """
@@ -249,8 +249,7 @@ class Tile:
         tgdf = gpd.GeoDataFrame(gpd.GeoSeries(poly), columns=['geometry'], crs=self.crs)
         return tgdf
 
-
-    def find_tile_neighbors_pos(self, d):
+    def find_tile_neighbors_pos(self, d) -> list:
         """Returns the neighbors of a tile
         given the tile is topleft one, returns d**2-1 neighbors (d on column and d on the row)
         Parameters
@@ -266,7 +265,7 @@ class Tile:
         return [[self.position[0] + r, self.position[1] + c] for r in range(0, d) for c in
                 range(0, d)]
 
-    def get_metric(self):
+    def get_metric(self) -> tuple:
         """
         transform tile polygon to metric (3857) coordinate
         Args:
@@ -293,7 +292,7 @@ class Tile:
         gdf_new = gdf.explode()
         return gdf_new
 
-    def mask2poly(self, src_img, img_array=None):
+    def mask2poly(self, src_img: str, img_array: np.array = None, **kwargs) -> gpd.GeoDataFrame:
         """Converts a raster mask to a GeoDataFrame of polygons
         Parameters
         ----------
@@ -319,7 +318,10 @@ class Tile:
         geoms_sw['geometry'] = geoms_sw['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
         geoms_sw = geoms_sw.set_crs(epsg=str(self.crs))
         geoms_sw['f_type'] = 'sidewalk'
-        swcw.append(geoms_sw)
+        geoms_sw_ = morpho_atts(geoms_sw.to_crs(3857))
+        straight_sw = replace_straight_polys(geoms_sw_, convex=0.5, rect=0.4, buf=0.15, ari= 50)
+        straight_sw = straight_sw.to_crs(self.crs)
+        swcw.append(straight_sw)
 
         # crosswalks
         cw = mask_image[:, :, 0]  # red channel
@@ -327,7 +329,10 @@ class Tile:
         geoms_cw = geoms_cw.set_crs(epsg=str(self.crs))
         geoms_cw['geometry'] = geoms_cw['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
         geoms_cw['f_type'] = 'crosswalk'
-        swcw.append(geoms_cw)
+        geoms_cw_ = morpho_atts(geoms_cw.to_crs(3857))
+        straight_cw = replace_straight_polys(geoms_cw_, convex=0.8, rect=0.65, buf=-0.18)
+        straight_cw = straight_cw.to_crs(self.crs)
+        swcw.append(straight_cw)
 
         # Roads
         rd = mask_image[:, :, 1]  # green channel
@@ -335,12 +340,15 @@ class Tile:
         geoms_rd = geoms_rd.set_crs(epsg=str(self.crs))
         geoms_rd['geometry'] = geoms_rd['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
         geoms_rd['f_type'] = 'road'
-        swcw.append(geoms_rd)
+        geoms_rd_ = morpho_atts(geoms_rd.to_crs(3857))
+        straight_rd = replace_straight_polys(geoms_rd_, convex=0.8, rect=0.8, buf=-1.3)
+        straight_rd = straight_rd.to_crs(self.crs)
+        swcw.append(straight_rd)
 
         rswcw = pd.concat(swcw)
         rswcw.reset_index(drop=True, inplace=True)
         self.ped_poly = rswcw
-        return swcw
+        return rswcw
 
     def get_region(self, df, spatial_index):
         """
@@ -408,7 +416,7 @@ class Tile:
                 pred_arr = np.moveaxis(pred_arr, 0, -1)
             if channel_scaling is None:  # if scale values weren't provided
                 channel_scaling = np.ones(shape=(pred_arr.shape[-1]),
-                    dtype='float')
+                                          dtype='float')
             pred_arr = np.sum(pred_arr * np.array(channel_scaling), axis=-1)
 
         mask_arr = (pred_arr > bg_threshold).astype('uint8')
@@ -448,9 +456,9 @@ class Tile:
             f.close()
 
     def mask_to_poly_geojson(self, pred_arr, channel_scaling=None, reference_im=None,
-        min_area=40,
-        bg_threshold=0, do_transform=None, simplify=True,
-        tolerance=0.8, **kwargs):
+                             min_area=40,
+                             bg_threshold=0, do_transform=None, simplify=True,
+                             tolerance=0.8, **kwargs):
         """From Solaris
         Get polygons from an image mask.
 
@@ -522,8 +530,8 @@ class Tile:
         mask = mask.astype('uint8')
 
         polygon_generator = features.shapes(mask_arr,
-            transform=transform,
-            mask=mask)
+                                            transform=transform,
+                                            mask=mask)
         polygons = []
         values = []  # pixel values for the polygon in mask_arr
         for polygon, value in polygon_generator:
@@ -535,14 +543,13 @@ class Tile:
                 values.append(value)
 
         polygon_gdf = gpd.GeoDataFrame({'geometry': polygons, 'value': values},
-            crs=crs.to_wkt())
+                                       crs=crs.to_wkt())
         if simplify:
             polygon_gdf['geometry'] = polygon_gdf['geometry'].apply(
                 lambda x: x.simplify(tolerance=tolerance)
             )
 
         return polygon_gdf
-
 
     def get_geo_transform(self, raster_src):
         """From Solaris
@@ -571,7 +578,7 @@ class Tile:
         return affine_obj
 
     def convert_poly_coords(self, geom, raster_src=None, affine_obj=None, inverse=False,
-        precision=None):
+                            precision=None):
         """From Solaris
         Georegister geometry objects currently in pixel coords or vice versa.
 
@@ -643,5 +650,3 @@ class Tile:
             xformed_g = _reduce_geom_precision(xformed_g, precision=precision)
 
         return xformed_g
-
-

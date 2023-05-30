@@ -736,7 +736,6 @@ class Rectangularity:
     """
 
     def __init__(self, gdf, areas=None):
-        # TODO: vectorize minimum_rotated_rectangle after pygeos implementation
         self.gdf = gdf
         gdf = gdf.copy()
         if areas is None:
@@ -745,10 +744,9 @@ class Rectangularity:
             gdf["mm_a"] = areas
             areas = "mm_a"
         self.areas = gdf[areas]
-        self.series = gdf.apply(
-            lambda row: row[areas] / (row.geometry.minimum_rotated_rectangle.area),
-            axis=1,
-        )
+        mrr = shapely.minimum_rotated_rectangle(gdf.geometry.array)
+        mrr_area = shapely.area(mrr)
+        self.series = gdf[areas] / mrr_area
 
 
 class ShapeIndex:
@@ -840,7 +838,7 @@ class Corners:
     24
     """
 
-    def __init__(self, gdf, verbose=True):
+    def __init__(self, gdf, verbose=False):
         self.gdf = gdf
 
         # define empty list for results
@@ -862,7 +860,9 @@ class Corners:
             return False
 
         # fill new column with the value of area, iterating over rows one by one
+        # for geom in tqdm(gdf.geometry, total=gdf.shape[0], disable=not verbose):
         for geom in tqdm(gdf.geometry, total=gdf.shape[0], disable=not verbose):
+
             if geom.type == "Polygon":
                 corners = 0  # define empty variables
                 points = list(geom.exterior.coords)  # get points of a shape
@@ -963,7 +963,7 @@ class Squareness:
     3.7075816043359864
     """
 
-    def __init__(self, gdf, verbose=True):
+    def __init__(self, gdf, verbose=False):
         self.gdf = gdf
         # define empty list for results
         results_list = []
@@ -978,7 +978,7 @@ class Squareness:
             return angle
 
         # fill new column with the value of area, iterating over rows one by one
-        for geom in tqdm(gdf.geometry, total=gdf.shape[0], disable=not verbose):
+        for geom in tqdm(gdf.geometry, total=gdf.shape[0], disable=True):
             if geom.type == "Polygon":
                 angles = []
                 points = list(geom.exterior.coords)  # get points of a shape
@@ -1184,7 +1184,7 @@ class CentroidCorners:
     3.0810634305400177
     """
 
-    def __init__(self, gdf, verbose=True):
+    def __init__(self, gdf, verbose=False):
         self.gdf = gdf
         # define empty list for results
         results_list = []
@@ -1205,7 +1205,7 @@ class CentroidCorners:
             return False
 
         # iterating over rows one by one
-        for geom in tqdm(gdf.geometry, total=gdf.shape[0], disable=not verbose):
+        for geom in tqdm(gdf.geometry, total=gdf.shape[0], disable= True):
             if geom.type == "Polygon":
                 distances = []  # set empty list of distances
                 centroid = geom.centroid  # define centroid
@@ -1416,3 +1416,50 @@ class CompactnessWeightedAxis:
             * ((4 / np.pi) - (16 * gdf[areas]) / ((gdf[perimeters]) ** 2)),
             index=gdf.index,
         )
+
+
+class Linearity:
+    """
+    Calculates the linearity of each LineString object in a given GeoDataFrame.
+    MultiLineString returns ``np.nan``.
+
+    .. math::
+        \\frac{l_{euclidean}}{l_{segment}}
+
+    where `l` is the length of the LineString.
+
+    Adapted from :cite:`araldi2019`.
+
+    Parameters
+    ----------
+    gdf : GeoDataFrame
+        A GeoDataFrame containing objects.
+    verbose : bool (default True)
+        If ``True``, shows progress bars in loops and indication of steps.
+
+    Attributes
+    ----------
+    series : Series
+        A Series containing mean distance values.
+    gdf : GeoDataFrame
+        The original GeoDataFrame.
+
+    Examples
+    --------
+    >>> streets_df['linearity'] = momepy.Linearity(streets_df).series
+    >>> streets_df['linearity'][0]
+    1.0
+    """
+
+    def __init__(self, gdf):
+        self.gdf = gdf
+
+        euclidean = gdf.geometry.apply(
+            lambda geom: self._dist(geom.coords[0], geom.coords[-1])
+            if geom.geom_type == "LineString"
+            else np.nan
+        )
+        self.series = euclidean / gdf.geometry.length
+
+    def _dist(self, a, b):
+        return math.hypot(b[0] - a[0], b[1] - a[1])

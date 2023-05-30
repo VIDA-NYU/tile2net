@@ -725,13 +725,41 @@ class Raster(Grid):
                 createfolder(save_path)
 
                 cv2.imwrite(os.path.join(save_path, f'{pos[0]}_{pos[1]}_{idd}.png'),
-                    cv2.cvtColor(data, cv2.COLOR_RGB2BGR))
+                            cv2.cvtColor(data, cv2.COLOR_RGB2BGR))
                 fig.clf()
                 plt.close('all')
                 if c % 20 == 0:
                     logger.info(f'{c} of {self.num_tiles}')
             else:
                 continue
+
+    def _create_info_dict(self, **kwargs) -> dict | pd.DataFrame:
+        """
+        creates a dictionary of the grid info
+        Parameters
+        ----------
+        kwargs
+        Returns
+        -------
+        dict
+        """
+        info = {
+            'name': self.name,
+            'bbox': self.bbox,
+            'location': self.location,
+            'size': self.tile_size,
+            'zoom': self.zoom,
+            'crs': self.crs,
+            'tile_step': self.tile_step,
+        }
+        if self.source:
+            info['source'] = str(self.source)
+        if self.output_dir:
+            info['output_dir'] = str(self.output_dir)
+        if self.input_dir:
+            info['input_dir'] = str(self.input_dir)
+
+        return info
 
     def save_info_json(self, **kwargs):
         """
@@ -741,37 +769,26 @@ class Raster(Grid):
         kwargs
             new_tstep: int
                 if the tile size is changed, the new tile size is saved in the json file
+            basic_info: bool
+                if True, only the basic info is saved. Use when no source and input dir are available
             return_dict: bool
+                if True, the info is returned as a dict
         """
-        city_info = {
-            'name': self.name,
-            'bbox': self.bbox,
-            'location': self.location,
-            'size': self.tile_size,
-            'zoom': self.zoom,
-            'crs': self.crs,
-            'tile_step': self.tile_step,
-            'project': dict(self.project.structure),
-        }
-        if self.source:
-            city_info['source'] = str(self.source)
-        if self.output_dir:
-            city_info['output_dir'] = str(self.output_dir)
-        if self.input_dir:
-            city_info['input_dir'] = str(self.input_dir)
-        if self.source:
-            city_info['source'] = str(self.source)
-
+        city_info = self._create_info_dict(**kwargs)
         if 'new_tstep' in kwargs:
             city_info['size'] = self.tile_size * kwargs['new_tstep']
             city_info['tile_step'] = kwargs['new_tstep']
 
-        if 'return_dict' in kwargs and kwargs['return_dict']:
-            city_info.update(city_info['project'])
-            return city_info
-        else:
+        if 'basic_info' in kwargs:
             self.write_json_file(self.project.tiles.info, city_info)
-            self.write_json_file(self.project.structure.__fspath__(), dict(self.project.structure))
+        else:
+            city_info['project'] = dict(self.project.structure)
+            if 'return_dict' in kwargs and kwargs['return_dict']:
+                city_info.update(city_info['project'])
+                return city_info
+            else:
+                self.write_json_file(self.project.tiles.info, city_info)
+                self.write_json_file(self.project.structure.__fspath__(), dict(self.project.structure))
 
     def write_json_file(self, file_path, data):
         """

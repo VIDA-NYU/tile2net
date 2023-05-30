@@ -4,7 +4,7 @@ import pandas as pd
 import os
 os.environ['USE_PYGEOS'] = '0'
 import geopandas as gpd
-
+from geopandas import GeoDataFrame
 pd.options.mode.chained_assignment = None
 
 from tile2net.raster.tile_utils.topology import *
@@ -182,7 +182,7 @@ class PedNet():
                             for g in list(geom_er.geoms):  # shapely 2
                                 if g.area > 2:
                                     cnl = to_cline(g, 0.3, 1)
-                                    tr_line_ = trim_checkempty(cnl, 4.5, 2)
+                                    tr_line_ = trim_checkempty(cnl, 3.5, 2)
                                     if tr_line_.length < 6:
                                         extended = self.make_longer(tr_line_, 2 / 3)
                                         extended_line = extend_lines(geo2geodf([extended]),
@@ -235,7 +235,7 @@ class PedNet():
             smoothed = wrinkle_remover(cw_ntw, 1.2)
             self.crosswalk = smoothed
 
-    def create_lines(self, gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    def create_lines(self, gdf: gpd.GeoDataFrame) -> GeoDataFrame | bool:
         """
         Create centerlines from polygons
         Parameters
@@ -248,55 +248,67 @@ class PedNet():
         lin_geom = []
         gdf_atts = morpho_atts(gdf)
         for c, geom in enumerate(gdf.geometry):
-            corners = gdf_atts.iloc[c, gdf_atts.columns.get_loc(gdf_atts.corners.name)]
-            minpr = 2 * math.sqrt(math.pi * abs(geom.area))
-            trim1 = 20
-            trim2 = 6
-            if geom.area <= 20:  # 45 DC #10 others
-                continue
-            elif minpr / geom.length > 0.8:
-                # it is close to a circle
-                # the interpolation distance to be 2/3rd of the minimum circle perimeter
-                cl_arg = math.sqrt(geom.area / math.pi) / 2
-            else:
-                cl_arg = 0.2
+            if geom.is_valid:
 
-            line = to_cline(geom, cl_arg, 1)
-            if not line.is_empty:
-                tr_line_ = trim_checkempty(line, trim1, trim2)
-                if corners > 100:
-                    tr_line = trim_checkempty(tr_line_, trim1, trim2)
+                corners = gdf_atts.iloc[c, gdf_atts.columns.get_loc(gdf_atts.corners.name)]
+                rectangle = gdf_atts.iloc[c, gdf_atts.columns.get_loc(gdf_atts.rect.name)]
+                minpr = 2 * math.sqrt(math.pi * abs(geom.area))
+                trim1 = 20
+                trim2 = 6
+                if geom.area <= 20:  # 45 DC #10 others
+                    continue
+                elif minpr / geom.length > 0.8:
+                    # it is close to a circle
+                    # the interpolation distance to be 2/3rd of the minimum circle perimeter
+                    cl_arg = math.sqrt(geom.area / math.pi) / 2
                 else:
-                    tr_line = tr_line_
+                    cl_arg = 0.2
 
-            else:
-                line_clh = to_cline(geom, cl_arg / 2, 1)
-                if not line_clh.is_empty:
-                    tr_line_ = trim_checkempty(line_clh, trim1, trim2)
-                    if corners > 100:
-                        tr_line = trim_checkempty(tr_line_, trim1, trim2)
-                    else:
-                        tr_line = tr_line_
+                if rectangle > 0.9:
+                    line = draw_middle(geom)
+                    lin_geom.append(geo2geodf([line]))
                 else:
-                    new_line = to_cline(geom, 0.1, 0.5)
-                    tr_line_ = trim_checkempty(new_line, trim1, trim2)
-                    if corners > 100:
-                        tr_line = trim_checkempty(tr_line_, trim1, trim2)
+                    line = to_cline(geom, cl_arg, 1)
+                    if line:
+                        if not line.is_empty:
+                            tr_line_ = trim_checkempty(line, trim1, trim2)
+                            if corners > 100:
+                                tr_line = trim_checkempty(tr_line_, trim1, trim2)
+                            else:
+                                tr_line = tr_line_
+
+                        else:
+                            line_clh = to_cline(geom, cl_arg / 2, 1)
+                            if not line_clh.is_empty:
+                                tr_line_ = trim_checkempty(line_clh, trim1, trim2)
+                                if corners > 100:
+                                    tr_line = trim_checkempty(tr_line_, trim1, trim2)
+                                else:
+                                    tr_line = tr_line_
+                            else:
+                                new_line = to_cline(geom, 0.2, 0.5)
+                                tr_line_ = trim_checkempty(new_line, trim1, trim2)
+                                if corners > 100:
+                                    tr_line = trim_checkempty(tr_line_, trim1, trim2)
+                                else:
+                                    tr_line = tr_line_
+                        if tr_line.is_empty:
+                            logging.debug('empty line')
+                            continue
+                        else:
+                            line_tr = tr_line.simplify(1)
+                            extended_line = extend_lines(geo2geodf([line_tr]),
+                                                         target=geo2geodf([geom.boundary]), tolerance=10, extension=0)
+                            lin_geom.append(extended_line)
                     else:
-                        tr_line = tr_line_
-            if tr_line.is_empty:
-                logging.debug('empty line')
-                continue
-            else:
-                line_tr = tr_line.simplify(1)
-                extended_line = extend_lines(geo2geodf([line_tr]),
-                                             target=geo2geodf([geom.boundary]), tolerance=6, extension=0)
-                lin_geom.append(extended_line)
+                        continue
 
         if len(lin_geom) > 0:
             ntw = pd.concat(lin_geom)
             smoothed = wrinkle_remover(ntw, 1.5)
             return smoothed
+        else:
+            return False
 
     def create_sidewalks(self):
         """
@@ -315,32 +327,36 @@ class PedNet():
             else:
                 swntw = self.create_lines(sw_all)  # swuinon_df
 
-            logging.info('..... creating the processed sidewalk network')
-            #
-            swntw.geometry = swntw.simplify(0.6)
-            sw_modif_uni = gpd.GeoDataFrame(
-                geometry=gpd.GeoSeries([geom for geom in swntw.unary_union.geoms]))
-            sw_modif_uni_met = set_gdf_crs(sw_modif_uni, 3857)
-            sw_uni_lines = sw_modif_uni_met.explode()
-            sw_uni_lines.reset_index(drop=True, inplace=True)
-            sw_uni_lines.geometry = sw_uni_lines.simplify(2)
-            sw_uni_lines.dropna(inplace=True)
-            sw_uni_line2 = sw_uni_lines.copy()
+            if isinstance(swntw, gpd.GeoDataFrame):
+                logging.info('..... creating the processed sidewalk network')
+                #
+                swntw.geometry = swntw.simplify(0.6)
+                sw_modif_uni = gpd.GeoDataFrame(
+                    geometry=gpd.GeoSeries([geom for geom in swntw.unary_union.geoms]))
+                sw_modif_uni_met = set_gdf_crs(sw_modif_uni, 3857)
+                sw_uni_lines = sw_modif_uni_met.explode()
+                sw_uni_lines.reset_index(drop=True, inplace=True)
+                # sw_uni_lines.geometry = sw_uni_lines.simplify(0.6)
+                sw_uni_lines.dropna(inplace=True)
+                sw_uni_line2 = sw_uni_lines.copy()
 
-            try:
-                sw_cl1 = clean_deadend_dangles(sw_uni_line2)
-                sw_extended = extend_lines(sw_cl1, 10, extension=0)
+                try:
+                    sw_cl1 = clean_deadend_dangles(sw_uni_line2)
+                    sw_extended = extend_lines(sw_cl1, 10, extension=0)
 
-                sw_cleaned = remove_false_nodes(sw_extended)
-                sw_cleaned.reset_index(drop=True, inplace=True)
-                sw_cleaned.geometry = sw_cleaned.geometry.set_crs(3857)
+                    sw_cleaned = remove_false_nodes(sw_extended)
+                    sw_cleaned.reset_index(drop=True, inplace=True)
+                    sw_cleaned.geometry = sw_cleaned.geometry.set_crs(3857)
 
-                self.sidewalk = sw_cleaned
-            except:
-                # logging.info('cannot save modified')
-                self.sidewalk = sw_uni_lines
+                    self.sidewalk = sw_cleaned
+                except:
+                    # logging.info('cannot save modified')
+                    self.sidewalk = sw_uni_lines
 
-        self.sidewalk['f_type'] = 'sidewalk'
+                self.sidewalk['f_type'] = 'sidewalk'
+            else:
+                logging.info('No sidewalk network created')
+
 
     def convert_whole_poly2line(self):
         """
@@ -449,8 +465,9 @@ class PedNet():
 
         combined.dropna(inplace=True)
         combined.geometry = combined.geometry.set_crs(3857)
-        combined.geometry.to_crs(4326)
+        combined.geometry = combined.geometry.to_crs(4326)
         combined.dropna(inplace=True)
+        combined.reset_index(drop=True, inplace=True)
         path = self.project.network.path
 
         path.mkdir(parents=True, exist_ok=True)
