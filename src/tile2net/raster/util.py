@@ -60,6 +60,7 @@ class cached_descriptor(property):
         del self.cache[instance]
 
 def geocode(location) -> list[float]:
+    # from address, get bbox
     if isinstance(location, str):
         try:
             location: list[float] = pipe(
@@ -68,22 +69,6 @@ def geocode(location) -> list[float]:
                 list
             )
         except (ValueError, AttributeError):  # fails if address or list
-            # sleep = 10
-            # while True:
-            #     try:
-            #         nom: geopy.Location = Nominatim(user_agent='tile2net').geocode(location)
-            #     # except GeocoderTimedOut:
-            #     except (
-            #             geopy.exc.GeocoderTimedOut,
-            #             geopy.exc.GeocoderUnavailable,
-            #     ):
-            #         logger.info(
-            #             f"Geocoding '{location}' timed out, retrying in {sleep} seconds..."
-            #         )
-            #         time.sleep(sleep)
-            #         sleep *= 2
-            #     else:
-            #         break
             logger.info(f"Geocoding {location}, this may take awhile...")
             nom: geopy.Location = Nominatim(user_agent='tile2net').geocode(location, timeout=None)
             if nom is None:
@@ -103,6 +88,27 @@ def geocode(location) -> list[float]:
         southwest_northeast,
     )
     return location
+
+
+def reverse_geocode(location: list[float]) -> str:
+    # from bbox, get address of centroid
+    logger.info(f"Geocoding {location}, this may take awhile...")
+    # nom: geopy.Location = Nominatim(user_agent='tile2net').reverse(location, timeout=None)
+    y = (location[0] + location[2]) / 2
+    x = (location[1] + location[3]) / 2
+    centroid = (y, x)
+    nom: geopy.Location = Nominatim(
+        user_agent='tile2net',
+    ).reverse(centroid, timeout=None)
+    result = nom.raw['display_name']
+    return result
+
+
+    if nom is None:
+        raise ValueError(f"Could not geocode '{location}'")
+    logger.info(f"Geocoded '{location}' to\n\t'{nom.raw['display_name']}'")
+    return nom.raw['display_name']
+
 def name_from_location(location: str | list[float, str]):
 
     if isinstance(location, str):
@@ -126,21 +132,6 @@ def name_from_location(location: str | list[float, str]):
         nom: geopy.Location = Nominatim(user_agent='tile2net').reverse(centroid, timeout=None)
         logger.info(f"Geocoded '{centroid}' to\n\t'{nom.raw['display_name']}'")
         location = nom.raw['display_name']
-        # geolocator = Nominatim(user_agent='tile2net')
-        # location = geolocator.reverse(centroid)
-        # sleep = 10
-        # while True:
-            # try:
-            #     location = geolocator.reverse(centroid, )
-            # except GeocoderTimedOut:
-            #     logger.info(
-            #         f"Geocoding '{centroid}' timed out, retrying in {sleep} seconds..."
-            #     )
-            #     time.sleep(sleep)
-            #     sleep *= 2
-            # else:
-            #     break
-
 
     if isinstance(location, str):
         # location is address

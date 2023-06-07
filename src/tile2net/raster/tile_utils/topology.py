@@ -1,7 +1,7 @@
 import math
 import os
 import numpy as np
-import momepy
+# import momepy
 import pandas as pd
 
 pd.options.mode.chained_assignment = None

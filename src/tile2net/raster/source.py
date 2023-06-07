@@ -15,8 +15,10 @@ import shapely.geometry
 import shapely.ops
 from geopandas import GeoSeries
 from toolz import curry, pipe
+from tile2net.raster import util
 
 from tile2net.logger import logger
+
 
 if False:
     from tile2net.raster.tile import Tile
@@ -42,9 +44,24 @@ class SourceMeta(ABCMeta):
         cls: Type[Source],
         item: list[float] | str | shapely.geometry.base.BaseGeometry,
     ) -> Optional['Source']:
+        # todo: index index for which sources contain keyword
         original = item
+        matches: GeoSeries = (
+            cls.__class__.coverage.geometry
+            .to_crs(3857)
+        )
         if isinstance(item, list):
             s, w, n, e = item
+            display_name = util.reverse_geocode(item).casefold()
+            loc = [
+                source.keyword.casefold() in display_name
+                for source in cls.catalog.values()
+            ]
+            matches = matches.loc[loc]
+            if matches.empty:
+                logger.warning(
+                    f'No source was found to have a matching keyword with {display_name}'
+                )
             item = shapely.geometry.box(w, s, e, n)
 
         if isinstance(item, shapely.geometry.base.BaseGeometry):
@@ -53,11 +70,8 @@ class SourceMeta(ABCMeta):
             ).transform
             item = shapely.ops.transform(trans, item)
 
-            matches: GeoSeries = (
-                cls.__class__.coverage.geometry
-                .to_crs('epsg:3857')
-                .loc[lambda x: x.intersects(item)]
-            )
+            loc = matches.intersects(item)
+            matches = matches.loc[loc]
             if matches.empty:
                 return None
                 # raise KeyError(f'No source found for {item}')
@@ -107,6 +121,7 @@ class Source(ABC, metaclass=SourceMeta):
     extension = 'png'
     tiles: str = None
     tilesize: int = 256
+    keyword: str
 
     def __getitem__(self, item: Iterator[Tile]):
         tiles = self.tiles
@@ -127,6 +142,13 @@ class Source(ABC, metaclass=SourceMeta):
     def __init_subclass__(cls, **kwargs):
         # complains if gets kwargs
         super().__init_subclass__()
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return self.name == other
+        if isinstance(other, Source):
+            return self.__class__ == other.__class__
+        return NotImplemented
 
 class class_attr:
     # caches properties to the class if class is not abc
@@ -216,24 +238,29 @@ class ArcGis(Source, ABC):
 class NewYorkCity(ArcGis):
     server = 'https://tiles.arcgis.com/tiles/yG5s3afENB5iO9fj/arcgis/rest/services/NYC_Orthos_-_2020/MapServer'
     name = 'nyc'
+    keyword = 'New York'
 
 class NewYork(ArcGis):
     server = 'https://orthos.its.ny.gov/arcgis/rest/services/wms/2020/MapServer'
     name = 'ny'
+    keyword = 'New York City'
 
 class Massachusetts(ArcGis):
     server = 'https://tiles.arcgis.com/tiles/hGdibHYSPO59RG1h/arcgis/rest/services/USGS_Orthos_2019/MapServer'
     name = 'ma'
+    keyword = 'Massachusetts'
 
 class KingCountyWashington(ArcGis):
     server = 'https://gismaps.kingcounty.gov/arcgis/rest/services/BaseMaps/KingCo_Aerial_2021/MapServer'
     name = 'king'
+    keyword = 'King'
 
 class WashingtonDC(ArcGis):
     server = 'https://imagery.dcgis.dc.gov/dcgis/rest/services/Ortho/Ortho_2021/ImageServer'
     name = 'dc'
     tilesize = 512
     extension = 'jpeg'
+    keyword = 'Columbia'
 
     def __getitem__(self, item: Iterator[Tile]):
         for tile in item:
@@ -253,29 +280,40 @@ class WashingtonDC(ArcGis):
 class LosAngeles(ArcGis):
     server = 'https://cache.gis.lacounty.gov/cache/rest/services/LACounty_Cache/LACounty_Aerial_2014/MapServer'
     name = 'la'
+    keyword = 'Los Angeles'
 
 class WestOregon(ArcGis, init=False):
     server = 'https://imagery.oregonexplorer.info/arcgis/rest/services/OSIP_2018/OSIP_2018_WM/ImageServer'
     name = 'w_or'
     extension = 'jpeg'
+    keyword = 'Oregon'
     # todo: ssl incorrectly configured; come back later
 
 class EastOregon(ArcGis, init=False):
     server = 'https://imagery.oregonexplorer.info/arcgis/rest/services/OSIP_2017/OSIP_2017_WM/ImageServer'
     name = 'e_or'
     extension = 'jpeg'
+    keyword = 'Oregon'
+
+class NewJersey(ArcGis):
+    server = 'https://maps.nj.gov/arcgis/rest/services/Basemap/Orthos_Natural_2020_NJ_WM/MapServer'
+    name = 'nj'
+    keyword = 'New Jersey'
 
 if __name__ == '__main__':
-    lat1, lon1 = 40.59477460446395, -73.96014473965148
-    lat2, lon2 = 40.636082070035755, -73.92478249851513
-    coverage = [
-        min(lat1, lat2),
-        max(lat1, lat2),
-        min(lon1, lon2),
-        max(lon1, lon2),
-    ]
-    # source = Source[coverage]
+    from tile2net import Raster
+    assert Raster(location='New Brunswick, New Jersey').source == 'nj'
+    assert Raster(location='New York City').source == 'nyc'
+    assert Raster(location='New York').source in ('nyc', 'ny')
+    assert Raster(location='Massachusetts').source == 'ma'
+    assert Raster(location='King County, Washington').source == 'king'
+    assert Raster(location='Washington, DC').source == 'dc'
+    assert Raster(location='Los Angeles').source == 'la'
+    assert Raster(location='Jersey City').source == 'nj'
+    assert Raster(location='Hoboken').source == 'nj'
 
-if __name__ == '__main__':
-    NewYorkCity.metadata
-    NewYorkCity.metadata
+
+
+
+
+
