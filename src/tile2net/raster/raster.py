@@ -279,7 +279,7 @@ class Raster(Grid):
         )
 
     def __repr__(self):
-        if self.boundary_path != -1:
+        if len(self.boundary_path) > 0:
             tiles_within = f'{(self.num_inside / self.num_tiles) * 100:.1f}'
             return f"{self.name} Data Constructor. \nCoordinate reference system (CRS): {self.crs} \n" \
                    f"Tile size (pixel): {self.base_tilesize} \nZoom level: {self.zoom} \n" \
