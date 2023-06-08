@@ -488,13 +488,11 @@ class Namespace(
 
 
         project = None
-        if not sys.stdin.isatty():
-            # project = json.loads(
-            #     sys.stdin.read()
-            # )
-            text = sys.stdin.read()
-
-            # project = json.loads(text)
+        if (
+            not sys.stdin.isatty()
+            and (text := sys.stdin.read()) != ''
+        ):
+            # case: piped
             try:
                 project = json.loads(text)
             except json.JSONDecodeError as e:
@@ -503,6 +501,7 @@ class Namespace(
                 raise
             logger.debug('Inference piped')
         else:
+            # case: unpiped
             logger.debug('Inference unpiped')
             if self.city_info_path is not None:
                 with open(self.city_info_path) as f:

@@ -18,7 +18,7 @@ raster = Raster(
 )
 g_made2 = Grid(name='Project_NYC',
               location=location_name, project= raster.project, stitch_step=4)
-raster.stitch(4)  # stitch every 16 tiles, (4 columns x 4 rows)
+raster.generate(4)  # stitch every 16 tiles, (4 columns x 4 rows)
 # print(raster.project)
 net = PedNet(polys, g_made2.project)
 net.convert_whole_poly2line()
