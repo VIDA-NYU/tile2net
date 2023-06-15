@@ -117,9 +117,6 @@ class SourceMeta(ABCMeta):
                 raise ValueError(f'{self} name already in use')
             self.catalog[self.name] = self
 
-            # for attr in class_attr.relevant_to(self):
-            #     attr.__get__(None, self)
-
 class Source(ABC, metaclass=SourceMeta):
     name: str = None
     coverage: GeoSeries = None
