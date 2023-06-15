@@ -197,7 +197,9 @@ class ArcGis(Source, ABC):
     @class_attr
     @property
     def layer_info(cls):
-        text = requests.get(cls.metadata).text
+        response = requests.get(cls.metadata)
+        response.raise_for_status()
+        text = response.text
         try:
             res = json.loads(text)
         except json.JSONDecodeError as e:
