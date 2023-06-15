@@ -29,14 +29,20 @@ class SourceMeta(ABCMeta):
     @classmethod
     @property
     def coverage(cls) -> GeoSeries:
-        coverages: list[GeoSeries] = [
-            source.coverage
-            .set_crs('epsg:4326')
-            .set_axis(
-                pd.Index([source.name] * len(source.coverage), name='source'),
-            )
-            for source in cls.catalog.values()
-        ]
+        coverages: list[GeoSeries] = []
+        for source in cls.catalog.values():
+            try:
+                coverage = (
+                    source.coverage
+                    .set_crs('epsg:4326')
+                    .set_axis(pd.Index([source.name] * len(source.coverage), name='source'))
+                )
+            except Exception as e:
+                logger.error(f'Could not get coverage for {source.name}, skipping: {e}')
+                continue
+            else:
+                coverages.append(coverage)
+
         coverage = pd.concat(coverages)
         return coverage
 
@@ -308,6 +314,8 @@ class NewJersey(ArcGis):
 
 if __name__ == '__main__':
     from tile2net import Raster
+
+
     assert Raster(location='New Brunswick, New Jersey').source == 'nj'
     assert Raster(location='New York City').source == 'nyc'
     assert Raster(location='New York').source in ('nyc', 'ny')
@@ -317,9 +325,3 @@ if __name__ == '__main__':
     assert Raster(location='Los Angeles').source == 'la'
     assert Raster(location='Jersey City').source == 'nj'
     assert Raster(location='Hoboken').source == 'nj'
-
-
-
-
-
-
