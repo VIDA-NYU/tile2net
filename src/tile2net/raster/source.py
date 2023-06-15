@@ -197,10 +197,14 @@ class ArcGis(Source, ABC):
     @class_attr
     @property
     def layer_info(cls):
-        res = pipe(
-            requests.get(cls.metadata).text,
-            json.loads,
-        )
+        text = requests.get(cls.metadata).text
+        try:
+            res = json.loads(text)
+        except json.JSONDecodeError as e:
+            logger.error(f'Could not parse JSON from stdin: {e}')
+            logger.error(f'{cls.metadata=}; {cls.server=}')
+            logger.error(f'JSON: {text}')
+            raise
         return res
 
     @class_attr
