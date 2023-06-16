@@ -34,6 +34,8 @@ Maryam Hosseini, Andres Sevtsuk, Fabio Miranda, Roberto M. Cesar Jr, Claudio T. 
 }
 ```
 
+## Updates:
+Tile2Net now supports the whole New Jersey state. You can find the list of supported regions [here](https://github.com/VIDA-NYU/tile2net/blob/main/BASICS.md#supported-regions).
 
 ## Getting Started
 
