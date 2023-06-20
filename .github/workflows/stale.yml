@@ -20,5 +20,8 @@ jobs:
     - uses: actions/stale@v5
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
-        stale-issue-message: "We are closing this issue due to inactivity. If you have any further questions or need assistance, please feel free to reopen the issue. We will be glad to help."
+        stale-issue-message: "We are closing this issue due to inactivity. If you have any further questions or need assistance, please feel free to reopen the issue. We will be glad to help!"
         stale-issue-label: 'no-issue-activity'
+        days-before-stale: 30
+        days-before-close: 5
+        exempt-issue-labels: 'stay-open'
