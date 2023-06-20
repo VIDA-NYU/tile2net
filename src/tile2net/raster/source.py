@@ -118,13 +118,13 @@ class SourceMeta(ABCMeta):
             self.catalog[self.name] = self
 
 class Source(ABC, metaclass=SourceMeta):
-    name: str = None
-    coverage: GeoSeries = None
-    zoom: int = None
+    name: str = None    # name of the source
+    coverage: GeoSeries = None  # coverage that contains a polygon representing the coverage
+    zoom: int = None    # xyz tile zoom level
     extension = 'png'
     tiles: str = None
-    tilesize: int = 256
-    keyword: str
+    tilesize: int = 256 # pixels per tile side
+    keyword: str    # required match when reverse geolocating address from point
 
     def __getitem__(self, item: Iterator[Tile]):
         tiles = self.tiles
