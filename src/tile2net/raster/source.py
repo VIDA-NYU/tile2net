@@ -40,7 +40,8 @@ class SourceMeta(ABCMeta):
                 )
             except Exception as e:
                 logger.error(
-                    f'Could not get coverage for {source.name}, skipping: {e}'
+                    f'Could not get coverage for {source.name}, skipping:\n'
+                    f'{e}'
                 )
             else:
                 coverages.append(coverage)
