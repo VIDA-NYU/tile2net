@@ -16,17 +16,16 @@ try it on is very different from the US context. However, the required training 
 what would otherwise be needed. We are planning to also provide a detailed tutorial about training the model on your
 data, but at this moment, we only support inference.
 
-### Supported Regions 
+### Supported Regions {#supported-regions}
 
-| Country | State/Province  | Entire State/ Province | County Data   | City/Town Data |
-|---------|-----------------|-----------------------|---------------|-----------------|
-| USA     | CA              | FALSE                 |               | LA              |
-| USA     | DC              | TRUE                  |               | DC              |
-| USA     | MA              | TRUE                  |               |                 |
-| USA     | NY              | TRUE                  |               | NYC             |
-| USA     | WA              | FALSE                 | KING          |                 |
-
-
+| Country | State/Province | Entire State/ Province | County Data   | City/Town Data |
+|---------|----------------|-----------------------|---------------|----------------|
+| USA     | CA             | FALSE                 |               | LA             |
+| USA     | DC             | TRUE                  |               | DC             |
+| USA     | MA             | TRUE                  |               |                |
+| USA     | NY             | TRUE                  |               | NYC            |
+| USA     | NJ             | TRUE                  |               |                |
+| USA     | WA             | FALSE                 | KING          |                |
 
 
 ## Basic Concepts:
