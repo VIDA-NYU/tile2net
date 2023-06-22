@@ -24,20 +24,30 @@ if False:
     from tile2net.raster.tile import Tile
 
 class SourceMeta(ABCMeta):
-    catalog: dict[str, Type['Source']] = {}
+    catalog: dict[str, Type[Source]] = {}
 
     @classmethod
     @property
     def coverage(cls) -> GeoSeries:
-        coverages: list[GeoSeries] = [
-            source.coverage
-            .set_crs('epsg:4326')
-            .set_axis(
-                pd.Index([source.name] * len(source.coverage), name='source'),
-            )
-            for source in cls.catalog.values()
-        ]
+        coverages: list[GeoSeries] = []
+        for source in cls.catalog.values():
+            try:
+                axis = pd.Index([source.name] * len(source.coverage), name='source')
+                coverage = (
+                    source.coverage
+                    .set_crs('epsg:4326')
+                    .set_axis(axis)
+                )
+            except Exception as e:
+                logger.error(
+                    f'Could not get coverage for {source.name}, skipping:\n'
+                    f'{e}'
+                )
+            else:
+                coverages.append(coverage)
+
         coverage = pd.concat(coverages)
+        cls.coverage = coverage
         return coverage
 
     def __getitem__(
@@ -53,9 +63,14 @@ class SourceMeta(ABCMeta):
         if isinstance(item, list):
             s, w, n, e = item
             display_name = util.reverse_geocode(item).casefold()
+            # noinspection PyTypeChecker
+            coverage: GeoSeries = SourceMeta.coverage
+            index = set(coverage.index)
             loc = [
-                source.keyword.casefold() in display_name
-                for source in cls.catalog.values()
+                source.name
+                for source in cls.catalog.values() if
+                source.name in index
+                and source.keyword.casefold() in display_name
             ]
             matches = matches.loc[loc]
             if matches.empty:
@@ -111,17 +126,14 @@ class SourceMeta(ABCMeta):
                 raise ValueError(f'{self} name already in use')
             self.catalog[self.name] = self
 
-            # for attr in class_attr.relevant_to(self):
-            #     attr.__get__(None, self)
-
 class Source(ABC, metaclass=SourceMeta):
-    name: str = None
-    coverage: GeoSeries = None
-    zoom: int = None
+    name: str = None  # name of the source
+    coverage: GeoSeries = None  # coverage that contains a polygon representing the coverage
+    zoom: int = None  # xyz tile zoom level
     extension = 'png'
     tiles: str = None
-    tilesize: int = 256
-    keyword: str
+    tilesize: int = 256  # pixels per tile side
+    keyword: str  # required match when reverse geolocating address from point
 
     def __getitem__(self, item: Iterator[Tile]):
         tiles = self.tiles
@@ -197,10 +209,16 @@ class ArcGis(Source, ABC):
     @class_attr
     @property
     def layer_info(cls):
-        res = pipe(
-            requests.get(cls.metadata).text,
-            json.loads,
-        )
+        response = requests.get(cls.metadata)
+        response.raise_for_status()
+        text = response.text
+        try:
+            res = json.loads(text)
+        except json.JSONDecodeError as e:
+            logger.error(f'Could not parse JSON from stdin: {e}')
+            logger.error(f'{cls.metadata=}; {cls.server=}')
+            logger.error(f'JSON: {text}')
+            raise
         return res
 
     @class_attr
@@ -282,6 +300,13 @@ class LosAngeles(ArcGis):
     name = 'la'
     keyword = 'Los Angeles'
 
+    # to test case where a source raises an error due to metadata failure
+    #   other sources should still function
+    # @class_attr
+    # @property
+    # def metadata(cls):
+    #     raise NotImplementedError
+
 class WestOregon(ArcGis, init=False):
     server = 'https://imagery.oregonexplorer.info/arcgis/rest/services/OSIP_2018/OSIP_2018_WM/ImageServer'
     name = 'w_or'
@@ -302,18 +327,13 @@ class NewJersey(ArcGis):
 
 if __name__ == '__main__':
     from tile2net import Raster
+    # when testing, comment out super().
     assert Raster(location='New Brunswick, New Jersey').source == 'nj'
     assert Raster(location='New York City').source == 'nyc'
     assert Raster(location='New York').source in ('nyc', 'ny')
     assert Raster(location='Massachusetts').source == 'ma'
     assert Raster(location='King County, Washington').source == 'king'
-    assert Raster(location='Washington, DC').source == 'dc'
-    assert Raster(location='Los Angeles').source == 'la'
-    assert Raster(location='Jersey City').source == 'nj'
-    assert Raster(location='Hoboken').source == 'nj'
-
-
-
-
-
-
+    assert Raster(location='Washington, DC', zoom=19).source == 'dc'
+    assert Raster(location='Los Angeles', zoom=19).source == 'la'
+    assert Raster(location='Jersey City', zoom=19).source == 'nj'
+    assert Raster(location='Hoboken', zoom=19).source == 'nj'
