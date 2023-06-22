@@ -24,7 +24,7 @@ if False:
     from tile2net.raster.tile import Tile
 
 class SourceMeta(ABCMeta):
-    catalog: dict[str, Type['Source']] = {}
+    catalog: dict[str, Type[Source]] = {}
 
     @classmethod
     @property
@@ -32,18 +32,21 @@ class SourceMeta(ABCMeta):
         coverages: list[GeoSeries] = []
         for source in cls.catalog.values():
             try:
+                axis = pd.Index([source.name] * len(source.coverage), name='source')
                 coverage = (
                     source.coverage
                     .set_crs('epsg:4326')
-                    .set_axis(pd.Index([source.name] * len(source.coverage), name='source'))
+                    .set_axis(axis)
                 )
             except Exception as e:
-                logger.error(f'Could not get coverage for {source.name}, skipping: {e}')
-                continue
+                logger.error(
+                    f'Could not get coverage for {source.name}, skipping: {e}'
+                )
             else:
                 coverages.append(coverage)
 
         coverage = pd.concat(coverages)
+        cls.coverage = coverage
         return coverage
 
     def __getitem__(
@@ -59,9 +62,14 @@ class SourceMeta(ABCMeta):
         if isinstance(item, list):
             s, w, n, e = item
             display_name = util.reverse_geocode(item).casefold()
+            # noinspection PyTypeChecker
+            coverage: GeoSeries = SourceMeta.coverage
+            index = set(coverage.index)
             loc = [
-                source.keyword.casefold() in display_name
-                for source in cls.catalog.values()
+                source.name
+                for source in cls.catalog.values() if
+                source.name in index
+                and source.keyword.casefold() in display_name
             ]
             matches = matches.loc[loc]
             if matches.empty:
@@ -118,13 +126,13 @@ class SourceMeta(ABCMeta):
             self.catalog[self.name] = self
 
 class Source(ABC, metaclass=SourceMeta):
-    name: str = None    # name of the source
+    name: str = None  # name of the source
     coverage: GeoSeries = None  # coverage that contains a polygon representing the coverage
-    zoom: int = None    # xyz tile zoom level
+    zoom: int = None  # xyz tile zoom level
     extension = 'png'
     tiles: str = None
-    tilesize: int = 256 # pixels per tile side
-    keyword: str    # required match when reverse geolocating address from point
+    tilesize: int = 256  # pixels per tile side
+    keyword: str  # required match when reverse geolocating address from point
 
     def __getitem__(self, item: Iterator[Tile]):
         tiles = self.tiles
@@ -291,6 +299,13 @@ class LosAngeles(ArcGis):
     name = 'la'
     keyword = 'Los Angeles'
 
+    # to test case where a source raises an error due to metadata failure
+    #   other sources should still function
+    # @class_attr
+    # @property
+    # def metadata(cls):
+    #     raise NotImplementedError
+
 class WestOregon(ArcGis, init=False):
     server = 'https://imagery.oregonexplorer.info/arcgis/rest/services/OSIP_2018/OSIP_2018_WM/ImageServer'
     name = 'w_or'
@@ -311,14 +326,13 @@ class NewJersey(ArcGis):
 
 if __name__ == '__main__':
     from tile2net import Raster
-
-
+    # when testing, comment out super().
     assert Raster(location='New Brunswick, New Jersey').source == 'nj'
     assert Raster(location='New York City').source == 'nyc'
     assert Raster(location='New York').source in ('nyc', 'ny')
     assert Raster(location='Massachusetts').source == 'ma'
     assert Raster(location='King County, Washington').source == 'king'
-    assert Raster(location='Washington, DC').source == 'dc'
-    assert Raster(location='Los Angeles').source == 'la'
-    assert Raster(location='Jersey City').source == 'nj'
-    assert Raster(location='Hoboken').source == 'nj'
+    assert Raster(location='Washington, DC', zoom=19).source == 'dc'
+    assert Raster(location='Los Angeles', zoom=19).source == 'la'
+    assert Raster(location='Jersey City', zoom=19).source == 'nj'
+    assert Raster(location='Hoboken', zoom=19).source == 'nj'

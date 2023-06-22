@@ -267,16 +267,16 @@ class Raster(Grid):
             self.boundary_path = boundary_path
             self.get_in_boundary(path=boundary_path)
 
-        super().__init__(
-            location=location,
-            name=name,
-            base_tilesize=base_tilesize,
-            zoom=zoom,
-            crs=crs,
-            tile_step=tile_step,
-            padding=padding,
-            output_dir=output_dir,
-        )
+        # super().__init__(
+        #     location=location,
+        #     name=name,
+        #     base_tilesize=base_tilesize,
+        #     zoom=zoom,
+        #     crs=crs,
+        #     tile_step=tile_step,
+        #     padding=padding,
+        #     output_dir=output_dir,
+        # )
 
     def __repr__(self):
         if self.boundary_path != -1:
