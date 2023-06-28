@@ -23,7 +23,9 @@ Tile2Net only supports the PNG image format. More formats may be supported in up
 If tile images that you already have are in TIFF format, they need to be converted to XYZ in PNG.
 To do that you can use QGIS and the “Generate XYZ Tiles (Directory)” tool to do the conversion.
 Once that’s created, you can pass its path implicating the format of the files, e.g. path/to/tiles/z/x/y.ext
-To see an example, check out our [jupyter notebook](examples/inference.ipynb)
+The implicit path can contain the zoom level, e.g. path/to/tiles/z/x/y.ext, or it can be like path/to/tiles/x_y.ext. 
+
+To see an example, check out our [jupyter notebook](examples/inference.ipynb). 
 
 #### Tile Transparency
 
