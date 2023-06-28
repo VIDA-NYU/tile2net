@@ -832,7 +832,19 @@ class Raster(Grid):
         ]
         if eval_folder:
             args.extend(['--eval_folder', str(eval_folder)])
-        subprocess.run(args, check=True)
+        try:
+            subprocess.run(
+                args,
+                check=True, capture_output=True, text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            logger.error(
+                f"Command {e.cmd} returned non-zero exit status {e.returncode}.\n"
+                f"Stdout: {e.stdout}\n"
+                f"Stderr: {e.stderr}"
+            )
+            raise e
+
 
     def __hash__(self):
         return id(self)
