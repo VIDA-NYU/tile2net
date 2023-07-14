@@ -169,7 +169,6 @@ if __name__ == '__main__':
         Tile(7, 8, 9),
     ]
 
-    test = Test('/home/maryam/Documents/Projects/milan/118052/org/z/x/y.png')
     list(test.input_dir(tiles))
     test = Test('input/dir/x/y/z.png')
     test = Test('input/dir/x_y_z.png')
