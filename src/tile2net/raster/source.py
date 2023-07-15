@@ -325,6 +325,11 @@ class NewJersey(ArcGis):
     name = 'nj'
     keyword = 'New Jersey'
 
+class SpringHillTN(ArcGis):
+    server = 'https://tiles.arcgis.com/tiles/tF0XsRR9ptiKNVW2/arcgis/rest/services/Spring_Hill_Imagery_WGS84/MapServer'
+    name = 'sh_tn'
+    keyword = 'Spring Hill'
+
 if __name__ == '__main__':
     from tile2net import Raster
     # when testing, comment out super().
@@ -337,3 +342,4 @@ if __name__ == '__main__':
     assert Raster(location='Los Angeles', zoom=19).source == 'la'
     assert Raster(location='Jersey City', zoom=19).source == 'nj'
     assert Raster(location='Hoboken', zoom=19).source == 'nj'
+    assert Raster(location="Spring Hill, TN", zoom=20).source == "sh_tn"
