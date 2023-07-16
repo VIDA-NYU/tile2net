@@ -374,11 +374,12 @@ class Raster(Grid):
         if not outfiles:
             logger.info(f'All tiles already stitched.')
             return
-        # print(self.project.tiles.static.files)
+        print(self.project.tiles.static.files)
         infiles: np.ndarray = pipe(
             self.tiles,
             self.project.tiles.static.files,
-            toolz.curry(np.fromiter, dtype=object)
+            list,
+            np.array
         )
         indices = np.arange(self.tiles.size).reshape((self.width, self.height))
         indices = (
