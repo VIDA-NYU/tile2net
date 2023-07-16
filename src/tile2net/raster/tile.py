@@ -5,7 +5,7 @@ import skimage
 import shapely
 import geopandas as gpd
 import pyproj
-from shapely.geometry import MultiLineString, Polygon, shape
+from shapely.geometry import Polygon, shape
 from pyproj import Transformer
 from affine import Affine
 import json
@@ -34,7 +34,6 @@ class Tile:
     active: bool = field(default=True, repr=False)
     extension: str = 'png'
 
-
     def __post_init__(self):
         """
         Initialize the tile object
@@ -44,12 +43,12 @@ class Tile:
         self.left = num2deg(self.xtile, self.ytile, self.zoom)[1]  # longitude of top left
 
         self.bottom = \
-        num2deg(self.xtile + self.tile_step, self.ytile + self.tile_step, self.zoom)[
-            0]  # latitude of bottom right
+            num2deg(self.xtile + self.tile_step, self.ytile + self.tile_step, self.zoom)[
+                0]  # latitude of bottom right
 
         self.right = \
-        num2deg(self.xtile + self.tile_step, self.ytile + self.tile_step, self.zoom)[
-            1]  # longitude of bottom right
+            num2deg(self.xtile + self.tile_step, self.ytile + self.tile_step, self.zoom)[
+                1]  # longitude of bottom right
 
         self.im_name = f'{self.xtile}_{self.ytile}.{self.extension}'
         # self.ped_poly = gpd.GeoDataFrame()
@@ -145,7 +144,7 @@ class Tile:
         else:
             # fix the rounding issues in plotting
             poly = Polygon.from_bounds(self.left, self.bottom - 0.00001, self.right,
-                                                  self.top - 0.00001)
+                                       self.top - 0.00001)
         # poly.set_crs(epsg=crs)
         return poly
 
@@ -159,7 +158,6 @@ class Tile:
             poly = self.tile2poly()
         tgdf = gpd.GeoDataFrame(gpd.GeoSeries(poly), columns=['geometry'], crs=self.crs)
         return tgdf
-
 
     def find_tile_neighbors_pos(self, d):
         """Returns the neighbors of a tile
@@ -177,29 +175,34 @@ class Tile:
         return [[self.position[0] + r, self.position[1] + c] for r in range(0, d) for c in
                 range(0, d)]
 
-    def get_metric(self):
+    def get_metric(self, crs: int = 3857):
         """
-        transform tile polygon to metric (3857) coordinate
-        Args:
-            tilepoly(GeoDataframe): the polygon of the tile
-        Returns:
-            the top,left, bottom, right coordinates of the tile
+        transform tile polygon to metric system (3857 by default) coordinate
+        Parameters
+        ----------
+        crs: int
+            the coordinate system in meters to be transformed to. Default is 3857
+        Returns
+        -------
+        left, top, right, bottom: tuple
+            the coordinates of the tile in the metric system
         """
         tilepoly = self.tile2gdf()
-        tilepoly.to_crs(3857, inplace=True)
+        tilepoly.to_crs(crs, inplace=True)
         # geopandas bounds method returns
         left, bottom, right, top = tilepoly.at[0, 'geometry'].bounds
         return left, top, right, bottom
 
-    def get_individual(self, gdf):
+    def get_individual(self, gdf: gpd.GeoDataFrame):
         """Convert all multi-type geometries to single ones
-        multipolygon to polygon
-
-        Arguments
-        ---------
-
-         Returns
+        Parameters
+        ----------
+        gdf: GeoDataFrame
+            the GeoDataFrame to be converted
+        Returns
         -------
+        GeoDataFrame
+            the converted GeoDataFrame
         """
         gdf_new = gdf.explode()
         return gdf_new
@@ -210,17 +213,18 @@ class Tile:
         finds holes in the polygons
         Parameters
         ----------
+        gs: gpd.GeoSeries
+            the GeoSeries of Shapely Polygons to be filled
         max_area: int
             maximum area of holes to be filled
 
         Returns
         -------
-        list
-            list of holes' ids
+        newgeom: list[shapely.geometry.Polygon]
+            list of polygons with holes filled
         """
         newgeom = None
 
-        print('GS', gs)
 
         rings = [i for i in gs["geometry"].interiors]  # List all interior rings
         if len(rings) > 0:  # If there are any rings
@@ -230,10 +234,10 @@ class Tile:
                 newgeom = reduce(lambda geom1, geom2: geom1.union(geom2),
                                  [gs["geometry"]] + to_fill)  # Union the original geometry with all holes
         if newgeom:
-            print("filled holes", newgeom)
+
             return newgeom
         else:
-            # print("no holes to fill", gs)
+
             return gs["geometry"]
 
     @staticmethod
@@ -259,6 +263,12 @@ class Tile:
         ----------
         src_img : str
             path to the image
+        class_name : str
+            name of the class, exp: 'sidewalk'
+        class_id : int
+            the id of the class in the mask
+        class_hole_size : int, optional
+            the maximum area of holes to be filled, by default 25
         img_array : array, optional
             if the image is already read, pass the array to avoid reading it again
         Returns
@@ -276,7 +286,7 @@ class Tile:
         f_class = mask_image[:, :, class_id]
         has_class: bool = np.any(f_class != 0)
         if has_class:
-            geoms_class = self.mask_to_poly_geojson(f_class)
+            geoms_class: gpd.GeoDataFrame = self.mask_to_poly_geojson(f_class)
             geoms_class['geometry'] = geoms_class['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
             geoms_class = geoms_class.set_crs(epsg=str(self.crs))
             geoms_class['f_type'] = class_name
@@ -285,7 +295,8 @@ class Tile:
             if class_hole_size:
                 goems_class = self.to_metric(geoms_class).explode().reset_index(drop=True)
                 goems_class_filtered = geoms_class[~goems_class["geometry"].isna()]
-                goems_class_filtered["geometry"] = goems_class_filtered.apply(self.fill_holes, args=(class_hole_size,), axis=1)
+                goems_class_filtered["geometry"] = \
+                    goems_class_filtered.apply(self.fill_holes, args=(class_hole_size,), axis=1)
                 goems_class_filtered.to_crs(self.crs, inplace=True)
                 return goems_class_filtered
             else:
@@ -293,9 +304,7 @@ class Tile:
         else:
             return False
 
-
-
-    def map_featutres(self, src_img, img_array=True):
+    def map_features(self, src_img, img_array=True):
         """Converts a raster mask to a GeoDataFrame of polygons
         Parameters
         ----------
@@ -318,7 +327,7 @@ class Tile:
         if crosswalks is not False:
             swcw.append(crosswalks)
 
-        roads = self.mask2poly(src_img, 'road', 1, img_array=img_array)
+        roads = self.mask2poly(src_img, 'road', 1, class_hole_size=30, img_array=img_array)
         if roads is not False:
             swcw.append(roads)
         if len(swcw) > 0:
@@ -326,8 +335,7 @@ class Tile:
             rswcw.reset_index(drop=True, inplace=True)
             self.ped_poly = rswcw
 
-
-    def get_region(self, gdf: gpd.GeoDataFrame, spatial_index , crs=3857):
+    def get_region(self, gdf: gpd.GeoDataFrame, spatial_index, crs=3857):
         """
         clips the overlapping region between the dataframe and tile extent
         Args:
@@ -335,6 +343,10 @@ class Tile:
             gdf: the
 
         Returns:
+
+        Parameters
+        ----------
+        spatial_index
 
         """
         tilepoly = self.tile2gdf()
@@ -350,8 +362,8 @@ class Tile:
         else:
             return -1
 
-
-    def preds_to_binary(self, pred_arr, channel_scaling=None, bg_threshold=0):
+    @staticmethod
+    def preds_to_binary(pred_arr, channel_scaling=None, bg_threshold=0):
         """From Solaris
         Convert a set of predictions from a neural net to a binary mask.
 
@@ -393,14 +405,16 @@ class Tile:
                 pred_arr = np.moveaxis(pred_arr, 0, -1)
             if channel_scaling is None:  # if scale values weren't provided
                 channel_scaling = np.ones(shape=(pred_arr.shape[-1]),
-                    dtype='float')
+                                          dtype='float')
             pred_arr = np.sum(pred_arr * np.array(channel_scaling), axis=-1)
 
         mask_arr = (pred_arr > bg_threshold).astype('uint8')
 
         return mask_arr * 255
 
-    def _check_crs(self, input_crs, return_rasterio=False):
+
+    @staticmethod
+    def _check_crs(input_crs, return_rasterio=False):
         """Convert CRS to the ``pyproj.CRS`` object passed by ``solaris``."""
         if not isinstance(input_crs, pyproj.CRS) and input_crs is not None:
             out_crs = pyproj.CRS(input_crs)
@@ -432,10 +446,11 @@ class Tile:
             json.dump(empty_geojson_dict, f)
             f.close()
 
+
     def mask_to_poly_geojson(self, pred_arr, channel_scaling=None, reference_im=None,
-        min_area=20,
-        bg_threshold=0, do_transform=None, simplify=True,
-        tolerance=0.8, **kwargs):
+                             min_area=20,
+                             bg_threshold=0, do_transform=None, simplify=True,
+                             tolerance=0.8, **kwargs):
         """From Solaris
         Get polygons from an image mask.
 
@@ -507,8 +522,8 @@ class Tile:
         mask = mask.astype('uint8')
 
         polygon_generator = features.shapes(mask_arr,
-            transform=transform,
-            mask=mask)
+                                            transform=transform,
+                                            mask=mask)
         polygons = []
         values = []  # pixel values for the polygon in mask_arr
         for polygon, value in polygon_generator:
@@ -520,16 +535,15 @@ class Tile:
                 values.append(value)
 
         polygon_gdf = gpd.GeoDataFrame({'geometry': polygons, 'value': values},
-            crs=crs.to_wkt())
+                                       crs=crs.to_wkt())
         if simplify:
             polygon_gdf['geometry'] = polygon_gdf['geometry'].apply(
                 lambda x: x.simplify(tolerance=tolerance)
             )
 
         return polygon_gdf
-
-
-    def get_geo_transform(self, raster_src):
+    @staticmethod
+    def get_geo_transform(raster_src):
         """From Solaris
         Get the geotransform for a raster image source.
 
@@ -556,7 +570,7 @@ class Tile:
         return affine_obj
 
     def convert_poly_coords(self, geom, raster_src=None, affine_obj=None, inverse=False,
-        precision=None):
+                            precision=None):
         """From Solaris
         Georegister geometry objects currently in pixel coords or vice versa.
 
