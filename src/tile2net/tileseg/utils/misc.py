@@ -368,7 +368,7 @@ class ImageDumper():
                         # save_dir = grid.project.segmentation.path
                         save_dir = os.path.join(cfg.RESULT_DIR, 'seg_results')
                         self.save_dir = save_dir
-                        grid.tiles[grid.pose_dict[int(idd_)]].mask2poly(np.array(prediction_pil), img_array=True)
+                        grid.tiles[grid.pose_dict[int(idd_)]].map_featutres(np.array(prediction_pil), img_array=True)
                         #temporary
                         composited_fn = os.path.join(self.save_dir, composited_fn)
                         composited.save(composited_fn)

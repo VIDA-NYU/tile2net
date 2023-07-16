@@ -184,7 +184,7 @@ class PedNet():
                                     cnl = to_cline(g, 0.3, 1)
                                     tr_line_ = trim_checkempty(cnl, 4.5, 2)
                                     if tr_line_.length < 6:
-                                        extended = self.make_longer(tr_line_, 2 / 3)
+                                        extended = self.make_longer(tr_line_, 3/4)
                                         extended_line = extend_lines(geo2geodf([extended]),
                                                                      tolerance=5,
                                                                      target=geo2geodf([geom.boundary]), extension=0)
@@ -257,7 +257,7 @@ class PedNet():
             elif minpr / geom.length > 0.8:
                 # it is close to a circle
                 # the interpolation distance to be 2/3rd of the minimum circle perimeter
-                cl_arg = math.sqrt(geom.area / math.pi) / 2
+                cl_arg = math.sqrt(geom.area / math.pi) / 3
             else:
                 cl_arg = 0.2
 
@@ -355,8 +355,7 @@ class PedNet():
         points = get_line_sepoints(self.crosswalk)
 
         # query LineString geometry to identify points intersecting 2 geometries
-        # cwgeom = self.crosswalk.geometry.values
-        inp, res = self.crosswalk.sindex.query_bulk(geo2geodf(points).geometry,
+        inp, res = self.crosswalk.sindex.query(geo2geodf(points).geometry,
                                                     predicate="intersects")
         unique, counts = np.unique(inp, return_counts=True)
         ends = np.unique(res[np.isin(inp, unique[counts == 1])])
@@ -450,7 +449,7 @@ class PedNet():
         combined.dropna(inplace=True)
         combined.geometry = combined.geometry.set_crs(3857)
         combined.geometry = combined.geometry.to_crs(4326)
-        combined.dropna(inplace=True)
+        combined = combined[~combined.geometry.isna()]
         combined.reset_index(drop=True, inplace=True)
         path = self.project.network.path
 
