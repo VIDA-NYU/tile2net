@@ -13,6 +13,9 @@ import osmnx as ox
 from dataclasses import dataclass, field
 from functools import cached_property
 from geopy.geocoders import Nominatim
+
+from tile2net.raster.tile_utils.topology import fill_holes
+
 os.environ['USE_PYGEOS'] = '0'
 import geopandas as gpd
 from tile2net.raster.tile import Tile
@@ -20,7 +23,7 @@ from tile2net.raster.tile_utils.genutils import (
     deg2num, num2deg, createfolder,
 )
 from tile2net.raster.tile_utils.geodata_utils import (
-    _reduce_geom_precision, list_to_affine, read_gdf, buff_dfs,
+    _reduce_geom_precision, list_to_affine, read_gdf, buff_dfs, to_metric,
 )
 import logging
 from tile2net.raster.project import Project
@@ -325,17 +328,17 @@ class Grid(BaseGrid):
 
         # How many vertical tiles to cover the bbox (number of rows)
         self.height = (
-            (self.base_height + self.pad['h'])
-            // self.tile_step
-            // self.stitch_step
-            * self.stitch_step
+                (self.base_height + self.pad['h'])
+                // self.tile_step
+                // self.stitch_step
+                * self.stitch_step
         )
         # How many horizontal tiles to cover the bbox (number of columns)
         self.width = (
-            (self.base_width + self.pad['w'])
-            // self.tile_step
-            // self.stitch_step
-            * self.stitch_step
+                (self.base_width + self.pad['w'])
+                // self.tile_step
+                // self.stitch_step
+                * self.stitch_step
         )
 
     def update_tiles(self):
@@ -376,7 +379,6 @@ class Grid(BaseGrid):
                                     for row_idx in np.arange(0, self.height)]
                                    for col_idx in np.arange(0, self.width)])
             self.pose_dict = {tile.idd: tile.position for col in self.tiles for tile in col}
-
 
     @property
     def num_tiles(self):
@@ -568,7 +570,7 @@ class Grid(BaseGrid):
             raster=self,
         )
 
-    def save_ntw_polygon(self, crs: int = 3857):
+    def save_ntw_polygon(self, crs=3857):
         """
         Collects the polygons of all tiles created in the segmentation process
         and saves them as a shapefile
@@ -593,18 +595,17 @@ class Grid(BaseGrid):
         poly_network.reset_index(drop=True, inplace=True)
         poly_network.set_crs(self.crs, inplace=True)
 
-
-        if poly_network.crs != crs:
-            poly_network.to_crs(crs, inplace=True)
-        poly_network.geometry = poly_network.simplify(0.6)
-        unioned = buff_dfs(poly_network, crs)
-        unioned.geometry = unioned.geometry.simplify(0.8)
+        poly_network_metric = to_metric(poly_network)
+        poly_network_metric.geometry = poly_network_metric.simplify(0.6)
+        unioned = buff_dfs(poly_network_metric, crs)
+        unioned.geometry = unioned.geometry.simplify(0.9)
         unioned.dropna(inplace=True)
+        unioned['geometry'] = unioned.apply(fill_holes, args=(25,), axis=1)
         unioned.to_crs(self.crs, inplace=True)
         self.ntw_poly = unioned
-        unioned.to_file(os.path.join(poly_fold, f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}'))
+        unioned.to_file(
+            os.path.join(poly_fold, f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}'))
         logging.info('Polygons are generated and saved!')
-
 
     def prepare_class_gdf(self, class_name: str, crs: int = 3857) -> object:
 

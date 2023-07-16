@@ -250,6 +250,23 @@ def buffer_union_erode(gdf, buff, erode, simp1, simp2, simp3):
 	return gdf_uni
 
 
+def to_metric(gdf, crs=3857):
+	"""Converts a GeoDataFrame to metric (3857) coordinate
+    Parameters
+    ----------
+    gdf : GeoDataFrame
+        GeoDataFrame of polygons
+    crs : int, optional
+        the coordinate system to convert to, by default 3857
+    Returns
+    -------
+    GeoDataFrame
+        GeoDataFrame of polygons in metric coordinate system
+    """
+	gdf.to_crs(crs, inplace=True)
+	return gdf
+
+
 def geo2geodf(geo_lst):
 	"""
 	Converts a list of shapely geometries to a GeoDataFrame

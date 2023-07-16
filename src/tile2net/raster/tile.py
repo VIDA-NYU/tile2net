@@ -15,10 +15,12 @@ from rasterio.transform import from_bounds
 from rasterio import features
 
 from tile2net.raster.tile_utils.genutils import num2deg
-from tile2net.raster.tile_utils.geodata_utils import _reduce_geom_precision, list_to_affine, _check_skimage_im_load
+from tile2net.raster.tile_utils.topology import fill_holes
+from tile2net.raster.tile_utils.geodata_utils import _reduce_geom_precision, list_to_affine, _check_skimage_im_load, \
+    to_metric
 
 from dataclasses import dataclass, field
-from functools import cached_property, reduce
+from functools import cached_property
 
 
 @dataclass
@@ -207,55 +209,6 @@ class Tile:
         gdf_new = gdf.explode()
         return gdf_new
 
-    @staticmethod
-    def fill_holes(gs: gpd.GeoSeries, max_area):
-        """
-        finds holes in the polygons
-        Parameters
-        ----------
-        gs: gpd.GeoSeries
-            the GeoSeries of Shapely Polygons to be filled
-        max_area: int
-            maximum area of holes to be filled
-
-        Returns
-        -------
-        newgeom: list[shapely.geometry.Polygon]
-            list of polygons with holes filled
-        """
-        newgeom = None
-
-
-        rings = [i for i in gs["geometry"].interiors]  # List all interior rings
-        if len(rings) > 0:  # If there are any rings
-            to_fill = [shapely.geometry.Polygon(ring) for ring in rings if
-                       shapely.geometry.Polygon(ring).area < max_area]  # List the ones to fill
-            if len(to_fill) > 0:  # If there are any to fill
-                newgeom = reduce(lambda geom1, geom2: geom1.union(geom2),
-                                 [gs["geometry"]] + to_fill)  # Union the original geometry with all holes
-        if newgeom:
-
-            return newgeom
-        else:
-
-            return gs["geometry"]
-
-    @staticmethod
-    def to_metric(gdf, crs=3857):
-        """Converts a GeoDataFrame to metric (3857) coordinate
-        Parameters
-        ----------
-        gdf : GeoDataFrame
-            GeoDataFrame of polygons
-        crs : int, optional
-            the coordinate system to convert to, by default 3857
-        Returns
-        -------
-        GeoDataFrame
-            GeoDataFrame of polygons in metric coordinate system
-        """
-        gdf.to_crs(crs, inplace=True)
-        return gdf
 
     def mask2poly(self, src_img, class_name, class_id, class_hole_size=25, img_array=None):
         """Converts a raster mask to a GeoDataFrame of polygons
@@ -292,11 +245,12 @@ class Tile:
             geoms_class['f_type'] = class_name
             geoms_class = geoms_class[geoms_class['geometry'].notna()]
             geoms_class = geoms_class[geoms_class['geometry'].apply(lambda x: x.is_valid)]
-            if class_hole_size:
-                goems_class = self.to_metric(geoms_class).explode().reset_index(drop=True)
-                goems_class_filtered = geoms_class[~goems_class["geometry"].isna()]
+            if class_hole_size is not None:
+                print(f"filling holes for {class_name}")
+                goems_class_met = to_metric(geoms_class).explode().reset_index(drop=True)
+                goems_class_filtered = goems_class_met[~goems_class_met["geometry"].isna()]
                 goems_class_filtered["geometry"] = \
-                    goems_class_filtered.apply(self.fill_holes, args=(class_hole_size,), axis=1)
+                    goems_class_filtered.apply(fill_holes, args=(class_hole_size,), axis=1)
                 goems_class_filtered.to_crs(self.crs, inplace=True)
                 return goems_class_filtered
             else:
