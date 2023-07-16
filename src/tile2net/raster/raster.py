@@ -374,6 +374,7 @@ class Raster(Grid):
         if not outfiles:
             logger.info(f'All tiles already stitched.')
             return
+
         infiles: np.ndarray = pipe(
             self.tiles,
             self.project.tiles.static.files,

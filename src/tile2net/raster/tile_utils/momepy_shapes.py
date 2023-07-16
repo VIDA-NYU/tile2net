@@ -27,6 +27,8 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
+#!/usr/bin/env python
+
 # shape.py
 # definitions of shape characters
 
@@ -35,6 +37,7 @@ import random
 
 import numpy as np
 import pandas as pd
+import shapely
 from shapely.geometry import Point
 from tqdm.auto import tqdm  # progress bar
 
@@ -55,7 +58,6 @@ __all__ = [
     "CentroidCorners",
     "Linearity",
     "CompactnessWeightedAxis",
-    "LongestAxisLength",
 ]
 
 
@@ -342,10 +344,10 @@ def _make_circle(points):
 
 def _make_circle_one_point(points, p):
     """One boundary point known."""
-    c = (p[0], p[1], 0.0)
+    c = (p[0], p[1], 0)
     for i, q in enumerate(points):
         if not _is_in_circle(c, q):
-            if c[2] == 0.0:
+            if c[2] == 0:
                 c = _make_diameter(p, q)
             else:
                 c = _make_circle_two_points(points[: i + 1], p, q)
@@ -370,13 +372,13 @@ def _make_circle_two_points(points, p, q):
         c = _make_circumcircle(p, q, r)
         if c is None:
             continue
-        elif cross > 0.0 and (
+        elif cross > 0 and (
             left is None
             or _cross_product(px, py, qx, qy, c[0], c[1])
             > _cross_product(px, py, qx, qy, left[0], left[1])
         ):
             left = c
-        elif cross < 0.0 and (
+        elif cross < 0 and (
             right is None
             or _cross_product(px, py, qx, qy, c[0], c[1])
             < _cross_product(px, py, qx, qy, right[0], right[1])
@@ -400,16 +402,16 @@ def _make_circumcircle(p0, p1, p2):
     ax, ay = p0
     bx, by = p1
     cx, cy = p2
-    ox = (min(ax, bx, cx) + max(ax, bx, cx)) / 2.0
-    oy = (min(ay, by, cy) + max(ay, by, cy)) / 2.0
+    ox = (min(ax, bx, cx) + max(ax, bx, cx)) / 2
+    oy = (min(ay, by, cy) + max(ay, by, cy)) / 2
     ax -= ox
     ay -= oy
     bx -= ox
     by -= oy
     cx -= ox
     cy -= oy
-    d = (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by)) * 2.0
-    if d == 0.0:
+    d = (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by)) * 2
+    if d == 0:
         return None
     x = (
         ox
@@ -436,8 +438,8 @@ def _make_circumcircle(p0, p1, p2):
 
 
 def _make_diameter(p0, p1):
-    cx = (p0[0] + p1[0]) / 2.0
-    cy = (p0[1] + p1[1]) / 2.0
+    cx = (p0[0] + p1[0]) / 2
+    cy = (p0[1] + p1[1]) / 2
     r0 = math.hypot(cx - p0[0], cy - p0[1])
     r1 = math.hypot(cx - p1[0], cy - p1[1])
     return (cx, cy, max(r0, r1))
@@ -736,7 +738,6 @@ class Rectangularity:
     """
 
     def __init__(self, gdf, areas=None):
-        # TODO: vectorize minimum_rotated_rectangle after pygeos implementation
         self.gdf = gdf
         gdf = gdf.copy()
         if areas is None:
@@ -745,10 +746,9 @@ class Rectangularity:
             gdf["mm_a"] = areas
             areas = "mm_a"
         self.areas = gdf[areas]
-        self.series = gdf.apply(
-            lambda row: row[areas] / (row.geometry.minimum_rotated_rectangle.area),
-            axis=1,
-        )
+        mrr = shapely.minimum_rotated_rectangle(gdf.geometry.array)
+        mrr_area = shapely.area(mrr)
+        self.series = gdf[areas] / mrr_area
 
 
 class ShapeIndex:
@@ -863,7 +863,7 @@ class Corners:
 
         # fill new column with the value of area, iterating over rows one by one
         for geom in tqdm(gdf.geometry, total=gdf.shape[0], disable=not verbose):
-            if geom.type == "Polygon":
+            if geom.geom_type == "Polygon":
                 corners = 0  # define empty variables
                 points = list(geom.exterior.coords)  # get points of a shape
                 stop = len(points) - 1  # define where to stop
@@ -891,7 +891,7 @@ class Corners:
                             corners = corners + 1
                         else:
                             continue
-            elif geom.type == "MultiPolygon":
+            elif geom.geom_type == "MultiPolygon":
                 corners = 0  # define empty variables
                 for g in geom.geoms:
                     points = list(g.exterior.coords)  # get points of a shape
@@ -979,7 +979,7 @@ class Squareness:
 
         # fill new column with the value of area, iterating over rows one by one
         for geom in tqdm(gdf.geometry, total=gdf.shape[0], disable=not verbose):
-            if geom.type == "Polygon":
+            if geom.geom_type == "Polygon":
                 angles = []
                 points = list(geom.exterior.coords)  # get points of a shape
                 stop = len(points) - 1  # define where to stop
@@ -1080,8 +1080,7 @@ class EquivalentRectangularIndex:
                 areas = gdf[areas]
 
         self.areas = areas
-        # TODO: vectorize minimum_rotated_rectangle after pygeos implementation
-        bbox = gdf.geometry.apply(lambda g: g.minimum_rotated_rectangle)
+        bbox = shapely.minimum_rotated_rectangle(gdf.geometry)
         res = np.sqrt(areas / bbox.area) * (bbox.length / perimeters)
 
         self.series = pd.Series(res, index=gdf.index)
@@ -1122,8 +1121,7 @@ class Elongation:
     def __init__(self, gdf):
         self.gdf = gdf
 
-        # TODO: vectorize minimum_rotated_rectangle after pygeos implementation
-        bbox = gdf.geometry.apply(lambda g: g.minimum_rotated_rectangle)
+        bbox = shapely.minimum_rotated_rectangle(gdf.geometry)
         a = bbox.area
         p = bbox.length
         cond1 = p**2
@@ -1206,7 +1204,7 @@ class CentroidCorners:
 
         # iterating over rows one by one
         for geom in tqdm(gdf.geometry, total=gdf.shape[0], disable=not verbose):
-            if geom.type == "Polygon":
+            if geom.geom_type == "Polygon":
                 distances = []  # set empty list of distances
                 centroid = geom.centroid  # define centroid
                 points = list(geom.exterior.coords)  # get points of a shape
@@ -1299,7 +1297,7 @@ class Linearity:
 
         euclidean = gdf.geometry.apply(
             lambda geom: self._dist(geom.coords[0], geom.coords[-1])
-            if geom.type == "LineString"
+            if geom.geom_type == "LineString"
             else np.nan
         )
         self.series = euclidean / gdf.geometry.length
@@ -1307,34 +1305,6 @@ class Linearity:
     def _dist(self, a, b):
         return math.hypot(b[0] - a[0], b[1] - a[1])
 
-class LongestAxisLength:
-    """
-    Calculates the length of the longest axis of object. Axis is defined as a
-    diameter of minimal circumscribed circle around the convex hull. It does
-    not have to be fully inside an object.
-    .. math::
-        \\max \\left\\{d_{1}, d_{2}, \\ldots, d_{n}\\right\\}
-    Parameters
-    ----------
-    gdf : GeoDataFrame
-        A GeoDataFrame containing objects to analyse.
-    Attributes
-    ----------
-    series : Series
-        A Series containing resulting values.
-    gdf : GeoDataFrame
-        The original GeoDataFrame.
-    Examples
-    --------
-    >>> buildings['lal'] = momepy.LongestAxisLength(buildings).series
-    >>> buildings.lal[0]
-    40.2655616057102
-    """
-
-    def __init__(self, gdf):
-        self.gdf = gdf
-        hulls = gdf.geometry.convex_hull.exterior
-        self.series = hulls.apply(lambda g: _circle_radius(list(g.coords))) * 2
 
 class CompactnessWeightedAxis:
     """
@@ -1379,9 +1349,6 @@ class CompactnessWeightedAxis:
     Examples
     --------
     >>> blocks_df['cwa'] = mm.CompactnessWeightedAxis(blocks_df).series
-
-
-
     """
 
     def __init__(self, gdf, areas=None, perimeters=None, longest_axis=None):
@@ -1397,6 +1364,7 @@ class CompactnessWeightedAxis:
                 perimeters = "mm_p"
         self.perimeters = gdf[perimeters]
         if longest_axis is None:
+            from momepy.dimension import LongestAxisLength
 
             gdf["mm_la"] = LongestAxisLength(gdf).series
             longest_axis = "mm_la"
@@ -1416,3 +1384,4 @@ class CompactnessWeightedAxis:
             * ((4 / np.pi) - (16 * gdf[areas]) / ((gdf[perimeters]) ** 2)),
             index=gdf.index,
         )
+

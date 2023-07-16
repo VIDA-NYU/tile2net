@@ -47,9 +47,8 @@ def replace_straight_polys(gdf, convex=0.8, compact=0.2):
     # find the straight polygons
     straights = gdf[(gdf.convexity > convex) & (gdf.comp < compact)].copy()
     # replace them with the minimum bounding box
-    gdf.loc[straights.index, 'geometry'] = [g.minimum_rotated_geotangle for g in straights]
+    gdf.loc[straights.index, 'geometry'] = [g.minimum_rotated_rectangle for g in straights.geometry]
     return gdf
-
 
 def draw_middle(geom):
     """
@@ -76,7 +75,6 @@ def draw_middle(geom):
         cp4 = lin4.centroid
         cntl = LineString([Point(cp3), Point(cp4)])
         return cntl
-
 
 def get_line_sepoints(line_gdf):
     '''Get the start and end points of lines
@@ -312,116 +310,6 @@ def create_split(ps, pol):
 
     return splited1, splited2, new_l1, new_l2
 
-
-def get_splited(ps, pol):
-    '''
-    ps: the list of 3 shapely points forming the right angle
-    pol: the shapely polygon
-
-    returns:
-    the splited geometry and its spliting line
-    '''
-
-    splited_1, splited_2, new_l1, new_l2 = create_split(ps, pol)
-
-    #     if max([g.area for g in splited1])>= max([g.area for g in splited2]):
-    # why the largest one? maybe the one that results in a more rectangular parts
-
-    if len(splited_1) > 1 and len(splited_2) > 1:
-
-        areas1 = [s.area for s in splited_1]
-        areas2 = [s.area for s in splited_2]
-
-        splited1_ = [i for i in splited_1]
-        splited2_ = [i for i in splited_2]
-
-        splited1 = [x for _, x in sorted(zip(areas1, splited1_))]
-        splited2 = [x for _, x in sorted(zip(areas2, splited2_))]
-
-        relational2 = abs(momepy.Orientation(new_l2).series[0] - momepy.Orientation(geo2geodf([splited2[1]])).series[0])
-        relational1 = abs(momepy.Orientation(new_l1).series[0] - momepy.Orientation(geo2geodf([splited1[1]])).series[0])
-
-        if new_l1.iloc[0, 0].length - new_l2.iloc[0, 0].length > 10:
-
-            if relational1 < 7 or ((relational1 > 85) and (relational1 < 95)):
-                return splited1, new_l1
-            else:
-                if relational2 < 7 or ((relational2 > 85) and (relational2 < 95)):
-                    return splited2, new_l2
-
-                else:
-                    return -1, -1
-
-        elif new_l2.iloc[0, 0].length - new_l1.iloc[0, 0].length > 10:
-            if (relational2 < 7) or ((relational2 > 85) and (relational2 < 95)):
-                return splited2, new_l2
-            else:
-                if relational1 < 7 or ((relational1 > 85) and (relational1 < 95)):
-                    return splited1, new_l1
-
-                else:
-                    return -1, -1
-
-        else:
-
-            if splited1[-2].area >= splited2[-2].area:
-
-                if momepy.Elongation(geo2geodf([splited1[-2]])).series[0] <= \
-                        momepy.Elongation(geo2geodf([splited2[-2]])).series[0]:
-                    return splited1, new_l1
-
-                elif momepy.Convexity(geo2geodf([splited1[-2]])).series[0] >= \
-                        momepy.Convexity(geo2geodf([splited2[-2]])).series[0]:
-                    return splited1, new_l1
-
-                else:
-                    return splited2, new_l2
-            else:
-                if momepy.Elongation(geo2geodf([splited2[-2]])).series[0] <= \
-                        momepy.Elongation(geo2geodf([splited1[-2]])).series[0]:
-                    return splited2, new_l2
-
-                elif momepy.Convexity(geo2geodf([splited2[-2]])).series[0] >= \
-                        momepy.Convexity(geo2geodf([splited1[-2]])).series[0]:
-                    return splited2, new_l2
-                else:
-                    return splited1, new_l1
-
-    else:
-
-        if len(splited_1) == 1 and len(splited_2) == 1:
-            return -1, -1
-        else:
-            if len(splited_2) > 1:
-
-                areas2 = [s.area for s in splited_2]
-
-                splited2_ = [i for i in splited_2]
-
-                splited2 = [x for _, x in sorted(zip(areas2, splited2_))]
-
-                relational2 = abs(
-                    momepy.Orientation(new_l2).series[0] - momepy.Orientation(geo2geodf([splited2[-2]])).series[0])
-
-                if (relational2 > 7) and ((relational2 < 85) or (relational2 > 95)):
-                    return -1, -1
-                else:
-                    return splited2, new_l2
-
-            else:
-
-                areas1 = [s.area for s in splited_1]
-
-                splited1_ = [i for i in splited_1]
-
-                splited1 = [x for _, x in sorted(zip(areas1, splited1_))]
-                relational1 = abs(
-                    momepy.Orientation(new_l1).series[0] - momepy.Orientation(geo2geodf([splited1[-2]])).series[0])
-
-                if (relational1 > 7) and ((relational1 < 85) or (relational1 > 95)):
-                    return -1, -1
-                else:
-                    return splited1, new_l1
 
 
 def get_angles(vec_1, vec_2):

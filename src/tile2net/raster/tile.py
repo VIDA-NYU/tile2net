@@ -1,18 +1,14 @@
 import os
-from functools import cached_property
-import time
-from typing import  Optional
 import numpy as np
 import pandas as pd
 import skimage
 import shapely
 import geopandas as gpd
 import pyproj
-from shapely.geometry import MultiLineString, Polygon, shape
+from shapely.geometry import Polygon, shape
 from pyproj import Transformer
 from affine import Affine
 import json
-import requests
 from PIL import Image
 import rasterio
 from rasterio.transform import from_bounds
@@ -22,7 +18,7 @@ from tile2net.raster.tile_utils.genutils import num2deg
 from tile2net.raster.tile_utils.geodata_utils import _reduce_geom_precision, list_to_affine, _check_skimage_im_load
 
 from dataclasses import dataclass, field
-from typing import Union
+from functools import cached_property, reduce
 
 
 @dataclass
@@ -38,7 +34,6 @@ class Tile:
     active: bool = field(default=True, repr=False)
     extension: str = 'png'
 
-
     def __post_init__(self):
         """
         Initialize the tile object
@@ -48,12 +43,12 @@ class Tile:
         self.left = num2deg(self.xtile, self.ytile, self.zoom)[1]  # longitude of top left
 
         self.bottom = \
-        num2deg(self.xtile + self.tile_step, self.ytile + self.tile_step, self.zoom)[
-            0]  # latitude of bottom right
+            num2deg(self.xtile + self.tile_step, self.ytile + self.tile_step, self.zoom)[
+                0]  # latitude of bottom right
 
         self.right = \
-        num2deg(self.xtile + self.tile_step, self.ytile + self.tile_step, self.zoom)[
-            1]  # longitude of bottom right
+            num2deg(self.xtile + self.tile_step, self.ytile + self.tile_step, self.zoom)[
+                1]  # longitude of bottom right
 
         self.im_name = f'{self.xtile}_{self.ytile}.{self.extension}'
         # self.ped_poly = gpd.GeoDataFrame()
@@ -87,91 +82,6 @@ class Tile:
         bottom_new, right_new = transformer.transform(self.bottom, self.right)
         return top_new, left_new, bottom_new, right_new
 
-    def setcrs(self, crs):
-        pass
-
-    def get_download_link(self, location_abr: str) -> Optional[str]:
-        """
-        Get the download link for the tile
-        Parameters
-        ----------
-        location_abr: str
-            Abbreviation of the location
-
-        Returns
-        -------
-        Optional[str]
-            The download link for the tile
-        """
-        # TODO: add support to check whether the data exists
-        # TODO: add support to report the imagery capture date (this is easy)
-        # remove any whitespaces added by mistake
-        location = location_abr.strip().lower()
-
-        # map all possible variations to standardized names
-        location_map = {
-            'new york city': 'nyc',
-            'new york': 'ny',
-            'los angles': 'la',
-            'wshington dc': 'dc'
-        }
-        location = location_map.get(location, location)
-        top, left, bottom, right = None, None, None, None
-        if location == 'dc':
-            assert self.base_tilesize < 512, f'Washington DC base tile size is 512, your tile size ({self.base_tilesize}) ' \
-                                             f'is not compatible,  '
-
-            top, left, bottom, right = self.transformProject(self.crs, 3857)
-
-        dl_links = {
-            'nyc': f"https://tiles.arcgis.com/tiles/yG5s3afENB5iO9fj/arcgis/rest/services/"
-                   f"NYC_Orthos_-_2020/MapServer/tile/{self.zoom}/{self.ytile}/{self.xtile}",
-            'ny': f"https://orthos.its.ny.gov/arcgis/rest/services/wms/2020/MapServer/tile/"
-                  f"{self.zoom}/{self.ytile}/{self.xtile}",
-            'ma': f"https://tiles.arcgis.com/tiles/hGdibHYSPO59RG1h/arcgis/rest/services/USGS_Orthos_2019/"
-                  f"MapServer/tile/{self.zoom}/{self.ytile}/{self.xtile}",
-            'kings': f"https://gismaps.kingcounty.gov/arcgis/rest/services/BaseMaps/KingCo_Aerial_2021/"
-                     f"MapServer/tile/{self.zoom}/{self.ytile}/{self.xtile}",
-            'la': f'https://cache.gis.lacounty.gov/cache/rest/services/LACounty_Cache/LACounty_Aerial_2014/'
-                  f'MapServer/tile/{self.zoom}/{self.xtile}/{self.ytile}',
-            'dc': f'https://imagery.dcgis.dc.gov/dcgis/rest/services/Ortho/Ortho_2021/ImageServer'
-                  f'/exportImage?f=image&bbox={bottom}%2C{right}%2C{top}%2C{left}'
-                  f'&imageSR=102100&bboxSR=102100&size=512%2C512'
-
-        }
-        return dl_links.get(location, None)
-
-    def dl_me(self, dest, source):
-        """
-        Download the tile
-        Parameters
-        ----------
-        dest: str
-        source: str
-
-        Returns
-        -------
-        bool:
-            True if the tile was downloaded successfully, False otherwise
-        """
-        output_name = f'{self.xtile}_{self.ytile}_{self.idd}.png'
-        output_path = os.path.join(dest, output_name)
-        time.sleep(1)  # Wait 1 second as to not overload the server
-        url = self.get_download_link(location_abr=source)
-        if url:
-            resp = requests.get(url)
-            # print("Received {} for {}".format(resp.status_code, url))
-            if resp.status_code == 200:
-                with open(output_path, "wb") as f:
-                    f.write(resp.content)
-                return True
-            else:
-                print(f"{resp.content}_File could not be written")
-                return False
-        else:
-            return False
-
-    # @property
     def setLatlon(self):
         """Sets the lat and long of the topleft and bottomright of the tile
         Arguments
@@ -234,7 +144,7 @@ class Tile:
         else:
             # fix the rounding issues in plotting
             poly = Polygon.from_bounds(self.left, self.bottom - 0.00001, self.right,
-                                                  self.top - 0.00001)
+                                       self.top - 0.00001)
         # poly.set_crs(epsg=crs)
         return poly
 
@@ -248,7 +158,6 @@ class Tile:
             poly = self.tile2poly()
         tgdf = gpd.GeoDataFrame(gpd.GeoSeries(poly), columns=['geometry'], crs=self.crs)
         return tgdf
-
 
     def find_tile_neighbors_pos(self, d):
         """Returns the neighbors of a tile
@@ -266,34 +175,136 @@ class Tile:
         return [[self.position[0] + r, self.position[1] + c] for r in range(0, d) for c in
                 range(0, d)]
 
-    def get_metric(self):
+    def get_metric(self, crs: int = 3857):
         """
-        transform tile polygon to metric (3857) coordinate
-        Args:
-            tilepoly(GeoDataframe): the polygon of the tile
-        Returns:
-            the top,left, bottom, right coordinates of the tile
+        transform tile polygon to metric system (3857 by default) coordinate
+        Parameters
+        ----------
+        crs: int
+            the coordinate system in meters to be transformed to. Default is 3857
+        Returns
+        -------
+        left, top, right, bottom: tuple
+            the coordinates of the tile in the metric system
         """
         tilepoly = self.tile2gdf()
-        tilepoly.to_crs(3857, inplace=True)
+        tilepoly.to_crs(crs, inplace=True)
         # geopandas bounds method returns
         left, bottom, right, top = tilepoly.at[0, 'geometry'].bounds
         return left, top, right, bottom
 
-    def get_individual(self, gdf):
+    def get_individual(self, gdf: gpd.GeoDataFrame):
         """Convert all multi-type geometries to single ones
-        multipolygon to polygon
-
-        Arguments
-        ---------
-
-         Returns
+        Parameters
+        ----------
+        gdf: GeoDataFrame
+            the GeoDataFrame to be converted
+        Returns
         -------
+        GeoDataFrame
+            the converted GeoDataFrame
         """
         gdf_new = gdf.explode()
         return gdf_new
 
-    def mask2poly(self, src_img, img_array=None):
+    @staticmethod
+    def fill_holes(gs: gpd.GeoSeries, max_area):
+        """
+        finds holes in the polygons
+        Parameters
+        ----------
+        gs: gpd.GeoSeries
+            the GeoSeries of Shapely Polygons to be filled
+        max_area: int
+            maximum area of holes to be filled
+
+        Returns
+        -------
+        newgeom: list[shapely.geometry.Polygon]
+            list of polygons with holes filled
+        """
+        newgeom = None
+
+
+        rings = [i for i in gs["geometry"].interiors]  # List all interior rings
+        if len(rings) > 0:  # If there are any rings
+            to_fill = [shapely.geometry.Polygon(ring) for ring in rings if
+                       shapely.geometry.Polygon(ring).area < max_area]  # List the ones to fill
+            if len(to_fill) > 0:  # If there are any to fill
+                newgeom = reduce(lambda geom1, geom2: geom1.union(geom2),
+                                 [gs["geometry"]] + to_fill)  # Union the original geometry with all holes
+        if newgeom:
+
+            return newgeom
+        else:
+
+            return gs["geometry"]
+
+    @staticmethod
+    def to_metric(gdf, crs=3857):
+        """Converts a GeoDataFrame to metric (3857) coordinate
+        Parameters
+        ----------
+        gdf : GeoDataFrame
+            GeoDataFrame of polygons
+        crs : int, optional
+            the coordinate system to convert to, by default 3857
+        Returns
+        -------
+        GeoDataFrame
+            GeoDataFrame of polygons in metric coordinate system
+        """
+        gdf.to_crs(crs, inplace=True)
+        return gdf
+
+    def mask2poly(self, src_img, class_name, class_id, class_hole_size=25, img_array=None):
+        """Converts a raster mask to a GeoDataFrame of polygons
+        Parameters
+        ----------
+        src_img : str
+            path to the image
+        class_name : str
+            name of the class, exp: 'sidewalk'
+        class_id : int
+            the id of the class in the mask
+        class_hole_size : int, optional
+            the maximum area of holes to be filled, by default 25
+        img_array : array, optional
+            if the image is already read, pass the array to avoid reading it again
+        Returns
+        -------
+        geoms : GeoDataFrame
+            GeoDataFrame of polygons
+        """
+        if img_array:
+            mask_image = src_img
+        else:
+            mask_image = skimage.io.imread(os.path.join(src_img, f'{self.im_name}'))
+        # using the masks defined here, the sidewalks are blue and hence index 2(3rd position in RGB)
+        # sidewalks
+        tfm_ = self.tfm
+        f_class = mask_image[:, :, class_id]
+        has_class: bool = np.any(f_class != 0)
+        if has_class:
+            geoms_class: gpd.GeoDataFrame = self.mask_to_poly_geojson(f_class)
+            geoms_class['geometry'] = geoms_class['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
+            geoms_class = geoms_class.set_crs(epsg=str(self.crs))
+            geoms_class['f_type'] = class_name
+            geoms_class = geoms_class[geoms_class['geometry'].notna()]
+            geoms_class = geoms_class[geoms_class['geometry'].apply(lambda x: x.is_valid)]
+            if class_hole_size:
+                goems_class = self.to_metric(geoms_class).explode().reset_index(drop=True)
+                goems_class_filtered = geoms_class[~goems_class["geometry"].isna()]
+                goems_class_filtered["geometry"] = \
+                    goems_class_filtered.apply(self.fill_holes, args=(class_hole_size,), axis=1)
+                goems_class_filtered.to_crs(self.crs, inplace=True)
+                return goems_class_filtered
+            else:
+                return geoms_class
+        else:
+            return False
+
+    def map_features(self, src_img, img_array=True):
         """Converts a raster mask to a GeoDataFrame of polygons
         Parameters
         ----------
@@ -307,66 +318,52 @@ class Tile:
             GeoDataFrame of polygons
         """
         swcw = []
-        if img_array:
-            mask_image = src_img
-        else:
-            mask_image = skimage.io.imread(os.path.join(src_img, f'{self.im_name}'))
-        # using the masks defined here, the sidewalks are blue and hence index 2(3rd position in RGB)
-        # sidewalks
-        tfm_ = self.tfm
-        sidewalk = mask_image[:, :, 2]
-        geoms_sw = self.mask_to_poly_geojson(sidewalk)
-        geoms_sw['geometry'] = geoms_sw['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
-        geoms_sw = geoms_sw.set_crs(epsg=str(self.crs))
-        geoms_sw['f_type'] = 'sidewalk'
-        swcw.append(geoms_sw)
 
-        # crosswalks
-        cw = mask_image[:, :, 0]  # red channel
-        geoms_cw = self.mask_to_poly_geojson(cw)
-        geoms_cw = geoms_cw.set_crs(epsg=str(self.crs))
-        geoms_cw['geometry'] = geoms_cw['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
-        geoms_cw['f_type'] = 'crosswalk'
-        swcw.append(geoms_cw)
+        sidewalks = self.mask2poly(src_img, 'sidewalk', 2, img_array=img_array)
+        if sidewalks is not False:
+            swcw.append(sidewalks)
 
-        # Roads
-        rd = mask_image[:, :, 1]  # green channel
-        geoms_rd = self.mask_to_poly_geojson(rd)
-        geoms_rd = geoms_rd.set_crs(epsg=str(self.crs))
-        geoms_rd['geometry'] = geoms_rd['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
-        geoms_rd['f_type'] = 'road'
-        swcw.append(geoms_rd)
+        crosswalks = self.mask2poly(src_img, 'crosswalk', 0, img_array=img_array)
+        if crosswalks is not False:
+            swcw.append(crosswalks)
 
-        rswcw = pd.concat(swcw)
-        rswcw.reset_index(drop=True, inplace=True)
-        self.ped_poly = rswcw
-        return swcw
+        roads = self.mask2poly(src_img, 'road', 1, class_hole_size=30, img_array=img_array)
+        if roads is not False:
+            swcw.append(roads)
+        if len(swcw) > 0:
+            rswcw = pd.concat(swcw)
+            rswcw.reset_index(drop=True, inplace=True)
+            self.ped_poly = rswcw
 
-    def get_region(self, df, spatial_index):
+    def get_region(self, gdf: gpd.GeoDataFrame, spatial_index, crs=3857):
         """
         clips the overlapping region between the dataframe and tile extent
         Args:
             tile: the tile object to overlay
-            df: the
+            gdf: the
 
         Returns:
 
+        Parameters
+        ----------
+        spatial_index
+
         """
         tilepoly = self.tile2gdf()
-        df.to_crs(tilepoly.crs, inplace=True)
+        gdf.to_crs(tilepoly.crs, inplace=True)
         # fix rounding issues
         possible_matches_index = list(spatial_index.intersection(tilepoly.at[0, 'geometry'].bounds))
 
-        possible_matches = df.iloc[possible_matches_index]
+        possible_matches = gdf.iloc[possible_matches_index]
         region = gpd.clip(possible_matches, tilepoly)
-        region.to_crs(epsg=3857, inplace=True)
+        region.to_crs(crs, inplace=True)
         if len(region) > 0:
             return region
         else:
             return -1
 
-
-    def preds_to_binary(self, pred_arr, channel_scaling=None, bg_threshold=0):
+    @staticmethod
+    def preds_to_binary(pred_arr, channel_scaling=None, bg_threshold=0):
         """From Solaris
         Convert a set of predictions from a neural net to a binary mask.
 
@@ -408,14 +405,16 @@ class Tile:
                 pred_arr = np.moveaxis(pred_arr, 0, -1)
             if channel_scaling is None:  # if scale values weren't provided
                 channel_scaling = np.ones(shape=(pred_arr.shape[-1]),
-                    dtype='float')
+                                          dtype='float')
             pred_arr = np.sum(pred_arr * np.array(channel_scaling), axis=-1)
 
         mask_arr = (pred_arr > bg_threshold).astype('uint8')
 
         return mask_arr * 255
 
-    def _check_crs(self, input_crs, return_rasterio=False):
+
+    @staticmethod
+    def _check_crs(input_crs, return_rasterio=False):
         """Convert CRS to the ``pyproj.CRS`` object passed by ``solaris``."""
         if not isinstance(input_crs, pyproj.CRS) and input_crs is not None:
             out_crs = pyproj.CRS(input_crs)
@@ -447,10 +446,11 @@ class Tile:
             json.dump(empty_geojson_dict, f)
             f.close()
 
+
     def mask_to_poly_geojson(self, pred_arr, channel_scaling=None, reference_im=None,
-        min_area=40,
-        bg_threshold=0, do_transform=None, simplify=True,
-        tolerance=0.8, **kwargs):
+                             min_area=20,
+                             bg_threshold=0, do_transform=None, simplify=True,
+                             tolerance=0.8, **kwargs):
         """From Solaris
         Get polygons from an image mask.
 
@@ -522,8 +522,8 @@ class Tile:
         mask = mask.astype('uint8')
 
         polygon_generator = features.shapes(mask_arr,
-            transform=transform,
-            mask=mask)
+                                            transform=transform,
+                                            mask=mask)
         polygons = []
         values = []  # pixel values for the polygon in mask_arr
         for polygon, value in polygon_generator:
@@ -535,16 +535,15 @@ class Tile:
                 values.append(value)
 
         polygon_gdf = gpd.GeoDataFrame({'geometry': polygons, 'value': values},
-            crs=crs.to_wkt())
+                                       crs=crs.to_wkt())
         if simplify:
             polygon_gdf['geometry'] = polygon_gdf['geometry'].apply(
                 lambda x: x.simplify(tolerance=tolerance)
             )
 
         return polygon_gdf
-
-
-    def get_geo_transform(self, raster_src):
+    @staticmethod
+    def get_geo_transform(raster_src):
         """From Solaris
         Get the geotransform for a raster image source.
 
@@ -571,7 +570,7 @@ class Tile:
         return affine_obj
 
     def convert_poly_coords(self, geom, raster_src=None, affine_obj=None, inverse=False,
-        precision=None):
+                            precision=None):
         """From Solaris
         Georegister geometry objects currently in pixel coords or vice versa.
 
@@ -643,5 +642,3 @@ class Tile:
             xformed_g = _reduce_geom_precision(xformed_g, precision=precision)
 
         return xformed_g
-
-
