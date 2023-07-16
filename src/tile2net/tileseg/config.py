@@ -263,6 +263,7 @@ __C.BOUNDARY_PATH = None
 __C.NGPU = torch.cuda.device_count()
 __C.WORLD_SIZE = 1
 
+__C.INTERACTIVE = False
 
 def torch_version_float():
     version_str = torch.__version__

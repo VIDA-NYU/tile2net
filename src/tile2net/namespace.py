@@ -452,6 +452,7 @@ class Namespace(
     immutable: False
 
     # torch_version = torch_version_float()
+    interactive: bool = False
 
     @cached_property
     def torch_version(self):
@@ -489,7 +490,8 @@ class Namespace(
 
         project = None
         if (
-            not sys.stdin.isatty()
+            not self.interactive
+            and not sys.stdin.isatty()
             and (text := sys.stdin.read()) != ''
         ):
             # case: piped
