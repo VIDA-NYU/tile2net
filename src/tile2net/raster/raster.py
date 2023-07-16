@@ -374,7 +374,7 @@ class Raster(Grid):
         if not outfiles:
             logger.info(f'All tiles already stitched.')
             return
-        print(self.project.tiles.static.files)
+
         infiles: np.ndarray = pipe(
             self.tiles,
             self.project.tiles.static.files,
@@ -826,19 +826,25 @@ class Raster(Grid):
         )
         args = [
             'python',
-            Path(__file__).parent.parent.absolute().__str__(),
+            '-m',
+            'tile2net',
             'inference',
             '--city_info',
             str(info),
+            '--interactive',
         ]
+        logger.info(f'Running {args}')
         if eval_folder:
             args.extend(['--eval_folder', str(eval_folder)])
         try:
+            # todo: capture_outputs=False if want instant printout
             subprocess.run(
                 args,
-                check=True, capture_output=True, text=True,
+                check=True,
+                capture_output=True,
+                text=True,
             )
-        except subprocess.CalledProcessError as e:
+        except  subprocess.CalledProcessError  as e:
             logger.error(
                 f"Command {e.cmd} returned non-zero exit status {e.returncode}.\n"
                 f"Stdout: {e.stdout}\n"
