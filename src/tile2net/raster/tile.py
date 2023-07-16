@@ -246,7 +246,6 @@ class Tile:
             geoms_class = geoms_class[geoms_class['geometry'].notna()]
             geoms_class = geoms_class[geoms_class['geometry'].apply(lambda x: x.is_valid)]
             if class_hole_size is not None:
-                print(f"filling holes for {class_name}")
                 goems_class_met = to_metric(geoms_class).explode().reset_index(drop=True)
                 goems_class_filtered = goems_class_met[~goems_class_met["geometry"].isna()]
                 goems_class_filtered["geometry"] = \

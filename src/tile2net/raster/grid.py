@@ -570,7 +570,7 @@ class Grid(BaseGrid):
             raster=self,
         )
 
-    def save_ntw_polygon(self, crs=3857):
+    def save_ntw_polygon(self, crs_metric: int = 3857):
         """
         Collects the polygons of all tiles created in the segmentation process
         and saves them as a shapefile
@@ -594,10 +594,10 @@ class Grid(BaseGrid):
         poly_network = pd.concat(gdf)
         poly_network.reset_index(drop=True, inplace=True)
         poly_network.set_crs(self.crs, inplace=True)
-
-        poly_network_metric = to_metric(poly_network)
-        poly_network_metric.geometry = poly_network_metric.simplify(0.6)
-        unioned = buff_dfs(poly_network_metric, crs)
+        if poly_network.crs != crs_metric:
+            poly_network.to_crs(crs_metric, inplace=True)
+        poly_network.geometry = poly_network.simplify(0.6)
+        unioned = buff_dfs(poly_network)
         unioned.geometry = unioned.geometry.simplify(0.9)
         unioned.dropna(inplace=True)
         unioned['geometry'] = unioned.apply(fill_holes, args=(25,), axis=1)
