@@ -45,11 +45,44 @@ def replace_straight_polys(gdf, convex=0.8, compact=0.2):
     Returns:
         geopandas geodataframe
     """
+    gdf['ari'] = gdf.area
+    gdf['convexity'] = Convexity(gdf).series
+    gdf['comp'] = CircularCompactness(gdf, 'ari').series
     # find the straight polygons
     straights = gdf[(gdf.convexity > convex) & (gdf.comp < compact)].copy()
     # replace them with the minimum bounding box
     gdf.loc[straights.index, 'geometry'] = [g.minimum_rotated_rectangle for g in straights.geometry]
     return gdf
+
+
+def replace_convexhull(gdf, convex=0.8):
+    """
+    replace the convex polygons with their envelopes
+    Args:
+        gdf: geopandas geodataframe
+        convex:: convexity threshold to filter lines
+
+    Returns:
+        geopandas geodataframe
+    """
+    gdf['convexity'] = Convexity(gdf).series
+    gdf = gdf.reset_index(drop=True)
+
+    # find the convex polygons
+    straights = gdf[gdf.convexity > convex].copy()
+    # replace them with the envelope
+
+    # Debugging section starts here
+    num_straight_indices = len(straights.index)
+    num_hulls = len([g.convex_hull for g in straights.geometry])
+    hulls = pd.Series([g.convex_hull for g in straights.geometry], index=straights.index)
+    gdf.loc[straights.index, 'geometry'] = hulls
+
+    # # Error may occur here if num_straight_indices != num_hulls
+    # gdf.loc[straights.index, 'geometry'] = [g.convex_hull for g in straights.geometry]
+
+    return gdf
+
 
 def draw_middle(geom):
     """
@@ -109,7 +142,6 @@ def vectorize_points(lst):
 
 
 def get_shortest(gdf1, gdf2, f_type: str, max_dist=12):
-    # gdf1.sindex.query_bulk(gdf2.buffer(25), predicate="intersects")
     nearest_sw_s = gdf1.sindex.nearest(gdf2.geometry, max_distance=max_dist)
     # First subarray of indices contains input geometry indices. (here pdfS)
     # The second subarray of indices contains tree geometry indices. (here sidewalks)
@@ -354,6 +386,7 @@ def put_poly_together(poly, deg_tol=5):
     simple_holes = [simplify_by_angle(hole, deg_tol) for hole in holes]
     simple_poly = simple_shell.difference(shapely.ops.unary_union(simple_holes))
     return simple_poly
+
 def fill_holes(gs: gpd.GeoSeries, max_area):
     """
     finds holes in the polygons
@@ -375,7 +408,6 @@ def fill_holes(gs: gpd.GeoSeries, max_area):
         to_fill = [shapely.geometry.Polygon(ring) for ring in rings if
                    shapely.geometry.Polygon(ring).area < max_area]  # List the ones to fill
         if len(to_fill) > 0:  # If there are any to fill
-            print("Filling holes in {}".format(gs.name))
             newgeom = reduce(lambda geom1, geom2: geom1.union(geom2),
                              [gs["geometry"]] + to_fill)  # Union the original geometry with all holes
     if newgeom:
@@ -1262,3 +1294,4 @@ def line_to_line(gdf, target, tolerance, extension):
         gpd.GeoDataFrame({df.geometry.name: final}, geometry=df.geometry.name),
         ignore_index=True,
     )
+

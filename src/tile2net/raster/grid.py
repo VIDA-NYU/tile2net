@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from geopy.geocoders import Nominatim
 
-from tile2net.raster.tile_utils.topology import fill_holes
+from tile2net.raster.tile_utils.topology import fill_holes, replace_convexhull
 
 os.environ['USE_PYGEOS'] = '0'
 import geopandas as gpd
@@ -600,10 +600,12 @@ class Grid(BaseGrid):
         unioned = buff_dfs(poly_network)
         unioned.geometry = unioned.geometry.simplify(0.9)
         unioned.dropna(inplace=True)
+        unioned = unioned[unioned.geometry.notna()]
         unioned['geometry'] = unioned.apply(fill_holes, args=(25,), axis=1)
-        unioned.to_crs(self.crs, inplace=True)
-        self.ntw_poly = unioned
-        unioned.to_file(
+        simplified = replace_convexhull(unioned)
+        simplified.to_crs(self.crs, inplace=True)
+        self.ntw_poly = simplified
+        simplified.to_file(
             os.path.join(poly_fold, f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}'))
         logging.info('Polygons are generated and saved!')
 

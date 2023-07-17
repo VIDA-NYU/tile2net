@@ -244,7 +244,7 @@ def buffer_union(gdf, buff, simp1, simp2):
 def buffer_union_erode(gdf, buff, erode, simp1, simp2, simp3):
 	gdf_buff = buffer_union(gdf, buff, simp1, simp2)
 	gdf_erode = gdf_buff.geometry.buffer(erode, join_style=2, cap_style=3)
-	gdf_uni = unary_multi(gdf)
+	gdf_uni = unary_multi(gdf_erode)
 	gdf_uni.geometry = gdf_uni.geometry.set_crs(3857)
 	gdf_uni.geometry = gdf_uni.geometry.simplify(simp3)
 	return gdf_uni
@@ -353,7 +353,7 @@ def create_stats(gdf):
 	return ss, cgdf
 
 
-def buff_dfs(gdf, crs):
+def buff_dfs(gdf):
 	"""
 	union and buffer the polygons of each class separately,
 	to create continuous polygons and merge them into one GeoDataFrame.
@@ -361,6 +361,7 @@ def buff_dfs(gdf, crs):
 	Parameters
 	----------
 	gdf: GeoDataFrame
+		Polygon dataframes with three classes in metric coordinate system
 	crs: int
 
 	Returns
@@ -368,25 +369,24 @@ def buff_dfs(gdf, crs):
 	GeoDataFrame:
 		merged GeoDataFrame of the three classes
 	"""
-	gdf.to_crs(3857, inplace=True)
+
 	gdf.geometry = gdf.simplify(0.2)
 	dfsw = prepare_class_gdf(gdf, 'sidewalk')
 	dfcw = prepare_class_gdf(gdf, 'crosswalk')
 	dfrd = prepare_class_gdf(gdf, 'road')
 
-	buffersw = buffer_union_erode(dfsw, 0.2, -0.2, 0.1, 0.2, 0.2)
+	buffersw = buffer_union_erode(dfsw, 0.3, -0.3, 0.2, 0.3, 0.3)
 
 	buffersw['f_type'] = 'sidewalk'
 
-	buffercw = buffer_union_erode(dfcw, 0.3, -0.25, 0.1, 0.2, 0.2)
+	buffercw = buffer_union_erode(dfcw, 0.3, -0.25, 0.2, 0.3, 0.3)
 
 	buffercw['f_type'] = 'crosswalk'
 
-	bufferrd = buffer_union_erode(dfrd, 0.2, -0.2, 0.1, 0.2, 0.2)
+	bufferrd = buffer_union_erode(dfrd, 0.4, -0.4, 0.2, 0.3, 0.3)
 	bufferrd['f_type'] = 'road'
 
 	merged = pd.concat([buffercw, buffersw, bufferrd])
-	merged.geometry = merged.geometry.set_crs(3857)
-	merged.geometry = merged.geometry.to_crs(crs)
+	merged.geometry = merged.geometry.set_crs(gdf.crs)
 
 	return merged

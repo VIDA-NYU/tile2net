@@ -15,7 +15,7 @@ from rasterio.transform import from_bounds
 from rasterio import features
 
 from tile2net.raster.tile_utils.genutils import num2deg
-from tile2net.raster.tile_utils.topology import fill_holes
+from tile2net.raster.tile_utils.topology import fill_holes, replace_convexhull
 from tile2net.raster.tile_utils.geodata_utils import _reduce_geom_precision, list_to_affine, _check_skimage_im_load, \
     to_metric
 
@@ -245,13 +245,15 @@ class Tile:
             geoms_class['f_type'] = class_name
             geoms_class = geoms_class[geoms_class['geometry'].notna()]
             geoms_class = geoms_class[geoms_class['geometry'].apply(lambda x: x.is_valid)]
+
             if class_hole_size is not None:
                 goems_class_met = to_metric(geoms_class).explode().reset_index(drop=True)
                 goems_class_filtered = goems_class_met[~goems_class_met["geometry"].isna()]
                 goems_class_filtered["geometry"] = \
                     goems_class_filtered.apply(fill_holes, args=(class_hole_size,), axis=1)
-                goems_class_filtered.to_crs(self.crs, inplace=True)
-                return goems_class_filtered
+                simplified = replace_convexhull(goems_class_filtered)
+                simplified.to_crs(self.crs, inplace=True)
+                return simplified
             else:
                 return geoms_class
         else:
