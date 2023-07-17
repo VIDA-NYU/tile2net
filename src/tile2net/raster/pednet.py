@@ -164,13 +164,14 @@ class PedNet():
             cw_union = buffer_union_erode(nt_cw, 1, -0.95, 0.6, 0.8,
                                           0.8)  # union, erode, simplify before union, simp
             # after union, simpl after erode
-            cw_explode = cw_union.reset_index(drop=True).explode().reset_index(drop=True)
+            cw_explode = cw_union.explode().reset_index(drop=True)
+            cw_explode = cw_explode[cw_explode.geometry.notna()].reset_index(drop=True)
             cw_explode_ = morpho_atts(cw_explode)
             polak = []
             for c, geom in enumerate(cw_explode_.geometry):
-
                 if geom.area < 5:
-                    logging.info(c, 'continue')
+                    continue
+                    # logging.info(c, 'continue')
                 else:
                     # if crosswalks are attached to each other and form a T or U
                     if cw_explode_.iloc[
@@ -257,7 +258,7 @@ class PedNet():
             elif minpr / geom.length > 0.8:
                 # it is close to a circle
                 # the interpolation distance to be 2/3rd of the minimum circle perimeter
-                cl_arg = math.sqrt(geom.area / math.pi) / 3
+                cl_arg = math.sqrt(geom.area / math.pi) / 4
             else:
                 cl_arg = 0.2
 
@@ -309,12 +310,12 @@ class PedNet():
         cwp = self.prepare_class_gdf('crosswalk')
 
         if len(sw_all) > 0:
-            sw_filtered = self.find_medianisland(sw_all, cwp)
-            if not isinstance(sw_filtered, int):
-                swntw = self.create_lines(sw_filtered)  # union_df
-            else:
-                swntw = self.create_lines(sw_all)  # swuinon_df
-
+            # sw_filtered = self.find_medianisland(sw_all, cwp)
+            # if not isinstance(sw_filtered, int):
+            #     swntw = self.create_lines(sw_filtered)  # union_df
+            # else:
+            #     swntw = self.create_lines(sw_all)  # swuinon_df
+            swntw = self.create_lines(sw_all)
             logging.info('..... creating the processed sidewalk network')
             #
             swntw.geometry = swntw.simplify(0.6)
