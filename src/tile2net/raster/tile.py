@@ -238,24 +238,27 @@ class Tile:
         tfm_ = self.tfm
         f_class = mask_image[:, :, class_id]
         has_class: bool = np.any(f_class != 0)
-        if has_class:
+        if has_class is not False:
             geoms_class: gpd.GeoDataFrame = self.mask_to_poly_geojson(f_class)
-            geoms_class['geometry'] = geoms_class['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
-            geoms_class = geoms_class.set_crs(epsg=str(self.crs))
-            geoms_class['f_type'] = class_name
-            geoms_class = geoms_class[geoms_class['geometry'].notna()]
-            geoms_class = geoms_class[geoms_class['geometry'].apply(lambda x: x.is_valid)]
+            if not geoms_class.empty:
+                geoms_class['geometry'] = geoms_class['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
+                geoms_class = geoms_class.set_crs(epsg=str(self.crs))
+                geoms_class['f_type'] = class_name
+                geoms_class = geoms_class[geoms_class['geometry'].notna()]
+                geoms_class = geoms_class[geoms_class['geometry'].apply(lambda x: x.is_valid)]
 
-            if class_hole_size is not None:
-                goems_class_met = to_metric(geoms_class).explode().reset_index(drop=True)
-                goems_class_filtered = goems_class_met[~goems_class_met["geometry"].isna()]
-                goems_class_filtered["geometry"] = \
-                    goems_class_filtered.apply(fill_holes, args=(class_hole_size,), axis=1)
-                simplified = replace_convexhull(goems_class_filtered)
-                simplified.to_crs(self.crs, inplace=True)
-                return simplified
+                if class_hole_size is not None:
+                    goems_class_met = to_metric(geoms_class).explode().reset_index(drop=True)
+                    goems_class_filtered = goems_class_met[~goems_class_met["geometry"].isna()]
+                    goems_class_filtered["geometry"] = \
+                        goems_class_filtered.apply(fill_holes, args=(class_hole_size,), axis=1)
+                    simplified = replace_convexhull(goems_class_filtered)
+                    simplified.to_crs(self.crs, inplace=True)
+                    return simplified
+                else:
+                    return geoms_class
             else:
-                return geoms_class
+                return False
         else:
             return False
 
@@ -274,15 +277,26 @@ class Tile:
         """
         swcw = []
 
-        sidewalks = self.mask2poly(src_img, 'sidewalk', 2, img_array=img_array)
+        sidewalks = self.mask2poly(src_img,
+                                   class_name='sidewalk',
+                                   class_id=2,
+                                   img_array=img_array)
         if sidewalks is not False:
             swcw.append(sidewalks)
 
-        crosswalks = self.mask2poly(src_img, 'crosswalk', 0, img_array=img_array)
+        crosswalks = self.mask2poly(src_img,
+                                    class_name='crosswalk',
+                                    class_id=0,
+                                    class_hole_size=15,
+                                    img_array=img_array)
         if crosswalks is not False:
             swcw.append(crosswalks)
 
-        roads = self.mask2poly(src_img, 'road', 1, class_hole_size=30, img_array=img_array)
+        roads = self.mask2poly(src_img,
+                               class_name='road',
+                               class_id=1,
+                               class_hole_size=30,
+                               img_array=img_array)
         if roads is not False:
             swcw.append(roads)
         if len(swcw) > 0:
@@ -597,3 +611,6 @@ class Tile:
             xformed_g = _reduce_geom_precision(xformed_g, precision=precision)
 
         return xformed_g
+
+#create empty dataframe
+df = pd.DataFrame(columns=['ImageId', 'BuildingId', 'PolygonWKT_Pix', 'PolygonWKT_Geo', 'Confidence'])
