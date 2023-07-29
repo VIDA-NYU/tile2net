@@ -333,9 +333,9 @@ class ImageDumper():
                 alpha = False
                 all_pix = (np.array(input_image).shape[0] * np.array(input_image).shape[1])
                 if np.array(input_image).shape[-1] == 3:
-                    black = np.count_nonzero(np.all(np.array(input_image) == [50, 50, 50], axis=2))
+                    black = np.count_nonzero(np.all(np.array(input_image) == [0, 0, 0], axis=2))
                 elif np.array(input_image).shape[-1] == 4:
-                    black = np.count_nonzero(np.all(np.array(input_image) == [50, 50, 50, 50], axis=-1))
+                    black = np.count_nonzero(np.all(np.array(input_image) == [0, 0, 0, 0], axis=-1))
                     alpha = True
                 ratio = black / all_pix
 
@@ -345,7 +345,7 @@ class ImageDumper():
                 else:
                     prediction_pil = colorize_mask_fn(prediction)
                     prediction_pil = prediction_pil.convert('RGB')
-                    self.create_composite_image(input_image, prediction_pil, img_name)
+                    # self.create_composite_image(input_image, prediction_pil, img_name)
 
                     if grid:
                         idd_ = img_name.split('_')[-1]
@@ -375,190 +375,7 @@ class ImageDumper():
 
             self.imgs_to_tensorboard.append(to_tensorboard)
 
-            # def save_prob_and_err_mask(self, dump_dict, img_name, idx, prediction):
-    #     if 'err_mask' in dump_dict and 'prob_mask' in dump_dict['assets']:
-    #         prob_image = dump_dict['assets']['prob_mask'][idx]
-    #         err_mask = dump_dict['err_mask'][idx]
-    #         self.save_image((prob_image.cpu().numpy() * 255).astype(np.uint8), f'{img_name}_prob.png')
-    #         err_pil = Image.fromarray(prediction.astype(np.uint8)).convert('RGB')
-    #         err_pil.save(os.path.join(self.save_dir, f'{img_name}_err_mask.png'))
-    #         return True
-    #     return False
-    #
-    # def create_composite_image(self, input_image, prediction_pil, img_name):
-    #     composited = Image.new('RGB', (input_image.width + input_image.width, input_image.height))
-    #     composited.paste(input_image, (0, 0))
-    #     composited.paste(prediction_pil, (prediction_pil.width, 0))
-    #     composited_fn = 'sidebside_{}.png'.format(img_name)
-    #     composited_fn = os.path.join(self.save_dir, composited_fn)
-    #     composited.save(composited_fn)
-    #
-    # def dump_assets(self, dump_dict, img_name, idx):
-    #     colorize_mask_fn = cfg.DATASET_INST.colorize_mask
-    #     if self.dump_assets:
-    #         assets = dump_dict['assets']
-    #         for asset in assets:
-    #             mask = assets[asset][idx]
-    #             mask_fn = os.path.join(self.save_dir, f'{img_name}_{asset}.png')
-    #             if 'pred_' in asset:
-    #                 pred_pil = colorize_mask_fn(mask)
-    #                 pred_pil.save(mask_fn)
-    #                 continue
-    #             if type(mask) == torch.Tensor:
-    #                 mask = mask.squeeze().cpu().numpy()
-    #             else:
-    #                 mask = mask.squeeze()
-    #             mask = (mask * 255)
-    #             mask = mask.astype(np.uint8)
-    #             mask_pil = Image.fromarray(mask)
-    #             mask_pil = mask_pil.convert('RGB')
-    #             mask_pil.save(mask_fn)
-    #             self.to_tensorboard.append(self.visualize(mask_pil))
-    #
-    # def dump(self, dump_dict, val_idx, testing=None, grid=None):
-    #     """
-    #     dump a single batch of images
-    #
-    #     dump_dict: a dictionary containing elements to dump out
-    #       'input_images': source image
-    #       'gt_images': label
-    #       'img_names': img_names
-    #       'assets': dict with keys:
-    #         'predictions': final prediction
-    #         'pred_*': different scales of predictions
-    #         'attn_*': different scales of attn
-    #         'err_mask': err_mask
-    #     """
-    #     if (val_idx % self.dump_frequency or cfg.GLOBAL_RANK != 0):
-    #         return
-    #     else:
-    #         pass
-    #
-    #     colorize_mask_fn = cfg.DATASET_INST.colorize_mask
-    #
-    #     for idx in range(len(dump_dict['input_images'])):
-    #         input_image = dump_dict['input_images'][idx]
-    #         #prob_image = dump_dict['assets']['prob_mask'][idx]
-    #         gt_image = dump_dict['gt_images'][idx]
-    #         prediction = dump_dict['assets']['predictions'][idx]
-    #         #dump_dict['assets']['predictions']
-    #         img_name = dump_dict['img_names'][idx]
-    #
-    #         #for tile2net
-    #         idd_ = img_name.split('_')[-1]
-    #         er_prob = False
-    #         if 'err_mask' in dump_dict and 'prob_mask' in dump_dict['assets']:
-    #             err_mask = dump_dict['err_mask'][idx]
-    #             prob_image = dump_dict['assets']['prob_mask'][idx]
-    #
-    #             prob_fn = '{}_prob.png'.format(img_name)
-    #             prob_fn = os.path.join(self.save_dir, prob_fn)
-    #
-    #             cv2.imwrite(prob_fn, (prob_image.cpu().numpy()*255).astype(np.uint8))
-    #
-    #             err_fn = f'{img_name}_err_mask.png'
-    #             err_fn = os.path.join(self.save_dir,err_fn)
-    #             err_pil = Image.fromarray(prediction.astype(np.uint8)).convert('RGB')
-    #             err_pil.save(os.path.join(self.save_dir, err_fn))
-    #             er_prob=True
-    #
-    #
-    #         input_image = self.inv_normalize(input_image)
-    #         input_image = input_image.cpu()
-    #         input_image = standard_transforms.ToPILImage()(input_image)
-    #         input_image = input_image.convert("RGB")
-    #         # input_image_fn = f'{img_name}_input.png'
-    #         # gt_fn = '{}_gt.png'.format(img_name)
-    #         gt_pil = colorize_mask_fn(gt_image.cpu().numpy())
-    #
-    #         if testing:
-    #             alpha = False
-    #             all_pix = (np.array(input_image).shape[0]*np.array(input_image).shape[1])
-    #             if np.array(input_image).shape[-1] ==3 :
-    #                 black = np.count_nonzero(np.all(np.array(input_image) ==[50,50,50], axis=2))
-    #             elif np.array(input_image).shape[-1] == 4:
-    #                 black = np.count_nonzero(np.all(np.array(input_image) == [50,50,50,50], axis=-1))
-    #                 alpha=True
-    #             ratio = black/all_pix
-    #
-    #             if ratio > 0.25 or alpha:
-    #                continue
-    #
-    #             else:
-    #                 prediction_pil = colorize_mask_fn(prediction)
-    #                 prediction_pil = prediction_pil.convert('RGB')
-    #
-    #                 composited = Image.new('RGB', (input_image.width + input_image.width, input_image.height))
-    #                 composited.paste(input_image, (0, 0))
-    #                 composited.paste(prediction_pil, (prediction_pil.width, 0))
-    #                 composited_fn = 'sidebside_{}.png'.format(img_name)
-    #                 if grid:
-    #                     # save_dir = grid.project.segmentation.path
-    #                     save_dir = os.path.join(cfg.RESULT_DIR, 'seg_results')
-    #                     self.save_dir = save_dir
-    #                     grid.tiles[grid.pose_dict[int(idd_)]].map_features(np.array(prediction_pil), img_array=True)
-    #                     #temporary
-    #                     composited_fn = os.path.join(self.save_dir, composited_fn)
-    #                     composited.save(composited_fn)
-    #                 else:
-    #                     composited_fn = os.path.join(self.save_dir, composited_fn)
-    #                     composited.save(composited_fn)
-    #                 # prediction_fn = '{}_pred.png'.format(img_name)
-    #         else:
-    #             gt_fn = '{}_gt.png'.format(img_name)
-    #             gt_pil = colorize_mask_fn(gt_image.cpu().numpy())
-    #             prediction_fn = '{}_prediction.png'.format(img_name)
-    #             prediction_pil = colorize_mask_fn(prediction)
-    #             prediction_pil = prediction_pil.convert('RGB')
-    #             composited = Image.new('RGB', (input_image.width + input_image.width, input_image.height))
-    #             composited.paste(input_image, (0, 0))
-    #             composited.paste(prediction_pil, (prediction_pil.width, 0))
-    #             composited_fn = 'sidebside_{}.png'.format(img_name)
-    #             composited_fn = os.path.join(self.save_dir, composited_fn)
-    #             composited.save(composited_fn)
-    #
-    #
-    #         # only visualize a limited number of images
-    #         if val_idx % self.viz_frequency or cfg.GLOBAL_RANK != 0:
-    #             return
-    #
-    #         to_tensorboard = [
-    #             self.visualize(input_image.convert('RGB')),
-    #             self.visualize(gt_pil.convert('RGB')),
-    #             self.visualize(prediction_pil.convert('RGB')),
-    #         ]
-    #         if er_prob:
-    #             to_tensorboard = [
-    #                 self.visualize(input_image.convert('RGB')),
-    #                 self.visualize(gt_pil.convert('RGB')),
-    #                 self.visualize(prediction_pil.convert('RGB')),
-    #                 self.visualize(err_pil.convert('RGB')),
-    #             ]
-    #
-    #
-    #         if self.dump_assets:
-    #             assets = dump_dict['assets']
-    #             for asset in assets:
-    #                 mask = assets[asset][idx]
-    #                 mask_fn = os.path.join(self.save_dir, f'{img_name}_{asset}.png')
-    #
-    #                 if 'pred_' in asset:
-    #                     pred_pil = colorize_mask_fn(mask)
-    #                     pred_pil.save(mask_fn)
-    #                     continue
-    #
-    #                 if type(mask) == torch.Tensor:
-    #                     mask = mask.squeeze().cpu().numpy()
-    #                 else:
-    #                     mask = mask.squeeze()
-    #                 mask = (mask * 255)
-    #                 mask = mask.astype(np.uint8)
-    #                 mask_pil = Image.fromarray(mask)
-    #                 mask_pil = mask_pil.convert('RGB')
-    #                 mask_pil.save(mask_fn)
-    #                 to_tensorboard.append(self.visualize(mask_pil))
-    #
-    #         self.imgs_to_tensorboard.append(to_tensorboard)
+
 
     def write_summaries(self, was_best):
         """
