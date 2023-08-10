@@ -9,6 +9,7 @@ opencv-python
 osmnx
 pillow
 pyarrow
+pyogrio
 rasterio
 scikit-image
 scikit-learn
