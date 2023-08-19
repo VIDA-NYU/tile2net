@@ -15,6 +15,7 @@ import collections
 from functools import reduce
 from tile2net.raster.tile_utils.momepy_shapes import *
 
+METRIC_CRS = 'EPSG:3857'
 
 def morpho_atts(gdf):
     """Using momepy but removed the import since it was slow and depends on pygeos
@@ -66,20 +67,19 @@ def replace_convexhull(gdf, convex=0.8):
         geopandas geodataframe
     """
     gdf['convexity'] = Convexity(gdf).series
-    gdf = gdf.reset_index(drop=True)
+    gdf.reset_index(drop=True, inplace=True)
 
     # find the convex polygons
     straights = gdf[gdf.convexity > convex].copy()
-    # replace them with the envelope
 
-    # Debugging section starts here
-    num_straight_indices = len(straights.index)
-    num_hulls = len([g.convex_hull for g in straights.geometry])
-    hulls = pd.Series([g.convex_hull for g in straights.geometry], index=straights.index)
-    gdf.loc[straights.index, 'geometry'] = hulls
-
-    # # Error may occur here if num_straight_indices != num_hulls
-    # gdf.loc[straights.index, 'geometry'] = [g.convex_hull for g in straights.geometry]
+    hulls_ = [g.convex_hull for g in straights.geometry]
+    if hulls_:
+        hulls = pd.Series(hulls_, index=straights.index)
+        gdf.loc[straights.index, 'geometry'] = hulls
+        gdf.set_geometry('geometry', inplace=True)
+        if not gdf.crs:
+            gdf.set_crs(METRIC_CRS, inplace=True)
+        return gdf
 
     return gdf
 
@@ -157,7 +157,7 @@ def get_shortest(gdf1, gdf2, f_type: str, max_dist=12):
                                                gdf2.iloc[k, gdf2.columns.get_loc(gdf2.geometry.name)]))
 
     connect = gpd.GeoDataFrame(geometry=new_lines)
-    connect.geometry = connect.geometry.set_crs(3857)
+    connect.geometry = connect.geometry.set_crs(METRIC_CRS)
     connect['f_type'] = f_type
     return connect
 
@@ -600,8 +600,8 @@ def clean_deadend_dangles(gdf, dang_trh=25, dead_trh=18):
 
     dang = gpd.GeoDataFrame(dangind, geometry=dangles)
     dea = gpd.GeoDataFrame(deadind, geometry=deads)
-    dang.set_crs(3857, inplace=True)
-    dea.set_crs(3857, inplace=True)
+    dang.set_crs(METRIC_CRS, inplace=True)
+    dea.set_crs(METRIC_CRS, inplace=True)
     drop1 = dang[dang.length < dang_trh][0]
     drop2 = dea[dea.length < dead_trh][0]
     drop_list = set(list(drop1) + list(drop2))
