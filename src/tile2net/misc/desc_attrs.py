@@ -7,6 +7,7 @@ from weakref import WeakKeyDictionary
 from tile2net.misc.attrs import attr
 
 
+# noinspection PyTypeChecker
 class desc_attr(attr):
     instance: Descriptor
     owner: Type[Descriptor]
@@ -21,13 +22,13 @@ class desc_attr(attr):
         self.cache = WeakKeyDictionary()
         super().__set_name__(owner, name)
 
-    def __get__(self, instance: Descriptor, owner):
+    def get(self, instance, owner):
         return self.cache[self]
 
-    def __set__(self, instance: Descriptor, value):
+    def set(self, instance, value):
         self.cache[self] = value
 
-    def __delete__(self, instance: Descriptor):
+    def delete(self, instance):
         del self.cache[self]
 
     def __bool__(self):
@@ -35,7 +36,8 @@ class desc_attr(attr):
 
     def __fspath__(self):
         return os.path.join(
-            self.instance._artifacts.__fspath__(),
+            self.instance.artifacts.__fspath__(),
+            self.instance.name,
             self.name + '.pkl'
         )
 
@@ -53,14 +55,12 @@ if __name__ == '__main__':
         @desc_attr
         @property
         def attr(self):
-            print('attr')
             return False
 
         @desc_subframe
         @property
         def subframe(self):
-            print('subframe')
-            return self._artifacts.copy()
+            return self.artifacts.copy()
 
     class TestFrame(DataFrame):
         desc = TestDesc()
