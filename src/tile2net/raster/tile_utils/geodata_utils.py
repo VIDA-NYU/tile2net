@@ -259,12 +259,12 @@ def buffer_union(gdf, buff, simp1, simp2):
 
 def buffer_union_erode(gdf, buff, erode, simp1, simp2, simp3):
     gdf_buff = buffer_union(gdf, buff, simp1, simp2)
-    gdf_erode = gdf_buff.geometry.buffer(erode, join_style=2, cap_style=3)
+    gdf_erode = gdf_buff.copy()
+    gdf_erode.geometry = gdf_buff.geometry.buffer(erode, join_style=2, cap_style=3)
     gdf_uni = unary_multi(gdf_erode)
     gdf_uni.geometry = gdf_uni.geometry.set_crs(3857)
     gdf_uni.geometry = gdf_uni.geometry.simplify(simp3)
     return gdf_uni
-
 
 def to_metric(gdf, crs=3857):
     """Converts a GeoDataFrame to metric (3857) coordinate
