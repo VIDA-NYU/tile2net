@@ -222,8 +222,6 @@ def unary_multi(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     loc = ~gdf.is_valid.values
     logger.warning(f'Number of invalid geometries: {loc.sum()} out of {len(gdf)}')
     gdf.geometry.loc[loc] = shapely.make_valid(gdf.geometry.loc[loc])
-    if isinstance(gdf, gpd.GeoSeries):
-        gdf = gpd.GeoDataFrame(gdf)
     result = (
         gdf
         # dissolve overlapping geometries
