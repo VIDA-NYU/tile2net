@@ -307,16 +307,25 @@ class LosAngeles(ArcGis):
     # def metadata(cls):
     #     raise NotImplementedError
 
-class WestOregon(ArcGis, init=False):
-    server = 'https://imagery.oregonexplorer.info/arcgis/rest/services/OSIP_2018/OSIP_2018_WM/ImageServer'
-    name = 'w_or'
-    extension = 'jpeg'
-    keyword = 'Oregon'
-    # todo: ssl incorrectly configured; come back later
+# class WestOregon(ArcGis, init=False):
+# class WestOregon(ArcGis):
+#     server = 'https://imagery.oregonexplorer.info/arcgis/rest/services/OSIP_2018/OSIP_2018_WM/ImageServer'
+#     name = 'w_or'
+#     extension = 'jpeg'
+#     keyword = 'Oregon'
+#     # todo: ssl incorrectly configured; come back later
+#
+# # class EastOregon(ArcGis, init=False):
+# class EastOregon(ArcGis, init=False):
+#
+#     server = 'https://imagery.oregonexplorer.info/arcgis/rest/services/OSIP_2017/OSIP_2017_WM/ImageServer'
+#     name = 'e_or'
+#     extension = 'jpeg'
+#     keyword = 'Oregon'
 
-class EastOregon(ArcGis, init=False):
-    server = 'https://imagery.oregonexplorer.info/arcgis/rest/services/OSIP_2017/OSIP_2017_WM/ImageServer'
-    name = 'e_or'
+class Oregon(ArcGis):
+    server = 'https://imagery.oregonexplorer.info/arcgis/rest/services/OSIP_2022/OSIP_2022_WM/ImageServer'
+    name = 'or'
     extension = 'jpeg'
     keyword = 'Oregon'
 
