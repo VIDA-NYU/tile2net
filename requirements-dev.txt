@@ -13,12 +13,12 @@ pyogrio
 rasterio
 scikit-image
 scikit-learn
-shapely
+shapely==2.0.1
 tqdm
 torch
 torchvision
 
-argh
+argh==0.29.4
 coolname
 tabulate
 tensorboardx
