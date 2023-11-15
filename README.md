@@ -90,6 +90,8 @@ cd tile2net
 Activate your virtual environment and install locally:
 
 ```
+conda create --name testenv python=3.11
+conda activate testenv
 python -m pip install -e .
 ```
 
