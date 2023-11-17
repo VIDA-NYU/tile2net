@@ -1,9 +1,14 @@
 
 # Tile2Net
 
+<!-- HTML image formatting does not cooperate with Sphinx! -->
+<!-- 
 <p align="left">
 <img src="./images/overview.png" alt="Overview" width="50%">
-</p>
+</p> -->
+
+![Overview](./images/overview.png)
+
 
 Tile2Net is an end-to-end tool for automated mapping of pedestrian infrastructure from aerial imagery. We trained a
 semantic segmentation model to detect roads, sidewalk, crosswalk, and footpath from orthorectified imagery. The results

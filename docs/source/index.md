@@ -3,14 +3,29 @@
 % You can adapt this file completely to your liking, but it should at least
 % contain the root `toctree` directive.
 
-# Welcome to tile2net's documentation!
-
-```{toctree}
-:caption: 'Contents:'
-:maxdepth: 2
+```{warning}
+This documentation is currently under construction, and subject to significant change and reorganization!
 ```
 
-# Indices and tables
+```{include} ../../README.md
+:relative-images:
+```
+
+## Documentation contents
+```{toctree}
+:caption: 'Contents:'
+:maxdepth: 1
+
+Home <self>
+installation
+user_guide
+examples
+api_reference
+contributing
+changelog
+```
+
+## Indices and tables
 
 - {ref}`genindex`
 - {ref}`modindex`
