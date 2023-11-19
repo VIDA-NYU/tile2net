@@ -34,3 +34,5 @@ imageio
 sphinx
 myst-parser
 sphinx-rtd-theme
+nbsphinx
+pandoc

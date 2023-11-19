@@ -5,3 +5,8 @@
 ```{warning}
 To be written - thank you for your patience!
 ```
+
+```{nbgallery}
+
+notebooks/ridgewood_0
+```

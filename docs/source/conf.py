@@ -17,7 +17,7 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'tile2net'
+project = 'Tile2Net'
 copyright = '2023, Maryam Hosseini'
 author = 'Maryam Hosseini'
 
@@ -32,8 +32,11 @@ release = '0.3.0'
 # ones.
 extensions = [
     "myst_parser",
+    "nbsphinx",
+    "sphinx_copybutton",
+    "sphinx.ext.autosectionlabel",
     "sphinx.ext.duration",
-    "sphinx_rtd_theme"
+    "sphinx_rtd_theme",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -56,3 +59,8 @@ html_theme = 'sphinx_rtd_theme'
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+
+nbsphinx_thumbnails = {
+    'notebooks/ridgewood_0.ipynb': 'notebooks/ridgewood_schools_paths.png',
+}
