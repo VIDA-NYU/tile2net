@@ -8,5 +8,6 @@ To be written - thank you for your patience!
 
 ```{nbgallery}
 
+notebooks/quick_start
 notebooks/ridgewood_0
 ```
