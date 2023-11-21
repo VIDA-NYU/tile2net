@@ -248,6 +248,8 @@ class Raster(Grid):
             raise ValueError('Tile size must be a multiple of 256' )
         if zoom is None:
             raise ValueError('Zoom level must be specified')
+        if tile_step & (tile_step - 1):
+            raise ValueError('Tile step must be a power of 2')
 
         self.zoom = zoom
         self.source = source
