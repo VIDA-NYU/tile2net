@@ -250,7 +250,7 @@ class ImageDumper():
         else:
             self.save_dir = os.path.join(cfg.RESULT_DIR, 'seg_results')
 
-        os.makedirs(self.save_dir, exist_ok=True)
+        # os.makedirs(self.save_dir, exist_ok=True)
 
         self.imgs_to_tensorboard = []
         self.imgs_to_webpage = []
@@ -308,10 +308,18 @@ class ImageDumper():
                 mask_pil.save(mask_fn)
                 to_tensorboard.append(self.visualize(mask_pil))
 
+    result_percent = 100    # first one always dumps
+
     def dump(self, dump_dict, val_idx, testing=None, grid=None):
+        if self.result_percent < 100:
+            return
+        self.result_percent -= 100
+        self.result_percent += cfg.RESULT_PERCENT
+
         if (val_idx % self.dump_frequency or cfg.GLOBAL_RANK != 0):
             return
 
+        os.makedirs(self.save_dir, exist_ok=True)
         colorize_mask_fn = cfg.DATASET_INST.colorize_mask
 
         for idx in range(len(dump_dict['input_images'])):

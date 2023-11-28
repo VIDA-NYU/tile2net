@@ -64,11 +64,13 @@ from tile2net.raster.project import Project
 @commandline
 def inference(args: Namespace):
     # sys.stdin
-
-    if not os.path.exists(args.result_dir):
-        os.mkdir(args.result_dir)
-    assert os.path.exists(args.result_dir), 'Result directory does not exist'
-    logging.info(f'Inferencing. Segmentation results will be saved to {args.result_dir}')
+    if args.result_percent:
+        if not os.path.exists(args.result_dir):
+            os.mkdir(args.result_dir)
+        assert os.path.exists(args.result_dir), 'Result directory does not exist'
+        logging.info(f'Inferencing. Segmentation results will be saved to {args.result_dir}')
+    else:
+        logging.info('Inferencing. Segmentation results will not be saved.')
 
     # Project.resources.assets.weights.satellite_2021
     weights = Project.resources.assets.weights

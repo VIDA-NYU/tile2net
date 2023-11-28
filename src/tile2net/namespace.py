@@ -451,6 +451,8 @@ class Namespace(
 
     immutable: False
 
+    result_percent: int = None
+
     # torch_version = torch_version_float()
     interactive: bool = False
 
@@ -535,7 +537,9 @@ class Namespace(
 
         if not self.eval_folder:
             raise ValueError('eval_folder must be set')
-        if not self.result_dir:
+        # if not self.result_dir:
+        #     raise ValueError('result_dir must be set')
+        if self.result_percent and self.result_dir:
             raise ValueError('result_dir must be set')
         if not self.model.snapshot:
             self.model.snapshot = (
