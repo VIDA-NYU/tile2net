@@ -295,6 +295,7 @@ class ImageDumper():
             return True, err_pil
         return False, err_pil
 
+    dump_percent = 100  # first one always dumps if args.dump_percent != 0
     def create_composite_image(self, input_image, prediction_pil, img_name):
         if not self.args.dump_percent:
             return
@@ -333,7 +334,6 @@ class ImageDumper():
                 mask_pil.save(mask_fn)
                 to_tensorboard.append(self.visualize(mask_pil))
 
-    dump_percent = 100  # first one always dumps
 
     def dump(self, dump_dict, val_idx, testing=None, grid=None):
 
