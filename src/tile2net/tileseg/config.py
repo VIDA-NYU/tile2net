@@ -59,7 +59,7 @@ __C.MODEL = AttrDict()
 __C.MODEL.SNAPSHOT = None
 # Where output results get written
 __C.RESULT_DIR = None
-__C.RESULT_PERCENT = None
+__C.DUMP_PERCENT = 0
 
 # Border Relaxation Count
 __C.BORDER_WINDOW = 1

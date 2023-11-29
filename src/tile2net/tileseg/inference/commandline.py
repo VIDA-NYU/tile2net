@@ -29,7 +29,7 @@ commandline = compose_left(
         '--result_dir', type=str,
     ),
     arg(
-        '--result_percent',
+        '--dump_percent',
         type=int,
         default=0,
         help='The percentage of segmentation results to save. 100 means all, 0 means none.',

@@ -64,7 +64,7 @@ from tile2net.raster.project import Project
 @commandline
 def inference(args: Namespace):
     # sys.stdin
-    if args.result_percent:
+    if args.dump_percent:
         if not os.path.exists(args.result_dir):
             os.mkdir(args.result_dir)
         assert os.path.exists(args.result_dir), 'Result directory does not exist'
@@ -113,8 +113,7 @@ def inference(args: Namespace):
             args.global_rank, args.local_rank))
         torch.cuda.set_device(args.local_rank)
         torch.distributed.init_process_group(backend='nccl',
-            init_method='env://')
-
+                                             init_method='env://')
 
     def check_termination(epoch):
         if AutoResume:
@@ -136,7 +135,6 @@ def inference(args: Namespace):
                     return 1
         return 0
 
-
     def run_inference(args=args, rasterfactory=None):
         """
         Main Function
@@ -144,8 +142,8 @@ def inference(args: Namespace):
 
         assert args.result_dir is not None, 'need to define result_dir arg'
         logx.initialize(logdir=str(args.result_dir),
-            tensorboard=True, hparams=vars(args),
-            global_rank=args.global_rank)
+                        tensorboard=True, hparams=vars(args),
+                        global_rank=args.global_rank)
 
         # Set up the Arguments, Tensorboard Writer, Dataloader, Loss Fn, Optimizer
         assert_and_infer_cfg(args)
@@ -158,7 +156,7 @@ def inference(args: Namespace):
             if 'ASSETS_PATH' in args.model.snapshot:
                 args.model.snapshot = args.model.snapshot.replace('ASSETS_PATH', cfg.ASSETS_PATH)
             checkpoint = torch.load(args.model.snapshot,
-                map_location=torch.device('cpu'))
+                                    map_location=torch.device('cpu'))
             args.restore_net = True
             msg = "Loading weights from: checkpoint={}".format(args.model.snapshot)
             logx.msg(msg)
@@ -202,25 +200,32 @@ def inference(args: Namespace):
 
         if args.model.eval == 'test':
             validate(val_loader, net, criterion=None, optim=None, epoch=0,
-                calc_metrics=False, dump_assets=args.dump_assets,
-                dump_all_images=True, testing=True, grid=city_data)
+                     calc_metrics=False, dump_assets=args.dump_assets,
+                     dump_all_images=True, testing=True, grid=city_data,
+                     args=args,
+                     )
             return 0
 
         elif args.model.eval == 'folder':
             # Using a folder for evaluation means to not calculate metrics
             validate(val_loader, net, criterion=criterion_val, optim=optim, epoch=0,
-                calc_metrics=False, dump_assets=args.dump_assets,
-                dump_all_images=True)
+                     calc_metrics=False, dump_assets=args.dump_assets,
+                     dump_all_images=True,
+                     args=args,
+                     )
             return 0
 
         elif args.model.eval is not None:
             raise 'unknown eval option {}'.format(args.eval)
 
-
     def validate(val_loader, net, criterion, optim, epoch,
-        calc_metrics=True,
-        dump_assets=False,
-        dump_all_images=False, testing=None, grid=None):
+
+                 args,
+                 calc_metrics=True,
+                 dump_assets=False,
+                 dump_all_images=False, testing=None, grid=None,
+                 **kwargs
+                 ):
         """
         Run validation for one epoch
         :val_loader: data loader for validation
@@ -233,8 +238,8 @@ def inference(args: Namespace):
         :dump_all_images: dump all images, not just N
         """
         dumper = ImageDumper(val_len=len(val_loader),
-            dump_all_images=dump_all_images,
-            dump_assets=dump_assets)
+                             dump_all_images=dump_all_images,
+                             dump_assets=dump_assets, args=args)
 
         net.eval()
         val_loss = AverageMeter()
@@ -247,7 +252,7 @@ def inference(args: Namespace):
             # Run network
             assets, _iou_acc = \
                 eval_minibatch(data, net, criterion, val_loss, calc_metrics,
-                    args, val_idx)
+                               args, val_idx)
 
             iou_acc += _iou_acc
 
@@ -300,6 +305,5 @@ def inference(args: Namespace):
                 # #        grid.post_process(grid.ntw_line, dumper.save_dir, 4, 8)
                 # except:
                 #     print('could not perform the vector generation!')
-
 
     run_inference()
