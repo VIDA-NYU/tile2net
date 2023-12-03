@@ -3,5 +3,13 @@
 <!-- In-depth pi documentation - where the functions live! -->
 
 ```{warning}
-To be written - thank you for your patience!
+Under construction - thank you for your patience!
+```
+
+```{eval-rst}
+.. automodule:: tile2net
+    :members:
+    :undoc-members:
+    :special-members:
+    :private-members:
 ```

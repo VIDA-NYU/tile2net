@@ -36,15 +36,17 @@ class PedNet():
         self.project = project
 
     def prepare_class_gdf(self, class_name) -> object:
-        """Filters the polygon geodataframe based on the class label
+        """Filters the polygon :class:`GeoDataFrame` based on the class label
+
         Parameters
         ----------
-        class_name :
+        class_name: str
             the class label, i.e. sidewalk, crosswalk, road
+
         Returns
         -------
-        GeoDataFrame
-            class specific GeoDataFrame in metric projection
+        :class:`GeoDataFrame`
+            class specific :class:`GeoDataFrame` in metric projection
         """
         nt = self.polygons[self.polygons.f_type == f'{class_name}'].copy()
 
@@ -54,12 +56,20 @@ class PedNet():
     def find_medianisland(self, swp, cwp, max_area=230):
         """
         Finds the median islands between sidewalks and crosswalks
-        Args:
-            swp: swidewalks polygons
-            cwp: crosswalk polygons
-            max_area: maximum island area based to filter
-        Returns:
-            filtered sidewalk geodataframe without islands
+
+        Parameters
+        ----------
+        swp: :class:`GeoDataFrame`
+            sidewalks polygons
+        cwp: :class:`GeoDataFrame`
+            crosswalk polygons
+        max_area: int
+            maximum island area based to filter
+
+        Returns
+        -------
+        :class:`GeoDataFrame`
+            filtered sidewalk :class:`GeoDataFrame` without islands
         """
 
         # query to find crosswalks intersecting with two or more sidewalks
@@ -87,8 +97,10 @@ class PedNet():
     def validate_linemerge(self, merged_line):
         # from topojson https://github.com/mattijn/topojson/commit/cdc059bae53f3f5cfe882527e5d34e671f80173e
         """
-        Return list of linestrings. If the linemerge was a MultiLineString
-        then returns a list of multiple single linestrings
+        Return
+        ------
+        list[shapely.geometry.LineString] 
+            If the linemerge was a MultiLineString, then returns a list of multiple single linestrings
         """
 
         if not isinstance(merged_line, shapely.geometry.LineString):
@@ -100,9 +112,11 @@ class PedNet():
     def make_longer(self, line, thr):
         """
         Extends a line by a given ratio
+
         Parameters
         ----------
         line: shapely.LineString
+            The LineString to be extended
 
         thr: float
             ratio of the whole line by which the line is extended (e.g., 2/3)
@@ -110,7 +124,7 @@ class PedNet():
         Returns
         -------
         shapely.LineString
-                The extended line
+            The extended line
         """
         lcoord = shapely.get_coordinates(line)
         lcoord = lcoord[-4:] if len(lcoord.shape) == 1 else lcoord[-2:].flatten()
@@ -124,10 +138,11 @@ class PedNet():
     def update_sw_intersecting(self, cw_pol):
         """
         Cleans up sidewalk lines extending over crosswalks polygons and cut them
+
         Parameters
         ----------
-        cw_pol: gpd.GeoDataFrame
-            geodataframe of crosswalks
+        cw_pol: :class:`gpd.GeoDataFrame`
+            :class:`GeoDataFrame` of crosswalks
         """
         # finding sidewalk lines that extends to the crosswalks polygons and cut them
         swl = self.sidewalk.copy()
@@ -239,10 +254,11 @@ class PedNet():
     def create_lines(self, gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         """
         Create centerlines from polygons
+
         Parameters
         ----------
-        gdf: gpd.GeoDataFrame
-            geodataframes of polygons
+        gdf: :class:`gpd.GeoDataFrame`
+            :class:`GeoDataFrame` of polygons
         -------
 
         """
@@ -302,6 +318,7 @@ class PedNet():
     def create_sidewalks(self):
         """
         Create sidewalk network
+
         Returns
         -------
         None

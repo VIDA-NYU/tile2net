@@ -70,10 +70,14 @@ class Tile:
 
     def transformProject(self, src_crs, dest_crs):
         """Reproject the lat long to another crs to be used for tile acquisition.
-        Args:
-        ---------
-            src_crs:current projection
-            dest_crs:desired projection
+
+        Parameters
+        ----------
+        src_crs: int
+            current projection
+        dest_crs: int
+            desired projection
+        
         Returns:
         -------
             new coordinates top, left, bottom, right
@@ -86,11 +90,10 @@ class Tile:
 
     def setLatlon(self):
         """Sets the lat and long of the topleft and bottomright of the tile
-        Arguments
-        ---------
 
         Returns
         ---------
+        None
         """
         self.top, self.left = num2deg(self.xtile, self.ytile, self.zoom)
         self.bottom, self.right = num2deg(self.xtile + self.tile_step,
@@ -100,6 +103,7 @@ class Tile:
     def bbox(self):
         """
         Returns the bounding box of the tile
+
         Returns
         -------
         tuple
@@ -151,8 +155,8 @@ class Tile:
         return poly
 
     def tile2gdf(self, *bounds):
-        """Create a tile GeoDataFrame
-        Returns (GeoDataFrame): A GeoDataFrame of a single tile
+        """Create a tile :class:`GeoDataFrame`
+        Returns (:class:`GeoDataFrame`): A :class:`GeoDataFrame` of a single tile
         """
         if len(bounds) > 0:
             poly = self.tile2poly(*bounds)
@@ -164,6 +168,7 @@ class Tile:
     def find_tile_neighbors_pos(self, d):
         """Returns the neighbors of a tile
         given the tile is topleft one, returns d**2-1 neighbors (d on column and d on the row)
+        
         Parameters
         ----------
         d : int
@@ -180,10 +185,12 @@ class Tile:
     def get_metric(self, crs: int = 3857):
         """
         transform tile polygon to metric system (3857 by default) coordinate
+
         Parameters
         ----------
         crs: int
             the coordinate system in meters to be transformed to. Default is 3857
+
         Returns
         -------
         left, top, right, bottom: tuple
@@ -197,21 +204,24 @@ class Tile:
 
     def get_individual(self, gdf: gpd.GeoDataFrame):
         """Convert all multi-type geometries to single ones
+
         Parameters
         ----------
-        gdf: GeoDataFrame
-            the GeoDataFrame to be converted
+        gdf: :class:`GeoDataFrame`
+            the :class:`GeoDataFrame` to be converted
+
         Returns
         -------
-        GeoDataFrame
-            the converted GeoDataFrame
+        :class:`GeoDataFrame`
+            the converted :class:`GeoDataFrame`
         """
         gdf_new = gdf.explode()
         return gdf_new
 
 
     def mask2poly(self, src_img, class_name, class_id, class_hole_size=25, img_array=None):
-        """Converts a raster mask to a GeoDataFrame of polygons
+        """Converts a raster mask to a :class:`GeoDataFrame` of polygons
+
         Parameters
         ----------
         src_img : str
@@ -224,10 +234,11 @@ class Tile:
             the maximum area of holes to be filled, by default 25
         img_array : array, optional
             if the image is already read, pass the array to avoid reading it again
+
         Returns
         -------
-        geoms : GeoDataFrame
-            GeoDataFrame of polygons
+        geoms : :class:`GeoDataFrame`
+            :class:`GeoDataFrame` of polygons
         """
         if img_array:
             mask_image = src_img
@@ -263,17 +274,19 @@ class Tile:
             return False
 
     def map_features(self, src_img, img_array=True):
-        """Converts a raster mask to a GeoDataFrame of polygons
+        """Converts a raster mask to a :class:`GeoDataFrame` of polygons
+
         Parameters
         ----------
         src_img : str
             path to the image
         img_array : array, optional
             if the image is already read, pass the array to avoid reading it again
+
         Returns
         -------
-        geoms : GeoDataFrame
-            GeoDataFrame of polygons
+        geoms : :class:`GeoDataFrame`
+            :class:`GeoDataFrame` of polygons
         """
         swcw = []
 
@@ -307,16 +320,17 @@ class Tile:
     def get_region(self, gdf: gpd.GeoDataFrame, spatial_index, crs=3857):
         """
         clips the overlapping region between the dataframe and tile extent
-        Args:
-            tile: the tile object to overlay
-            gdf: the
-
-        Returns:
 
         Parameters
         ----------
-        spatial_index
+        gdf: :class:`GeoDataFrame`
+        spatial_index: ???
+        crs: int
 
+        Returns
+        -------
+        :class:`GeoDataFrame` | int
+            ????
         """
         tilepoly = self.tile2gdf()
         gdf.to_crs(tilepoly.crs, inplace=True)
@@ -333,10 +347,11 @@ class Tile:
 
     @staticmethod
     def preds_to_binary(pred_arr, channel_scaling=None, bg_threshold=0):
-        """From Solaris
+        """*Adopted from the Solaris library to overcome dependency issues*
+
         Convert a set of predictions from a neural net to a binary mask.
 
-        Arguments
+        Parameters
         ---------
         pred_arr : :class:`numpy.ndarray`
             A set of predictions generated by a neural net (generally in ``float``
@@ -420,11 +435,12 @@ class Tile:
                              min_area=20,
                              bg_threshold=0, do_transform=None, simplify=True,
                              tolerance=0.8, **kwargs):
-        """From Solaris
+        """*Adopted from the Solaris library to overcome dependency issues*
+
         Get polygons from an image mask.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         pred_arr : :class:`numpy.ndarray`
             A 2D array of integers. Multi-channel masks are not supported, and must
             be simplified before passing to this function. Can also pass an image
@@ -468,7 +484,7 @@ class Tile:
         Returns
         -------
         gdf : :class:`geopandas.GeoDataFrame`
-            A GeoDataFrame of polygons.
+            A :class:`GeoDataFrame` of polygons.
 
         """
         from shapely.validation import make_valid
@@ -513,7 +529,8 @@ class Tile:
         return polygon_gdf
     @staticmethod
     def get_geo_transform(raster_src):
-        """From Solaris
+        """*Adopted from the Solaris library to overcome dependency issues*
+
         Get the geotransform for a raster image source.
 
         Arguments
@@ -540,11 +557,12 @@ class Tile:
 
     def convert_poly_coords(self, geom, raster_src=None, affine_obj=None, inverse=False,
                             precision=None):
-        """From Solaris
+        """*Adopted from the Solaris library to overcome dependency issues*
+        
         Georegister geometry objects currently in pixel coords or vice versa.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         geom : :class:`shapely.geometry.shape` or str
             A :class:`shapely.geometry.shape`, or WKT string-formatted geometry
             object currently in pixel coordinates.
