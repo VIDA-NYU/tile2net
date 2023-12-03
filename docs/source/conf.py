@@ -10,9 +10,9 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
+import sys
+sys.path.insert(0, os.path.abspath('../../src'))
 
 
 # -- Project information -----------------------------------------------------
@@ -33,9 +33,11 @@ release = '0.3.0'
 extensions = [
     "myst_parser",
     "nbsphinx",
-    "sphinx_copybutton",
+    "sphinx.ext.autodoc",
     "sphinx.ext.autosectionlabel",
+    "sphinx_copybutton",
     "sphinx.ext.duration",
+    "sphinx.ext.napoleon",
     "sphinx_rtd_theme",
 ]
 
@@ -64,3 +66,5 @@ html_static_path = ['_static']
 nbsphinx_thumbnails = {
     'notebooks/ridgewood_0.ipynb': 'notebooks/ridgewood_schools_paths.png',
 }
+
+nbsphinx_allow_errors = True

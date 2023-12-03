@@ -61,7 +61,7 @@ Maryam Hosseini, Andres Sevtsuk, Fabio Miranda, Roberto M. Cesar Jr, Claudio T. 
 
 1. [What is New?](#what-is-new)
 2. [Semantic Segmentation Requirements](#semantic-segmentation-requirements)
-3. [Installation](#installation)
+3. [Install Tile2Net](#install-tile2net)
 4. [Create Your First Project](#create-your-first-project)
 5. [Run Our Example](#run-our-example)
 6. [Running in the Terminal](#running-in-the-terminal)
@@ -78,7 +78,7 @@ it as a PyPI and Conda package.
 
 If your region of interest is not supported by our tool yet, but the high-resolution orthorectified tiles are publicly
 available, you can add the information of your region together with the link to the tiles
-under [this](https://github.com/VIDA-NYU/tile2net/issues/11) Github topic, and we will do our best to include that region to our
+under [this Github topic](https://github.com/VIDA-NYU/tile2net/issues/11), and we will do our best to include that region to our
 catalogue of supported regions. See the {ref}`Contributing` page for more ways to contribute to the project.
 
 Compared to our 2022 trained model (published in Feb. 2023), the semantic segmentation model is now trained on more
@@ -93,10 +93,10 @@ Aside from that, we have updated the code to work with the most recent, stable v
 
 ## Semantic Segmentation Requirements
 
-- Hardware: ==1 CUDA-enabled GPU for inference
+- Hardware: 1 CUDA-enabled GPU for inference
 - Software:  ***CUDA==11.7, Python==3.10.9, pytorch==2.0.0***
 
-## Installation
+## Install Tile2Net
 
 It is highly recommended to create a virtual environment using either pip or conda to install Tile2Net and its
 dependencies. You can clone the repository by running the commands:
