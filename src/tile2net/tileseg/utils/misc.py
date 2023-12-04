@@ -43,6 +43,7 @@ from tabulate import tabulate
 from PIL import Image
 
 from tile2net.tileseg.config import cfg
+from tile2net.namespace import Namespace
 
 from runx.logx import logx
 
@@ -208,10 +209,24 @@ class ImageDumper():
     converts them to images (doing transformations where necessary) and then
     writes the images out to disk.
     """
-    def __init__(self, val_len, tensorboard=True, write_webpage=True,
-                 webpage_fn='index.html', dump_all_images=False, dump_assets=False,
-                 dump_err_prob=False, dump_num=10, dump_for_auto_labelling=False,
-                 dump_for_submission=False):
+
+    # def __init__(self, val_len, args: Namespace, tensorboard=True, write_webpage=True,
+    #              webpage_fn='index.html', dump_all_images=False, dump_assets=False,
+    #              dump_err_prob=False, dump_num=10, dump_for_auto_labelling=False,
+    #              dump_for_submission=False):
+    def __init__(
+            self,
+            val_len,
+            args: Namespace,
+            tensorboard=True,
+            write_webpage=True,
+            webpage_fn='index.html',
+            dump_all_images=False,
+            dump_assets=False,
+            dump_for_auto_labelling=False,
+            dump_for_submission=False,
+            dump_num=10,
+    ):
         """
         :val_len: num validation images
         :tensorboard: push summary to tensorboard
@@ -231,10 +246,10 @@ class ImageDumper():
         self.dump_for_submission = dump_for_submission
 
         self.viz_frequency = max(1, val_len // dump_num)
-        if dump_all_images:
-            self.dump_frequency = 1
-        else:
-            self.dump_frequency = self.viz_frequency
+        # if dump_all_images:
+        #     self.dump_frequency = 1
+        # else:
+        #     self.dump_frequency = self.viz_frequency
 
         inv_mean = [-mean / std for mean, std in zip(cfg.DATASET.MEAN,
                                                      cfg.DATASET.STD)]
@@ -250,7 +265,7 @@ class ImageDumper():
         else:
             self.save_dir = os.path.join(cfg.RESULT_DIR, 'seg_results')
 
-        os.makedirs(self.save_dir, exist_ok=True)
+        # os.makedirs(self.save_dir, exist_ok=True)
 
         self.imgs_to_tensorboard = []
         self.imgs_to_webpage = []
@@ -259,7 +274,8 @@ class ImageDumper():
             standard_transforms.Resize(384),
             standard_transforms.CenterCrop((384, 384)),
             standard_transforms.ToTensor()
-            ])
+        ])
+        self.args = args
 
     def reset(self):
         self.imgs_to_tensorboard = []
@@ -279,12 +295,22 @@ class ImageDumper():
             return True, err_pil
         return False, err_pil
 
+    dump_percent = 100  # first one always dumps if args.dump_percent != 0
     def create_composite_image(self, input_image, prediction_pil, img_name):
+        if not self.args.dump_percent:
+            return
+        self.dump_percent += self.args.dump_percent
+        if self.dump_percent < 100:
+            return
+        self.dump_percent -= 100
+        parent = os.path.dirname(self.save_dir)
+        os.makedirs(parent, exist_ok=True)
         composited = Image.new('RGB', (input_image.width + input_image.width, input_image.height))
         composited.paste(input_image, (0, 0))
         composited.paste(prediction_pil, (prediction_pil.width, 0))
         composited_fn = 'sidebside_{}.png'.format(img_name)
         composited_fn = os.path.join(self.save_dir, composited_fn)
+        print(f'saving {composited_fn}')
         composited.save(composited_fn)
 
     def get_dump_assets(self, dump_dict, img_name, idx, colorize_mask_fn, to_tensorboard):
@@ -308,13 +334,15 @@ class ImageDumper():
                 mask_pil.save(mask_fn)
                 to_tensorboard.append(self.visualize(mask_pil))
 
-    def dump(self, dump_dict, val_idx, testing=None, grid=None):
-        if (val_idx % self.dump_frequency or cfg.GLOBAL_RANK != 0):
-            return
 
+    def dump(self, dump_dict, val_idx, testing=None, grid=None):
+
+        # if not self.args.dump_percent:
+        #     return
         colorize_mask_fn = cfg.DATASET_INST.colorize_mask
 
         for idx in range(len(dump_dict['input_images'])):
+
             input_image = dump_dict['input_images'][idx]
             gt_image = dump_dict['gt_images'][idx]
             prediction = dump_dict['assets']['predictions'][idx]
@@ -345,7 +373,7 @@ class ImageDumper():
                 else:
                     prediction_pil = colorize_mask_fn(prediction)
                     prediction_pil = prediction_pil.convert('RGB')
-                    # self.create_composite_image(input_image, prediction_pil, img_name)
+                    self.create_composite_image(input_image, prediction_pil, img_name)
 
                     if grid:
                         idd_ = img_name.split('_')[-1]
@@ -360,9 +388,6 @@ class ImageDumper():
                 prediction_pil = prediction_pil.convert('RGB')
                 self.create_composite_image(input_image, prediction_pil, img_name)
 
-            if val_idx % self.viz_frequency or cfg.GLOBAL_RANK != 0:
-                return
-
             to_tensorboard = [
                 self.visualize(input_image.convert('RGB')),
                 self.visualize(gt_pil.convert('RGB')),
@@ -374,8 +399,6 @@ class ImageDumper():
             self.get_dump_assets(dump_dict, img_name, idx, colorize_mask_fn, to_tensorboard)
 
             self.imgs_to_tensorboard.append(to_tensorboard)
-
-
 
     def write_summaries(self, was_best):
         """
@@ -427,7 +450,7 @@ def print_evaluate_results(hist, iu, epoch=0, iou_per_scale=None,
     iu_FP = hist.sum(axis=1) - np.diag(hist)
     iu_FN = hist.sum(axis=0) - np.diag(hist)
     iu_TP = np.diag(hist)
-    #save the default hist
+    # save the default hist
     np.save(f'{cfg.RESULT_DIR}/cm_{epoch}.npy', hist)
     logx.msg('IoU:')
 
@@ -463,10 +486,11 @@ def print_evaluate_results(hist, iu, epoch=0, iou_per_scale=None,
     print_str = str(tabulate((tabulate_data), headers=header, floatfmt='1.2f'))
     logx.msg(print_str)
 
-    #save the histogram in a table :
+    # save the histogram in a table :
     class_names = ["{}".format(id2cat[class_id]) if class_id in id2cat else '' for class_id in range(len(iu))]
     df_cm = pd.DataFrame(hist, index=class_names, columns=class_names)
     df_cm.to_csv(f'{cfg.RESULT_DIR}/histogram_{epoch}.csv')
+
 
 def metrics_per_image(hist):
     """
