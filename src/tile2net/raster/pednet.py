@@ -257,8 +257,10 @@ class PedNet():
 
         Parameters
         ----------
-        gdf: :class:`gpd.GeoDataFrame`
+        gdf: :class:`GeoDataFrame`
             :class:`GeoDataFrame` of polygons
+        
+        Returns
         -------
         :class:`GeoDataFrame` | None
             Centerline polygons based on the given polygons, or None if it is not possible
