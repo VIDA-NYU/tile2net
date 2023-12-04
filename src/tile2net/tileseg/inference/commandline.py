@@ -29,6 +29,12 @@ commandline = compose_left(
         '--result_dir', type=str,
     ),
     arg(
+        '--dump_percent',
+        type=int,
+        default=0,
+        help='The percentage of segmentation results to save. 100 means all, 0 means none.',
+    ),
+    arg(
         '--assets_path', type=str,
     ),
     arg(
@@ -318,5 +324,5 @@ commandline = compose_left(
         '--interactive',
         action='store_true',
         help='tile2net is being run in interactive python'
-    )
+    ),
 )

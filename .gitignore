@@ -138,6 +138,7 @@ src/*.ipynb
 .idea
 **/tileseg/config.py
 src/*.py
+src/tile2net/logger.py
 
 
 

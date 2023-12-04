@@ -451,6 +451,8 @@ class Namespace(
 
     immutable: False
 
+    dump_percent: int = None
+
     # torch_version = torch_version_float()
     interactive: bool = False
 

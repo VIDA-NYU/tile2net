@@ -165,6 +165,7 @@ class Raster(Grid):
         padding=True,
         # extension: str = 'png',
         source: Source | Type[Source] = None,
+        dump_percent: int = 0,
     ):
         """
 
@@ -204,6 +205,8 @@ class Raster(Grid):
             extension of the input images (default: 'png')
         source: Source | Type[Source] | str
             tile source (default: None)
+        dump_percent: int
+            percentage of the tiles to dump (default: None)
         """
         if name is None:
             name = util.name_from_location(location)
@@ -248,6 +251,10 @@ class Raster(Grid):
             raise ValueError('Tile size must be a multiple of 256' )
         if zoom is None:
             raise ValueError('Zoom level must be specified')
+        if tile_step & (tile_step - 1):
+            raise ValueError('Tile step must be a power of 2')
+        if not 0 <= dump_percent <= 100:
+            raise ValueError('Dump percent must be between 0 and 100')
 
         self.zoom = zoom
         self.source = source
@@ -262,6 +269,7 @@ class Raster(Grid):
         self.boundary_path = ''
         self.input_dir: InputDir = input_dir
         self.source = source
+        self.dump_percent = dump_percent
 
         if boundary_path:
             self.boundary_path = boundary_path
@@ -746,6 +754,8 @@ class Raster(Grid):
             '--city_info',
             str(info),
             '--interactive',
+            '--dump_percent',
+            str(self.dump_percent),
         ]
         logger.info(f'Running {args}')
         if eval_folder:
