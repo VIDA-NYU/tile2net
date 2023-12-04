@@ -3,7 +3,7 @@
 <!-- In-depth user guide - including information from DATA_PREPARE.md -->
 
 ```{warning}
-Under Construction - thank you for your patience!
+Under construction - thank you for your patience!
 ```
 
 ```{contents}
