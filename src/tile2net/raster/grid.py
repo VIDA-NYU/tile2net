@@ -534,20 +534,28 @@ class Grid(BaseGrid):
                 raise ValueError("You must pass a textual address or name of the region")
 
     def get_in_boundary(self, clipped=None, city=None, address=None, path=None):
-        """makes the tiles outside the boundary inactive
+        """
+        Makes the tiles outside the boundary defined by the city or address inactive. 
+        This is used to speed up analysis, especially when a region has a shape that results
+        in a bounding box containing many extraneous tiles.
+
+        Only one of city, address, and path should have a value at a time. The other two should be None.
 
         Parameters
         ----------
         clipped: bool
-            if True, returns the new pseudo tiles clipped by boundary
-        city: ???
-        address: ???
+            If True, returns the new pseudo tiles clipped by boundary
+        city: str
+            The city to create a boundary around (e.g. "Boston", "New Delhi") 
+        address: str
+            The address to create a boundary around (e.g. "77 Massachusetts Ave, Cambridge MA, USA") 
         path: str 
             filepath to the city/region boundary file
 
         Returns
         -------
-        (optional) the new pseudo tiles clipped by boundary
+        (optional) :class:`GeoDataFrame`
+            The new pseudo tiles clipped by the boundary
         """
 
         # create the pseudo tiles for the grid
@@ -752,14 +760,17 @@ class Grid(BaseGrid):
     @staticmethod
     def get_exclusion_list(src_pth):
         """
+        Get the list of tile ids to exclude from analysis
 
         Parameters
         ----------
-        src_pth
+        src_pth: str
+            The file path to the csv file containing tiles to exclude
 
         Returns
         -------
-
+        list[int]
+            A list of integer tile ids to exclude from analysis
         """
         blacks = pd.read_csv(src_pth)
         blacks.ids = blacks.ids.astype(int)

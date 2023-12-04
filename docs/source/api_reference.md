@@ -10,6 +10,4 @@ Under construction - thank you for your patience!
 .. automodule:: tile2net
     :members:
     :undoc-members:
-    :special-members:
-    :private-members:
 ```

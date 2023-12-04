@@ -78,9 +78,10 @@ class Tile:
         dest_crs: int
             desired projection
         
-        Returns:
+        Returns
         -------
-            new coordinates top, left, bottom, right
+        tuple(float, float, float, float)
+            new coordinates top_latitude, left_longitude, bottom_latitude, right_longitue
         """
         transformer = Transformer.from_crs(src_crs, dest_crs)
         self.setLatlon()
@@ -107,6 +108,7 @@ class Tile:
         Returns
         -------
         tuple
+            A tuple of floats of the form (bottom_latitude, top_latitude, left_longitude, right_longitude)
         """
         self.setLatlon()
         return self.bottom, self.top, self.left, self.right
@@ -319,18 +321,23 @@ class Tile:
 
     def get_region(self, gdf: gpd.GeoDataFrame, spatial_index, crs=3857):
         """
-        clips the overlapping region between the dataframe and tile extent
+        Clips the overlapping region between a given GeoDataframe and a :class:`GeoDataFrame.sindex` when creating masks. 
+        See the [Geopandas documentation](https://geopandas.org/en/stable/docs/reference/api/geopandas.GeoDataFrame.sindex.html) for more
+        information on spatial indices. 
 
         Parameters
         ----------
         gdf: :class:`GeoDataFrame`
-        spatial_index: ???
+            The :class:`GeoDataFrame` to clip
+        spatial_index: :class:`GeoDataFrame.sindex`
+            The spatial index to clip the :class:`GeoDataFrame` against
         crs: int
+            The desired coordinate reference system to save the network polygon with.
 
         Returns
         -------
         :class:`GeoDataFrame` | int
-            ????
+            Either the clipped :class:`GeoDataFrame`, or -1 if the regions do not overlap
         """
         tilepoly = self.tile2gdf()
         gdf.to_crs(tilepoly.crs, inplace=True)
