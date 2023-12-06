@@ -11,7 +11,8 @@ pipe(
     logging.config.fileConfig
 )
 # todo: when release, set to USER
-logger = logging.getLogger('debug')
+# logger = logging.getLogger('debug')
+logger = logging.getLogger('user')
 
 # class TqdmLoggingHandler(logging.Handler):
 #     def __init__(self, level=logging.NOTSET):

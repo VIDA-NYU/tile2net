@@ -216,6 +216,9 @@ def unary_multi(gdf: GeoDataFrame) -> GeoDataFrame:
     # handles the errors with multipolygon
     loc = ~gdf.is_valid.values
     # logger.warning(f'Number of invalid geometries: {loc.sum()} out of {len(gdf)}')
+    count = loc.sum()
+    if count:
+        logger.warning(f'Number of invalid geometries: {count} out of {len(gdf)}')
     gdf.geometry.loc[loc] = shapely.make_valid(gdf.geometry.loc[loc])
     result = (
         gdf
