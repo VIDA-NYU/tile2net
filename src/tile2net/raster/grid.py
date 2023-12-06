@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 import datetime
 import tempfile
-from pathlib import Path
 from typing import Dict, Any, Union
 import shapely
 import rasterio
@@ -23,7 +22,7 @@ from tile2net.raster.tile_utils.genutils import (
     deg2num, num2deg, createfolder,
 )
 from tile2net.raster.tile_utils.geodata_utils import (
-    _reduce_geom_precision, list_to_affine, read_gdf, buff_dfs, to_metric,
+    _reduce_geom_precision, list_to_affine, read_gdf, buff_dfs,
 )
 import logging
 from tile2net.raster.project import Project
@@ -67,7 +66,7 @@ class BaseRegion:
                 'topLeft_lat, topLeft_lon, bottomRight_lat, bottomRight_lon'
             )
 
-    def round_loc(self, other: list = None) -> list[float]:
+    def round_loc(self, other: list | float = None) -> list[float]:
         if other:
             return list(np.around(np.array(other), 10))
         else:
@@ -599,11 +598,13 @@ class Grid(BaseGrid):
         poly_network.geometry = poly_network.simplify(0.6)
         unioned = buff_dfs(poly_network)
         unioned.geometry = unioned.geometry.simplify(0.9)
-        unioned.dropna(inplace=True)
         unioned = unioned[unioned.geometry.notna()]
         unioned['geometry'] = unioned.apply(fill_holes, args=(25,), axis=1)
         simplified = replace_convexhull(unioned)
+        simplified = simplified[simplified.geometry.notna()]
+        simplified = simplified[['geometry', 'f_type']]
         simplified.to_crs(self.crs, inplace=True)
+
         self.ntw_poly = simplified
         simplified.to_file(
             os.path.join(poly_fold, f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}'))
