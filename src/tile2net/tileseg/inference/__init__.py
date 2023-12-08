@@ -1,4 +1,5 @@
 from __future__ import annotations, absolute_import, division
+import time
 
 import numpy
 
@@ -70,7 +71,7 @@ from tile2net.raster.project import Project
 
 
 @commandline
-def inference(args: Namespace):
+def inference_(args: Namespace):
     ...
     # sys.stdin
     if args.dump_percent:
@@ -555,6 +556,7 @@ class Inference:
                     poly=polys,
                     project=grid.project,
                 )
+                return
                 net.convert_whole_poly2line()
 
 @commandline
@@ -582,4 +584,5 @@ if __name__ == '__main__':
     # argh.dispatch_command(inference)
     # inference: Inference = commandline(Inference)
     # argh.dispatch_command(inference)()
-    argh.dispatch_command(inference)
+    # argh.dispatch_command(inference)
+    argh.dispatch_command(inference_)
