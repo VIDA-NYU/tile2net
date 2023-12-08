@@ -14,6 +14,7 @@ from functools import cached_property
 from geopy.geocoders import Nominatim
 
 from tile2net.raster.tile_utils.topology import fill_holes, replace_convexhull
+from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 
 os.environ['USE_PYGEOS'] = '0'
 import geopandas as gpd
@@ -606,8 +607,52 @@ class Grid(BaseGrid):
         simplified.to_crs(self.crs, inplace=True)
 
         self.ntw_poly = simplified
-        simplified.to_file(
+        simplified.to_filte(
             os.path.join(poly_fold, f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}'))
+        logging.info('Polygons are generated and saved!')
+
+    def save_ntw_polygon(
+            self,
+            crs_metric: int = 3857,
+    ):
+        """
+        Collects the polygons of all tiles created in the segmentation process
+        and saves them as a shapefile
+        Parameters
+        ----------
+        crs
+        """
+        poly_fold = self.project.polygons.path
+        createfolder(poly_fold)
+        t: Tile
+        tiles = self.tiles.flatten()
+        loc: list[bool] = [
+            os.path.exists(t.tempfeather)
+            for t in tiles
+        ]
+        tiles = tiles[loc]
+        threads = ThreadPoolExecutor()
+        futures = threads.map(gpd.read_feather, (t.tempfeather for t in tiles))
+        gdfs: list[gpd.GeoDataFrame] = list(futures)
+        poly_network = pd.concat(gdfs)
+
+        poly_network.reset_index(drop=True, inplace=True)
+        poly_network.set_crs(self.crs, inplace=True)
+        if poly_network.crs != crs_metric:
+            poly_network.to_crs(crs_metric, inplace=True)
+        poly_network.geometry = poly_network.simplify(0.6)
+        unioned = buff_dfs(poly_network)
+        unioned.geometry = unioned.geometry.simplify(0.9)
+        unioned = unioned[unioned.geometry.notna()]
+        unioned['geometry'] = unioned.apply(fill_holes, args=(25,), axis=1)
+        simplified = replace_convexhull(unioned)
+        simplified = simplified[simplified.geometry.notna()]
+        simplified = simplified[['geometry', 'f_type']]
+        simplified.to_crs(self.crs, inplace=True)
+
+        self.ntw_poly = simplified
+        path = os.path.join(poly_fold, f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}')
+        simplified.to_file(path)
         logging.info('Polygons are generated and saved!')
 
     def prepare_class_gdf(self, class_name: str, crs: int = 3857) -> object:

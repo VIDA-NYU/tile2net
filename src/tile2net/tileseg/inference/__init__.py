@@ -1,3 +1,7 @@
+from __future__ import annotations, absolute_import, division
+
+import numpy
+
 """
 Copyright 2020 Nvidia Corporation
 Redistribution and use in source and binary forms, with or without
@@ -22,18 +26,21 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 """
-from __future__ import absolute_import
-from __future__ import division
 
 import argparse
 import os
 import sys
+
+import argh
 import torch
+from torch.utils.data import DataLoader
 from torch.cuda import amp
 from runx.logx import logx
+
+import tile2net.tileseg.network.ocrnet
 from tile2net.tileseg.config import assert_and_infer_cfg, update_epoch, cfg
 from tile2net.tileseg.utils.misc import AverageMeter, prep_experiment, eval_metrics
-from tile2net.tileseg.utils.misc import ImageDumper
+from tile2net.tileseg.utils.misc import ImageDumper, ThreadedDumper
 from tile2net.tileseg.utils.trnval_utils import eval_minibatch, validate_topn
 from tile2net.tileseg.loss.utils import get_loss
 from tile2net.tileseg.loss.optimizer import get_optimizer, restore_opt, restore_net
@@ -42,6 +49,7 @@ from tile2net.tileseg import datasets
 from tile2net.tileseg import network
 from tile2net.tileseg.inference.commandline import commandline
 from tile2net.namespace import Namespace
+from tile2net.logger import logger
 
 from tile2net.raster.pednet import PedNet
 from toolz import pipe
@@ -63,6 +71,7 @@ from tile2net.raster.project import Project
 
 @commandline
 def inference(args: Namespace):
+    ...
     # sys.stdin
     if args.dump_percent:
         if not os.path.exists(args.result_dir):
@@ -139,7 +148,7 @@ def inference(args: Namespace):
         """
         Main Function
         """
-
+        print('arst')
         assert args.result_dir is not None, 'need to define result_dir arg'
         logx.initialize(logdir=str(args.result_dir),
                         tensorboard=True, hparams=vars(args),
@@ -253,15 +262,29 @@ def inference(args: Namespace):
             assets, _iou_acc = \
                 eval_minibatch(data, net, criterion, val_loss, calc_metrics,
                                args, val_idx)
+            # print(f'{type(assets)=}')
+            types = {
+                k: type(v)
+                for k, v in assets.items()
+            }
+            # print(f'{types=}')
 
             iou_acc += _iou_acc
 
             input_images, labels, img_names, _ = data
+            # print(f'{type(input_images)=}')
+            # print(f'{type(labels)=}')
+            # print(f'{type(img_names)=}')
 
             if testing:
                 prediction = assets['predictions'][0]
                 values, counts = np.unique(prediction, return_counts=True)
                 pred[img_names[0]] = copy.copy(_temp)
+                # print(f'{type(prediction)=}')
+                # print(f'{type(pred)=}')
+                # print(f'{type(pred[img_names[0]])=}')
+                # print(f'{type(values)=}')
+
                 for v in range(len(values)):
                     pred[img_names[0]][values[v]] = counts[v]
 
@@ -307,3 +330,256 @@ def inference(args: Namespace):
                 #     print('could not perform the vector generation!')
 
     run_inference()
+
+
+class Inference:
+    def __init__(self, args: Namespace):
+        self.args = args
+        if args.dump_percent:
+            if not os.path.exists(args.result_dir):
+                os.mkdir(args.result_dir)
+            logger.info(f'Inferencing. Segmentation results will be saved to {args.result_dir}')
+        else:
+            logger.info('Inferencing. Segmentation results will not be saved.')
+
+        weights = Project.resources.assets.weights
+        if (
+                args.model.snapshot == weights.satellite_2021.path.absolute().__fspath__()
+                and not weights.satellite_2021.path.exists()
+        ) or (
+                args.model.hrnet_checkpoint == weights.hrnetv2_w48_imagenet_pretrained.path.absolute().__fspath__()
+                and not weights.hrnetv2_w48_imagenet_pretrained.path.exists()
+        ):
+            weights.path.mkdir(parents=True, exist_ok=True)
+            logger.info("Downloading weights for segmentation, this may take a while...")
+            weights.download()
+            logger.info("Weights downloaded.")
+
+        args.best_record = dict(epoch=-1, iter=0, val_loss=1e10, acc=0, acc_cls=0, mean_iu=0, fwavacc=0)
+
+        # Enable CUDNN Benchmarking optimization
+        torch.backends.cudnn.benchmark = True
+        if args.deterministic:
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+
+        args.world_size = 1
+
+        # Test Mode run two epochs with a few iterations of training and val
+        if args.options.test_mode:
+            args.max_epoch = 2
+
+        if (
+                'WORLD_SIZE' in os.environ
+                and args.model.apex
+        ):
+            # args.model.apex = int(os.environ['WORLD_SIZE']) > 1
+            args.world_size = int(os.environ['WORLD_SIZE'])
+            args.global_rank = int(os.environ['RANK'])
+
+        if args.model.apex:
+            logger.info(f'Global Rank: {args.global_rank} Local Rank: {args.local_rank}')
+            torch.cuda.set_device(args.local_rank)
+            torch.distributed.init_process_group(backend='nccl', init_method='env://')
+
+        assert args.result_dir is not None, 'need to define result_dir arg'
+
+    def inference(self, rasterfactory=None):
+        train_loader: DataLoader
+        val_loader: DataLoader
+        train_obj: datasets.Loader
+        net: torch.nn.parallel.DataParallel
+        optim: torch.optim.sgd.SGD
+
+        args = self.args
+
+        logx.initialize(
+            logdir=str(args.result_dir),
+            tensorboard=True, hparams=vars(args),
+            global_rank=args.global_rank
+        )
+
+        assert_and_infer_cfg(args)
+        prep_experiment(args)
+        train_loader, val_loader, train_obj = datasets.setup_loaders(args)
+        criterion, criterion_val = get_loss(args)
+        if args.model.snapshot:
+            if 'ASSETS_PATH' in args.model.snapshot:
+                args.model.snapshot = args.model.snapshot.replace('ASSETS_PATH', cfg.ASSETS_PATH)
+            checkpoint = torch.load(args.model.snapshot, map_location=torch.device('cpu'))
+            args.restore_net = True
+            msg = "Loading weights from: checkpoint={}".format(args.model.snapshot)
+            logx.msg(msg)
+
+        net: tile2net.tileseg.network.ocrnet.MscaleOCR = network.get_net(args, criterion)
+
+        optim, scheduler = get_optimizer(args, net)
+
+        if args.train.fp16:
+            net, optim = amp.initialize(net, optim, opt_level=args.amp_opt_level)
+
+        net = network.wrap_network_in_dataparallel(net, args.model.apex)
+        if args.restore_optimizer:
+            restore_opt(optim, checkpoint)
+        if args.restore_net:
+            restore_net(net, checkpoint)
+        if args.options.init_decoder:
+            net.module.init_mods()
+        torch.cuda.empty_cache()
+
+        if args.tile2net:
+            if rasterfactory:
+                city_data = rasterfactory
+            else:
+                from tile2net.raster.raster import Raster
+                # boundary_path = args.boundary_path
+                city_info_path = cfg.CITY_INFO_PATH
+                # @maryam boundary path is unused in original
+                # boundary_path = cfg.MODEL.boundary_path
+                city_data = Raster.from_info(city_info_path)
+        else:
+            city_data = None
+
+        match args.model.eval:
+            case 'test':
+                self.validate(
+                    val_loader, net, criterion=None, optim=None, epoch=0,
+                    calc_metrics=False, dump_assets=args.dump_assets,
+                    dump_all_images=True, testing=True, grid=city_data,
+                    args=args,
+                )
+                return 0
+
+            case 'folder':
+                # Using a folder for evaluation means to not calculate metrics
+                self.validate(
+                    val_loader, net, criterion=criterion_val, optim=optim, epoch=0,
+                    calc_metrics=False, dump_assets=args.dump_assets,
+                    dump_all_images=True,
+                    args=args,
+                )
+                return 0
+
+            case _:
+                raise 'unknown eval option {}'.format(args.eval)
+
+    def validate(
+            self,
+            val_loader: DataLoader,
+            net: torch.nn.parallel.DataParallel,
+            criterion: tile2net.tileseg.loss.utils.CrossEntropyLoss2d,
+            optim: torch.optim.sgd.SGD,
+            epoch: int,
+            calc_metrics=True,
+            dump_assets=False,
+            dump_all_images=False,
+            testing=None,
+            grid=None,
+            **kwargs
+    ):
+        """
+        Run validation for one epoch
+        :val_loader: data loader for validation
+        """
+        input_images: torch.Tensor
+        labels: torch.Tensor
+        img_names: tuple
+        prediction: numpy.ndarray
+        pred: dict
+        values: numpy.ndarray
+        args = self.args
+        # todo map_feature is how Tile generates poly
+        dumper = ThreadedDumper(
+            val_len=len(val_loader),
+            dump_all_images=dump_all_images,
+            dump_assets=dump_assets,
+            args=args,
+        )
+
+        net.eval()
+        val_loss = AverageMeter()
+        iou_acc = 0
+        pred = dict()
+        _temp = dict.fromkeys([i for i in range(10)], None)
+        for val_idx, data in enumerate(val_loader):
+            input_images, labels, img_names, _ = data
+
+            # Run network
+            assets, _iou_acc = eval_minibatch(
+                data, net, criterion, val_loss, calc_metrics, args, val_idx,
+            )
+
+            iou_acc += _iou_acc
+
+            input_images, labels, img_names, _ = data
+
+            if testing:
+                prediction = assets['predictions'][0]
+                values, counts = np.unique(prediction, return_counts=True)
+                pred[img_names[0]] = copy.copy(_temp)
+
+                for v in range(len(values)):
+                    pred[img_names[0]][values[v]] = counts[v]
+
+                dumpdict = dict(
+                    gt_images=labels,
+                    input_images=input_images,
+                    img_names=img_names,
+                    assets=assets,
+                )
+                dumper.dump(dumpdict, val_idx, testing=True, grid=grid)
+            else:
+                dumpdict = dict(
+                    gt_images=labels,
+                    input_images=input_images,
+                    img_names=img_names,
+                    assets=assets,
+                )
+                dumper.dump(dumpdict, val_idx)
+
+            if (
+                val_idx > 5
+                and args.options.test_mode
+            ):
+                break
+
+            if val_idx % 20 == 0:
+                logx.msg(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
+
+        if testing:
+            if grid:
+                grid.save_ntw_polygon()
+                polys = grid.ntw_poly
+                # net = PedNet(polys, grid.project)
+                net = PedNet(
+                    poly=polys,
+                    project=grid.project,
+                )
+                net.convert_whole_poly2line()
+
+@commandline
+def inference(args: Namespace):
+    return Inference(args).inference()
+
+if __name__ == '__main__':
+    """
+    --city_info
+    /tmp/tile2net/central_park/tiles/central_park_256_info.json
+    --interactive
+    --dump_percent 100
+    """
+    from tile2net import Raster
+
+    # raster = Raster(
+    #     location='Boston Common',
+    #     name='central_park',
+    #     zoom=19,
+    # )
+    # raster.generate(2)
+
+
+    # raster.inference()
+    # argh.dispatch_command(inference)
+    # inference: Inference = commandline(Inference)
+    # argh.dispatch_command(inference)()
+    argh.dispatch_command(inference)

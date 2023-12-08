@@ -448,7 +448,13 @@ class HighResolutionNet(nn.Module):
 
         return None, None, feats
 
-    def init_weights(self, pretrained=cfg.MODEL.HRNET_CHECKPOINT):
+    # def init_weights(self, pretrained=cfg.MODEL.HRNET_CHECKPOINT):
+    def init_weights(self, pretrained=None):
+        # @Maryam-h86 hrnet_checkpoint is None under CFG and not modified until Namespace is initiated
+        # which occurs later than the importation of this file
+        if pretrained is None:
+            pretrained = cfg.MODEL.HRNET_CHECKPOINT
+
         logx.msg('=> init weights from normal distribution')
         for name, m in self.named_modules():
             if any(part in name for part in {'cls', 'aux', 'ocr'}):

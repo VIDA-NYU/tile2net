@@ -1,4 +1,6 @@
 import os
+import pathlib
+
 import numpy as np
 import pandas as pd
 import skimage
@@ -21,6 +23,9 @@ from tile2net.raster.tile_utils.geodata_utils import _reduce_geom_precision, lis
 
 from dataclasses import dataclass, field
 from functools import cached_property
+import tempfile
+
+tempdir = tempfile.gettempdir()
 
 
 @dataclass
@@ -611,6 +616,12 @@ class Tile:
             xformed_g = _reduce_geom_precision(xformed_g, precision=precision)
 
         return xformed_g
+
+    os.makedirs(os.path.join(tempdir, 'tile2net'), exist_ok=True)
+    @cached_property
+    def tempfeather(self):
+        """Create a temporary file for the tile"""
+        return os.path.join(tempdir, 'tile2net', f'{self.xtile}_{self.ytile}.feather')
 
 #create empty dataframe
 df = pd.DataFrame(columns=['ImageId', 'BuildingId', 'PolygonWKT_Pix', 'PolygonWKT_Geo', 'Confidence'])
