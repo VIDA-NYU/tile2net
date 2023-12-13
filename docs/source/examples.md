@@ -8,7 +8,7 @@ Under construction - thank you for your patience!
 
 ```{nbgallery}
 
-<!-- notebooks/colab_example -->
+notebooks/colab_example
 notebooks/quick_start
 notebooks/ridgewood_0
 ```
