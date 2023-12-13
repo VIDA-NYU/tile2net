@@ -57,6 +57,7 @@ class Raster(Grid):
     def from_nyc(cls, outdir: PathLike = None) -> 'Raster':
         """
         Create a Raster object for NYC
+
         Parameters
         ----------
         outdir: PathLike
@@ -81,10 +82,12 @@ class Raster(Grid):
     def from_info(cls, info: PathLike | dict) -> 'Raster':
         """
         Create a Raster object from a json file
+
         Parameters
         ----------
         info: PathLike | dict
             Path to a json file or a dictionary containing the following keys:
+
             - location: list
                 Bounding box of the region of interest
             - name: str
@@ -114,10 +117,12 @@ class Raster(Grid):
     def from_stitched(cls, info: PathLike | dict, tile_step=4) -> 'Raster':
         """
         Create a Raster object from stitched tiles
+
         Parameters
         ----------
         info: PathLike | dict
             Path to a json file or a dictionary containing the following keys:
+
             - location: list
                 Bounding box of the region of interest
             - name: str
@@ -314,6 +319,7 @@ class Raster(Grid):
     def check_tile_size(self, img_path: str):
         """
         Check if the input tile image size is the same as the base tile size
+
         Parameters
         ----------
         img_path: str
@@ -341,12 +347,18 @@ class Raster(Grid):
 
     def stitch(self, step: int, force=False) -> None:
         """Stitch tiles
-        Args:
-            step (int): Stitch step. How many adjacent tiles on row/colum to stitch together.
-                For instance, to get a 512x512 tiles from the 256x256 base, the stitch step is 2
-            extension (str): File extension of the tiles. Default is 'png'.
-            loc_abr (str): The abbreviation of the area/state to download the missing tiles when padding.
-                If None, missing tiles will be replaced with gray tiles.
+
+        Parameters
+        ----------
+        step: int 
+            Stitch step. How many adjacent tiles on row/colum to stitch together.
+            For instance, to get a 512x512 tiles from the 256x256 base, the stitch step is 2
+        extension: str
+            File extension of the tiles. Default is 'png'.
+        loc_abr: str
+            The abbreviation of the area/state to download the missing tiles when padding.
+            If None, missing tiles will be replaced with gray tiles.
+
         Returns
         ------
         None.
@@ -547,6 +559,11 @@ class Raster(Grid):
     def download(self, retry: bool = True):
         """
         Download tiles from the source.
+
+        Parameters
+        ----------
+        retry: bool
+            When True, tries to serialize tiles a second time if the first time fails
         Returns
         -------
         None
@@ -655,13 +672,15 @@ class Raster(Grid):
 
     def save_info_json(self, **kwargs):
         """
-        saves the grid info as a json file
+        Saves the grid info as a json file
+
         Parameters
         ----------
         kwargs
             new_tstep: int
                 if the tile size is changed, the new tile size is saved in the json file
             return_dict: bool
+                whether or not to return the updated grid info as a dict instead of saving to a json file
         """
         city_info = {
             'name': self.name,
@@ -696,6 +715,7 @@ class Raster(Grid):
     def write_json_file(self, file_path, data):
         """
         writes a json file
+
         Parameters
         ----------
         file_path: str
@@ -736,6 +756,7 @@ class Raster(Grid):
     ):
         """
         runs the inference on the tiles
+
         Parameters
         ----------
         eval_folder: str
