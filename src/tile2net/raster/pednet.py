@@ -97,8 +97,8 @@ class PedNet():
     def validate_linemerge(self, merged_line):
         # from topojson https://github.com/mattijn/topojson/commit/cdc059bae53f3f5cfe882527e5d34e671f80173e
         """
-        Return
-        ------
+        Returns
+        -------
         list[shapely.geometry.LineString] 
             If the linemerge was a MultiLineString, then returns a list of multiple single linestrings
         """

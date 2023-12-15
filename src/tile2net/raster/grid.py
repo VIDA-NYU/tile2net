@@ -542,19 +542,19 @@ class Grid(BaseGrid):
 
         Parameters
         ----------
-        clipped: bool
+        clipped : bool
             If True, returns the new pseudo tiles clipped by boundary
-        city: str
+        city : str
             The city to create a boundary around (e.g. "Boston", "New Delhi") 
-        address: str
+        address : str
             The address to create a boundary around (e.g. "77 Massachusetts Ave, Cambridge MA, USA") 
-        path: str 
+        path : str 
             filepath to the city/region boundary file
 
         Returns
         -------
-        (optional) :class:`GeoDataFrame`
-            The new pseudo tiles clipped by the boundary
+        :class:`GeoDataFrame` or None
+            The new pseudo tiles clipped by the boundary or None if not clipped
         """
 
         # create the pseudo tiles for the grid
@@ -578,7 +578,7 @@ class Grid(BaseGrid):
 
         Parameters
         ----------
-        lst: list[int]
+        lst : list[int]
             list of tile ids to exclude
         """
         for pos in lst:
@@ -601,7 +601,7 @@ class Grid(BaseGrid):
 
         Parameters
         ----------
-        crs_metric: int
+        crs_metric : int
             The desired coordinate reference system to save the network polygon with.
         """
         gdf = []
@@ -642,10 +642,10 @@ class Grid(BaseGrid):
         """
         Parameters
         ----------
-        class_name: str
+        class_name : str
             Class label, sidewalk, crosswalk, road
         
-        crs: int
+        crs : int
             The desired coordinate reference system to prepare the :class:`GeoDataFrame` with.
 
 
