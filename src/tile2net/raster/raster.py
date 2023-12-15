@@ -60,7 +60,7 @@ class Raster(Grid):
 
         Parameters
         ----------
-        outdir: PathLike
+        outdir : PathLike
             Path to the output directory
 
         Returns
@@ -85,7 +85,7 @@ class Raster(Grid):
 
         Parameters
         ----------
-        info: PathLike | dict
+        info : PathLike | dict
             Path to a json file or a dictionary containing the following keys:
 
             - location: list
@@ -120,7 +120,7 @@ class Raster(Grid):
 
         Parameters
         ----------
-        info: PathLike | dict
+        info : PathLike | dict
             Path to a json file or a dictionary containing the following keys:
 
             - location: list
@@ -133,7 +133,7 @@ class Raster(Grid):
                 Path to the source directory
             - tile_step: int
                 Step size for the tiles
-        tile_step: int
+        tile_step : int
             Step size for the tiles
 
         Returns
@@ -176,11 +176,11 @@ class Raster(Grid):
 
         Parameters
         ----------
-        location: list | str
+        location : list | str
             region of interest to get its bounding box
-        name: str
+        name : str
             name of the project
-        input_dir: str
+        input_dir : str
             path to the directory containing the input images;
             this must implicate the format of the contained files,
             containing the xtile, ytile, and extension,
@@ -190,27 +190,27 @@ class Raster(Grid):
             path/to/files/z/y/x.ext
 
             if input_dir is passed, zoom must be passed as well
-        output_dir: PathLike
+        output_dir : PathLike
             path to the directory containing the output images
-        num_class: int
+        num_class : int
             # of classes for annotation creation
-        base_tilesize: int
+        base_tilesize : int
             size of the base tile in pixels (default: 256)
-        zoom: int
+        zoom : int
             zoom level of the tiles (default: None)
-        crs: int
+        crs : int
             coordinate reference system (default: 4326)
-        tile_step: int
+        tile_step : int
             step size for the tiles (default: 1)
-        boundary_path: str
+        boundary_path : str
             path to a shapefile to filter out of boundary tiles (default: None)
-        padding: bool
+        padding : bool
             whether to pad the tiles to the base tile size (default: True)
-        extension:
+        extension : str
             extension of the input images (default: 'png')
-        source: Source | Type[Source] | str
+        source : Source | Type[Source] | str
             tile source (default: None)
-        dump_percent: int
+        dump_percent : int
             percentage of the tiles to dump (default: None)
         """
         if name is None:
@@ -322,7 +322,7 @@ class Raster(Grid):
 
         Parameters
         ----------
-        img_path: str
+        img_path : str
             Path to the input tile image
 
         Returns
@@ -346,16 +346,17 @@ class Raster(Grid):
     """
 
     def stitch(self, step: int, force=False) -> None:
-        """Stitch tiles
+        """
+        Stitch tiles
 
         Parameters
         ----------
-        step: int 
+        step : int 
             Stitch step. How many adjacent tiles on row/colum to stitch together.
             For instance, to get a 512x512 tiles from the 256x256 base, the stitch step is 2
-        extension: str
+        extension : str
             File extension of the tiles. Default is 'png'.
-        loc_abr: str
+        loc_abr : str
             The abbreviation of the area/state to download the missing tiles when padding.
             If None, missing tiles will be replaced with gray tiles.
 
@@ -562,7 +563,7 @@ class Raster(Grid):
 
         Parameters
         ----------
-        retry: bool
+        retry : bool
             When True, tries to serialize tiles a second time if the first time fails
         Returns
         -------
@@ -677,9 +678,9 @@ class Raster(Grid):
         Parameters
         ----------
         kwargs
-            new_tstep: int
+            new_tstep : int
                 if the tile size is changed, the new tile size is saved in the json file
-            return_dict: bool
+            return_dict : bool
                 whether or not to return the updated grid info as a dict instead of saving to a json file
         """
         city_info = {
@@ -718,9 +719,9 @@ class Raster(Grid):
 
         Parameters
         ----------
-        file_path: str
+        file_path : str
             path to the json file
-        data: dict
+        data : dict
             data to be written
         """
         path = Path(file_path)
@@ -736,7 +737,7 @@ class Raster(Grid):
 
         Parameters
         ----------
-        step: int
+        step : int
             tile step to stitch the tiles
         """
         self.stitch(step)
@@ -759,7 +760,7 @@ class Raster(Grid):
 
         Parameters
         ----------
-        eval_folder: str
+        eval_folder : str
             path to the folder containing the images to run inference on
         """
         info = toolz.get_in(

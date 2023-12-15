@@ -158,7 +158,8 @@ class BaseGrid(BaseRegion):
 
     @cached_property
     def base_xyrange(self) -> tuple:
-        """calculates the min and max of xtile ytile of grid
+        """
+        calculates the min and max of xtile ytile of grid
         """
         xt, yt = deg2num(self.base_top, self.base_left, self.zoom)
         xtm, ytm = deg2num(self.base_bottom, self.base_right, self.zoom)
@@ -182,9 +183,9 @@ class BaseGrid(BaseRegion):
 
         Parameters
         ----------
-        col_idx: int
+        col_idx : int
             index of the column
-        row_idx: int
+        row_idx : int
             index of the row
 
         Returns
@@ -241,7 +242,8 @@ class Grid(BaseGrid):
                f"stitch step: {self.tile_step}"
 
     def create_grid(self):
-        """Creates the main grid based on user input
+        """
+        Creates the main grid based on user input
 
         Returns
         -------
@@ -307,7 +309,8 @@ class Grid(BaseGrid):
 
     @property
     def bbox(self):
-        """ Calculates bounding box.
+        """ 
+        Calculates bounding box.
 
         Returns
         -------
@@ -319,7 +322,8 @@ class Grid(BaseGrid):
         return [self.bottom, self.top, self.left, self.right]
 
     def update_hw(self):
-        """ Update the height and width of the grid.
+        """ 
+        Update the height and width of the grid.
         
         Returns
         -------
@@ -343,8 +347,9 @@ class Grid(BaseGrid):
         )
 
     def update_tiles(self):
-        """Update the tiles and their positions based on the new height/width values.
-           Uesed when the ytile, xtile is changed in the process.
+        """
+        Update the tiles and their positions based on the new height/width values.
+        Used when the ytile, xtile is changed in the process.
 
         Returns
         -------
@@ -399,9 +404,9 @@ class Grid(BaseGrid):
 
         Parameters
         ----------
-        xtile: int
+        xtile : int
             tile.xtile
-        ytile: int
+        ytile : int
             tile.ytile
 
         Returns
@@ -420,9 +425,9 @@ class Grid(BaseGrid):
 
         Parameters
         ----------
-        xtile: int
+        xtile : int
             tile.xtile
-        ytile: int
+        ytile : int
             tile.ytile
 
         Returns
@@ -439,7 +444,7 @@ class Grid(BaseGrid):
 
         Parameters
         ----------
-        df: bool
+        df : bool
             if True, returns a DataFrame
 
         Returns
@@ -660,7 +665,8 @@ class Grid(BaseGrid):
 
     # adopted from solaris library to overcome dependency issues
     def get_geo_transform(self, raster_src):
-        """*Adopted from the Solaris library to overcome dependency issues*
+        """
+        *Adopted from the Solaris library to overcome dependency issues*
 
         Get the geotransform for a raster image source.
 
@@ -687,7 +693,8 @@ class Grid(BaseGrid):
 
     def convert_poly_coords(self, geom, raster_src=None, affine_obj=None, inverse=False,
                             precision=None):
-        """*Adopted from the Solaris library to overcome dependency issues*
+        """
+        *Adopted from the Solaris library to overcome dependency issues*
 
         Georegister geometry objects currently in pixel coords or vice versa.
         
@@ -698,7 +705,7 @@ class Grid(BaseGrid):
             Alternatively, an opened :class:`rasterio.Band` object or
             :class:`osgeo.gdal.Dataset` object can be provided. Required if not
             using `affine_obj`.
-        affine_obj: list or :class:`affine.Affine`
+        affine_obj : list or :class:`affine.Affine`
             An affine transformation to apply to `geom` in the form of an
             ``[a, b, d, e, xoff, yoff]`` list or an :class:`affine.Affine` object.
             Required if not using `raster_src`.
@@ -765,7 +772,7 @@ class Grid(BaseGrid):
 
         Parameters
         ----------
-        src_pth: str
+        src_pth : str
             The file path to the csv file containing tiles to exclude
 
         Returns
