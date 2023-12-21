@@ -159,7 +159,8 @@ class BaseGrid(BaseRegion):
 
     @cached_property
     def base_xyrange(self) -> tuple:
-        """calculates the min and max of xtile ytile of grid
+        """
+        calculates the min and max of xtile ytile of grid
         """
         xt, yt = deg2num(self.base_top, self.base_left, self.zoom)
         xtm, ytm = deg2num(self.base_bottom, self.base_right, self.zoom)
@@ -183,9 +184,9 @@ class BaseGrid(BaseRegion):
 
         Parameters
         ----------
-        col_idx: int
+        col_idx : int
             index of the column
-        row_idx: int
+        row_idx : int
             index of the row
 
         Returns
@@ -242,7 +243,8 @@ class Grid(BaseGrid):
                f"stitch step: {self.tile_step}"
 
     def create_grid(self):
-        """Creates the main grid based on user input
+        """
+        Creates the main grid based on user input
 
         Returns
         -------
@@ -308,7 +310,9 @@ class Grid(BaseGrid):
 
     @property
     def bbox(self):
-        """ Calculates bounding box.
+        """ 
+        Calculates bounding box.
+
         Returns
         -------
         list
@@ -319,7 +323,9 @@ class Grid(BaseGrid):
         return [self.bottom, self.top, self.left, self.right]
 
     def update_hw(self):
-        """ Update the height and width of the grid.
+        """ 
+        Update the height and width of the grid.
+        
         Returns
         -------
         None.
@@ -342,8 +348,9 @@ class Grid(BaseGrid):
         )
 
     def update_tiles(self):
-        """Update the tiles and their positions based on the new height/width values.
-           Uesed when the ytile, xtile is changed in the process.
+        """
+        Update the tiles and their positions based on the new height/width values.
+        Used when the ytile, xtile is changed in the process.
 
         Returns
         -------
@@ -395,11 +402,12 @@ class Grid(BaseGrid):
     def tilexy2pos(self, xtile, ytile):
         """
         converts xy coordinates to tile position
+
         Parameters
         ----------
-        xtile: int
+        xtile : int
             tile.xtile
-        ytile: int
+        ytile : int
             tile.ytile
 
         Returns
@@ -415,11 +423,12 @@ class Grid(BaseGrid):
     def tilexy2id(self, xtile, ytile):
         """
         converts xy coordinates to tile idd
+
         Parameters
         ----------
-        xtile: int
+        xtile : int
             tile.xtile
-        ytile: int
+        ytile : int
             tile.ytile
 
         Returns
@@ -436,7 +445,7 @@ class Grid(BaseGrid):
 
         Parameters
         ----------
-        df: bool
+        df : bool
             if True, returns a DataFrame
 
         Returns
@@ -478,8 +487,8 @@ class Grid(BaseGrid):
 
         Returns
         -------
-        GeoDataFrame
-            Geopandas geodataframe of the grid with its tiles
+        :class:`GeoDataFrame`
+            Geopandas :class:`GeoDataFrame` of the grid with its tiles
         """
         tileinfo_df = self._create_info_dict(df=True)
         poly = self._create_pseudo_tiles()
@@ -530,11 +539,28 @@ class Grid(BaseGrid):
                 raise ValueError("You must pass a textual address or name of the region")
 
     def get_in_boundary(self, clipped=None, city=None, address=None, path=None):
-        """makes the tiles outside the boundary inactive
-        boundary_path(str): path to the city/region boundary file
-        clipped(bool): if True, returns the new pseudo tiles clipped by boundary
-        Returns:
-            (optional) the new pseudo tiles clipped by boundary
+        """
+        Makes the tiles outside the boundary defined by the city or address inactive. 
+        This is used to speed up analysis, especially when a region has a shape that results
+        in a bounding box containing many extraneous tiles.
+
+        Only one of city, address, and path should have a value at a time. The other two should be None.
+
+        Parameters
+        ----------
+        clipped : bool
+            If True, returns the new pseudo tiles clipped by boundary
+        city : str
+            The city to create a boundary around (e.g. "Boston", "New Delhi") 
+        address : str
+            The address to create a boundary around (e.g. "77 Massachusetts Ave, Cambridge MA, USA") 
+        path : str 
+            filepath to the city/region boundary file
+
+        Returns
+        -------
+        :class:`GeoDataFrame` or None
+            The new pseudo tiles clipped by the boundary or None if not clipped
         """
 
         # create the pseudo tiles for the grid
@@ -555,7 +581,11 @@ class Grid(BaseGrid):
         """
         make the listed tiles inactive.
         Used for setting the boundaries around a region or excluding certain regions.
-        :param lst: list of tile ids to exclude
+
+        Parameters
+        ----------
+        lst : list[int]
+            list of tile ids to exclude
         """
         for pos in lst:
             self.tiles.flatten()[int(pos)].active = False
@@ -574,9 +604,11 @@ class Grid(BaseGrid):
         """
         Collects the polygons of all tiles created in the segmentation process
         and saves them as a shapefile
+
         Parameters
         ----------
-        crs
+        crs_metric : int
+            The desired coordinate reference system to save the network polygon with.
         """
         gdf = []
         poly_fold = self.project.polygons.path
@@ -660,14 +692,17 @@ class Grid(BaseGrid):
         """
         Parameters
         ----------
-        class_name: str
+        class_name : str
             Class label, sidewalk, crosswalk, road
-        crs:
+        
+        crs : int
+            The desired coordinate reference system to prepare the :class:`GeoDataFrame` with.
+
 
         Returns
         -------
-        GeoDataFrame
-            class specific GeoDataFrame in metric projection
+        :class:`GeoDataFrame`
+            class specific :class:`GeoDataFrame` in metric projection
         """
         nt = self.ntw_poly[self.ntw_poly.f_type == f'{class_name}'].copy()
         nt.geometry = nt.geometry.to_crs(crs)
@@ -675,11 +710,13 @@ class Grid(BaseGrid):
 
     # adopted from solaris library to overcome dependency issues
     def get_geo_transform(self, raster_src):
-        """From Solaris
+        """
+        *Adopted from the Solaris library to overcome dependency issues*
+
         Get the geotransform for a raster image source.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         raster_src : str, :class:`rasterio.DatasetReader`, or `osgeo.gdal.Dataset`
             Path to a raster image with georeferencing data to apply to `geom`.
             Alternatively, an opened :class:`rasterio.Band` object or
@@ -701,14 +738,19 @@ class Grid(BaseGrid):
 
     def convert_poly_coords(self, geom, raster_src=None, affine_obj=None, inverse=False,
                             precision=None):
-        """From Solaris
+        """
+        *Adopted from the Solaris library to overcome dependency issues*
+
         Georegister geometry objects currently in pixel coords or vice versa.
+        
+        Parameters
+        ----------
         raster_src : str, optional
             Path to a raster image with georeferencing data to apply to `geom`.
             Alternatively, an opened :class:`rasterio.Band` object or
             :class:`osgeo.gdal.Dataset` object can be provided. Required if not
             using `affine_obj`.
-        affine_obj: list or :class:`affine.Affine`
+        affine_obj : list or :class:`affine.Affine`
             An affine transformation to apply to `geom` in the form of an
             ``[a, b, d, e, xoff, yoff]`` list or an :class:`affine.Affine` object.
             Required if not using `raster_src`.
@@ -771,14 +813,17 @@ class Grid(BaseGrid):
     @staticmethod
     def get_exclusion_list(src_pth):
         """
+        Get the list of tile ids to exclude from analysis
 
         Parameters
         ----------
-        src_pth
+        src_pth : str
+            The file path to the csv file containing tiles to exclude
 
         Returns
         -------
-
+        list[int]
+            A list of integer tile ids to exclude from analysis
         """
         blacks = pd.read_csv(src_pth)
         blacks.ids = blacks.ids.astype(int)
