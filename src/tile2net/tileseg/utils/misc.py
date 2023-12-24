@@ -69,8 +69,8 @@ def fast_hist(pred, gtruth, num_classes):
     # TP at 0 + 0, 1 + 1, 2 + 2 ...
     #
     # TP exist where value == num_classes*class_id + class_id
-    # FP = row[class].sum() - TP
-    # FN = col[class].sum() - TP
+    # FP = col[class].sum() - TP
+    # FN = row[class].sum() - TP
     hist = np.bincount(num_classes * gtruth[mask].astype(int) + pred[mask],
                        minlength=num_classes ** 2)
     hist = hist.reshape(num_classes, num_classes)
@@ -210,7 +210,7 @@ def eval_metrics(iou_acc, args, net, optim, val_loss, epoch, mf_score=None):
     return was_best
 
 
-class ImageDumper():
+class ImageDumper:
     """
     Image dumping class
 
@@ -219,10 +219,7 @@ class ImageDumper():
     writes the images out to disk.
     """
 
-    # def __init__(self, val_len, args: Namespace, tensorboard=True, write_webpage=True,
-    #              webpage_fn='index.html', dump_all_images=False, dump_assets=False,
-    #              dump_err_prob=False, dump_num=10, dump_for_auto_labelling=False,
-    #              dump_for_submission=False):
+
     def __init__(
             self,
             val_len,
@@ -230,35 +227,33 @@ class ImageDumper():
             tensorboard=True,
             write_webpage=True,
             webpage_fn='index.html',
-            dump_all_images=False,
             dump_assets=False,
-            dump_for_auto_labelling=False,
-            dump_for_submission=False,
             dump_num=10,
     ):
         """
-        :val_len: num validation images
-        :tensorboard: push summary to tensorboard
-        :webpage: generate a summary html page
-        :webpage_fn: name of webpage file
-        :dump_all_images: dump all (validation) images, e.g. for video
-        :dump_num: number of images to dump if not dumping all
-        :dump_assets: dump attention maps
+        Parameters
+        ----------
+        val_len: num validation images
+        args: command line arguments
+        tensorboard: push summary to tensorboard
+        write_webpage: generate a summary html page
+        webpage_fn: name of webpage file
+        dump_all_images: dump all (validation) images, e.g. for video
+        dump_num: number of images to dump if not dumping all
+        dump_assets: dump attention maps
+        dump_err_prob: dump error probability
+        dump_for_auto_labelling: dump images for auto-labelling
+        dump_for_submission: dump images for submission
         """
+
         self.val_len = val_len
         self.tensorboard = tensorboard
         self.write_webpage = write_webpage
         self.webpage_fn = os.path.join(cfg.RESULT_DIR,
                                        'best_images', webpage_fn)
         self.dump_assets = dump_assets
-        self.dump_for_auto_labelling = dump_for_auto_labelling
-        self.dump_for_submission = dump_for_submission
 
         self.viz_frequency = max(1, val_len // dump_num)
-        # if dump_all_images:
-        #     self.dump_frequency = 1
-        # else:
-        #     self.dump_frequency = self.viz_frequency
 
         inv_mean = [-mean / std for mean, std in zip(cfg.DATASET.MEAN,
                                                      cfg.DATASET.STD)]
@@ -267,12 +262,7 @@ class ImageDumper():
             mean=inv_mean, std=inv_std
         )
 
-        if self.dump_for_submission:
-            self.save_dir = os.path.join(cfg.RESULT_DIR, 'submit')
-        elif self.dump_for_auto_labelling:
-            self.save_dir = os.path.join(cfg.RESULT_DIR)
-        else:
-            self.save_dir = os.path.join(cfg.RESULT_DIR, 'seg_results')
+        self.save_dir = os.path.join(cfg.RESULT_DIR, 'segmentation_results')
 
         # os.makedirs(self.save_dir, exist_ok=True)
 
@@ -442,7 +432,7 @@ class ImageDumper():
 
 
 def print_evaluate_results(hist, iu, epoch=0, iou_per_scale=None,
-                           log_multiscale_tb=False):
+                           log_multiscale_tb=False, eps=1e-8):
     """
     If single scale:
        just print results for default scale
@@ -477,19 +467,20 @@ def print_evaluate_results(hist, iu, epoch=0, iou_per_scale=None,
 
         total_pixels = hist.sum()
         class_data.append(100 * iu_TP[class_id] / total_pixels)
-        class_data.append(iu_FP[class_id] / iu_TP[class_id])
-        class_data.append(iu_FN[class_id] / iu_TP[class_id])
-        class_data.append(iu_TP[class_id] / (iu_TP[class_id] + iu_FP[class_id]))
-        class_data.append(iu_TP[class_id] / (iu_TP[class_id] + iu_FN[class_id]))
+        class_data.append(100 * iu_FP[class_id] / total_pixels)
+        class_data.append(100 * iu_FN[class_id] / total_pixels)
+        class_data.append(iu_TP[class_id] / (iu_TP[class_id] + iu_FP[class_id] + eps))
+        class_data.append(iu_TP[class_id] / (iu_TP[class_id] + iu_FN[class_id] + eps))
+
         tabulate_data.append(class_data)
 
         if log_multiscale_tb:
             logx.add_scalar("xscale_%0.1f/%s" % (0.5, str(id2cat[class_id])),
-                            float(iou_per_scale[0.5][class_id] * 100), epoch)
+                            float(iou_per_scale[0.5][class_id]), epoch)
             logx.add_scalar("xscale_%0.1f/%s" % (1.0, str(id2cat[class_id])),
-                            float(iou_per_scale[1.0][class_id] * 100), epoch)
+                            float(iou_per_scale[1.0][class_id]), epoch)
             logx.add_scalar("xscale_%0.1f/%s" % (2.0, str(id2cat[class_id])),
-                            float(iou_per_scale[2.0][class_id] * 100), epoch)
+                            float(iou_per_scale[2.0][class_id]), epoch)
 
     print_str = str(tabulate((tabulate_data), headers=header, floatfmt='1.2f'))
     logx.msg(print_str)
@@ -549,8 +540,6 @@ class ThreadedDumper(ImageDumper):
 
     def dump(self, dump_dict, val_idx, testing=None, grid=None):
 
-        # if not self.args.dump_percent:
-        #     return
         colorize_mask_fn = cfg.DATASET_INST.colorize_mask
 
         for idx in range(len(dump_dict['input_images'])):
