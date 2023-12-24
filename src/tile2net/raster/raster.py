@@ -224,7 +224,9 @@ class Raster(Grid):
         if input_dir is None:
             if source is None:
                 source = Source[location]
-                if source is not None:
+                if source is None:
+                    ...
+                else:
                     logger.info(
                         f'Using {source.__class__.__name__} as the source at {location=}'
                     )
@@ -238,7 +240,7 @@ class Raster(Grid):
                 raise TypeError(f'Invalid source type: {type(source)=}')
 
             if source is None:
-                logger.warning(f'No source found for {location=}')
+                logger.warning(f'No source found for {location=}; cannot stitch or inference. ')
             else:
                 if zoom is None:
                     zoom = source.zoom
