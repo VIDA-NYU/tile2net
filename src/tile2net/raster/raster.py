@@ -352,7 +352,8 @@ class Raster(Grid):
         Parameters
         ----------
         step : int 
-            Stitch step. How many adjacent tiles on row/colum to stitch together.
+            Stitch step.
+                The amount of tiles that an output file from the semantic segmentation will represent.
             For instance, to get a 512x512 tiles from the 256x256 base, the stitch step is 2
         extension : str
             File extension of the tiles. Default is 'png'.
@@ -378,8 +379,6 @@ class Raster(Grid):
             raise RuntimeError(
                 'No source or input directory specified. Cannot stitch tiles.'
             )
-        # r = self.height
-        # c = self.width
         outfiles = pipe(
             # self.tiles[:r:step, :c:step],
             self.tiles[::step, ::step],

@@ -24,19 +24,23 @@ from tile2net.raster.tile_utils.geodata_utils import _reduce_geom_precision, lis
 from dataclasses import dataclass, field
 from functools import cached_property
 import tempfile
+from typing import Optional
 
 tempdir = tempfile.gettempdir()
 
 
 @dataclass
 class Tile:
+    # slippy xtile
     xtile: int
+    # slippy ytile
     ytile: int
     idd: int
     position: tuple
     size: int = field(default=256, repr=False)
     zoom: int = field(default=19, repr=False)
     crs: int = field(default=4326, repr=False)
+    # the integer length, in slippy tiles, of each tile
     tile_step: int = field(default=1, repr=False)
     active: bool = field(default=True, repr=False)
     extension: str = 'png'
@@ -336,9 +340,10 @@ class Tile:
         if roads is not False:
             swcw.append(roads)
         if len(swcw) > 0:
-            rswcw = pd.concat(swcw)
+            # noinspection PyTypeChecker
+            rswcw: gpd.GeoDataFrame = pd.concat(swcw)
             rswcw.reset_index(drop=True, inplace=True)
-            self.ped_poly = rswcw
+            return rswcw
 
     def get_region(self, gdf: gpd.GeoDataFrame, spatial_index, crs=3857):
         """
@@ -665,10 +670,7 @@ class Tile:
         return xformed_g
 
     os.makedirs(os.path.join(tempdir, 'tile2net'), exist_ok=True)
-    @cached_property
-    def tempfeather(self):
-        """Create a temporary file for the tile"""
-        return os.path.join(tempdir, 'tile2net', f'{self.xtile}_{self.ytile}.feather')
+
 
 #create empty dataframe
 df = pd.DataFrame(columns=['ImageId', 'BuildingId', 'PolygonWKT_Pix', 'PolygonWKT_Geo', 'Confidence'])

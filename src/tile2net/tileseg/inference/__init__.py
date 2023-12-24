@@ -28,7 +28,14 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 """
 
+import pandas as pd
 import argparse
+from geopandas import GeoDataFrame, GeoSeries
+from pandas import IndexSlice as idx, Series, DataFrame, Index, MultiIndex, Categorical, CategoricalDtype
+import pandas as pd
+from pandas.core.groupby import DataFrameGroupBy, SeriesGroupBy
+import geopandas as gpd
+
 import os
 import sys
 
@@ -490,6 +497,8 @@ class Inference:
         values: numpy.ndarray
         args = self.args
         # todo map_feature is how Tile generates poly
+        gdfs: list[GeoDataFrame] = []
+
         dumper = ThreadedDumper(
             val_len=len(val_loader),
             dump_all_images=dump_all_images,
@@ -514,6 +523,12 @@ class Inference:
 
             input_images, labels, img_names, _ = data
 
+            dumpdict = dict(
+                gt_images=labels,
+                input_images=input_images,
+                img_names=img_names,
+                assets=assets,
+            )
             if testing:
                 prediction = assets['predictions'][0]
                 values, counts = np.unique(prediction, return_counts=True)
@@ -522,25 +537,14 @@ class Inference:
                 for v in range(len(values)):
                     pred[img_names[0]][values[v]] = counts[v]
 
-                dumpdict = dict(
-                    gt_images=labels,
-                    input_images=input_images,
-                    img_names=img_names,
-                    assets=assets,
-                )
-                dumper.dump(dumpdict, val_idx, testing=True, grid=grid)
+                dump = dumper.dump(dumpdict, val_idx, testing=True, grid=grid)
             else:
-                dumpdict = dict(
-                    gt_images=labels,
-                    input_images=input_images,
-                    img_names=img_names,
-                    assets=assets,
-                )
-                dumper.dump(dumpdict, val_idx)
+                dump = dumper.dump(dumpdict, val_idx)
+            gdfs.extend(dump)
 
             if (
-                val_idx > 5
-                and args.options.test_mode
+                    args.options.test_mode
+                    and val_idx > 5
             ):
                 break
 
@@ -549,14 +553,20 @@ class Inference:
 
         if testing:
             if grid:
-                grid.save_ntw_polygon()
+                # todo: for now we concate from a list of all the polygons generated during the session;
+                #   eventually we will serialize all the files and then use dask for batching
+                if not gdfs:
+                    poly_network = gpd.GeoDataFrame()
+                    logging.warning(
+                        f'No polygons were dumped'
+                    )
+                else:
+                    poly_network = pd.concat(gdfs)
+                del gdfs
+
+                grid.save_ntw_polygons(poly_network)
                 polys = grid.ntw_poly
-                # net = PedNet(polys, grid.project)
-                net = PedNet(
-                    poly=polys,
-                    project=grid.project,
-                )
-                return
+                net = PedNet(poly=polys, project=grid.project)
                 net.convert_whole_poly2line()
 
 @commandline
@@ -584,5 +594,5 @@ if __name__ == '__main__':
     # argh.dispatch_command(inference)
     # inference: Inference = commandline(Inference)
     # argh.dispatch_command(inference)()
-    # argh.dispatch_command(inference)
-    argh.dispatch_command(inference_)
+    argh.dispatch_command(inference)
+    # argh.dispatch_command(inference_)

@@ -141,15 +141,25 @@ class BaseGrid(BaseRegion):
         self.ytile = deg2num(self.base_top, self.base_left, self.zoom)[1]
         self.xtilem = deg2num(self.base_bottom, self.base_right, self.zoom)[0]
         self.ytilem = deg2num(self.base_bottom, self.base_right, self.zoom)[1]
-        self.tiles = np.array([[Tile(self.xtile + col_idx,
-                                     self.ytile + row_idx,
-                                     position=(int(col_idx / self.tile_step), int(row_idx / self.stitch_step)),
-                                     idd=self.pos2id(int(col_idx / self.tile_step), int(row_idx / self.stitch_step)),
-                                     zoom=self.zoom,
-                                     size=self.tile_size,
-                                     crs=self.crs)
-                                for row_idx in np.arange(0, self.base_height, self.tile_step)]
-                               for col_idx in np.arange(0, self.base_width, self.tile_step)])
+        self.tiles = np.array([
+            [
+                Tile(
+                    self.xtile + col_idx,
+                    self.ytile + row_idx,
+                    position=(
+                        int(col_idx / self.tile_step), int(row_idx / self.stitch_step)
+                    ),
+                    idd=self.pos2id(
+                        int(col_idx / self.tile_step), int(row_idx / self.stitch_step)
+                    ),
+                    zoom=self.zoom,
+                    size=self.tile_size,
+                    crs=self.crs
+                )
+                for row_idx in np.arange(0, self.base_height, self.tile_step)
+            ]
+            for col_idx in np.arange(0, self.base_width, self.tile_step)
+        ])
         self.pose_dict = {tile.idd: tile.position for col in self.tiles for tile in col}
         # due to the rounding issues with deg2num and num2deg, we do this calculation again
         # deg2num(base_top, base_left, zoom) and then converting the nums to lat long will result in slightly different
@@ -610,19 +620,15 @@ class Grid(BaseGrid):
         crs_metric : int
             The desired coordinate reference system to save the network polygon with.
         """
-        gdf = []
         poly_fold = self.project.polygons.path
         createfolder(poly_fold)
-        for t in self.tiles.flatten():
-            if t.active:
-                if isinstance(t.ped_poly, gpd.GeoDataFrame):
-                    if len(t.ped_poly) > 0:
-                        # uncomment to save each polygons for each tile - not recommended- only for debugging
-                        # t.ped_poly.to_file(os.path.join(poly_fold,
-                        #                                 f'Polygons-{c}-{t.idd}.shp'))
-                        gdf.append(t.ped_poly)
-                else:
-                    continue
+        gdf: list[gpd.GeoDataFrame] = [
+            t.ped_poly
+            for t in self.tiles.flatten()
+            if t.active
+               and isinstance(t.ped_poly, gpd.GeoDataFrame)
+               and len(t.ped_poly)
+        ]
         poly_network = pd.concat(gdf)
         poly_network.reset_index(drop=True, inplace=True)
         poly_network.set_crs(self.crs, inplace=True)
@@ -639,35 +645,28 @@ class Grid(BaseGrid):
         simplified.to_crs(self.crs, inplace=True)
 
         self.ntw_poly = simplified
-        simplified.to_filte(
+        simplified.to_file(
             os.path.join(poly_fold, f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}'))
         logging.info('Polygons are generated and saved!')
 
-    def save_ntw_polygon(
+    def save_ntw_polygons(
             self,
+            poly_network: gpd.GeoDataFrame,
             crs_metric: int = 3857,
     ):
         """
         Collects the polygons of all tiles created in the segmentation process
         and saves them as a shapefile
+
         Parameters
         ----------
-        crs
+        poly_network : gpd.GeoDataFrame
+            The concatenated GeoDataFrame formed from the polygons of each tile.
+        crs_metric : int
+            The desired coordinate reference system to save the network polygon with.
         """
         poly_fold = self.project.polygons.path
         createfolder(poly_fold)
-        t: Tile
-        tiles = self.tiles.flatten()
-        loc: list[bool] = [
-            os.path.exists(t.tempfeather)
-            for t in tiles
-        ]
-        tiles = tiles[loc]
-        threads = ThreadPoolExecutor()
-        futures = threads.map(gpd.read_feather, (t.tempfeather for t in tiles))
-        gdfs: list[gpd.GeoDataFrame] = list(futures)
-        poly_network = pd.concat(gdfs)
-
         poly_network.reset_index(drop=True, inplace=True)
         poly_network.set_crs(self.crs, inplace=True)
         if poly_network.crs != crs_metric:

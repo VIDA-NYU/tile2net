@@ -30,11 +30,6 @@ POSSIBILITY OF SUCH DAMAGE.
 
 Miscellanous Functions
 """
-
-from __future__ import annotations
-
-import tempfile
-
 import cv2
 import sys
 import os
@@ -49,12 +44,8 @@ from PIL import Image
 
 from tile2net.tileseg.config import cfg
 from tile2net.namespace import Namespace
-from concurrent.futures import Future, ThreadPoolExecutor
 
 from runx.logx import logx
-
-if False:
-    from tile2net.raster.tile import Tile
 
 
 def fast_hist(pred, gtruth, num_classes):
@@ -86,12 +77,41 @@ def prep_experiment(args):
 
 
 def calculate_iou(hist_data):
+    """
+    Calculate Intersection over Union (IoU) for each class, overall accuracy,
+    and class-wise accuracy from a confusion matrix in semantic segmentation.
+
+    Parameters
+    ----------
+    hist_data (numpy.ndarray): A 2D confusion matrix where hist_data[i, j]
+                               is the number of pixels of true class i predicted as class j.
+
+    Returns
+    -------
+    tuple: A tuple containing:
+           - iu (numpy.ndarray): IoU for each class.
+           - acc (float): Overall accuracy.
+           - acc_cls (float): Mean class-wise accuracy.
+    """
+
+    if not isinstance(hist_data, np.ndarray) or len(hist_data.shape) != 2 or hist_data.shape[0] != hist_data.shape[1]:
+        raise ValueError("hist_data must be a square 2D numpy array")
+
+    # Overall accuracy
     acc = np.diag(hist_data).sum() / hist_data.sum()
-    acc_cls = np.diag(hist_data) / hist_data.sum(axis=1)
-    acc_cls = np.nanmean(acc_cls)
-    divisor = hist_data.sum(axis=1) + hist_data.sum(axis=0) - \
-              np.diag(hist_data)
-    iu = np.diag(hist_data) / divisor
+
+    # Class-wise accuracy
+    with np.errstate(divide='ignore', invalid='ignore'):
+        acc_cls = np.diag(hist_data) / hist_data.sum(axis=1)
+        acc_cls = np.nanmean(acc_cls)  # mean class-wise accuracy, ignoring NaN values
+
+    # Intersection over Union (IoU)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        divisor = hist_data.sum(axis=1) + hist_data.sum(axis=0) - np.diag(hist_data)
+        iu = np.diag(hist_data) / divisor
+        # Filter out NaN values (classes not present in predictions or ground truth)
+        iu = iu[~np.isnan(iu)]
+
     return iu, acc, acc_cls
 
 
@@ -210,7 +230,7 @@ def eval_metrics(iou_acc, args, net, optim, val_loss, epoch, mf_score=None):
     return was_best
 
 
-class ImageDumper:
+class ImageDumper():
     """
     Image dumping class
 
@@ -219,7 +239,10 @@ class ImageDumper:
     writes the images out to disk.
     """
 
-
+    # def __init__(self, val_len, args: Namespace, tensorboard=True, write_webpage=True,
+    #              webpage_fn='index.html', dump_all_images=False, dump_assets=False,
+    #              dump_err_prob=False, dump_num=10, dump_for_auto_labelling=False,
+    #              dump_for_submission=False):
     def __init__(
             self,
             val_len,
@@ -227,33 +250,35 @@ class ImageDumper:
             tensorboard=True,
             write_webpage=True,
             webpage_fn='index.html',
+            dump_all_images=False,
             dump_assets=False,
+            dump_for_auto_labelling=False,
+            dump_for_submission=False,
             dump_num=10,
     ):
         """
-        Parameters
-        ----------
-        val_len: num validation images
-        args: command line arguments
-        tensorboard: push summary to tensorboard
-        write_webpage: generate a summary html page
-        webpage_fn: name of webpage file
-        dump_all_images: dump all (validation) images, e.g. for video
-        dump_num: number of images to dump if not dumping all
-        dump_assets: dump attention maps
-        dump_err_prob: dump error probability
-        dump_for_auto_labelling: dump images for auto-labelling
-        dump_for_submission: dump images for submission
+        :val_len: num validation images
+        :tensorboard: push summary to tensorboard
+        :webpage: generate a summary html page
+        :webpage_fn: name of webpage file
+        :dump_all_images: dump all (validation) images, e.g. for video
+        :dump_num: number of images to dump if not dumping all
+        :dump_assets: dump attention maps
         """
-
         self.val_len = val_len
         self.tensorboard = tensorboard
         self.write_webpage = write_webpage
         self.webpage_fn = os.path.join(cfg.RESULT_DIR,
                                        'best_images', webpage_fn)
         self.dump_assets = dump_assets
+        self.dump_for_auto_labelling = dump_for_auto_labelling
+        self.dump_for_submission = dump_for_submission
 
         self.viz_frequency = max(1, val_len // dump_num)
+        # if dump_all_images:
+        #     self.dump_frequency = 1
+        # else:
+        #     self.dump_frequency = self.viz_frequency
 
         inv_mean = [-mean / std for mean, std in zip(cfg.DATASET.MEAN,
                                                      cfg.DATASET.STD)]
@@ -262,7 +287,12 @@ class ImageDumper:
             mean=inv_mean, std=inv_std
         )
 
-        self.save_dir = os.path.join(cfg.RESULT_DIR, 'segmentation_results')
+        if self.dump_for_submission:
+            self.save_dir = os.path.join(cfg.RESULT_DIR, 'submit')
+        elif self.dump_for_auto_labelling:
+            self.save_dir = os.path.join(cfg.RESULT_DIR)
+        else:
+            self.save_dir = os.path.join(cfg.RESULT_DIR, 'seg_results')
 
         # os.makedirs(self.save_dir, exist_ok=True)
 
@@ -295,7 +325,6 @@ class ImageDumper:
         return False, err_pil
 
     dump_percent = 100  # first one always dumps if args.dump_percent != 0
-
     def create_composite_image(self, input_image, prediction_pil, img_name):
         if not self.args.dump_percent:
             return
@@ -308,8 +337,9 @@ class ImageDumper:
         composited = Image.new('RGB', (input_image.width + input_image.width, input_image.height))
         composited.paste(input_image, (0, 0))
         composited.paste(prediction_pil, (prediction_pil.width, 0))
-        composited_fn = 'sidebside_{}.png'.format(img_name)
+        composited_fn = f'sidebside_{img_name}.png'
         composited_fn = os.path.join(self.save_dir, composited_fn)
+        print(f'saving {composited_fn}')
         composited.save(composited_fn)
 
     def get_dump_assets(self, dump_dict, img_name, idx, colorize_mask_fn, to_tensorboard):
@@ -332,6 +362,7 @@ class ImageDumper:
                 mask_pil = mask_pil.convert('RGB')
                 mask_pil.save(mask_fn)
                 to_tensorboard.append(self.visualize(mask_pil))
+
 
     def dump(self, dump_dict, val_idx, testing=None, grid=None):
 
@@ -432,7 +463,7 @@ class ImageDumper:
 
 
 def print_evaluate_results(hist, iu, epoch=0, iou_per_scale=None,
-                           log_multiscale_tb=False, eps=1e-8):
+    log_multiscale_tb = False, eps = 1e-8):
     """
     If single scale:
        just print results for default scale
@@ -453,14 +484,14 @@ def print_evaluate_results(hist, iu, epoch=0, iou_per_scale=None,
     logx.msg('IoU:')
 
     header = ['Id', 'label']
-    header.extend(['iU_{}'.format(scale) for scale in iou_per_scale])
+    header.extend([f'iU_{scale}' for scale in iou_per_scale])
     header.extend(['TP', 'FP', 'FN', 'Precision', 'Recall'])
 
     tabulate_data = []
     for class_id in range(len(iu)):
         class_data = []
         class_data.append(class_id)
-        class_name = "{}".format(id2cat[class_id]) if class_id in id2cat else ''
+        class_name = f"{id2cat[class_id]}" if class_id in id2cat else ''
         class_data.append(class_name)
         for scale in iou_per_scale:
             class_data.append(iou_per_scale[scale][class_id] * 100)
@@ -471,22 +502,21 @@ def print_evaluate_results(hist, iu, epoch=0, iou_per_scale=None,
         class_data.append(100 * iu_FN[class_id] / total_pixels)
         class_data.append(iu_TP[class_id] / (iu_TP[class_id] + iu_FP[class_id] + eps))
         class_data.append(iu_TP[class_id] / (iu_TP[class_id] + iu_FN[class_id] + eps))
-
         tabulate_data.append(class_data)
 
         if log_multiscale_tb:
             logx.add_scalar("xscale_%0.1f/%s" % (0.5, str(id2cat[class_id])),
-                            float(iou_per_scale[0.5][class_id]), epoch)
+                            float(iou_per_scale[0.5][class_id] * 100), epoch)
             logx.add_scalar("xscale_%0.1f/%s" % (1.0, str(id2cat[class_id])),
-                            float(iou_per_scale[1.0][class_id]), epoch)
+                            float(iou_per_scale[1.0][class_id] * 100), epoch)
             logx.add_scalar("xscale_%0.1f/%s" % (2.0, str(id2cat[class_id])),
-                            float(iou_per_scale[2.0][class_id]), epoch)
+                            float(iou_per_scale[2.0][class_id] * 100), epoch)
 
     print_str = str(tabulate((tabulate_data), headers=header, floatfmt='1.2f'))
     logx.msg(print_str)
 
     # save the histogram in a table :
-    class_names = ["{}".format(id2cat[class_id]) if class_id in id2cat else '' for class_id in range(len(iu))]
+    class_names = [f"{id2cat[class_id]}" if class_id in id2cat else '' for class_id in range(len(iu))]
     df_cm = pd.DataFrame(hist, index=class_names, columns=class_names)
     df_cm.to_csv(f'{cfg.RESULT_DIR}/histogram_{epoch}.csv')
 
@@ -529,205 +559,3 @@ def fmt_scale(prefix, scale):
     scale_str = str(float(scale))
     scale_str.replace('.', '')
     return f'{prefix}_{scale_str}x'
-
-
-class ThreadedDumper(ImageDumper):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.futures: list[Future] = []
-        self.threads = ThreadPoolExecutor()
-        os.makedirs(self.save_dir, exist_ok=True)
-
-    def dump(self, dump_dict, val_idx, testing=None, grid=None):
-
-        colorize_mask_fn = cfg.DATASET_INST.colorize_mask
-
-        for idx in range(len(dump_dict['input_images'])):
-
-            input_image = dump_dict['input_images'][idx]
-            gt_image = dump_dict['gt_images'][idx]
-            prediction = dump_dict['assets']['predictions'][idx]
-            img_name = dump_dict['img_names'][idx]
-
-            er_prob, err_pil = self.save_prob_and_err_mask(dump_dict, img_name, idx, prediction)
-
-            input_image = self.inv_normalize(input_image)
-            input_image = input_image.cpu()
-            input_image = standard_transforms.ToPILImage()(input_image)
-            input_image = input_image.convert("RGB")
-
-            gt_pil = colorize_mask_fn(gt_image.cpu().numpy())
-
-            if testing:
-                alpha = False
-                all_pix = (np.array(input_image).shape[0] * np.array(input_image).shape[1])
-                if np.array(input_image).shape[-1] == 3:
-                    black = np.count_nonzero(np.all(np.array(input_image) == [0, 0, 0], axis=2))
-                elif np.array(input_image).shape[-1] == 4:
-                    black = np.count_nonzero(np.all(np.array(input_image) == [0, 0, 0, 0], axis=-1))
-                    alpha = True
-                ratio = black / all_pix
-
-                if ratio > 0.25 or alpha:
-                    continue
-
-                else:
-                    prediction_pil = colorize_mask_fn(prediction)
-                    prediction_pil = prediction_pil.convert('RGB')
-                    self.create_composite_image(input_image, prediction_pil, img_name)
-
-                    if grid:
-                        idd_ = img_name.split('_')[-1]
-                        save_dir = os.path.join(cfg.RESULT_DIR, 'seg_results')
-                        self.save_dir = save_dir
-                        tile = grid.tiles[grid.pose_dict[int(idd_)]]
-                        self.map_features(tile, np.array(prediction_pil), img_array=True)
-            else:
-                # gt_fn = '{}_gt.png'.format(img_name)
-                gt_pil = colorize_mask_fn(gt_image.cpu().numpy())
-                # prediction_fn = '{}_prediction.png'.format(img_name)
-                prediction_pil = colorize_mask_fn(prediction)
-                prediction_pil = prediction_pil.convert('RGB')
-                self.create_composite_image(input_image, prediction_pil, img_name)
-
-            to_tensorboard = [
-                self.visualize(input_image.convert('RGB')),
-                self.visualize(gt_pil.convert('RGB')),
-                self.visualize(prediction_pil.convert('RGB')),
-            ]
-            if er_prob and err_pil is not None:
-                to_tensorboard.append(self.visualize(err_pil.convert('RGB')))
-
-            self.get_dump_assets(dump_dict, img_name, idx, colorize_mask_fn, to_tensorboard)
-
-            self.imgs_to_tensorboard.append(to_tensorboard)
-
-            for future in self.futures:
-                future.result()
-
-    def create_composite_image(self, input_image, prediction_pil, img_name):
-        threads = self.threads
-        futures = self.futures
-        if not self.args.dump_percent:
-            return
-        self.dump_percent += self.args.dump_percent
-        if self.dump_percent < 100:
-            return
-        self.dump_percent -= 100
-        parent = os.path.dirname(self.save_dir)
-        os.makedirs(parent, exist_ok=True)
-        composited = Image.new('RGB', (input_image.width + input_image.width, input_image.height))
-        composited.paste(input_image, (0, 0))
-        composited.paste(prediction_pil, (prediction_pil.width, 0))
-        composited_fn = 'sidebside_{}.png'.format(img_name)
-        composited_fn = os.path.join(self.save_dir, composited_fn)
-        # print(f'saving {composited_fn}')
-        # composited.save(composited_fn)
-        future = threads.submit(composited.save, composited_fn)
-        futures.append(future)
-
-    def get_dump_assets(self, dump_dict, img_name, idx, colorize_mask_fn, to_tensorboard):
-        threads = self.threads
-        futures = self.futures
-        if self.dump_assets:
-            assets = dump_dict['assets']
-            for asset in assets:
-                mask = assets[asset][idx]
-                mask_fn = os.path.join(self.save_dir, f'{img_name}_{asset}.png')
-                if 'pred_' in asset:
-                    pred_pil = colorize_mask_fn(mask)
-                    future = threads.submit(pred_pil.save, mask_fn)
-                    futures.append(future)
-                    continue
-                if type(mask) == torch.Tensor:
-                    mask = mask.squeeze().cpu().numpy()
-                else:
-                    mask = mask.squeeze()
-                mask = (mask * 255)
-                mask = mask.astype(np.uint8)
-                mask_pil = Image.fromarray(mask)
-                mask_pil = mask_pil.convert('RGB')
-                future = threads.submit(mask_pil.save, mask_fn)
-                futures.append(future)
-                to_tensorboard.append(self.visualize(mask_pil))
-
-    def save_prob_and_err_mask(
-            self,
-            dump_dict,
-            img_name,
-            idx,
-            prediction,
-    ):
-        threads = self.threads
-        futures = self.futures
-        err_pil = None
-        if 'err_mask' in dump_dict and 'prob_mask' in dump_dict['assets']:
-            prob_image = dump_dict['assets']['prob_mask'][idx]
-            err_mask = dump_dict['err_mask'][idx]
-            image = (prob_image.cpu().numpy() * 255).astype(np.uint8)
-            future = threads.submit(self.save_image, image, f'{img_name}_prob.png')
-            futures.append(future)
-            err_pil = Image.fromarray(prediction.astype(np.uint8)).convert('RGB')
-            # err_pil.save(os.path.join(self.save_dir, f'{img_name}_err_mask.png'))
-            path = os.path.join(self.save_dir, f'{img_name}_err_mask.png')
-            future = threads.submit(err_pil.save, path)
-            futures.append(future)
-            return True, err_pil
-            # return True, err_pil
-        return False, err_pil
-
-    def map_features(
-            self,
-            tile: Tile,
-            src_img: np.ndarray,
-            img_array=True,
-    ):
-        """Converts a raster mask to a GeoDataFrame of polygons
-        Parameters
-        ----------
-        src_img : str
-            path to the image
-        img_array : array, optional
-            if the image is already read, pass the array to avoid reading it again
-        Returns
-        -------
-        geoms : GeoDataFrame
-            GeoDataFrame of polygons
-        """
-        swcw = []
-        threads = self.threads
-        futures = self.futures
-
-        sidewalks = tile.mask2poly(
-            src_img,
-            class_name='sidewalk',
-            class_id=2,
-            img_array=img_array
-        )
-        if sidewalks is not False:
-            swcw.append(sidewalks)
-
-        crosswalks = tile.mask2poly(
-            src_img,
-            class_name='crosswalk',
-            class_id=0,
-            class_hole_size=15,
-            img_array=img_array
-        )
-        if crosswalks is not False:
-            swcw.append(crosswalks)
-
-        roads = tile.mask2poly(
-            src_img,
-            class_name='road',
-            class_id=1,
-            class_hole_size=30,
-            img_array=img_array
-        )
-        if roads is not False:
-            swcw.append(roads)
-        if len(swcw) > 0:
-            rswcw = pd.concat(swcw)
-            rswcw.reset_index(drop=True, inplace=True)
-            future = threads.submit(rswcw.to_feather, tile.tempfeather)
-            futures.append(future)
