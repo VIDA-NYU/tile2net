@@ -68,7 +68,13 @@ commandline = compose_left(
     ),
     arg(
         '--source', '-s', default=None, type=str,
-    )
+    ),
+    arg(
+        '--dump_percent',
+        type=int,
+        default=0,
+        help='The percentage of segmentation results to save. 100 means all, 0 means none.',
+    ),
 )
 
 class Namespace(argh.ArghNamespace):
