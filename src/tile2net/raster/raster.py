@@ -52,7 +52,6 @@ PathLike = Union[str, _PathLike]
 class Raster(Grid):
     Project = Project
     input_dir = InputDir()
-
     @classmethod
     def from_nyc(cls, outdir: PathLike = None) -> 'Raster':
         """
@@ -297,14 +296,14 @@ class Raster(Grid):
         if self.boundary_path != -1:
             tiles_within = f'{(self.num_inside / self.num_tiles) * 100:.1f}'
             return f"{self.name} Data Constructor. \nCoordinate reference system (CRS): {self.crs} \n" \
-                   f"Tile size (pixel): {self.base_tilesize} \nZoom level: {self.zoom} \n" \
+                   f"Tile size (pixel): {self.tile_size} \nZoom level: {self.zoom} \n" \
                    f"Number of columns: {self.width:,} \n" \
                    f"Number of rows: {self.height:,} \n" \
                    f"Total tiles: {self.num_tiles:,} \n" \
                    f"Number of tiles inside the boundary: {self.num_inside:,} ({tiles_within}%) \n"
         else:
             return f"{self.name} Data Constructor. \nCoordinate reference system (CRS): {self.crs} \n" \
-                   f"Tile size (pixel): {self.base_tilesize} \nZoom level: {self.zoom} \n" \
+                   f"Tile size (pixel): {self.tile_size} \nZoom level: {self.zoom} \n" \
                    f"Number of columns: {self.width:,} \n" \
                    f"Number of rows: {self.height:,} \n" \
                    f"Total tiles: {self.num_tiles:,} \n"
