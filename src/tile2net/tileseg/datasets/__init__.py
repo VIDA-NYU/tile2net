@@ -65,12 +65,7 @@ def setup_loaders(args):
     # Define transformations, augmentations
     ######################################################################
 
-    # Joint transformations that must happen on both image and mask
-    # crop_size = cfg.MODEL.CROPSIZE
-    # if ',' in cfg.MODEL.CROP_SIZE:
-    #     crop_size = [int(x) for x in crop_size.split(',')]
-    # else:
-    #     crop_size = int(crop_size)
+
     crop_size = cfg.DATASET.CROP_SIZE
     if ',' in crop_size:
         crop_size = pipe(
@@ -82,7 +77,6 @@ def setup_loaders(args):
         crop_size = int(crop_size)
 
     train_joint_transform_list = [
-        # TODO FIXME: move these hparams into cfg
         joint_transforms.RandomSizeAndCrop(crop_size,
                                            False,
                                            scale_min=cfg.MODEL.SCALE_MIN,
@@ -130,18 +124,6 @@ def setup_loaders(args):
 
     if cfg.MODEL.EVAL == 'folder':
         val_joint_transform_list = None
-    elif 'mapillary' in args.dataset.name.lower():
-        if cfg.MODEL.PRE_SIZE is None:
-            eval_size = 2177
-        else:
-            eval_size = cfg.MODEL.PRE_SIZE
-        if cfg.DATASET.MAPILLARY_CROP_VAL:
-            val_joint_transform_list = [
-                joint_transforms.ResizeHeight(eval_size),
-                joint_transforms.CenterCropPad(eval_size)]
-        else:
-            val_joint_transform_list = [
-                joint_transforms.Scale(eval_size)]
     else:
         val_joint_transform_list = None
 
@@ -170,7 +152,7 @@ def setup_loaders(args):
 
     update_dataset_inst(dataset_inst=val_set)
 
-    if cfg.MODEL.APEX:
+    if cfg.DISTRIBUTED:
         from tile2net.tileseg.datasets.sampler import DistributedSampler
         val_sampler = DistributedSampler(val_set, pad=False, permutation=False,
                                          consecutive_sample=False)
@@ -193,13 +175,14 @@ def setup_loaders(args):
             img_transform=train_input_transform,
             label_transform=target_train_transform)
 
-        if cfg.MODEL.APEX:
+        if cfg.DISTRIBUTED:
             from tile2net.tileseg.datasets.sampler import DistributedSampler
             train_sampler = DistributedSampler(train_set, pad=True,
                                                permutation=True,
                                                consecutive_sample=False)
             train_batch_size = cfg.MODEL.BS_TRN
         else:
+            # Assuming args.distributed indicates if distributed training is being used
             train_sampler = None
             train_batch_size = cfg.MODEL.BS_TRN * args.ngpu
 

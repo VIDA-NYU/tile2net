@@ -28,12 +28,8 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 """
 
-import pandas as pd
-import argparse
 from geopandas import GeoDataFrame, GeoSeries
-from pandas import IndexSlice as idx, Series, DataFrame, Index, MultiIndex, Categorical, CategoricalDtype
 import pandas as pd
-from pandas.core.groupby import DataFrameGroupBy, SeriesGroupBy
 import geopandas as gpd
 
 import os
@@ -42,14 +38,15 @@ import sys
 import argh
 import torch
 from torch.utils.data import DataLoader
+import torch.distributed as dist
 from torch.cuda import amp
 from runx.logx import logx
 
 import tile2net.tileseg.network.ocrnet
-from tile2net.tileseg.config import assert_and_infer_cfg, update_epoch, cfg
-from tile2net.tileseg.utils.misc import AverageMeter, prep_experiment, eval_metrics
+from tile2net.tileseg.config import assert_and_infer_cfg, cfg
+from tile2net.tileseg.utils.misc import AverageMeter, prep_experiment
 from tile2net.tileseg.utils.misc import ImageDumper, ThreadedDumper
-from tile2net.tileseg.utils.trnval_utils import eval_minibatch, validate_topn
+from tile2net.tileseg.utils.trnval_utils import eval_minibatch
 from tile2net.tileseg.loss.utils import get_loss
 from tile2net.tileseg.loss.optimizer import get_optimizer, restore_opt, restore_net
 
@@ -60,20 +57,15 @@ from tile2net.namespace import Namespace
 from tile2net.logger import logger
 
 from tile2net.raster.pednet import PedNet
-from toolz import pipe
 import logging
 
 import numpy as np
-import json
 import copy
 
-# Import autoresume module
+
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 AutoResume = None
-# try:
-#     from userlib.auto_resume import AutoResume
-# except ImportError:
-#     print(AutoResume)
+
 from tile2net.raster.project import Project
 
 
@@ -120,37 +112,58 @@ def inference_(args: Namespace):
     if args.options.test_mode:
         args.max_epoch = 2
 
-    if 'WORLD_SIZE' in os.environ and args.model.apex:
-        # args.model.apex = int(os.environ['WORLD_SIZE']) > 1
-        args.world_size = int(os.environ['WORLD_SIZE'])
-        args.global_rank = int(os.environ['RANK'])
+    num_gpus = torch.cuda.device_count()
+    if num_gpus > 1:
+        # Distributed training setup
 
-    if args.model.apex:
-        print('Global Rank: {} Local Rank: {}'.format(
-            args.global_rank, args.local_rank))
+        args.world_size = int(os.environ.get('WORLD_SIZE', num_gpus))
+        dist.init_process_group(backend='nccl', init_method='env://')
+        args.local_rank = dist.get_rank()
         torch.cuda.set_device(args.local_rank)
-        torch.distributed.init_process_group(backend='nccl',
-                                             init_method='env://')
+        args.distributed = True
+        args.global_rank = int(os.environ['RANK'])
+        print(f'Using distributed training with {args.world_size} GPUs.')
+    elif num_gpus == 1:
+        # Single GPU setup
+        print('Using a single GPU.')
+        args.local_rank = 0
+        torch.cuda.set_device(args.local_rank)
+    else:
+        # CPU setup
+        print('Using CPU.')
+        args.local_rank = -1  # Indicating CPU usage
 
-    def check_termination(epoch):
-        if AutoResume:
-            shouldterminate = AutoResume.termination_requested()
-            if shouldterminate:
-                if args.global_rank == 0:
-                    progress = "Progress %d%% (epoch %d of %d)" % (
-                        (epoch * 100 / args.max_epoch),
-                        epoch,
-                        args.max_epoch
-                    )
-                    AutoResume.request_resume(
-                        user_dict={"RESUME_FILE": logx.save_ckpt_fn,
-                                   "TENSORBOARD_DIR": args.result_dir,
-                                   "EPOCH": str(epoch)
-                                   }, message=progress)
-                    return 1
-                else:
-                    return 1
-        return 0
+    # if 'WORLD_SIZE' in os.environ and args.model.apex:
+    #     # args.model.apex = int(os.environ['WORLD_SIZE']) > 1
+    #     args.world_size = int(os.environ['WORLD_SIZE'])
+    #     args.global_rank = int(os.environ['RANK'])
+
+    # if args.model.apex:
+    #     print('Global Rank: {} Local Rank: {}'.format(
+    #         args.global_rank, args.local_rank))
+    #     torch.cuda.set_device(args.local_rank)
+    #     torch.distributed.init_process_group(backend='nccl',
+    #                                          init_method='env://')
+
+    # def check_termination(epoch):
+    #     if AutoResume:
+    #         shouldterminate = AutoResume.termination_requested()
+    #         if shouldterminate:
+    #             if args.global_rank == 0:
+    #                 progress = "Progress %d%% (epoch %d of %d)" % (
+    #                     (epoch * 100 / args.max_epoch),
+    #                     epoch,
+    #                     args.max_epoch
+    #                 )
+    #                 AutoResume.request_resume(
+    #                     user_dict={"RESUME_FILE": logx.save_ckpt_fn,
+    #                                "TENSORBOARD_DIR": args.result_dir,
+    #                                "EPOCH": str(epoch)
+    #                                }, message=progress)
+    #                 return 1
+    #             else:
+    #                 return 1
+    #     return 0
 
     def run_inference(args=args, rasterfactory=None):
         """
@@ -181,10 +194,7 @@ def inference_(args: Namespace):
         net = network.get_net(args, criterion)
         optim, scheduler = get_optimizer(args, net)
 
-        if args.train.fp16:
-            net, optim = amp.initialize(net, optim, opt_level=args.amp_opt_level)
-
-        net = network.wrap_network_in_dataparallel(net, args.model.apex)
+        net = network.wrap_network_in_dataparallel(args, net)
 
         if args.restore_optimizer:
             restore_opt(optim, checkpoint)
@@ -225,7 +235,7 @@ def inference_(args: Namespace):
 
         elif args.model.eval == 'folder':
             # Using a folder for evaluation means to not calculate metrics
-            validate(val_loader, net, criterion=criterion_val, optim=optim, epoch=0,
+            validate(val_loader, net, criterion=criterion_val, optim=None, epoch=0,
                      calc_metrics=False, dump_assets=args.dump_assets,
                      dump_all_images=True,
                      args=args,
@@ -236,7 +246,6 @@ def inference_(args: Namespace):
             raise 'unknown eval option {}'.format(args.eval)
 
     def validate(val_loader, net, criterion, optim, epoch,
-
                  args,
                  calc_metrics=True,
                  dump_assets=False,
@@ -270,28 +279,18 @@ def inference_(args: Namespace):
             assets, _iou_acc = \
                 eval_minibatch(data, net, criterion, val_loss, calc_metrics,
                                args, val_idx)
-            # print(f'{type(assets)=}')
-            types = {
-                k: type(v)
-                for k, v in assets.items()
-            }
-            # print(f'{types=}')
-
+            # types = {
+            #     k: type(v)
+            #     for k, v in assets.items()
+            # }
             iou_acc += _iou_acc
 
             input_images, labels, img_names, _ = data
-            # print(f'{type(input_images)=}')
-            # print(f'{type(labels)=}')
-            # print(f'{type(img_names)=}')
 
             if testing:
                 prediction = assets['predictions'][0]
                 values, counts = np.unique(prediction, return_counts=True)
                 pred[img_names[0]] = copy.copy(_temp)
-                # print(f'{type(prediction)=}')
-                # print(f'{type(pred)=}')
-                # print(f'{type(pred[img_names[0]])=}')
-                # print(f'{type(values)=}')
 
                 for v in range(len(values)):
                     pred[img_names[0]][values[v]] = counts[v]
@@ -323,19 +322,6 @@ def inference_(args: Namespace):
                     project=grid.project,
                 )
                 net.convert_whole_poly2line()
-                # grid.save_ntw_polygon()
-                # polys = grid.ntw_poly
-                # net = PedNet(location=grid.bbox,
-                #              name=grid.name,
-                #              poly=polys,
-                #              zoom=grid.zoom,
-                #              size=grid.tile_size,
-                #              crs=grid.crs,
-                #              stitch_step=grid.stitch_step)
-                # net.convert_whole_poly2line()
-                # #        grid.post_process(grid.ntw_line, dumper.save_dir, 4, 8)
-                # except:
-                #     print('could not perform the vector generation!')
 
     run_inference()
 
@@ -377,18 +363,26 @@ class Inference:
         if args.options.test_mode:
             args.max_epoch = 2
 
-        if (
-                'WORLD_SIZE' in os.environ
-                and args.model.apex
-        ):
-            # args.model.apex = int(os.environ['WORLD_SIZE']) > 1
-            args.world_size = int(os.environ['WORLD_SIZE'])
-            args.global_rank = int(os.environ['RANK'])
+        num_gpus = torch.cuda.device_count()
+        if num_gpus > 1:
+            # Distributed training setup
 
-        if args.model.apex:
-            logger.info(f'Global Rank: {args.global_rank} Local Rank: {args.local_rank}')
+            args.world_size = int(os.environ.get('WORLD_SIZE', num_gpus))
+            dist.init_process_group(backend='nccl', init_method='env://')
+            args.local_rank = dist.get_rank()
             torch.cuda.set_device(args.local_rank)
-            torch.distributed.init_process_group(backend='nccl', init_method='env://')
+            args.distributed = True
+            args.global_rank = int(os.environ['RANK'])
+            print(f'Using distributed training with {args.world_size} GPUs.')
+        elif num_gpus == 1:
+            # Single GPU setup
+            print('Using a single GPU.')
+            args.local_rank = 0
+            torch.cuda.set_device(args.local_rank)
+        else:
+            # CPU setup
+            print('Using CPU.')
+            args.local_rank = -1  # Indicating CPU usage
 
         assert args.result_dir is not None, 'need to define result_dir arg'
 
@@ -423,10 +417,8 @@ class Inference:
 
         optim, scheduler = get_optimizer(args, net)
 
-        if args.train.fp16:
-            net, optim = amp.initialize(net, optim, opt_level=args.amp_opt_level)
 
-        net = network.wrap_network_in_dataparallel(net, args.model.apex)
+        net = network.wrap_network_in_dataparallel(args, net)
         if args.restore_optimizer:
             restore_opt(optim, checkpoint)
         if args.restore_net:
@@ -582,17 +574,4 @@ if __name__ == '__main__':
     """
     from tile2net import Raster
 
-    # raster = Raster(
-    #     location='Boston Common',
-    #     name='central_park',
-    #     zoom=19,
-    # )
-    # raster.generate(2)
-
-
-    # raster.inference()
-    # argh.dispatch_command(inference)
-    # inference: Inference = commandline(Inference)
-    # argh.dispatch_command(inference)()
     argh.dispatch_command(inference)
-    # argh.dispatch_command(inference_)

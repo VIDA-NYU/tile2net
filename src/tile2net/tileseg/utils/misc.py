@@ -149,7 +149,7 @@ def eval_metrics(iou_acc, args, net, optim, val_loss, epoch, mf_score=None):
 
     iou_per_scale = {}
     iou_per_scale[1.0] = iou_acc
-    if args.model.apex:
+    if args.distributed:
         iou_acc_tensor = torch.cuda.FloatTensor(iou_acc)
         torch.distributed.all_reduce(iou_acc_tensor,
                                      op=torch.distributed.ReduceOp.SUM)
@@ -289,10 +289,6 @@ class ImageDumper:
         self.dump_for_submission = dump_for_submission
 
         self.viz_frequency = max(1, val_len // dump_num)
-        # if dump_all_images:
-        #     self.dump_frequency = 1
-        # else:
-        #     self.dump_frequency = self.viz_frequency
 
         inv_mean = [-mean / std for mean, std in zip(cfg.DATASET.MEAN,
                                                      cfg.DATASET.STD)]
@@ -494,7 +490,7 @@ def print_evaluate_results(hist, iu, epoch=0, iou_per_scale=None,
     iu_FN = hist.sum(axis=0) - np.diag(hist)
     iu_TP = np.diag(hist)
     # save the default hist
-    np.save(f'{cfg.RESULT_DIR}/cm_{epoch}.npy', hist)
+    # np.save(f'{cfg.RESULT_DIR}/cm_{epoch}.npy', hist)
     logx.msg('IoU:')
 
     header = ['Id', 'label']

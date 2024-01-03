@@ -32,13 +32,11 @@ Generic dataloader base class
 import os
 import glob
 import numpy as np
-import torch
 
 from PIL import Image
 from torch.utils import data
 from tile2net.tileseg.config import cfg
 from tile2net.tileseg.datasets import uniform
-from runx.logx import logx
 from tile2net.tileseg.utils.misc import tensor_to_pil
 
 
@@ -149,7 +147,7 @@ class BaseLoader(data.Dataset):
 
         return img, mask, scale_float
 
-    def read_images(self, img_path, mask_path, mask_out=False):
+    def read_images(self, img_path, mask_path):
         img = Image.open(img_path).convert('RGB')
         if mask_path is None or mask_path == '':
             w, h = img.size
@@ -157,19 +155,13 @@ class BaseLoader(data.Dataset):
         else:
             mask = Image.open(mask_path)
 
-        drop_out_mask = None
-
         img_name = os.path.splitext(os.path.basename(img_path))[0]
 
         mask = np.array(mask)
-        if mask_out:
-            mask = self.drop_mask * mask
-
         mask = mask.copy()
         for k, v in self.id_to_trainid.items():
             binary_mask = (mask == k)
             mask[binary_mask] = v
-
 
         mask = Image.fromarray(mask.astype(np.uint8))
         return img, mask, img_name
@@ -191,18 +183,9 @@ class BaseLoader(data.Dataset):
         else:
             img_path, mask_path, centroid, class_id = self.imgs[index]
 
-        mask_out = cfg.DATASET.MASK_OUT_CITYSCAPES and \
-            cfg.DATASET.CUSTOM_COARSE_PROB is not None and \
-            'refinement' in mask_path
+        img, mask, img_name = self.read_images(img_path, mask_path)
 
-        img, mask, img_name = self.read_images(img_path, mask_path,
-                                               mask_out=mask_out)
-
-        ######################################################################
-        # Thresholding is done when using coarse-labelled Cityscapes images
-        ######################################################################
         if 'refinement' in mask_path:
-            
             mask = np.array(mask)
             prob_mask_path = mask_path.replace('.png', '_prob.png')
             # put it in 0 to 1

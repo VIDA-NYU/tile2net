@@ -7,11 +7,6 @@ import torch
 import torch.nn as nn
 from tile2net.tileseg.config import cfg
 
-# from torch.cuda import amp
-
-from runx.logx import logx
-
-
 align_corners = cfg.MODEL.ALIGN_CORNERS
 
 
