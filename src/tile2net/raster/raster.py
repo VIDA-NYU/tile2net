@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import weakref
+from functools import *
+
 import copy
 import inspect
 import math
@@ -39,10 +42,41 @@ from tile2net.logger import logger
 
 PathLike = Union[str, _PathLike]
 
+class Black:
+    def __get__(self, instance, owner) -> Black:
+        self.owner = weakref.proxy(instance)
+        if instance is None:
+            return self
+        if self.name in instance.__dict__:
+            return instance.__dict__[self.name]
+        result = copy.copy(self)
+        instance.__dict__[self.name] = result
+        return result
+
+    def __set_name__(self, owner, name):
+        self.name = name
+
+    @cached_property
+    def path(self):
+        result: Path = self.owner.project.resources.path / 'black' / f'{self.owner.zoom}.png'
+        result.parent.mkdir(parents=True, exist_ok=True)
+        if not result.exists():
+            imageio.v3.imwrite(result, self.array)
+        return result
+
+    def __fspath__(self):
+        return str(self.path)
+
+    @cached_property
+    def array(self):
+        return np.zeros((self.owner.base_tilesize, self.owner.base_tilesize, 3), dtype=np.uint8)
+
+
 
 class Raster(Grid):
     Project = Project
     input_dir = InputDir()
+    black = Black()
 
     @classmethod
     def from_nyc(cls, outdir: PathLike = None) -> "Raster":
@@ -438,16 +472,19 @@ class Raster(Grid):
                 f"expected tile size {self.base_tilesize}."
             )
 
-        gval = 0
-        gray = np.full(
-            (self.base_tilesize, self.base_tilesize, 3), gval, dtype=np.uint8
-        )
-        gval = np.full(3, 0)
+        # black = np.zeros((self.base_tilesize, self.base_tilesize, 3), dtype=np.uint8)
+        # self.project.resources
+        black = self.black.array
 
         def imread(file) -> np.ndarray:
             # just returns a gray tile if the file doesn't exist
-            if not os.path.exists(file):
-                return gray
+            # if not os.path.exists(file):
+            #     return black
+            if (
+                    os.path.islink(file)
+                    or not os.path.exists(file)
+            ):
+                return black
             res = imageio.v3.imread(file)
             return res
 
@@ -517,9 +554,9 @@ class Raster(Grid):
         shape = self.base_tilesize * step, self.base_tilesize * step, 4
         desc = f"Stitching {len(outfiles):,} tiles..."
         desc = desc.rjust(len(desc) + 11).ljust(50)
-        # shape = imageio.imread_v2(infiles[0]).shape
         CANVAS = np.zeros(shape, dtype=np.uint8)
         CANVAS[:, :, 3] = 255
+        bval = self.black.array[0, 0, :]
         for infiles, outfile in tqdm(
                 zip(gen_infiles(), outfiles),
                 total=len(outfiles),
@@ -536,17 +573,13 @@ class Raster(Grid):
                 canvas[r: r + size, c: c + size, : infile.shape[2]] = infile
             loc = canvas[:, :, 3] != 255
             loc |= (canvas[:, :, :3] == 0).all(axis=2)
-            canvas[loc, :3] = gval
+            canvas[loc, :3] = bval
             canvas = canvas[:, :, :3]
             writes.append(threads.submit(imageio.v3.imwrite, outfile, canvas))
 
         for write in writes:
             write.result()
         threads.shutdown(wait=True)
-
-    """
-    Download Tiles 
-    """
 
     def download(self, retry: bool = True):
         """
@@ -569,8 +602,28 @@ class Raster(Grid):
             self.project.tiles.static.path.mkdir(parents=True, exist_ok=True)
 
             paths = self.project.tiles.static.files()
-            urls = list(self.source[self.tiles.flat])
+            urls = self.source[self.tiles.flat]
             desc = f"Checking {self.tiles.size:,} files..."
+            loc = [
+                not os.path.exists(path)
+                for path in paths
+            ]
+            paths = paths[loc]
+            urls = urls[loc]
+
+            futures = threads.map(lambda url: session.head(url).status_code, urls)
+            loc = np.fromiter(futures, dtype=np.int32, count=len(urls)) == 404
+            if loc.any():
+                src = self.black.__fspath__()
+                for path in paths[loc]:
+                    os.symlink(src, path)
+                logger.debug(
+                    f'{loc.sum():,} tiles were not found and returned 404 from the server '
+                    f'so they were set as symlinks to {src}.'
+                )
+            paths = paths[~loc]
+            urls = urls[~loc]
+
             desc = desc.rjust(len(desc) + 11).ljust(50)
             submit = partial(session.get, verify=certifi.where())
             downloads = {
@@ -625,6 +678,7 @@ class Raster(Grid):
                     list,
                 )
                 if not writes:
+                    # todo this was likely caused by downloads raising HTTPError
                     logger.warning(
                         f"Downloads were attempted, but not a single image was written to file. "
                         f"Check that everything is correct for {self.source=}."
