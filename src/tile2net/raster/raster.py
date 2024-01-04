@@ -42,6 +42,7 @@ from tile2net.logger import logger
 
 PathLike = Union[str, _PathLike]
 
+
 class Black:
     def __get__(self, instance, owner) -> Black:
         self.owner = weakref.proxy(instance)
@@ -70,7 +71,6 @@ class Black:
     @cached_property
     def array(self):
         return np.zeros((self.owner.base_tilesize, self.owner.base_tilesize, 3), dtype=np.uint8)
-
 
 
 class Raster(Grid):
@@ -894,6 +894,23 @@ class Raster(Grid):
         assert len(rasters) == n
         return rasters
 
+    @property
+    def batches(self) -> Iterator[range]:
+        # todo: compute based on available memory
+        n = 50
+
+        tiles = self.tiles
+        r, c = tiles.shape
+        STEP = math.ceil(c / n)
+        ceil = math.ceil(c / STEP) * STEP + 1
+        steps = np.arange(0, ceil, STEP)
+        steps[-1] = c
+        starts = steps[:-1]
+        stops = steps[1:]
+        # noinspection PyTypeChecker
+        yield from map(range, starts, stops)
+
+
     @cached_property
     def extension(self):
         if self.source:
@@ -902,6 +919,7 @@ class Raster(Grid):
             return self.input_dir.extension
         else:
             raise ValueError("No source or input_dir specified")
+
 
 
 if __name__ == '__main__':

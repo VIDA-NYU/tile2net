@@ -2,6 +2,7 @@ import logging
 import datetime
 import pandas as pd
 import os
+from pathlib import Path
 os.environ['USE_PYGEOS'] = '0'
 import geopandas as gpd
 
@@ -23,7 +24,7 @@ class PedNet():
     def __init__(
             self,
             poly: gpd.GeoDataFrame,
-            project: Project
+            network_path: Path,
     ):
 
         self.polygons = poly
@@ -34,7 +35,8 @@ class PedNet():
         self.sidewalk = -1
         self.crosswalk = -1
         self.complete_net = -1
-        self.project = project
+        # self.network_path: Path  = network_path
+        # self.project = project
 
     def prepare_class_gdf(self, class_name) -> object:
         """
@@ -366,7 +368,7 @@ class PedNet():
 
         self.sidewalk['f_type'] = 'sidewalk'
 
-    def convert_whole_poly2line(self):
+    def convert_whole_poly2line(self, path: Path):
         """
         Create network from the full polygon dataset
         """
@@ -475,12 +477,6 @@ class PedNet():
         combined.geometry = combined.geometry.to_crs(4326)
         combined = combined[~combined.geometry.isna()]
         combined.reset_index(drop=True, inplace=True)
-        path = self.project.network.path
-
-        path.mkdir(parents=True, exist_ok=True)
-        path = path.joinpath(
-            f'{self.project.name}-Network-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}'
-        )
         combined.to_file(path)
 
         self.complete_net = combined
