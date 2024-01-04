@@ -1,4 +1,9 @@
+from __future__ import annotations
+
+import copy
 import inspect
+import math
+
 from tile2net.raster import util
 import subprocess
 import os
@@ -31,7 +36,6 @@ from tile2net.raster.source import Source
 from tile2net.raster.input_dir import InputDir
 from tile2net.raster.validate import validate
 from tile2net.logger import logger
-
 
 PathLike = Union[str, _PathLike]
 
@@ -140,23 +144,23 @@ class Raster(Grid):
         )
 
     def __init__(
-        self,
-        *,
-        location: list | str,  # region of interest to get its bounding box
-        name: str = None,
-        # source: PathLike = None,
-        input_dir: PathLike = None,
-        output_dir: PathLike = None,
-        num_class: int = 4,  # # of classes for annotation creation
-        base_tilesize: int = 256,
-        zoom: int = None,
-        crs: int = 4326,
-        tile_step: int = 1,
-        boundary_path: str = None,  # path to a shapefile to filter out of boundary tiles
-        padding=True,
-        # extension: str = 'png',
-        source: Source | Type[Source] = None,
-        dump_percent: int = 0,
+            self,
+            *,
+            location: list | str,  # region of interest to get its bounding box
+            name: str = None,
+            # source: PathLike = None,
+            input_dir: PathLike = None,
+            output_dir: PathLike = None,
+            num_class: int = 4,  # # of classes for annotation creation
+            base_tilesize: int = 256,
+            zoom: int = None,
+            crs: int = 4326,
+            tile_step: int = 1,
+            boundary_path: str = None,  # path to a shapefile to filter out of boundary tiles
+            padding=True,
+            # extension: str = 'png',
+            source: Source | Type[Source] = None,
+            dump_percent: int = 0,
     ):
         """
 
@@ -261,6 +265,7 @@ class Raster(Grid):
         self.input_dir: InputDir = input_dir
         self.source = source
         self.dump_percent = dump_percent
+        self.batch = -1
 
         if boundary_path:
             self.boundary_path = boundary_path
@@ -516,11 +521,11 @@ class Raster(Grid):
         CANVAS = np.zeros(shape, dtype=np.uint8)
         CANVAS[:, :, 3] = 255
         for infiles, outfile in tqdm(
-            zip(gen_infiles(), outfiles),
-            total=len(outfiles),
-            desc=desc,
-            # disable when piping
-            # disable=not sys.stdout.isatty()
+                zip(gen_infiles(), outfiles),
+                total=len(outfiles),
+                desc=desc,
+                # disable when piping
+                # disable=not sys.stdout.isatty()
         ):
             canvas = CANVAS.copy()
             for i, infile in enumerate(infiles):
@@ -528,7 +533,7 @@ class Raster(Grid):
                 r = i % step * size
                 c = i // step * size
                 infile = np.array(infile)
-                canvas[r : r + size, c : c + size, : infile.shape[2]] = infile
+                canvas[r: r + size, c: c + size, : infile.shape[2]] = infile
             loc = canvas[:, :, 3] != 255
             loc |= (canvas[:, :, :3] == 0).all(axis=2)
             canvas[loc, :3] = gval
@@ -581,8 +586,8 @@ class Raster(Grid):
             }
 
             def submit(
-                path: Path,
-                content: bytes,
+                    path: Path,
+                    content: bytes,
             ) -> Optional[Path]:
                 # return path if failed
                 path.write_bytes(content)
@@ -736,8 +741,8 @@ class Raster(Grid):
 
     @validate
     def inference(
-        self,
-        eval_folder: str = None,
+            self,
+            eval_folder: str = None,
     ):
         """
         runs the inference on the tiles
@@ -788,6 +793,53 @@ class Raster(Grid):
     def __eq__(self, other):
         return self is other
 
+    def __truediv__(self, n: int) -> list[Raster]:
+        """
+
+        Parameters
+        ----------
+        n : int
+            Number of parts to divide the Raster into
+
+        Returns
+        -------
+        list[Raster]
+            List of Rasters divided by columns into n parts,
+            with the last part being the remainder
+
+        """
+        tiles = self.tiles
+        r, c = tiles.shape
+        STEP = math.ceil(c / n)
+        ceil = math.ceil(c / STEP) * STEP + 1
+        steps = np.arange(0, ceil, STEP)
+        steps[-1] = c
+        starts = steps[:-1]
+        stops = steps[1:]
+
+        rasters = []
+        for i, (start, stop) in enumerate(zip(starts, stops)):
+            raster = copy.copy(self)
+            raster.batch = i
+            raster.tiles = tiles[:, start:stop]
+            raster.xtile = self.xtile + start
+            raster.xtilem = self.xtile + stop
+            rasters.append(raster)
+
+        assert rasters[0].xtile == self.xtile
+        assert rasters[-1].xtilem == self.xtilem
+        assert all(
+            raster.ytile == self.ytile
+            and raster.ytilem == self.ytilem
+            for raster in rasters
+        )
+        assert sum(
+            raster.tiles.size
+            for raster in rasters
+        ) == self.tiles.size
+        assert len(rasters) == n
+        return rasters
+
     @cached_property
     def extension(self):
         if self.source:
@@ -796,3 +848,12 @@ class Raster(Grid):
             return self.input_dir.extension
         else:
             raise ValueError("No source or input_dir specified")
+
+
+if __name__ == '__main__':
+    raster = Raster(
+        location='Boston Common',
+        zoom=19,
+    )
+    # raster.generate(2)
+    rasters = raster / 4
