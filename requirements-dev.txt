@@ -36,3 +36,4 @@ myst-parser
 sphinx-rtd-theme
 nbsphinx
 pandoc
+sphinx-autobuild
