@@ -186,10 +186,7 @@ The Raster instance can also be created from the city info json file with the me
 
 This tool is currently in early development and is not yet ready for production use. The API is subject to change.
 
-<!-- TODO: FIX THIS NOTEBOOK EXAMPLE -->
-To see more, there is an [inference.ipynb](https://github.com/VIDA-NYU/tile2net/blob/main/examples/inference.ipynb)
-interactive notebook to demonstrate
-how to run the inference process interactively.
+To see more, see the [Quick Start Module](notebooks/quick_start_module.ipynb). 
 
 ## Documentation contents
 ```{toctree}

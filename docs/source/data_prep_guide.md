@@ -41,8 +41,6 @@ The implicit path can contain the zoom level, e.g. path/to/tiles/z/x/y.ext, or i
 
 To see an example, check out our [jupyter notebook](notebooks/quick_start_module.ipynb). 
 
-<!-- TODO:FIX THIS LINK -->
-
 ### Tile Transparency
 
 PNG has different types that some might have Alpha channel (usually PNG 32-bit).
