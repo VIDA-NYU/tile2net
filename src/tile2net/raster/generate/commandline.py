@@ -54,11 +54,13 @@ commandline = compose_left(
         '--extension', default='png', type=str
     ),
     arg(
-        '--tile_step', help='The step size of the tiles', default=1, type=int
+        '--tile_step', default=1, type=int, help=(
+            'The integer length, in slippy tiles, of each tile'
+        )
     ),
     arg(
         '--stitch_step', '-st',
-        help='The step size of the tiles stitched for semantic_segmentation',
+        help='The amount of tiles that an output file from the semantic segmentation will represent',
         default=4, type=int
     ),
     arg(
@@ -66,7 +68,13 @@ commandline = compose_left(
     ),
     arg(
         '--source', '-s', default=None, type=str,
-    )
+    ),
+    arg(
+        '--dump_percent',
+        type=int,
+        default=0,
+        help='The percentage of segmentation results to save. 100 means all, 0 means none.',
+    ),
 )
 
 class Namespace(argh.ArghNamespace):

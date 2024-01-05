@@ -30,13 +30,17 @@ def is_gscnn_arch(args):
     return 'gscnn' in args.arch
 
 
-def wrap_network_in_dataparallel(net, use_apex_data_parallel=False):
+def wrap_network_in_dataparallel(args, net):
     """
-    Wrap the network in Dataparallel
+    Wrap the network in Dataparallel using PyTorch's native SyncBatchNorm
     """
-    if use_apex_data_parallel:
-        import apex
-        net = apex.parallel.DistributedDataParallel(net)
+    # net = torch.nn.SyncBatchNorm.convert_sync_batchnorm(net)
+    if args.distributed:
+        net = torch.nn.SyncBatchNorm.convert_sync_batchnorm(net)
+        net = torch.nn.parallel.DistributedDataParallel(net,
+                                                        device_ids=[args.local_rank],
+                                                        output_device=args.local_rank,
+                                                        find_unused_parameters=True)
     else:
         net = torch.nn.DataParallel(net)
     return net
@@ -52,7 +56,3 @@ def get_model(network, num_classes, criterion):
     net_func = getattr(mod, model)
     net = net_func(num_classes=num_classes, criterion=criterion)
     return net
-
-
-class Network:
-    pass

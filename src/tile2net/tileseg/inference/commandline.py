@@ -76,14 +76,14 @@ commandline = compose_left(
         '--local_rank',
         # default=0,
         type=int,
-        help='parameter used by apex library'
+        help='parameter for distributed training'
     ),
     # should not be set by the user in most cases
     arg(
         '--global_rank',
         # default=0,
         type=int,
-        help='parameter used by apex library'
+        help='parameter used for distributed training'
     ),
     arg(
         '--world_size', type=int,
@@ -171,13 +171,6 @@ commandline = compose_left(
         # default=0.5,
         help='low resolution training scale',
         dest='model.mscale_lo_scale',
-    ),
-    arg(
-        '--amp_opt_level',
-        # default='O1',
-        type=str,
-        help='amp optimization level'
-
     ),
     arg(
         '--dump_topn', type=int,

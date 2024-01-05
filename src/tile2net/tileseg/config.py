@@ -50,7 +50,6 @@ cfg = __C
 __C.GLOBAL_RANK = 0
 __C.EPOCH = 0
 # Absolute path to a location to keep some large files.
-# __C.ASSETS_PATH = r'/home/arstneio/PycharmProjects/tile2net/src/tile2net/resources/segmentation/assets'
 __C.ASSETS_PATH = None
 
 __C.CITY_INFO_PATH = None
@@ -82,9 +81,6 @@ __C.DATASET = AttrDict()
 
 # __C.DATASET.CENTROID_ROOT = \
 #     os.path.join(__C.ASSETS_PATH, 'uniform_centroids')
-#
-# __C.DATASET.SATELLITE_DIR = \
-#     os.path.join(__C.ASSETS_PATH, 'satelite')
 
 __C.DATASET.CENTROID_ROOT = None
 __C.DATASET.SATELLITE_DIR = None
@@ -133,17 +129,7 @@ __C.MODEL.MSCALE_INIT = 0.5
 __C.MODEL.ATTNSCALE_BN_HEAD = False
 __C.MODEL.GRAD_CKPT = False
 
-# WEIGHTS_PATH = os.path.join(__C.ASSETS_PATH, 'weights')
-# __C.MODEL.WRN38_CHECKPOINT = \
-#     os.path.join(WEIGHTS_PATH, 'wider_resnet38.pth.tar')
-# __C.MODEL.WRN41_CHECKPOINT = \
-#     os.path.join(WEIGHTS_PATH, 'wider_resnet41_cornflower_sunfish.pth')
-# __C.MODEL.X71_CHECKPOINT = \
-#     os.path.join(WEIGHTS_PATH, 'aligned_xception71.pth')
-# __C.MODEL.HRNET_CHECKPOINT = \
-#     os.path.join(WEIGHTS_PATH, 'hrnetv2_w48_imagenet_pretrained.pth')
-# __C.MODEL.SNAPSHOT = \
-#     os.path.join(WEIGHTS_PATH, 'satellite_2021.pth')
+
 __C.MODEL.WRN38_CHECKPOINT = None
 __C.MODEL.WRN41_CHECKPOINT = None
 __C.MODEL.X71_CHECKPOINT = None
@@ -198,13 +184,11 @@ __C.MODEL.SCALE_MIN = 0.5
 __C.MODEL.SCALE_MAX = 2.0
 __C.MODEL.BS_TRN = 2
 __C.MODEL.BS_VAL = 1
-__C.MODEL.APEX = False
 __C.MODEL.COLOR_AUG = 0.25
 __C.MODEL.GBLUR = False
 __C.MODEL.BBLUR = True
 __C.MODEL.FULL_CROP_MODELING = False
 __C.MODEL.EVAL = 'test'
-# __C.MODEL.EVAL_FOLDER = None
 __C.EVAL_FOLDER = None
 __C.MODEL.PRE_SIZE = None
 __C.MODEL.RAND_AUGMENT = None
@@ -263,6 +247,7 @@ __C.TILE2NET = True
 __C.BOUNDARY_PATH = None
 __C.NGPU = torch.cuda.device_count()
 __C.WORLD_SIZE = 1
+__C.DISTRIBUTED = False
 
 __C.INTERACTIVE = False
 
@@ -288,17 +273,7 @@ def assert_and_infer_cfg(args, train_mode=True):
     """
 
     __C.OPTIONS.TORCH_VERSION = torch_version_float()
-
-    if hasattr(args, 'syncbn') and args.syncbn:
-        if args.model.apex:
-            import apex
-            __C.MODEL.BN = 'apex-syncnorm'
-            __C.MODEL.BNFUNC = apex.parallel.SyncBatchNorm
-        else:
-            raise Exception('No Support for SyncBN without Apex')
-    else:
-        __C.MODEL.BNFUNC = torch.nn.BatchNorm2d
-        print('Using regular batch norm')
+    __C.MODEL.BNFUNC = torch.nn.BatchNorm2d
 
     if not train_mode:
         cfg.immutable(True)
@@ -309,19 +284,9 @@ def assert_and_infer_cfg(args, train_mode=True):
 
     cfg.DATASET.CLASS_UNIFORM_BIAS = None
 
-    # if args.dataset.translate_aug_fix:
-    #     cfg.DATASET.TRANSLATE_AUG_FIX = True
 
     cfg.MODEL.MSCALE = ('mscale' in args.arch.lower() or 'attnscale' in
                         args.arch.lower())
-
-    # if args.model.three_scale:
-    #     cfg.MODEL.THREE_SCALE = True
-    #
-    # if args.model.alt_two_scale:
-    #     cfg.MODEL.ALT_TWO_SCALE = True
-
-    # cfg.MODEL.MSCALE_LO_SCALE = cfg.MODEL.MSCALE_LO_SCALE
 
     def str2list(s):
         alist = s.split(',')
@@ -332,61 +297,12 @@ def assert_and_infer_cfg(args, train_mode=True):
         cfg.MODEL.N_SCALES = str2list(args.model.n_scales)
         logx.msg('n scales {}'.format(cfg.MODEL.N_SCALES))
 
-    # if args.model.extra_scales:
-    #     cfg.MODEL.EXTRA_SCALES = str2list(args.model.extra_scales)
-
-    # if args.options.init_decoder:
-    #     cfg.OPTIONS.INIT_DECODER = True
-
     __C.RESULT_DIR = args.result_dir
-
-    # if args.train.fp16:
-    #     cfg.TRAIN.FP16 = True
 
     __C.DATASET.CROP_SIZE = '1024,1024'
 
-#   if args.model.aspp_bot_ch is not None:
+
 #      # todo fixme: make all code use this cfg
-#       __C.MODEL.ASPP_BOT_CH = int(args.model.aspp_bot_ch)
-
-# if args.model.mscale_cat_scale_flt:
-#     __C.MODEL.MSCALE_CAT_SCALE_FLT = True
-
-# if args.model.mscale_no3x3:
-#     __C.MODEL.MSCALE_INNER_3x3 = False
-
-# if args.model.mscale_dropout:
-#     __C.MODEL.MSCALE_DROPOUT = True
-
-# if args.model.mscale_old_arch:
-#     __C.MODEL.MSCALE_OLDARCH = True
-
-#    if args.model.mscale_init is not None:
-#        __C.MODEL.MSCALE_INIT = args.model.mscale_init
-
-#    if args.attnscale_bn_head:
-#        __C.MODEL.ATTNSCALE_BN_HEAD = True
-
-#    if args.model.segattn_bot_ch is not None:
-#        __C.MODEL.SEGATTN_BOT_CH = args.model.segattn_bot_ch
-
-#    if args.model.ocr_alpha is not None:
-#        __C.LOSS.OCR_ALPHA = args.model.ocr_alpha
-
-#    if args.ocr_aux_loss_rmi:
-#        __C.LOSS.OCR_AUX_RMI = True
-
-# if args.supervised_mscale_loss_wt is not None:
-#     __C.LOSS.SUPERVISED_MSCALE_WT = args.supervised_mscale_loss_wt
-
-# if args.model.grad_ckpt:
-#     __C.MODEL.GRAD_CKPT = True
-
-# __C.GLOBAL_RANK = 0
-
-# if make_immutable:
-#     cfg.immutable(True)
-
 
 def update_epoch(epoch):
     # Update EPOCH CTR

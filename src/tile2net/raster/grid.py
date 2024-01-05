@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 import datetime
 import tempfile
-from pathlib import Path
 from typing import Dict, Any, Union
 import shapely
 import rasterio
@@ -15,6 +14,7 @@ from functools import cached_property
 from geopy.geocoders import Nominatim
 
 from tile2net.raster.tile_utils.topology import fill_holes, replace_convexhull
+from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 
 os.environ['USE_PYGEOS'] = '0'
 import geopandas as gpd
@@ -23,7 +23,7 @@ from tile2net.raster.tile_utils.genutils import (
     deg2num, num2deg, createfolder,
 )
 from tile2net.raster.tile_utils.geodata_utils import (
-    _reduce_geom_precision, list_to_affine, read_gdf, buff_dfs, to_metric,
+    _reduce_geom_precision, list_to_affine, read_gdf, buff_dfs,
 )
 import logging
 from tile2net.raster.project import Project
@@ -67,7 +67,7 @@ class BaseRegion:
                 'topLeft_lat, topLeft_lon, bottomRight_lat, bottomRight_lon'
             )
 
-    def round_loc(self, other: list = None) -> list[float]:
+    def round_loc(self, other: list | float = None) -> list[float]:
         if other:
             return list(np.around(np.array(other), 10))
         else:
@@ -141,15 +141,25 @@ class BaseGrid(BaseRegion):
         self.ytile = deg2num(self.base_top, self.base_left, self.zoom)[1]
         self.xtilem = deg2num(self.base_bottom, self.base_right, self.zoom)[0]
         self.ytilem = deg2num(self.base_bottom, self.base_right, self.zoom)[1]
-        self.tiles = np.array([[Tile(self.xtile + col_idx,
-                                     self.ytile + row_idx,
-                                     position=(int(col_idx / self.tile_step), int(row_idx / self.stitch_step)),
-                                     idd=self.pos2id(int(col_idx / self.tile_step), int(row_idx / self.stitch_step)),
-                                     zoom=self.zoom,
-                                     size=self.tile_size,
-                                     crs=self.crs)
-                                for row_idx in np.arange(0, self.base_height, self.tile_step)]
-                               for col_idx in np.arange(0, self.base_width, self.tile_step)])
+        self.tiles = np.array([
+            [
+                Tile(
+                    self.xtile + col_idx,
+                    self.ytile + row_idx,
+                    position=(
+                        int(col_idx / self.tile_step), int(row_idx / self.stitch_step)
+                    ),
+                    idd=self.pos2id(
+                        int(col_idx / self.tile_step), int(row_idx / self.stitch_step)
+                    ),
+                    zoom=self.zoom,
+                    size=self.tile_size,
+                    crs=self.crs
+                )
+                for row_idx in np.arange(0, self.base_height, self.tile_step)
+            ]
+            for col_idx in np.arange(0, self.base_width, self.tile_step)
+        ])
         self.pose_dict = {tile.idd: tile.position for col in self.tiles for tile in col}
         # due to the rounding issues with deg2num and num2deg, we do this calculation again
         # deg2num(base_top, base_left, zoom) and then converting the nums to lat long will result in slightly different
@@ -159,7 +169,8 @@ class BaseGrid(BaseRegion):
 
     @cached_property
     def base_xyrange(self) -> tuple:
-        """calculates the min and max of xtile ytile of grid
+        """
+        calculates the min and max of xtile ytile of grid
         """
         xt, yt = deg2num(self.base_top, self.base_left, self.zoom)
         xtm, ytm = deg2num(self.base_bottom, self.base_right, self.zoom)
@@ -183,9 +194,9 @@ class BaseGrid(BaseRegion):
 
         Parameters
         ----------
-        col_idx: int
+        col_idx : int
             index of the column
-        row_idx: int
+        row_idx : int
             index of the row
 
         Returns
@@ -242,7 +253,8 @@ class Grid(BaseGrid):
                f"stitch step: {self.tile_step}"
 
     def create_grid(self):
-        """Creates the main grid based on user input
+        """
+        Creates the main grid based on user input
 
         Returns
         -------
@@ -308,7 +320,8 @@ class Grid(BaseGrid):
 
     @property
     def bbox(self):
-        """ Calculates bounding box.
+        """ 
+        Calculates bounding box.
 
         Returns
         -------
@@ -320,7 +333,8 @@ class Grid(BaseGrid):
         return [self.bottom, self.top, self.left, self.right]
 
     def update_hw(self):
-        """ Update the height and width of the grid.
+        """ 
+        Update the height and width of the grid.
         
         Returns
         -------
@@ -344,8 +358,9 @@ class Grid(BaseGrid):
         )
 
     def update_tiles(self):
-        """Update the tiles and their positions based on the new height/width values.
-           Uesed when the ytile, xtile is changed in the process.
+        """
+        Update the tiles and their positions based on the new height/width values.
+        Used when the ytile, xtile is changed in the process.
 
         Returns
         -------
@@ -400,9 +415,9 @@ class Grid(BaseGrid):
 
         Parameters
         ----------
-        xtile: int
+        xtile : int
             tile.xtile
-        ytile: int
+        ytile : int
             tile.ytile
 
         Returns
@@ -421,9 +436,9 @@ class Grid(BaseGrid):
 
         Parameters
         ----------
-        xtile: int
+        xtile : int
             tile.xtile
-        ytile: int
+        ytile : int
             tile.ytile
 
         Returns
@@ -440,7 +455,7 @@ class Grid(BaseGrid):
 
         Parameters
         ----------
-        df: bool
+        df : bool
             if True, returns a DataFrame
 
         Returns
@@ -543,19 +558,19 @@ class Grid(BaseGrid):
 
         Parameters
         ----------
-        clipped: bool
+        clipped : bool
             If True, returns the new pseudo tiles clipped by boundary
-        city: str
+        city : str
             The city to create a boundary around (e.g. "Boston", "New Delhi") 
-        address: str
+        address : str
             The address to create a boundary around (e.g. "77 Massachusetts Ave, Cambridge MA, USA") 
-        path: str 
+        path : str 
             filepath to the city/region boundary file
 
         Returns
         -------
-        (optional) :class:`GeoDataFrame`
-            The new pseudo tiles clipped by the boundary
+        :class:`GeoDataFrame` or None
+            The new pseudo tiles clipped by the boundary or None if not clipped
         """
 
         # create the pseudo tiles for the grid
@@ -579,7 +594,7 @@ class Grid(BaseGrid):
 
         Parameters
         ----------
-        lst: list[int]
+        lst : list[int]
             list of tile ids to exclude
         """
         for pos in lst:
@@ -602,22 +617,18 @@ class Grid(BaseGrid):
 
         Parameters
         ----------
-        crs_metric: int
+        crs_metric : int
             The desired coordinate reference system to save the network polygon with.
         """
-        gdf = []
         poly_fold = self.project.polygons.path
         createfolder(poly_fold)
-        for t in self.tiles.flatten():
-            if t.active:
-                if isinstance(t.ped_poly, gpd.GeoDataFrame):
-                    if len(t.ped_poly) > 0:
-                        # uncomment to save each polygons for each tile - not recommended- only for debugging
-                        # t.ped_poly.to_file(os.path.join(poly_fold,
-                        #                                 f'Polygons-{c}-{t.idd}.shp'))
-                        gdf.append(t.ped_poly)
-                else:
-                    continue
+        gdf: list[gpd.GeoDataFrame] = [
+            t.ped_poly
+            for t in self.tiles.flatten()
+            if t.active
+               and isinstance(t.ped_poly, gpd.GeoDataFrame)
+               and len(t.ped_poly)
+        ]
         poly_network = pd.concat(gdf)
         poly_network.reset_index(drop=True, inplace=True)
         poly_network.set_crs(self.crs, inplace=True)
@@ -626,14 +637,53 @@ class Grid(BaseGrid):
         poly_network.geometry = poly_network.simplify(0.6)
         unioned = buff_dfs(poly_network)
         unioned.geometry = unioned.geometry.simplify(0.9)
-        unioned.dropna(inplace=True)
         unioned = unioned[unioned.geometry.notna()]
         unioned['geometry'] = unioned.apply(fill_holes, args=(25,), axis=1)
         simplified = replace_convexhull(unioned)
+        simplified = simplified[simplified.geometry.notna()]
+        simplified = simplified[['geometry', 'f_type']]
         simplified.to_crs(self.crs, inplace=True)
+
         self.ntw_poly = simplified
         simplified.to_file(
             os.path.join(poly_fold, f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}'))
+        logging.info('Polygons are generated and saved!')
+
+    def save_ntw_polygons(
+            self,
+            poly_network: gpd.GeoDataFrame,
+            crs_metric: int = 3857,
+    ):
+        """
+        Collects the polygons of all tiles created in the segmentation process
+        and saves them as a shapefile
+
+        Parameters
+        ----------
+        poly_network : gpd.GeoDataFrame
+            The concatenated GeoDataFrame formed from the polygons of each tile.
+        crs_metric : int
+            The desired coordinate reference system to save the network polygon with.
+        """
+        poly_fold = self.project.polygons.path
+        createfolder(poly_fold)
+        poly_network.reset_index(drop=True, inplace=True)
+        poly_network.set_crs(self.crs, inplace=True)
+        if poly_network.crs != crs_metric:
+            poly_network.to_crs(crs_metric, inplace=True)
+        poly_network.geometry = poly_network.simplify(0.6)
+        unioned = buff_dfs(poly_network)
+        unioned.geometry = unioned.geometry.simplify(0.9)
+        unioned = unioned[unioned.geometry.notna()]
+        unioned['geometry'] = unioned.apply(fill_holes, args=(25,), axis=1)
+        simplified = replace_convexhull(unioned)
+        simplified = simplified[simplified.geometry.notna()]
+        simplified = simplified[['geometry', 'f_type']]
+        simplified.to_crs(self.crs, inplace=True)
+
+        self.ntw_poly = simplified
+        path = os.path.join(poly_fold, f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}')
+        simplified.to_file(path)
         logging.info('Polygons are generated and saved!')
 
     def prepare_class_gdf(self, class_name: str, crs: int = 3857) -> object:
@@ -641,10 +691,10 @@ class Grid(BaseGrid):
         """
         Parameters
         ----------
-        class_name: str
+        class_name : str
             Class label, sidewalk, crosswalk, road
         
-        crs: int
+        crs : int
             The desired coordinate reference system to prepare the :class:`GeoDataFrame` with.
 
 
@@ -659,7 +709,8 @@ class Grid(BaseGrid):
 
     # adopted from solaris library to overcome dependency issues
     def get_geo_transform(self, raster_src):
-        """*Adopted from the Solaris library to overcome dependency issues*
+        """
+        *Adopted from the Solaris library to overcome dependency issues*
 
         Get the geotransform for a raster image source.
 
@@ -686,7 +737,8 @@ class Grid(BaseGrid):
 
     def convert_poly_coords(self, geom, raster_src=None, affine_obj=None, inverse=False,
                             precision=None):
-        """*Adopted from the Solaris library to overcome dependency issues*
+        """
+        *Adopted from the Solaris library to overcome dependency issues*
 
         Georegister geometry objects currently in pixel coords or vice versa.
         
@@ -697,7 +749,7 @@ class Grid(BaseGrid):
             Alternatively, an opened :class:`rasterio.Band` object or
             :class:`osgeo.gdal.Dataset` object can be provided. Required if not
             using `affine_obj`.
-        affine_obj: list or :class:`affine.Affine`
+        affine_obj : list or :class:`affine.Affine`
             An affine transformation to apply to `geom` in the form of an
             ``[a, b, d, e, xoff, yoff]`` list or an :class:`affine.Affine` object.
             Required if not using `raster_src`.
@@ -764,7 +816,7 @@ class Grid(BaseGrid):
 
         Parameters
         ----------
-        src_pth: str
+        src_pth : str
             The file path to the csv file containing tiles to exclude
 
         Returns

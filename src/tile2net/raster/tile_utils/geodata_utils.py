@@ -1,13 +1,19 @@
 import os
+
+import affine
 from tile2net.logger import logger
 import shapely
-import geopandas as gpd
+from geopandas import GeoDataFrame, read_file, sjoin
 import pandas as pd
 import numpy as np
 import rasterio
 from shapely.geometry import mapping, shape
 import skimage
 from affine import Affine
+
+import warnings
+
+warnings.filterwarnings('ignore')
 
 
 def read_gdf(path):
@@ -22,7 +28,7 @@ def read_gdf(path):
     -------
     gdf: GeoDataFrame
     """
-    gdf = gpd.read_file(path)
+    gdf = read_file(path)
     return gdf
 
 
@@ -59,7 +65,7 @@ def change_crs(gdf, crs):
     return gdf
 
 
-def prepare_spindex(gdf: gpd.GeoDataFrame):
+def prepare_spindex(gdf: GeoDataFrame) -> GeoDataFrame.sindex:
     """
     Prepare a GeoDataFrame for spatial indexing
     Parameters
@@ -94,14 +100,13 @@ def _reduce_geom_precision(geom, precision=2):
     return shape(geojson)
 
 
-def affine_to_list(affine_obj):
+def affine_to_list(affine_obj: affine.Affine):
     """Convert a :class:`affine.Affine` instance to a list for Shapely."""
     return [affine_obj.a, affine_obj.b,
             affine_obj.d, affine_obj.e,
             affine_obj.xoff, affine_obj.yoff]
 
-
-def list_to_affine(xform_mat):
+def list_to_affine(xform_mat: list):
     """Create an Affine from a list or array-formatted [a, b, d, e, xoff, yoff]
 
     Arguments
@@ -147,7 +152,7 @@ def _check_skimage_im_load(im):
         )
 
 
-def prepare_class_gdf(polys, class_name) -> object:
+def prepare_class_gdf(polys, class_name) -> GeoDataFrame:
     """
     separates the polygons of each class, given the keyboard (sidewalk, crosswalk, road)
     Args:
@@ -196,9 +201,9 @@ def read_dataframe(src_path, geo=True, cols=None):
     """
     if geo:
         if cols:
-            df = gpd.read_file(src_path, usecols=cols)
+            df = read_file(src_path, usecols=cols)
         else:
-            df = gpd.read_file(src_path)
+            df = read_file(src_path)
     else:
         if cols:
             df = pd.read_csv(src_path, usecols=cols)
@@ -207,19 +212,10 @@ def read_dataframe(src_path, geo=True, cols=None):
     return df
 
 
-# def unary_multi(gdf):
-# 	"""
-# 	handles the errors with multipolygon
-# 	"""
-# 	if gdf.unary_union.type == 'MultiPolygon':
-# 		gdf_uni = gpd.GeoDataFrame(geometry=gpd.GeoSeries([geom for geom in gdf.unary_union.geoms]))
-# 	else:
-# 		gdf_uni = gpd.GeoDataFrame(geometry=gpd.GeoSeries(gdf.unary_union))
-# 	return gdf_uni
-
-def unary_multi(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+def unary_multi(gdf: GeoDataFrame) -> GeoDataFrame:
     # handles the errors with multipolygon
     loc = ~gdf.is_valid.values
+    # logger.warning(f'Number of invalid geometries: {loc.sum()} out of {len(gdf)}')
     count = loc.sum()
     if count:
         logger.warning(f'Number of invalid geometries: {count} out of {len(gdf)}')
@@ -259,14 +255,37 @@ def buffer_union(gdf, buff, simp1, simp2):
     return gdf_uni
 
 
-def buffer_union_erode(gdf, buff, erode, simp1, simp2, simp3):
+def buffer_union_erode(gdf: GeoDataFrame, buff: float, erode: float, simp1: float, simp2: float, simp3: float):
+    """ Buffer, union, erode, simplify the polygons in a GeoDataFrame to create elongated polygons
+    Parameters
+    ----------
+    gdf: GeoDataFrame
+        Polygon GeoDataFrame
+    buff: float
+        buffer distance
+    erode: float
+        erode distance
+    simp1: float
+        simplification tolerance for the buffer
+    simp2: float
+        simplification tolerance for the union
+    simp3: float
+        simplification tolerance for the final simplification
+    Returns
+    -------
+    gdf_uni: GeoDataFrame
+        Transformed GeoDataFrame
+    """
     gdf_buff = buffer_union(gdf, buff, simp1, simp2)
     gdf_erode = gdf_buff.copy()
     gdf_erode.geometry = gdf_buff.geometry.buffer(erode, join_style=2, cap_style=3)
     gdf_uni = unary_multi(gdf_erode)
     gdf_uni.geometry = gdf_uni.geometry.set_crs(3857)
     gdf_uni.geometry = gdf_uni.geometry.simplify(simp3)
+    gdf_uni = gdf_uni[(gdf_uni.geometry.geom_type == 'MultiPolygon') | (gdf_uni.geometry.geom_type == 'Polygon')]
+
     return gdf_uni
+
 
 def to_metric(gdf, crs=3857):
     """Converts a GeoDataFrame to metric (3857) coordinate
@@ -285,7 +304,7 @@ def to_metric(gdf, crs=3857):
     return gdf
 
 
-def geo2geodf(geo_lst):
+def geo2geodf(geo_lst: list) -> GeoDataFrame:
     """
     Converts a list of shapely geometries to a GeoDataFrame
     Parameters
@@ -297,22 +316,23 @@ def geo2geodf(geo_lst):
     gdf: GeoDataFrame
 
     """
-    gdf = gpd.GeoDataFrame(geometry=geo_lst)
+    gdf = GeoDataFrame(geometry=geo_lst)
     return gdf
 
 
-def merge_dfs(gdf1, gdf2, crs=4326):
+def merge_dfs(gdf1: GeoDataFrame, gdf2: GeoDataFrame, crs: int = 4326):
     """
-    merges two dataframes with the results of segmentation (three classes)
+    merges two geodataframes of segmentation results (three classes)
     Parameters
     ----------
     gdf1: GeoDataFrame
     gdf2: GeoDataFrame
     crs: int
-
+        Coordinate system to convert to
     Returns
     -------
-
+    concsw: GeoDataFrame
+        Concatenated GeoDataFrames
     """
     if gdf1.crs != gdf2.crs:
         gdf1.to_crs(crs, inplace=True)
@@ -351,16 +371,18 @@ def merge_dfs(gdf1, gdf2, crs=4326):
     return merged
 
 
-def create_stats(gdf):
-    """
-
+def create_stats(gdf: GeoDataFrame):
+    """ Creates summary statistics of the polygons
     Parameters
     ----------
     gdf: GeoDataFrame
 
     Returns
     -------
-
+    ss: GeoDataFrame
+        summary statistics of the polygons
+    cgdf: GeoDataFrame
+        copy of the input GeoDataFrame with additional columns of the summary statistics
     """
     cgdf = gdf.copy()
     cgdf['primeter'] = cgdf.length
@@ -371,7 +393,7 @@ def create_stats(gdf):
     return ss, cgdf
 
 
-def buff_dfs(gdf):
+def buff_dfs(gdf: GeoDataFrame):
     """
     union and buffer the polygons of each class separately,
     to create continuous polygons and merge them into one GeoDataFrame.

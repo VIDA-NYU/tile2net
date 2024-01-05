@@ -289,7 +289,6 @@ class Model(AttrDesc):
     rmi_loss = None
     segattn_bot_ch = None
     three_scale = None
-    apex: bool = None
     bs_trn: int = None
     img_wt_loss: bool = None
     bs_val: int = None
@@ -388,7 +387,6 @@ class Namespace(
     # hrnet_checkpoint: str = None
     quiet: bool = None
     best_record: dict[str, int] = None
-
     amp_opt_level: str = None
     amsgrad: bool = None
     arch: str = None
@@ -397,6 +395,7 @@ class Namespace(
     boundary_path: Optional[str] = None
     brt_aug: bool = None
     calc_metrics: bool = None
+    distributed: bool = None
     default_scale: float = None
     deterministic: bool = None
     do_flip: bool = None

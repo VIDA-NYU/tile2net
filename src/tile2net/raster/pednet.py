@@ -14,7 +14,8 @@ from tile2net.raster.project import Project
 
 
 class PedNet:
-    """Create network from polygons
+    """
+    Create network from polygons
 =======
 class PedNet():
     """
@@ -36,11 +37,12 @@ class PedNet():
         self.project = project
 
     def prepare_class_gdf(self, class_name) -> object:
-        """Filters the polygon :class:`GeoDataFrame` based on the class label
+        """
+        Filters the polygon :class:`GeoDataFrame` based on the class label
 
         Parameters
         ----------
-        class_name: str
+        class_name : str
             the class label, i.e. sidewalk, crosswalk, road
 
         Returns
@@ -59,11 +61,11 @@ class PedNet():
 
         Parameters
         ----------
-        swp: :class:`GeoDataFrame`
+        swp : :class:`GeoDataFrame`
             sidewalks polygons
-        cwp: :class:`GeoDataFrame`
+        cwp : :class:`GeoDataFrame`
             crosswalk polygons
-        max_area: int
+        max_area : int
             maximum island area based to filter
 
         Returns
@@ -97,8 +99,8 @@ class PedNet():
     def validate_linemerge(self, merged_line):
         # from topojson https://github.com/mattijn/topojson/commit/cdc059bae53f3f5cfe882527e5d34e671f80173e
         """
-        Return
-        ------
+        Returns
+        -------
         list[shapely.geometry.LineString] 
             If the linemerge was a MultiLineString, then returns a list of multiple single linestrings
         """
@@ -115,10 +117,10 @@ class PedNet():
 
         Parameters
         ----------
-        line: shapely.LineString
+        line : shapely.LineString
             The LineString to be extended
 
-        thr: float
+        thr : float
             ratio of the whole line by which the line is extended (e.g., 2/3)
 
         Returns
@@ -141,7 +143,7 @@ class PedNet():
 
         Parameters
         ----------
-        cw_pol: :class:`gpd.GeoDataFrame`
+        cw_pol : :class:`gpd.GeoDataFrame`
             :class:`GeoDataFrame` of crosswalks
         """
         # finding sidewalk lines that extends to the crosswalks polygons and cut them
@@ -257,7 +259,7 @@ class PedNet():
 
         Parameters
         ----------
-        gdf: :class:`GeoDataFrame`
+        gdf : :class:`GeoDataFrame`
             :class:`GeoDataFrame` of polygons
         
         Returns

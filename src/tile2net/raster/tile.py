@@ -1,4 +1,6 @@
 import os
+import pathlib
+
 import numpy as np
 import pandas as pd
 import skimage
@@ -21,17 +23,24 @@ from tile2net.raster.tile_utils.geodata_utils import _reduce_geom_precision, lis
 
 from dataclasses import dataclass, field
 from functools import cached_property
+import tempfile
+from typing import Optional
+
+tempdir = tempfile.gettempdir()
 
 
 @dataclass
 class Tile:
+    # slippy xtile
     xtile: int
+    # slippy ytile
     ytile: int
     idd: int
     position: tuple
     size: int = field(default=256, repr=False)
     zoom: int = field(default=19, repr=False)
     crs: int = field(default=4326, repr=False)
+    # the integer length, in slippy tiles, of each tile
     tile_step: int = field(default=1, repr=False)
     active: bool = field(default=True, repr=False)
     extension: str = 'png'
@@ -58,7 +67,9 @@ class Tile:
 
     @cached_property
     def ped_poly(self):
-        """Return the pedestrian polygon for the tile"""
+        """
+        Return the pedestrian polygon for the tile
+        """
         return gpd.GeoDataFrame()
 
     def __hash__(self):
@@ -69,13 +80,14 @@ class Tile:
         return num2deg(self.xtile, self.ytile, self.zoom)
 
     def transformProject(self, src_crs, dest_crs):
-        """Reproject the lat long to another crs to be used for tile acquisition.
+        """
+        Reproject the lat long to another crs to be used for tile acquisition.
 
         Parameters
         ----------
-        src_crs: int
+        src_crs : int
             current projection
-        dest_crs: int
+        dest_crs : int
             desired projection
         
         Returns
@@ -90,7 +102,8 @@ class Tile:
         return top_new, left_new, bottom_new, right_new
 
     def setLatlon(self):
-        """Sets the lat and long of the topleft and bottomright of the tile
+        """
+        Sets the lat and long of the topleft and bottomright of the tile
 
         Returns
         ---------
@@ -115,7 +128,8 @@ class Tile:
 
     @property
     def tfm(self):
-        """Calculate the affinity object of each tile from its bounding box
+        """
+        Calculate the affinity object of each tile from its bounding box
 
         Returns
         -------
@@ -131,7 +145,8 @@ class Tile:
         return blck
 
     def tile2poly(self, *bounds):
-        """Create a polygon geometry for the tile
+        """
+        Create a polygon geometry for the tile
 
         Parameters
         ----------
@@ -157,8 +172,14 @@ class Tile:
         return poly
 
     def tile2gdf(self, *bounds):
-        """Create a tile :class:`GeoDataFrame`
-        Returns (:class:`GeoDataFrame`): A :class:`GeoDataFrame` of a single tile
+        """
+        Create a tile :class:`GeoDataFrame`
+        
+        Returns
+        -------
+        :class:`GeoDataFrame`
+            A GeoDataFrame of a single tile.
+
         """
         if len(bounds) > 0:
             poly = self.tile2poly(*bounds)
@@ -168,7 +189,8 @@ class Tile:
         return tgdf
 
     def find_tile_neighbors_pos(self, d):
-        """Returns the neighbors of a tile
+        """
+        Returns the neighbors of a tile
         given the tile is topleft one, returns d**2-1 neighbors (d on column and d on the row)
         
         Parameters
@@ -190,7 +212,7 @@ class Tile:
 
         Parameters
         ----------
-        crs: int
+        crs : int
             the coordinate system in meters to be transformed to. Default is 3857
 
         Returns
@@ -205,11 +227,12 @@ class Tile:
         return left, top, right, bottom
 
     def get_individual(self, gdf: gpd.GeoDataFrame):
-        """Convert all multi-type geometries to single ones
+        """
+        Convert all multi-type geometries to single ones
 
         Parameters
         ----------
-        gdf: :class:`GeoDataFrame`
+        gdf : :class:`GeoDataFrame`
             the :class:`GeoDataFrame` to be converted
 
         Returns
@@ -222,7 +245,8 @@ class Tile:
 
 
     def mask2poly(self, src_img, class_name, class_id, class_hole_size=25, img_array=None):
-        """Converts a raster mask to a :class:`GeoDataFrame` of polygons
+        """
+        Converts a raster mask to a :class:`GeoDataFrame` of polygons
 
         Parameters
         ----------
@@ -276,7 +300,8 @@ class Tile:
             return False
 
     def map_features(self, src_img, img_array=True):
-        """Converts a raster mask to a :class:`GeoDataFrame` of polygons
+        """
+        Converts a raster mask to a :class:`GeoDataFrame` of polygons
 
         Parameters
         ----------
@@ -315,9 +340,10 @@ class Tile:
         if roads is not False:
             swcw.append(roads)
         if len(swcw) > 0:
-            rswcw = pd.concat(swcw)
+            # noinspection PyTypeChecker
+            rswcw: gpd.GeoDataFrame = pd.concat(swcw)
             rswcw.reset_index(drop=True, inplace=True)
-            self.ped_poly = rswcw
+            return rswcw
 
     def get_region(self, gdf: gpd.GeoDataFrame, spatial_index, crs=3857):
         """
@@ -327,16 +353,16 @@ class Tile:
 
         Parameters
         ----------
-        gdf: :class:`GeoDataFrame`
+        gdf : :class:`GeoDataFrame`
             The :class:`GeoDataFrame` to clip
-        spatial_index: :class:`GeoDataFrame.sindex`
+        spatial_index : :class:`GeoDataFrame.sindex`
             The spatial index to clip the :class:`GeoDataFrame` against
-        crs: int
+        crs : int
             The desired coordinate reference system to save the network polygon with.
 
         Returns
         -------
-        :class:`GeoDataFrame` | int
+        :class:`GeoDataFrame` or int
             Either the clipped :class:`GeoDataFrame`, or -1 if the regions do not overlap
         """
         tilepoly = self.tile2gdf()
@@ -354,12 +380,13 @@ class Tile:
 
     @staticmethod
     def preds_to_binary(pred_arr, channel_scaling=None, bg_threshold=0):
-        """*Adopted from the Solaris library to overcome dependency issues*
+        """
+        *Adopted from the Solaris library to overcome dependency issues*
 
         Convert a set of predictions from a neural net to a binary mask.
 
         Parameters
-        ---------
+        ----------
         pred_arr : :class:`numpy.ndarray`
             A set of predictions generated by a neural net (generally in ``float``
             dtype). This can be a 2D array or a 3D array, in which case it will
@@ -406,7 +433,9 @@ class Tile:
 
     @staticmethod
     def _check_crs(input_crs, return_rasterio=False):
-        """Convert CRS to the ``pyproj.CRS`` object passed by ``solaris``."""
+        """
+        Convert CRS to the ``pyproj.CRS`` object passed by ``solaris``.
+        """
         if not isinstance(input_crs, pyproj.CRS) and input_crs is not None:
             out_crs = pyproj.CRS(input_crs)
         else:
@@ -442,7 +471,8 @@ class Tile:
                              min_area=20,
                              bg_threshold=0, do_transform=None, simplify=True,
                              tolerance=0.8, **kwargs):
-        """*Adopted from the Solaris library to overcome dependency issues*
+        """
+        *Adopted from the Solaris library to overcome dependency issues*
 
         Get polygons from an image mask.
 
@@ -536,7 +566,8 @@ class Tile:
         return polygon_gdf
     @staticmethod
     def get_geo_transform(raster_src):
-        """*Adopted from the Solaris library to overcome dependency issues*
+        """
+        *Adopted from the Solaris library to overcome dependency issues*
 
         Get the geotransform for a raster image source.
 
@@ -564,7 +595,8 @@ class Tile:
 
     def convert_poly_coords(self, geom, raster_src=None, affine_obj=None, inverse=False,
                             precision=None):
-        """*Adopted from the Solaris library to overcome dependency issues*
+        """
+        *Adopted from the Solaris library to overcome dependency issues*
         
         Georegister geometry objects currently in pixel coords or vice versa.
 
@@ -636,6 +668,9 @@ class Tile:
             xformed_g = _reduce_geom_precision(xformed_g, precision=precision)
 
         return xformed_g
+
+    os.makedirs(os.path.join(tempdir, 'tile2net'), exist_ok=True)
+
 
 #create empty dataframe
 df = pd.DataFrame(columns=['ImageId', 'BuildingId', 'PolygonWKT_Pix', 'PolygonWKT_Geo', 'Confidence'])
