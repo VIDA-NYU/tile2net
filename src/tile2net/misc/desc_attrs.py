@@ -77,6 +77,6 @@ if __name__ == '__main__':
     test.desc.attr
     test.desc.subframe
     sub = test.loc[5:]
-    sub.desc.attr
+    sub.desc.Attr
     sub.desc.subframe
     pass

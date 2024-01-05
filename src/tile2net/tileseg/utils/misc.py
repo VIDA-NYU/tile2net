@@ -622,8 +622,8 @@ class ThreadedDumper(ImageDumper):
                         self.save_dir = save_dir
                         tile = grid.tiles[grid.pose_dict[int(idd_)]]
                         polygons = self.map_features(tile, np.array(prediction_pil), img_array=True)
-                        if polygons is not None:
-                            yield polygons
+                        # if polygons is not None:
+                        #     yield polygons
             else:
                 # gt_fn = '{}_gt.png'.format(img_name)
                 gt_pil = colorize_mask_fn(gt_image.cpu().numpy())
