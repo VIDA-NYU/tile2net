@@ -103,6 +103,7 @@ Then, create your conda environment as you normally would, and install all of Ti
 
 ```
 conda create --name testenv python=3.11
+conda activate testenv
 python -m pip install -e .
 ```
 
