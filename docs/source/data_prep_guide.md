@@ -39,7 +39,7 @@ To do that you can use QGIS and the “Generate XYZ Tiles (Directory)” tool to
 Once that’s created, you can pass its path implicating the format of the files, e.g. path/to/tiles/z/x/y.ext
 The implicit path can contain the zoom level, e.g. path/to/tiles/z/x/y.ext, or it can be like path/to/tiles/x_y.ext. 
 
-To see an example, check out our [jupyter notebook](notebooks/quick_start.ipynb). 
+To see an example, check out our [jupyter notebook](notebooks/quick_start_module.ipynb). 
 
 <!-- TODO:FIX THIS LINK -->
 

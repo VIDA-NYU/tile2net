@@ -122,12 +122,12 @@ you should now be in a compute node.
 
 #### Step 3: Run Tile2Net!
 
-You're ready to go! Now, just activate your environment and start using the command line Tile2Net tools, as described on the {doc}`./notebooks/colab_example` page. 
+You're ready to go! Now, just activate your environment and start using the command line Tile2Net tools, as described on the {doc}`./notebooks/quick_start_command_line` page. 
 ```
 source activate testenv
 bash ./examples/example.sh
 ```
 
 ```{warning}
-Some clusters give their compute nodes internet access, while others don't. If your compute node does not have internet access, you will need to either download the tiles you want to process in the head node, or download them locally and copy them to your HPC environment using `scp`. Ask your HPC administrators about maximum computing resources in the login node to determine which path is more viable for you. See the {doc}`./notebooks/colab_example` for an example on how to use custom tiles once you have those downloaded. 
+Some clusters give their compute nodes internet access, while others don't. If your compute node does not have internet access, you will need to either download the tiles you want to process in the head node, or download them locally and copy them to your HPC environment using `scp`. Ask your HPC administrators about maximum computing resources in the login node to determine which path is more viable for you. See the {doc}`./notebooks/quick_start_command_line` for an example on how to use custom tiles once you have those downloaded. 
 ```

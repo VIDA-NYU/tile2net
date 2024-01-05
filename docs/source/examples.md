@@ -9,6 +9,7 @@ Under construction - thank you for your patience!
 ```{nbgallery}
 
 notebooks/colab_example
-notebooks/quick_start
+notebooks/quick_start_command_line
+notebooks/quick_start_module
 notebooks/ridgewood_0
 ```
