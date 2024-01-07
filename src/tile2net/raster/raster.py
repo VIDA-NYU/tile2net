@@ -477,9 +477,6 @@ class Raster(Grid):
         black = self.black.array
 
         def imread(file) -> np.ndarray:
-            # just returns a gray tile if the file doesn't exist
-            # if not os.path.exists(file):
-            #     return black
             if (
                     os.path.islink(file)
                     or not os.path.exists(file)

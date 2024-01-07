@@ -521,8 +521,8 @@ class Inference:
                 # values, counts = np.unique(prediction, return_counts=True)
                 # pred[img_names[0]] = copy.copy(_temp)
                 #
-                for v in range(len(values)):
-                    pred[img_names[0]][values[v]] = counts[v]
+                # for v in range(len(values)):
+                #     pred[img_names[0]][values[v]] = counts[v]
                 #
                 dump = dumper.dump(dumpdict, val_idx, testing=True, grid=grid)
             else:
