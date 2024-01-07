@@ -601,18 +601,37 @@ class Raster(Grid):
                 return
             self.project.tiles.static.path.mkdir(parents=True, exist_ok=True)
 
-            paths = self.project.tiles.static.files()
-            urls = self.source[self.tiles.flat]
-            desc = f"Checking {self.tiles.size:,} files..."
+            paths = np.fromiter(self.project.tiles.static.files(), dtype=object, count=self.tiles.size)
+            urls = np.fromiter(self.source[self.tiles.flat], dtype=object, count=self.tiles.size)
             loc = [
                 not os.path.exists(path)
                 for path in paths
             ]
+            if any(loc):
+                logger.debug(f'{sum(loc)} tiles missing out of {len(loc)} total.')
             paths = paths[loc]
             urls = urls[loc]
 
-            futures = threads.map(lambda url: session.head(url).status_code, urls)
-            loc = np.fromiter(futures, dtype=np.int32, count=len(urls)) == 404
+            def head(url: str) -> int:
+                try:
+                    response = session.head(url, timeout=10)
+                    return response.status_code
+                except requests.exceptions.RequestException as e:
+                    logger.error(f"Request to {url} failed: {e}")
+                    return -1
+            # futures = threads.map(lambda url: session.head(url).status_code, urls)
+            futures = threads.map(head, urls)
+            codes = np.fromiter(futures, dtype=np.int32, count=len(urls))
+            loc = codes == 404
+            loc |= codes == 200
+            if not np.all(loc):
+                logger.warning(
+                    f"Unexpected status codes: {np.unique(codes[~loc])}"
+                )
+            loc = codes == 404
+
+            if loc.any():
+                logger.debug(f'{loc.sum():,} tiles returned 404 from the server.')
             if loc.any():
                 src = self.black.__fspath__()
                 for path in paths[loc]:
@@ -624,6 +643,7 @@ class Raster(Grid):
             paths = paths[~loc]
             urls = urls[~loc]
 
+            desc = f"Downloading {len(paths)} files..."
             desc = desc.rjust(len(desc) + 11).ljust(50)
             submit = partial(session.get, verify=certifi.where())
             downloads = {
@@ -921,11 +941,11 @@ class Raster(Grid):
             raise ValueError("No source or input_dir specified")
 
 
-
 if __name__ == '__main__':
     raster = Raster(
-        location='Boston Common',
-        zoom=19,
+        location='Washington Square Park, New York, NY, USA',
+        zoom=18,
+        dump_percent=10,
     )
-    # raster.generate(2)
-    rasters = raster / 4
+    raster.generate(2)
+    raster.inference()

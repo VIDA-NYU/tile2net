@@ -28,9 +28,6 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 """
 
-from functools import cached_property
-import tracemalloc
-import math
 from geopandas import GeoDataFrame, GeoSeries
 import pandas as pd
 import geopandas as gpd
@@ -274,7 +271,6 @@ def inference_(args: Namespace):
         iou_acc = 0
         pred = dict()
         _temp = dict.fromkeys([i for i in range(10)], None)
-        tracemalloc.start()
         for val_idx, data in enumerate(val_loader):
             input_images, labels, img_names, _ = data
 
@@ -521,17 +517,17 @@ class Inference:
                 assets=assets,
             )
             if testing:
-                prediction = assets['predictions'][0]
-                values, counts = np.unique(prediction, return_counts=True)
-                pred[img_names[0]] = copy.copy(_temp)
-
+                # prediction = assets['predictions'][0]
+                # values, counts = np.unique(prediction, return_counts=True)
+                # pred[img_names[0]] = copy.copy(_temp)
+                #
                 for v in range(len(values)):
                     pred[img_names[0]][values[v]] = counts[v]
-
+                #
                 dump = dumper.dump(dumpdict, val_idx, testing=True, grid=grid)
             else:
                 dump = dumper.dump(dumpdict, val_idx)
-            # gdfs.extend(dump)
+            gdfs.extend(dump)
 
             if (
                     args.options.test_mode
@@ -557,8 +553,7 @@ class Inference:
 
                 grid.save_ntw_polygons(poly_network)
                 polys = grid.ntw_poly
-                path = grid.project.network.path / grid.batch
-                net = PedNet(poly=polys, network_path=path)
+                net = PedNet(poly=polys, project=grid.project)
                 net.convert_whole_poly2line()
 #
 #     def validate(

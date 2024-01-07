@@ -437,7 +437,7 @@ class ImageDumper:
 
             self.get_dump_assets(dump_dict, img_name, idx, colorize_mask_fn, to_tensorboard)
 
-            self.imgs_to_tensorboard.append(to_tensorboard)
+            # self.imgs_to_tensorboard.append(to_tensorboard)
 
     def write_summaries(self, was_best):
         """
@@ -622,8 +622,8 @@ class ThreadedDumper(ImageDumper):
                         self.save_dir = save_dir
                         tile = grid.tiles[grid.pose_dict[int(idd_)]]
                         polygons = self.map_features(tile, np.array(prediction_pil), img_array=True)
-                        # if polygons is not None:
-                        #     yield polygons
+                        if polygons is not None:
+                            yield polygons
             else:
                 # gt_fn = '{}_gt.png'.format(img_name)
                 gt_pil = colorize_mask_fn(gt_image.cpu().numpy())
@@ -642,7 +642,7 @@ class ThreadedDumper(ImageDumper):
 
             self.get_dump_assets(dump_dict, img_name, idx, colorize_mask_fn, to_tensorboard)
 
-            self.imgs_to_tensorboard.append(to_tensorboard)
+            # self.imgs_to_tensorboard.append(to_tensorboard)
 
             for future in self.futures:
                 future.result()
