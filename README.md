@@ -7,7 +7,7 @@
 <img src="./images/overview.png" alt="Overview" width="50%">
 </p> -->
 
-![Overview](./images/overview.png)
+![Overview](./images/overview.jpg)
 
 
 Tile2Net is an end-to-end tool for automated mapping of pedestrian infrastructure from aerial imagery. We trained a
