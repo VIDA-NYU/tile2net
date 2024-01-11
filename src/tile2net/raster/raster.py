@@ -1,4 +1,12 @@
+from __future__ import annotations
+
+import weakref
+from functools import *
+
+import copy
 import inspect
+import math
+
 from tile2net.raster import util
 import subprocess
 import os
@@ -32,13 +40,43 @@ from tile2net.raster.input_dir import InputDir
 from tile2net.raster.validate import validate
 from tile2net.logger import logger
 
-
 PathLike = Union[str, _PathLike]
+
+
+class Black:
+    def __get__(self, instance, owner) -> Black:
+        self.owner = weakref.proxy(instance)
+        if instance is None:
+            return self
+        if self.name in instance.__dict__:
+            return instance.__dict__[self.name]
+        result = copy.copy(self)
+        instance.__dict__[self.name] = result
+        return result
+
+    def __set_name__(self, owner, name):
+        self.name = name
+
+    @cached_property
+    def path(self):
+        result: Path = self.owner.project.resources.path / 'black' / f'{self.owner.zoom}.png'
+        result.parent.mkdir(parents=True, exist_ok=True)
+        if not result.exists():
+            imageio.v3.imwrite(result, self.array)
+        return result
+
+    def __fspath__(self):
+        return str(self.path)
+
+    @cached_property
+    def array(self):
+        return np.zeros((self.owner.base_tilesize, self.owner.base_tilesize, 3), dtype=np.uint8)
 
 
 class Raster(Grid):
     Project = Project
     input_dir = InputDir()
+    black = Black()
 
     @classmethod
     def from_nyc(cls, outdir: PathLike = None) -> "Raster":
@@ -140,23 +178,23 @@ class Raster(Grid):
         )
 
     def __init__(
-        self,
-        *,
-        location: list | str,  # region of interest to get its bounding box
-        name: str = None,
-        # source: PathLike = None,
-        input_dir: PathLike = None,
-        output_dir: PathLike = None,
-        num_class: int = 4,  # # of classes for annotation creation
-        base_tilesize: int = 256,
-        zoom: int = None,
-        crs: int = 4326,
-        tile_step: int = 1,
-        boundary_path: str = None,  # path to a shapefile to filter out of boundary tiles
-        padding=True,
-        # extension: str = 'png',
-        source: Source | Type[Source] = None,
-        dump_percent: int = 0,
+            self,
+            *,
+            location: list | str,  # region of interest to get its bounding box
+            name: str = None,
+            # source: PathLike = None,
+            input_dir: PathLike = None,
+            output_dir: PathLike = None,
+            num_class: int = 4,  # # of classes for annotation creation
+            base_tilesize: int = 256,
+            zoom: int = None,
+            crs: int = 4326,
+            tile_step: int = 1,
+            boundary_path: str = None,  # path to a shapefile to filter out of boundary tiles
+            padding=True,
+            # extension: str = 'png',
+            source: Source | Type[Source] = None,
+            dump_percent: int = 0,
     ):
         """
 
@@ -261,6 +299,7 @@ class Raster(Grid):
         self.input_dir: InputDir = input_dir
         self.source = source
         self.dump_percent = dump_percent
+        self.batch = -1
 
         if boundary_path:
             self.boundary_path = boundary_path
@@ -433,16 +472,16 @@ class Raster(Grid):
                 f"expected tile size {self.base_tilesize}."
             )
 
-        gval = 0
-        gray = np.full(
-            (self.base_tilesize, self.base_tilesize, 3), gval, dtype=np.uint8
-        )
-        gval = np.full(3, 0)
+        # black = np.zeros((self.base_tilesize, self.base_tilesize, 3), dtype=np.uint8)
+        # self.project.resources
+        black = self.black.array
 
         def imread(file) -> np.ndarray:
-            # just returns a gray tile if the file doesn't exist
-            if not os.path.exists(file):
-                return gray
+            if (
+                    os.path.islink(file)
+                    or not os.path.exists(file)
+            ):
+                return black
             res = imageio.v3.imread(file)
             return res
 
@@ -512,15 +551,15 @@ class Raster(Grid):
         shape = self.base_tilesize * step, self.base_tilesize * step, 4
         desc = f"Stitching {len(outfiles):,} tiles..."
         desc = desc.rjust(len(desc) + 11).ljust(50)
-        # shape = imageio.imread_v2(infiles[0]).shape
         CANVAS = np.zeros(shape, dtype=np.uint8)
         CANVAS[:, :, 3] = 255
+        bval = self.black.array[0, 0, :]
         for infiles, outfile in tqdm(
-            zip(gen_infiles(), outfiles),
-            total=len(outfiles),
-            desc=desc,
-            # disable when piping
-            # disable=not sys.stdout.isatty()
+                zip(gen_infiles(), outfiles),
+                total=len(outfiles),
+                desc=desc,
+                # disable when piping
+                # disable=not sys.stdout.isatty()
         ):
             canvas = CANVAS.copy()
             for i, infile in enumerate(infiles):
@@ -528,20 +567,16 @@ class Raster(Grid):
                 r = i % step * size
                 c = i // step * size
                 infile = np.array(infile)
-                canvas[r : r + size, c : c + size, : infile.shape[2]] = infile
+                canvas[r: r + size, c: c + size, : infile.shape[2]] = infile
             loc = canvas[:, :, 3] != 255
             loc |= (canvas[:, :, :3] == 0).all(axis=2)
-            canvas[loc, :3] = gval
+            canvas[loc, :3] = bval
             canvas = canvas[:, :, :3]
             writes.append(threads.submit(imageio.v3.imwrite, outfile, canvas))
 
         for write in writes:
             write.result()
         threads.shutdown(wait=True)
-
-    """
-    Download Tiles 
-    """
 
     def download(self, retry: bool = True):
         """
@@ -563,9 +598,49 @@ class Raster(Grid):
                 return
             self.project.tiles.static.path.mkdir(parents=True, exist_ok=True)
 
-            paths = self.project.tiles.static.files()
-            urls = list(self.source[self.tiles.flat])
-            desc = f"Checking {self.tiles.size:,} files..."
+            paths = np.fromiter(self.project.tiles.static.files(), dtype=object, count=self.tiles.size)
+            urls = np.fromiter(self.source[self.tiles.flat], dtype=object, count=self.tiles.size)
+            loc = [
+                not os.path.exists(path)
+                for path in paths
+            ]
+            if any(loc):
+                logger.debug(f'{sum(loc)} tiles missing out of {len(loc)} total.')
+            paths = paths[loc]
+            urls = urls[loc]
+
+            def head(url: str) -> int:
+                try:
+                    response = session.head(url, timeout=10)
+                    return response.status_code
+                except requests.exceptions.RequestException as e:
+                    logger.error(f"Request to {url} failed: {e}")
+                    return -1
+            # futures = threads.map(lambda url: session.head(url).status_code, urls)
+            futures = threads.map(head, urls)
+            codes = np.fromiter(futures, dtype=np.int32, count=len(urls))
+            loc = codes == 404
+            loc |= codes == 200
+            if not np.all(loc):
+                logger.warning(
+                    f"Unexpected status codes: {np.unique(codes[~loc])}"
+                )
+            loc = codes == 404
+
+            if loc.any():
+                logger.debug(f'{loc.sum():,} tiles returned 404 from the server.')
+            if loc.any():
+                src = self.black.__fspath__()
+                for path in paths[loc]:
+                    os.symlink(src, path)
+                logger.debug(
+                    f'{loc.sum():,} tiles were not found and returned 404 from the server '
+                    f'so they were set as symlinks to {src}.'
+                )
+            paths = paths[~loc]
+            urls = urls[~loc]
+
+            desc = f"Downloading {len(paths)} files..."
             desc = desc.rjust(len(desc) + 11).ljust(50)
             submit = partial(session.get, verify=certifi.where())
             downloads = {
@@ -581,8 +656,8 @@ class Raster(Grid):
             }
 
             def submit(
-                path: Path,
-                content: bytes,
+                    path: Path,
+                    content: bytes,
             ) -> Optional[Path]:
                 # return path if failed
                 path.write_bytes(content)
@@ -620,6 +695,7 @@ class Raster(Grid):
                     list,
                 )
                 if not writes:
+                    # todo this was likely caused by downloads raising HTTPError
                     logger.warning(
                         f"Downloads were attempted, but not a single image was written to file. "
                         f"Check that everything is correct for {self.source=}."
@@ -736,8 +812,8 @@ class Raster(Grid):
 
     @validate
     def inference(
-        self,
-        eval_folder: str = None,
+            self,
+            eval_folder: str = None,
     ):
         """
         runs the inference on the tiles
@@ -788,6 +864,70 @@ class Raster(Grid):
     def __eq__(self, other):
         return self is other
 
+    def __truediv__(self, n: int) -> list[Raster]:
+        """
+
+        Parameters
+        ----------
+        n : int
+            Number of parts to divide the Raster into
+
+        Returns
+        -------
+        list[Raster]
+            List of Rasters divided by columns into n parts,
+            with the last part being the remainder
+
+        """
+        tiles = self.tiles
+        r, c = tiles.shape
+        STEP = math.ceil(c / n)
+        ceil = math.ceil(c / STEP) * STEP + 1
+        steps = np.arange(0, ceil, STEP)
+        steps[-1] = c
+        starts = steps[:-1]
+        stops = steps[1:]
+
+        rasters = []
+        for i, (start, stop) in enumerate(zip(starts, stops)):
+            raster = copy.copy(self)
+            raster.batch = i
+            raster.tiles = tiles[:, start:stop]
+            raster.xtile = self.xtile + start
+            raster.xtilem = self.xtile + stop
+            rasters.append(raster)
+
+        assert rasters[0].xtile == self.xtile
+        assert rasters[-1].xtilem == self.xtilem
+        assert all(
+            raster.ytile == self.ytile
+            and raster.ytilem == self.ytilem
+            for raster in rasters
+        )
+        assert sum(
+            raster.tiles.size
+            for raster in rasters
+        ) == self.tiles.size
+        assert len(rasters) == n
+        return rasters
+
+    @property
+    def batches(self) -> Iterator[range]:
+        # todo: compute based on available memory
+        n = 50
+
+        tiles = self.tiles
+        r, c = tiles.shape
+        STEP = math.ceil(c / n)
+        ceil = math.ceil(c / STEP) * STEP + 1
+        steps = np.arange(0, ceil, STEP)
+        steps[-1] = c
+        starts = steps[:-1]
+        stops = steps[1:]
+        # noinspection PyTypeChecker
+        yield from map(range, starts, stops)
+
+
     @cached_property
     def extension(self):
         if self.source:
@@ -796,3 +936,13 @@ class Raster(Grid):
             return self.input_dir.extension
         else:
             raise ValueError("No source or input_dir specified")
+
+
+if __name__ == '__main__':
+    raster = Raster(
+        location='Washington Square Park, New York, NY, USA',
+        zoom=18,
+        dump_percent=10,
+    )
+    raster.generate(2)
+    raster.inference()

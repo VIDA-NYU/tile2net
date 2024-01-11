@@ -437,7 +437,7 @@ class ImageDumper:
 
             self.get_dump_assets(dump_dict, img_name, idx, colorize_mask_fn, to_tensorboard)
 
-            self.imgs_to_tensorboard.append(to_tensorboard)
+            # self.imgs_to_tensorboard.append(to_tensorboard)
 
     def write_summaries(self, was_best):
         """
@@ -642,7 +642,7 @@ class ThreadedDumper(ImageDumper):
 
             self.get_dump_assets(dump_dict, img_name, idx, colorize_mask_fn, to_tensorboard)
 
-            self.imgs_to_tensorboard.append(to_tensorboard)
+            # self.imgs_to_tensorboard.append(to_tensorboard)
 
             for future in self.futures:
                 future.result()
