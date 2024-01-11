@@ -1,3 +1,16 @@
+% Tile2Net documentation master file, created by
+% sphinx-quickstart on Wed Nov 15 11:27:08 2023.
+% You can adapt this file completely to your liking, but it should at least
+% contain the root `toctree` directive.
+
+```{warning}
+This documentation is currently under construction, and subject to significant change and reorganization!
+```
+
+<!-- ```{include} ../../README.md
+:relative-images:
+``` -->
+
 
 # Tile2Net
 
@@ -40,7 +53,7 @@ Maryam Hosseini, Andres Sevtsuk, Fabio Miranda, Roberto M. Cesar Jr, Claudio T. 
 ```
 
 ## Updates:
-- Tile2Net now supports the whole New Jersey state. You can find the list of supported regions [here](https://github.com/VIDA-NYU/tile2net/blob/main/BASICS.md#supported-regions).
+- Tile2Net now supports the whole New Jersey state. You can find the list of supported regions on the {ref}`Supported Regions` page.
 - Tile2Net was featured in [Planitizen](https://www.planetizen.com/news/2023/03/122206-mapping-sidewalks-improved-connectivity)! 
 - Tile2Net was featured in [MIT News Spotlight](https://news.mit.edu/2023/open-source-tool-mapping-sidewalks-0315#:~:text=Now%20MIT%20researchers%2C%20along%20with,want%20to%20expand%20pedestrian%20infrastructure)!
 
@@ -48,7 +61,7 @@ Maryam Hosseini, Andres Sevtsuk, Fabio Miranda, Roberto M. Cesar Jr, Claudio T. 
 
 1. [What is New?](#what-is-new)
 2. [Semantic Segmentation Requirements](#semantic-segmentation-requirements)
-3. [Installation](#installation)
+3. [Install Tile2Net](#install-tile2net)
 4. [Create Your First Project](#create-your-first-project)
 5. [Run Our Example](#run-our-example)
 6. [Running in the Terminal](#running-in-the-terminal)
@@ -58,14 +71,15 @@ Maryam Hosseini, Andres Sevtsuk, Fabio Miranda, Roberto M. Cesar Jr, Claudio T. 
 ## What is New?
 
 This is the Beta Version release of our code, featuring updated API and improved model compared to our baseline and
-published results.  
+published results. See the {ref}`Changelog` page for more details. 
+
 During this experimental release, we encourage and welcome your feedback to help us improve the tool before publishing
 it as a PyPI and Conda package.
 
 If your region of interest is not supported by our tool yet, but the high-resolution orthorectified tiles are publicly
 available, you can add the information of your region together with the link to the tiles
-under [this](https://github.com/VIDA-NYU/tile2net/issues/11) topic, and we will do our best to include that region to our
-catalogue of supported regions.
+under [this Github topic](https://github.com/VIDA-NYU/tile2net/issues/11), and we will do our best to include that region to our
+catalogue of supported regions. See the {ref}`Contributing` page for more ways to contribute to the project.
 
 Compared to our 2022 trained model (published in Feb. 2023), the semantic segmentation model is now trained on more
 data, including Manhattan, making it more generalizable.  
@@ -75,14 +89,14 @@ However, it is important to note that this also means the resulting network of B
 from models specifically fine-tuned and fitted to each city, as described in the paper.
 
 Aside from that, we have updated the code to work with the most recent, stable version of PyTorch (2.0.0) and Shapely (
-2.0.0), removing dependencies on apex and PyGeos.
+2.0.1), removing dependencies on apex and PyGeos.
 
 ## Semantic Segmentation Requirements
 
-- Hardware: ==1 CUDA-enabled GPU for inference
+- Hardware: 1 CUDA-enabled GPU for inference
 - Software:  ***CUDA==11.7, Python==3.10.9, pytorch==2.0.0***
 
-## Installation
+## Install Tile2Net
 
 It is highly recommended to create a virtual environment using either pip or conda to install Tile2Net and its
 dependencies. You can clone the repository by running the commands:
@@ -100,17 +114,18 @@ conda activate testenv
 python -m pip install -e .
 ```
 
+For more detailed installation instructions, troubleshooting suggestions, and integration with a high performance computing cluster (HPC), see the {ref}`Installation` page.
+
 ## Create Your First Project
 
 In general, you will interact with the tool through two main components, `generate` and `inference`, both of which work
 with the Raster module.
 `generate`, as its name indicates, generates the project structure, downloads the weights and in case your region of
 interest is supported by Tile2Net, also prepares the image tiles, and finally outputs a JSON text regarding the raster
-specifications and the paths to the various resources. To know more about the basic concepts behind the tool, please
-read [this.](https://github.com/VIDA-NYU/tile2net/blob/main/BASICS.md)
+specifications and the paths to the various resources. To know more about the basic concepts behind the tool, go to the {ref}`User Guide`.
 
-`inference` will then run the semantic segmentation model on the prepared tiles (or your own tile data which should be
-prepared following the guidelines [here](https://github.com/VIDA-NYU/tile2net/blob/main/DATA_PREPARE.md)), detect roads,
+`inference` will then run the semantic segmentation model on the prepared tiles (or your own tile data, which should be
+prepared following the guidelines in the {ref}`Data Preparation Guide`), detect roads,
 sidewalks, footpaths, and crosswalks in your image data
 and outputs the polygons and network data for your region. All output maps are in WGS 84 Web Mercator (espg:4326), to
 best integrate with world-wide industry platforms such as Google Maps, Mapbox and Esri.
@@ -156,8 +171,7 @@ path printed in front of `INFO       Dumping to`:
 python -m tile2net inference --city_info <path to your region info json>
 ```
 
-
-Or, you can pip the whole process and run it using only one line of code! (note that in piping scenario, you don't need to pass `city_info` argument. 
+Or, you can pip the whole process and run it using only one line of code! (note that in piping scenario, you don't need to pass `city_info` argument.) 
 
 ```
 python -m tile2net generate -l <coordinate or address> -n <project name> -o <path to output directory> | python -m tile2net inference
@@ -172,7 +186,25 @@ The Raster instance can also be created from the city info json file with the me
 
 This tool is currently in early development and is not yet ready for production use. The API is subject to change.
 
-To see more, there is an [inference.ipynb](https://github.com/VIDA-NYU/tile2net/blob/main/examples/inference.ipynb)
-interactive notebook to demonstrate
-how to run the inference process interactively.
+To see more, see the [Quick Start Module](notebooks/quick_start_module.ipynb). 
 
+## Documentation contents
+```{toctree}
+:caption: 'Contents:'
+:maxdepth: 1
+
+Home <self>
+installation
+user_guide
+data_prep_guide
+examples
+api_reference
+contributing
+changelog
+```
+
+## Indices and tables
+
+- {ref}`genindex`
+- {ref}`modindex`
+- {ref}`search`

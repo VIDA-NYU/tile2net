@@ -23,7 +23,6 @@ coolname
 tabulate
 tensorboardx
 packaging
-sphinx
 torchaudio
 runx
 toolz
@@ -31,3 +30,11 @@ more-itertools
 gdown
 pytest
 imageio
+
+sphinx
+myst-parser
+sphinx-rtd-theme
+nbsphinx
+pandoc
+sphinx-autobuild
+sphinx-copybutton
