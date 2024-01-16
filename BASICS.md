@@ -18,14 +18,15 @@ data, but at this moment, we only support inference.
 
 ### Supported Regions {#supported-regions}
 
-| Country | State/Province | Entire State/ Province | County Data   | City/Town Data |
-|---------|----------------|-----------------------|---------------|----------------|
-| USA     | CA             | FALSE                 |               | LA             |
-| USA     | DC             | TRUE                  |               | DC             |
-| USA     | MA             | TRUE                  |               |                |
-| USA     | NY             | TRUE                  |               | NYC            |
-| USA     | NJ             | TRUE                  |               |                |
-| USA     | WA             | FALSE                 | KING          |                |
+| Country | State/Province | Entire State/ Province | County Data   | City/Town Data  |
+|---------|----------------|-----------------------|---------------|------------------|
+| USA     | CA             | FALSE                 |               | LA               |
+| USA     | DC             | TRUE                  |               | DC               |
+| USA     | MA             | TRUE                  |               |                  |
+| USA     | NY             | TRUE                  |               | NYC (higher res) |
+| USA     | NJ             | TRUE                  |               |                  |
+| USA     | OR             | TRUE                  |               |                  |
+| USA     | WA             | FALSE                 | KING          |                  |
 
 
 ## Basic Concepts:
