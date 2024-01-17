@@ -19,6 +19,7 @@ import torch._utils
 import torch.nn.functional as F
 
 from tile2net.tileseg.network.mynn import Norm2d
+from tile2net.logger import logger
 from runx.logx import logx
 from tile2net.tileseg.config import cfg
 
@@ -455,7 +456,8 @@ class HighResolutionNet(nn.Module):
         if pretrained is None:
             pretrained = cfg.MODEL.HRNET_CHECKPOINT
 
-        logx.msg('=> init weights from normal distribution')
+        # logx.msg('=> init weights from normal distribution')
+        logger.info('init weights from normal distribution')
         for name, m in self.named_modules():
             if any(part in name for part in {'cls', 'aux', 'ocr'}):
                 # print('skipped', name)
@@ -468,7 +470,8 @@ class HighResolutionNet(nn.Module):
         if os.path.isfile(pretrained):
             pretrained_dict = torch.load(pretrained,
                                          map_location={'cuda:0': 'cpu'})
-            logx.msg('=> loading pretrained model {}'.format(pretrained))
+            # logx.msg('=> loading pretrained model {}'.format(pretrained))
+            logger.info('loading pretrained model {}'.format(pretrained))
             model_dict = self.state_dict()
             pretrained_dict = {k.replace('last_layer',
                                          'aux_head').replace('model.', ''): v

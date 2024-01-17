@@ -1,5 +1,7 @@
 __all__ = ['generate', 'Namespace']
 
+import argh
+
 from tile2net.raster import util
 import json
 import sys
@@ -20,3 +22,7 @@ def generate(args: Namespace) -> str:
     #     allow_nan=False,
     #     indent=4,
     # )
+
+if __name__ == '__main__':
+    argh.dispatch_command(generate)
+

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import weakref
 from functools import *
 
@@ -7,6 +8,7 @@ import copy
 import inspect
 import math
 
+import tile2net.logger
 from tile2net.raster import util
 import subprocess
 import os
@@ -195,6 +197,7 @@ class Raster(Grid):
             # extension: str = 'png',
             source: Source | Type[Source] = None,
             dump_percent: int = 0,
+            debug: bool = False,
     ):
         """
 
@@ -237,6 +240,11 @@ class Raster(Grid):
         dump_percent : int
             percentage of the tiles to dump (default: None)
         """
+        global logger
+        if debug:
+            logger.setLevel(logging.DEBUG)
+
+            # logger = tile2net.logger.logger = logging.getLogger('debug')
         if name is None:
             name = util.name_from_location(location)
         location = util.geocode(location)
@@ -300,10 +308,12 @@ class Raster(Grid):
         self.source = source
         self.dump_percent = dump_percent
         self.batch = -1
+        self.debug = debug
 
         if boundary_path:
             self.boundary_path = boundary_path
             self.get_in_boundary(path=boundary_path)
+
 
         super().__init__(
             location=location,
@@ -399,7 +409,7 @@ class Raster(Grid):
         None.
             Nothing is returned.
         """
-        logger.info(f"Stitching Tiles...")
+        logger.info(f"Stitching {len(self.tiles):,} tiles...")
         self.stitch_step = step
         self.calculate_padding()
         self.update_tiles()
@@ -605,7 +615,7 @@ class Raster(Grid):
                 for path in paths
             ]
             if any(loc):
-                logger.debug(f'{sum(loc)} tiles missing out of {len(loc)} total.')
+                logger.info(f'{sum(loc)} tiles missing out of {len(loc)} total.')
             paths = paths[loc]
             urls = urls[loc]
 
@@ -628,7 +638,7 @@ class Raster(Grid):
             loc = codes == 404
 
             if loc.any():
-                logger.debug(f'{loc.sum():,} tiles returned 404 from the server.')
+                logger.info(f'{loc.sum():,} tiles returned 404 from the server.')
             if loc.any():
                 src = self.black.__fspath__()
                 for path in paths[loc]:
@@ -750,6 +760,7 @@ class Raster(Grid):
             "crs": self.crs,
             "tile_step": self.tile_step,
             "project": dict(self.project.structure),
+            'debug': self.debug,
         }
         if self.source:
             city_info["source"] = str(self.source)
@@ -842,6 +853,7 @@ class Raster(Grid):
         logger.info(f"Running {args}")
         if eval_folder:
             args.extend(["--eval_folder", str(eval_folder)])
+        logger.debug(f'Running {" ".join(args)}')
         try:
             # todo: capture_outputs=False if want instant printout
             subprocess.run(

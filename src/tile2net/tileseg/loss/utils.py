@@ -28,6 +28,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 """
 import numpy as np
+from tile2net.logger import logger
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -76,7 +77,8 @@ class ImageBasedCrossEntropyLoss2d(nn.Module):
     def __init__(self, classes, weight=None, ignore_index=cfg.DATASET.IGNORE_LABEL,
                  norm=False, upper_bound=1.0, fp16=False):
         super(ImageBasedCrossEntropyLoss2d, self).__init__()
-        logx.msg("Using Per Image based weighted loss")
+        # logx.msg("Using Per Image based weighted loss")
+        logger.info("Using Per Image based weighted loss")
         self.num_classes = classes
         self.nll_loss = nn.NLLLoss(weight, reduction='mean',
                                    ignore_index=ignore_index)
@@ -127,7 +129,8 @@ class CrossEntropyLoss2d(nn.Module):
     def __init__(self, weight=None, ignore_index=cfg.DATASET.IGNORE_LABEL,
                  reduction='mean'):
         super(CrossEntropyLoss2d, self).__init__()
-        logx.msg("Using Cross Entropy Loss")
+        # logx.msg("Using Cross Entropy Loss")
+        logger.info("Using Cross Entropy Loss")
         self.nll_loss = nn.NLLLoss(weight, reduction=reduction,
                                    ignore_index=ignore_index)
 

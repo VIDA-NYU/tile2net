@@ -31,6 +31,7 @@ POSSIBILITY OF SUCH DAMAGE.
 # Optimizer and scheduler related tasks
 
 import math
+from tile2net.logger import logger
 import torch
 
 from torch import optim
@@ -102,7 +103,8 @@ def load_weights(net, optimizer, snapshot_file, restore_optimizer_bool=False):
     """
     Load weights from snapshot file
     """
-    logx.msg("Loading weights from model {}".format(snapshot_file))
+    # logx.msg("Loading weights from model {}".format(snapshot_file))
+    logger.info("Loading weights from model {}".format(snapshot_file))
     net, optimizer = restore_snapshot(net, optimizer, snapshot_file, restore_optimizer_bool)
     return net, optimizer
 

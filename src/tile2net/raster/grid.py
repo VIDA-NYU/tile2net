@@ -29,6 +29,7 @@ import logging
 from tile2net.raster.project import Project
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
+from tile2net.logger import logger
 
 
 @dataclass
@@ -279,6 +280,7 @@ class Grid(BaseGrid):
         calculates the width and height padding
 
         """
+        logger.debug(f'calculate_padding()')
         if self.stitch_step == 1:
             step = self.tile_step
         else:
@@ -367,6 +369,7 @@ class Grid(BaseGrid):
         None.
             Nothing is returned.
         """
+        logger.debug(f'update_tiles()')
         self.update_hw()
         if self.tile_step > 1:
             self.tiles = np.array([[Tile(self.xtile + col_idx,

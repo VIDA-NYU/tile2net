@@ -318,4 +318,7 @@ commandline = compose_left(
         action='store_true',
         help='tile2net is being run in interactive python'
     ),
+    arg(
+        '--debug', action='store_true'
+    )
 )

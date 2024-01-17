@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from PIL import Image
+from tile2net.logger import logger
 
 
 def make_dataset_folder(folder, testing=None):
@@ -21,7 +22,8 @@ def make_dataset_folder(folder, testing=None):
         items = [(os.path.join(folder, f), os.path.join(mask_root, f)) for f in items]
     
     items = sorted(items)
-    print(f'Found {len(items)} folder imgs')
+    # print(f'Found {len(items)} folder imgs')
+    logger.debug(f'Found {len(items)} folder imgs')
 
     """
     orig_len = len(items)

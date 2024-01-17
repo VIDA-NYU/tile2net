@@ -24,6 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 Mapillary Dataset Loader
 """
 import os
+from tile2net.logger import logger
 import json
 
 from collections import namedtuple
@@ -124,7 +125,8 @@ class Loader(BaseLoader):
             mask_root = os.path.join(root, split_name, 'annotations')
             self.all_imgs = self.find_images(img_root, mask_root, img_ext,
                                              mask_ext)
-        logx.msg('all imgs {}'.format(len(self.all_imgs)))
+        # logx.msg('all imgs {}'.format(len(self.all_imgs)))
+        logger.debug('all imgs {}'.format(len(self.all_imgs)))
         self.fine_centroids = uniform.build_centroids(self.all_imgs,
                                                       self.num_classes,
                                                       self.train,

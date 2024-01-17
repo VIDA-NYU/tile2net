@@ -75,6 +75,9 @@ commandline = compose_left(
         default=0,
         help='The percentage of segmentation results to save. 100 means all, 0 means none.',
     ),
+    arg(
+        '--debug' '-d', action='store_true', default=False, dest='debug'
+    )
 )
 
 class Namespace(argh.ArghNamespace):

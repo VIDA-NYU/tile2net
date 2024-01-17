@@ -29,7 +29,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 Dataset setup and loaders
 """
-
+from tile2net.logger import logger
 import importlib
 import torchvision.transforms as standard_transforms
 from torch.utils.data import DataLoader
@@ -56,7 +56,8 @@ def setup_loaders(args):
     mod = importlib.import_module('tile2net.tileseg.datasets.{}'.format(dataset))
     dataset_cls = getattr(mod, 'Loader')
 
-    logx.msg(f'ignore_label = {dataset_cls.ignore_label}')
+    # logx.msg(f'ignore_label = {dataset_cls.ignore_label}')
+    logger.debug(f'ignore_label = {dataset_cls.ignore_label}')
 
     update_dataset_cfg(num_classes=dataset_cls.num_classes,
                        ignore_label=dataset_cls.ignore_label)

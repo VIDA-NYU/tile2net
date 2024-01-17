@@ -342,7 +342,6 @@ class Namespace(
     loss = Loss()
     model = Model()
 
-    city_info_path: str = None
     eval_folder: str = None
 
     _assets_path: str = None
@@ -454,6 +453,7 @@ class Namespace(
 
     # torch_version = torch_version_float()
     interactive: bool = False
+    debug: bool = False
 
     @cached_property
     def torch_version(self):
@@ -466,6 +466,7 @@ class Namespace(
 
     # noinspection PyMissingConstructor
     def __init__(self, **kwargs):
+        logger.debug('Namespace.__init__')
         # parse nested attributes
         class SetAttr(NamedTuple):
             obj: object
@@ -487,6 +488,8 @@ class Namespace(
                 setattr(*struct)
 
         #   get project structure if piped
+        if self.debug:
+            logger.setLevel('DEBUG')
 
 
         project = None
@@ -496,21 +499,21 @@ class Namespace(
             and (text := sys.stdin.read()) != ''
         ):
             # case: piped
+            logger.debug('Inference piped; reading stdin')
             try:
                 project = json.loads(text)
             except json.JSONDecodeError as e:
                 logger.error(f'Could not parse JSON from stdin: {e}')
                 logger.error(f'JSON: {text}')
                 raise
-            logger.debug('Inference piped')
         else:
             # case: unpiped
-            logger.debug('Inference unpiped')
+            logger.debug('Inference unpiped; reading from args')
+            logger.debug(f'{self.city_info_path=}')
             if self.city_info_path is not None:
                 with open(self.city_info_path) as f:
                     city_info = json.load(f)
                 project = city_info['project']
-
         # if project has been determined, get from it; otherwise raise where not defined
         if project is not None:
             if not self.model.snapshot:
@@ -533,9 +536,14 @@ class Namespace(
                 self.eval_folder = project['tiles']['stitched']
             if not self.city_info_path:
                 self.city_info_path = project['tiles']['info']
+        else:
+            logger.debug(f'project is None')
 
         if not self.eval_folder:
             raise ValueError('eval_folder must be set')
+        else:
+            logger.debug(f'{self.eval_folder=}')
+
         if not self.result_dir:
             raise ValueError('result_dir must be set')
         if not self.model.snapshot:

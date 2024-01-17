@@ -121,15 +121,17 @@ def inference_(args: Namespace):
         torch.cuda.set_device(args.local_rank)
         args.distributed = True
         args.global_rank = int(os.environ['RANK'])
-        print(f'Using distributed training with {args.world_size} GPUs.')
+        # print(f'Using distributed training with {args.world_size} GPUs.')
+        logger.info(f'Using distributed training with {args.world_size} GPUs.')
     elif num_gpus == 1:
         # Single GPU setup
-        print('Using a single GPU.')
+        logger.info('Using a single GPU.')
         args.local_rank = 0
         torch.cuda.set_device(args.local_rank)
     else:
         # CPU setup
-        print('Using CPU.')
+        # print('Using CPU.')
+        logger.info('Using CPU.')
         args.local_rank = -1  # Indicating CPU usage
 
     # if 'WORLD_SIZE' in os.environ and args.model.apex:
@@ -168,7 +170,6 @@ def inference_(args: Namespace):
         """
         Main Function
         """
-        print('arst')
         assert args.result_dir is not None, 'need to define result_dir arg'
         logx.initialize(logdir=str(args.result_dir),
                         tensorboard=True, hparams=vars(args),
@@ -372,15 +373,18 @@ class Inference:
             torch.cuda.set_device(args.local_rank)
             args.distributed = True
             args.global_rank = int(os.environ['RANK'])
-            print(f'Using distributed training with {args.world_size} GPUs.')
+            # print(f'Using distributed training with {args.world_size} GPUs.')
+            logger.info(f'Using distributed training with {args.world_size} GPUs.')
         elif num_gpus == 1:
             # Single GPU setup
-            print('Using a single GPU.')
+            # print('Using a single GPU.')
+            logger.info('Using a single GPU.')
             args.local_rank = 0
             torch.cuda.set_device(args.local_rank)
         else:
             # CPU setup
-            print('Using CPU.')
+            # print('Using CPU.')
+            logger.info('Using CPU.')
             args.local_rank = -1  # Indicating CPU usage
 
         assert args.result_dir is not None, 'need to define result_dir arg'

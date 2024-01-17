@@ -38,6 +38,7 @@ from __future__ import unicode_literals
 
 import os
 import re
+from tile2net.logger import logger
 
 import torch
 from runx.logx import logx
@@ -315,7 +316,8 @@ def update_dataset_cfg(num_classes, ignore_label):
     cfg.immutable(False)
     cfg.DATASET.NUM_CLASSES = num_classes
     cfg.DATASET.IGNORE_LABEL = ignore_label
-    logx.msg('num_classes = {}'.format(num_classes))
+    # logx.msg('num_classes = {}'.format(num_classes))
+    logger.debug('num_classes = {}'.format(num_classes))
     cfg.immutable(True)
 
 
