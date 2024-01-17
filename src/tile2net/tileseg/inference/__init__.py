@@ -413,7 +413,8 @@ class Inference:
             checkpoint = torch.load(args.model.snapshot, map_location=torch.device('cpu'))
             args.restore_net = True
             msg = "Loading weights from: checkpoint={}".format(args.model.snapshot)
-            logx.msg(msg)
+            logger.info(msg)
+            level = logger.level
 
         net: tile2net.tileseg.network.ocrnet.MscaleOCR = network.get_net(args, criterion)
 
@@ -440,6 +441,7 @@ class Inference:
                 city_data = Raster.from_info(city_info_path)
         else:
             city_data = None
+        print(f'{logger.level=}')
 
         match args.model.eval:
             case 'test':

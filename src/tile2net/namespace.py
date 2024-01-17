@@ -487,11 +487,6 @@ class Namespace(
             else:
                 setattr(*struct)
 
-        #   get project structure if piped
-        if self.debug:
-            logger.setLevel('DEBUG')
-
-
         project = None
         if (
             not self.interactive
@@ -506,6 +501,9 @@ class Namespace(
                 logger.error(f'Could not parse JSON from stdin: {e}')
                 logger.error(f'JSON: {text}')
                 raise
+            city_info_path = project['tiles']['info']
+            with open(city_info_path) as f:
+                city_info = json.load(f)
         else:
             # case: unpiped
             logger.debug('Inference unpiped; reading from args')
@@ -514,6 +512,17 @@ class Namespace(
                 with open(self.city_info_path) as f:
                     city_info = json.load(f)
                 project = city_info['project']
+
+        for key, value in city_info.items():
+            if key not in self.__dict__:
+                continue
+            setattr(self, key, value)
+
+
+        #   get project structure if piped
+        if self.debug:
+            logger.setLevel('DEBUG')
+
         # if project has been determined, get from it; otherwise raise where not defined
         if project is not None:
             if not self.model.snapshot:
