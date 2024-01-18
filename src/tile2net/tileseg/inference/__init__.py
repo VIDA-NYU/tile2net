@@ -414,7 +414,6 @@ class Inference:
             args.restore_net = True
             msg = "Loading weights from: checkpoint={}".format(args.model.snapshot)
             logger.info(msg)
-            level = logger.level
 
         net: tile2net.tileseg.network.ocrnet.MscaleOCR = network.get_net(args, criterion)
 
@@ -441,7 +440,6 @@ class Inference:
                 city_data = Raster.from_info(city_info_path)
         else:
             city_data = None
-        print(f'{logger.level=}')
 
         match args.model.eval:
             case 'test':

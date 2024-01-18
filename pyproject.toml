@@ -49,3 +49,10 @@ include = ["tile2net*"]
 [tool.setuptools.package-data]
 "tile2net.artifacts.sample.brk_sw_lines" = ["*"]
 "tile2net" = ["logging.conf"]
+
+
+[tool.pytest.ini_options]
+testpaths = [
+#    "tile2net/src/tile2net/tests"
+    "src/tile2net/tests"
+]
