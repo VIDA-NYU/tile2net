@@ -454,6 +454,8 @@ class Namespace(
     # torch_version = torch_version_float()
     interactive: bool = False
     debug: bool = False
+    local = False
+    remote = False
 
     @cached_property
     def torch_version(self):

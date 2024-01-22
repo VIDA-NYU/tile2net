@@ -800,7 +800,7 @@ class Raster(Grid):
         with path.open("w+") as f:
             json.dump(data, f, indent=4)
 
-    @validate
+    # @validate
     def generate(self, step):
         """
         generates the project structure,
@@ -821,18 +821,20 @@ class Raster(Grid):
             indent=4,
         )
 
-    @validate
+    # Todo: how to change which inference is run?
+
+    # @validate
     def inference(
             self,
-            eval_folder: str = None,
+            *args: str,
     ):
         """
         runs the inference on the tiles
 
         Parameters
         ----------
-        eval_folder : str
-            path to the folder containing the images to run inference on
+        *args: str
+            arguments to be passed to the commandline inference
         """
         info = toolz.get_in(
             "project tiles info".split(),
@@ -849,10 +851,11 @@ class Raster(Grid):
             "--interactive",
             "--dump_percent",
             str(self.dump_percent),
+            *args,
         ]
         logger.info(f"Running {args}")
-        if eval_folder:
-            args.extend(["--eval_folder", str(eval_folder)])
+        # if eval_folder:
+        #     args.extend(["--eval_folder", str(eval_folder)])
         logger.debug(f'Running {" ".join(args)}')
         try:
             # todo: capture_outputs=False if want instant printout

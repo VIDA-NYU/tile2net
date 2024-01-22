@@ -1,4 +1,8 @@
 from __future__ import annotations, absolute_import, division
+
+import concurrent.futures
+from typing import Optional
+
 import time
 
 import numpy
@@ -29,6 +33,9 @@ POSSIBILITY OF SUCH DAMAGE.
 """
 
 from geopandas import GeoDataFrame, GeoSeries
+import itertools
+import torchvision.transforms as standard_transforms
+import torchvision.utils as vutils
 import pandas as pd
 import geopandas as gpd
 
@@ -327,11 +334,14 @@ def inference_(args: Namespace):
 
 
 class Inference:
+    Dumper = ThreadedDumper
+
     def __init__(self, args: Namespace):
         self.args = args
         if args.dump_percent:
             if not os.path.exists(args.result_dir):
-                os.mkdir(args.result_dir)
+                # os.mkdir(args.result_dir, )
+                os.makedirs(args.result_dir, exist_ok=True)
             logger.info(f'Inferencing. Segmentation results will be saved to {args.result_dir}')
         else:
             logger.info('Inferencing. Segmentation results will not be saved.')
@@ -492,7 +502,7 @@ class Inference:
         # todo map_feature is how Tile generates poly
         gdfs: list[GeoDataFrame] = []
 
-        dumper = ThreadedDumper(
+        self.dumper = dumper = self.Dumper(
             val_len=len(val_loader),
             dump_all_images=dump_all_images,
             dump_assets=dump_assets,
@@ -559,6 +569,8 @@ class Inference:
                 polys = grid.ntw_poly
                 net = PedNet(poly=polys, project=grid.project)
                 net.convert_whole_poly2line()
+
+
 #
 #     def validate(
 #             self,
@@ -673,18 +685,108 @@ class Inference:
 
 
 
+if False:
+    class Tile(Tile):
+        segmentation: str
+
+
+class LocalDumper(ThreadedDumper):
+    def map_features(
+            self,
+            tile: Tile,
+            src_img: np.ndarray,
+            img_array=True,
+    ) -> Optional[GeoDataFrame]:
+        # write the segmentation to assets
+        future = self.threads.submit(np.save, tile.segmentation, src_img)
+        self.futures.append(future)
+        return super().map_features(tile, src_img, img_array=img_array)
+
+
+class LocalInference(Inference):
+    Dumper = LocalDumper
+
+    def validate(self, *args, grid: Raster, **kwargs):
+        # as a temporary solution just assign the segmentation path to the tile
+        grid.project.resources.segmentation.path.mkdir(exist_ok=True, parents=True)
+        for segmentation, tile in zip(
+                grid.project.resources.segmentation.files(),
+                grid.tiles.ravel(),
+        ):
+            tile.segmentation = segmentation
+        return super().validate(*args, grid=grid, **kwargs)
+
+
+class RemoteInference(Inference):
+    def validate(
+            self,
+            val_loader: DataLoader,
+            net: torch.nn.parallel.DataParallel,
+            criterion: tile2net.tileseg.loss.utils.CrossEntropyLoss2d,
+            optim: torch.optim.sgd.SGD,
+            epoch: int,
+            calc_metrics=True,
+            dump_assets=False,
+            dump_all_images=False,
+            testing=None,
+            grid: Raster = None,
+            **kwargs
+    ):
+        """
+        Run validation for one epoch
+        :val_loader: data loader for validation
+        """
+        threads = concurrent.futures.ThreadPoolExecutor()
+        predictions = threads.map(np.load, grid.project.resources.segmentation.files())
+        it_polygons = (
+            self.Dumper.map_features(tile, prediction, img_array=True)
+            for tile, prediction in zip(grid.tiles.ravel(), predictions)
+        )
+        gdfs = [
+            polygons
+            for polygons in it_polygons
+            if polygons is not None
+        ]
+
+        if testing:
+            if grid:
+                # todo: for now we concate from a list of all the polygons generated during the session;
+                #   eventually we will serialize all the files and then use dask for batching
+                if not gdfs:
+                    poly_network = gpd.GeoDataFrame()
+                    logging.warning(
+                        f'No polygons were dumped'
+                    )
+                else:
+                    poly_network = pd.concat(gdfs)
+                del gdfs
+
+                grid.save_ntw_polygons(poly_network)
+                polys = grid.ntw_poly
+                net = PedNet(poly=polys, project=grid.project)
+                net.convert_whole_poly2line()
+
+        # for future in self.dumper.futures:
+        #     future.result()
+
+
 @commandline
 def inference(args: Namespace):
-    return Inference(args).inference()
-
+    if args.local:
+        inference = LocalInference(args)
+    elif args.remote:
+        inference = RemoteInference(args)
+    else:
+        inference = Inference(args)
+    return inference.inference()
 
 if __name__ == '__main__':
     """
     --city_info
-    /tmp/tile2net/central_park/tiles/central_park_256_info.json
+    /tmp/tile2net/washington_square_park/tiles/washington_square_park_256_info.json
     --interactive
     --dump_percent 100
     """
-    from tile2net import Raster
+    from tile2net import Raster, Tile
 
     argh.dispatch_command(inference)

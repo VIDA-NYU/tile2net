@@ -174,6 +174,31 @@ class Weights(Directory):
         # noinspection PyTypeChecker
         return super().__get__(instance, owner)
 
+class Segmentation(Directory):
+    def __fspath__(self):
+        raster = self.project.raster
+        return os.path.join(
+            super().__fspath__(),
+            self.project.raster.name,
+            f'{raster.base_tilesize}_{raster.zoom}_{raster.stitch_step}',
+        )
+
+    def files(self, tiles: ndarray = None) -> Iterator[str]:
+        if tiles is None:
+            tiles = self.project.raster.tiles
+        path = self.path
+        path.mkdir(parents=True, exist_ok=True)
+        path = path.__fspath__()
+        R, C = np.meshgrid(
+            np.arange(tiles.shape[0]),
+            np.arange(tiles.shape[1]),
+            indexing='ij'
+        )
+        extension = 'npy'
+        for i, (r, c) in enumerate(zip(R.flat, C.flat)):
+            yield os.path.join(path, f'{r}_{c}_{i}.{extension}')
+
+
 
 class Assets(Directory):
     # @directory_method
@@ -186,20 +211,6 @@ class Assets(Directory):
 
     weights = Weights()
 
-
-class Segmentation(Directory):
-
-    # noinspection PyTypeChecker
-    def __get__(self, instance, owner) -> 'Segmentation':
-        result: Segmentation = super().__get__(instance, owner)
-        return result
-
-    def __fspath__(self):
-        return os.path.join(
-            self.project,
-            # self.parent.name,
-            self.name,
-        )
 
 
 class Config(File):
@@ -341,6 +352,7 @@ class Stitched(Directory):
             f'{raster.base_tilesize}_{raster.zoom}_{raster.stitch_step}',
         )
 
+
 class Info(File):
     def __fspath__(self):
         raster = self.project.raster
@@ -349,12 +361,12 @@ class Info(File):
             f'{raster.name}_{raster.tile_size}_{self.name}{self.extension}'
         )
 
+
 class Tiles(Directory):
     def __get__(self, instance, owner) -> 'Tiles':
         # noinspection PyTypeChecker
         return super().__get__(instance, owner)
 
-    # info = File('.json')
     info = Info('.json')
     static = Static()
     stitched = Stitched()
@@ -435,6 +447,7 @@ class Structure(PathLike):
             ret = directory.__fspath__()
         else:
             ret = {
+                # return super().__fspath__()
                 child.name: self(child)
                 for child in directory
                 if child not in self.visited
@@ -446,6 +459,7 @@ class Structure(PathLike):
 class Resources(Directory):
     config = Config('.py')
     assets = Assets()
+    segmentation = Segmentation()
 
     @cached_property
     def path(self):

@@ -320,5 +320,11 @@ commandline = compose_left(
     ),
     arg(
         '--debug', action='store_true'
-    )
+    ),
+    arg(
+        '--local', action='store_true'
+    ),
+    arg(
+        '--remote', action='store_true'
+    ),
 )

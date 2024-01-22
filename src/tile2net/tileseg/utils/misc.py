@@ -32,6 +32,8 @@ Miscellanous Functions
 """
 
 from __future__ import annotations
+from typing import *
+from geopandas import GeoDataFrame
 
 import tempfile
 from typing import Optional
@@ -718,8 +720,10 @@ class ThreadedDumper(ImageDumper):
             # return True, err_pil
         return False, err_pil
 
+    @classmethod
     def map_features(
-            self,
+            # self,
+            cls,
             tile: Tile,
             src_img: np.ndarray,
             img_array=True,
@@ -737,8 +741,6 @@ class ThreadedDumper(ImageDumper):
             GeoDataFrame of polygons
         """
         swcw = []
-        threads = self.threads
-        futures = self.futures
 
         sidewalks = tile.mask2poly(
             src_img,
@@ -773,3 +775,17 @@ class ThreadedDumper(ImageDumper):
             rswcw: GeoDataFrame = pd.concat(swcw)
             rswcw.reset_index(drop=True, inplace=True)
             return rswcw
+
+class PushDumper(ThreadedDumper):
+    # saves prediction images to file
+    def create_composite_image(self, input_image, prediction_pil, img_name: str):
+        threads = self.threads
+        futures = self.futures
+        return super().create_composite_image(input_image, prediction_pil, img_name)
+
+
+
+
+
+
+

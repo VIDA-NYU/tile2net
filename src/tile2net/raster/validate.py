@@ -36,11 +36,11 @@ class validate:
 
 if __name__ == '__main__':
     class Raster:
-        @validate
+        # @validate
         def generate(self):
             ...
 
-        @validate
+        # @validate
         def inference(self):
             ...
 
