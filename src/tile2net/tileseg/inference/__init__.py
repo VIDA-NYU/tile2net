@@ -719,25 +719,6 @@ class LocalInference(Inference):
 
 
 class RemoteInference(Inference):
-    # def validate(
-    #         self,
-    #         val_loader: DataLoader,
-    #         net: torch.nn.parallel.DataParallel,
-    #         criterion: tile2net.tileseg.loss.utils.CrossEntropyLoss2d,
-    #         optim: torch.optim.sgd.SGD,
-    #         epoch: int,
-    #         calc_metrics=True,
-    #         dump_assets=False,
-    #         dump_all_images=False,
-    #         testing=None,
-    #         grid: Raster = None,
-    #         **kwargs
-    # ):
-    #     """
-    #     Run validation for one epoch
-    #     :val_loader: data loader for validation
-    #     """
-
     def inference(self, rasterfactory=None):
         from tile2net.raster.raster import Raster
         grid = Raster.from_info(cfg.CITY_INFO_PATH)
@@ -751,7 +732,6 @@ class RemoteInference(Inference):
             if exists
         )
 
-
         gdfs = [
             polygons
             for polygons in it_polygons
@@ -761,8 +741,6 @@ class RemoteInference(Inference):
         if not len(gdfs):
             logger.error('No polygons were dumped')
 
-        # todo: for now we concate from a list of all the polygons generated during the session;
-        #   eventually we will serialize all the files and then use dask for batching
         if not gdfs:
             poly_network = gpd.GeoDataFrame()
             logging.warning(
@@ -776,7 +754,7 @@ class RemoteInference(Inference):
         polys = grid.ntw_poly
         net = PedNet(poly=polys, project=grid.project)
         net.convert_whole_poly2line()
-        logger.debug('{len(net.complete_net)=}')
+        logger.debug(f'{len(net.complete_net)=}')
 
 
 @commandline

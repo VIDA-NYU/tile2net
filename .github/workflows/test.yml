@@ -18,8 +18,8 @@ jobs:
         with:
           python-version: '3.11'
           architecture: 'x64'
-          cache: 'pip'
-          cache-dependency-path: requirements-dev.txt
+#          cache: 'pip'
+#          cache-dependency-path: requirements-dev.txt
 
       - name: Install Dependencies
         run: |
