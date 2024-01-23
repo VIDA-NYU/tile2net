@@ -140,7 +140,8 @@ src/*.ipynb
 src/*.py
 src/tile2net/logger.py
 
-
+# Don't ignore .npy files in segmentation folder for testing
+!src/tile2net/raster/resources/segmentation/**/*.npy
 
 
 

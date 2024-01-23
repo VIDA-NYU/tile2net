@@ -1,6 +1,6 @@
 [project]
 name = "tile2net"
-version = "0.3.0"
+version = "0.4.0"
 description = "Pedestrian networks from aerial imagery tiles"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -48,7 +48,15 @@ include = ["tile2net*"]
 [tool.setuptools.package-data]
 "tile2net.artifacts.sample.brk_sw_lines" = ["*"]
 "tile2net" = ["logging.conf"]
+# include .npy for testing; this is 9 MB!
+"tile2net.raster.resources.segmentation" = ["**/*.npy"]
+
 
 [tool.pytest.ini_options]
 testpaths = [ "src/tile2net/tests" ]
 python_files = ["test_local.py"]
+
+#[tool.poetry]
+## Other poetry configurations ...
+#
+include = ["src/tile2net/raster/resources/segmentation/**/*.npy"]

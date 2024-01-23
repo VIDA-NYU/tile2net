@@ -683,8 +683,6 @@ class Inference:
 #
 
 
-
-
 if False:
     class Tile(Tile):
         segmentation: str
@@ -700,7 +698,10 @@ class LocalDumper(ThreadedDumper):
         # write the segmentation to assets
         future = self.threads.submit(np.save, tile.segmentation, src_img)
         self.futures.append(future)
-        return super().map_features(tile, src_img, img_array=img_array)
+        result =  super().map_features(tile, src_img, img_array=img_array)
+        for future in self.futures:
+            future.result()
+        return result
 
 
 class LocalInference(Inference):
@@ -718,56 +719,64 @@ class LocalInference(Inference):
 
 
 class RemoteInference(Inference):
-    def validate(
-            self,
-            val_loader: DataLoader,
-            net: torch.nn.parallel.DataParallel,
-            criterion: tile2net.tileseg.loss.utils.CrossEntropyLoss2d,
-            optim: torch.optim.sgd.SGD,
-            epoch: int,
-            calc_metrics=True,
-            dump_assets=False,
-            dump_all_images=False,
-            testing=None,
-            grid: Raster = None,
-            **kwargs
-    ):
-        """
-        Run validation for one epoch
-        :val_loader: data loader for validation
-        """
+    # def validate(
+    #         self,
+    #         val_loader: DataLoader,
+    #         net: torch.nn.parallel.DataParallel,
+    #         criterion: tile2net.tileseg.loss.utils.CrossEntropyLoss2d,
+    #         optim: torch.optim.sgd.SGD,
+    #         epoch: int,
+    #         calc_metrics=True,
+    #         dump_assets=False,
+    #         dump_all_images=False,
+    #         testing=None,
+    #         grid: Raster = None,
+    #         **kwargs
+    # ):
+    #     """
+    #     Run validation for one epoch
+    #     :val_loader: data loader for validation
+    #     """
+
+    def inference(self, rasterfactory=None):
+        from tile2net.raster.raster import Raster
+        grid = Raster.from_info(cfg.CITY_INFO_PATH)
         threads = concurrent.futures.ThreadPoolExecutor()
-        predictions = threads.map(np.load, grid.project.resources.segmentation.files())
+        paths = list(grid.project.resources.segmentation.files())
+        it_exists = threads.map(os.path.exists, paths)
+        predictions = threads.map(np.load, paths)
         it_polygons = (
             self.Dumper.map_features(tile, prediction, img_array=True)
-            for tile, prediction in zip(grid.tiles.ravel(), predictions)
+            for tile, prediction, exists in zip(grid.tiles.ravel(), predictions, it_exists)
+            if exists
         )
+
+
         gdfs = [
             polygons
             for polygons in it_polygons
             if polygons is not None
         ]
+        logger.debug(f'{len(gdfs)} polygons dumped')
+        if not len(gdfs):
+            logger.error('No polygons were dumped')
 
-        if testing:
-            if grid:
-                # todo: for now we concate from a list of all the polygons generated during the session;
-                #   eventually we will serialize all the files and then use dask for batching
-                if not gdfs:
-                    poly_network = gpd.GeoDataFrame()
-                    logging.warning(
-                        f'No polygons were dumped'
-                    )
-                else:
-                    poly_network = pd.concat(gdfs)
-                del gdfs
+        # todo: for now we concate from a list of all the polygons generated during the session;
+        #   eventually we will serialize all the files and then use dask for batching
+        if not gdfs:
+            poly_network = gpd.GeoDataFrame()
+            logging.warning(
+                f'No polygons were dumped'
+            )
+        else:
+            poly_network = pd.concat(gdfs)
+        del gdfs
 
-                grid.save_ntw_polygons(poly_network)
-                polys = grid.ntw_poly
-                net = PedNet(poly=polys, project=grid.project)
-                net.convert_whole_poly2line()
-
-        # for future in self.dumper.futures:
-        #     future.result()
+        grid.save_ntw_polygons(poly_network)
+        polys = grid.ntw_poly
+        net = PedNet(poly=polys, project=grid.project)
+        net.convert_whole_poly2line()
+        logger.debug('{len(net.complete_net)=}')
 
 
 @commandline
@@ -779,6 +788,7 @@ def inference(args: Namespace):
     else:
         inference = Inference(args)
     return inference.inference()
+
 
 if __name__ == '__main__':
     """

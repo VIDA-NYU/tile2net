@@ -741,6 +741,7 @@ class ThreadedDumper(ImageDumper):
             GeoDataFrame of polygons
         """
         swcw = []
+        assert isinstance(src_img, np.ndarray)
 
         sidewalks = tile.mask2poly(
             src_img,
