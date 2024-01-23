@@ -3,9 +3,6 @@ import shutil
 import pytest
 from tile2net.raster.raster import Raster
 
-def test_fail():
-    raise Exception('test failed')
-
 def test_small():
     raster = Raster(
         location='Washington Square Park, New York, NY, USA',
@@ -15,7 +12,6 @@ def test_small():
     )
     raster.generate(2)
     raster.inference('--remote')
-
 
 if __name__ == '__main__':
     test_small()

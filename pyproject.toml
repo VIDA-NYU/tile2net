@@ -38,7 +38,6 @@ requires = [
 [tool.setuptools]
 include-package-data = true
 
-
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements-dev.txt"] }
 
@@ -50,9 +49,6 @@ include = ["tile2net*"]
 "tile2net.artifacts.sample.brk_sw_lines" = ["*"]
 "tile2net" = ["logging.conf"]
 
-
 [tool.pytest.ini_options]
-testpaths = [
-#    "tile2net/src/tile2net/tests"
-    "src/tile2net/tests"
-]
+testpaths = [ "src/tile2net/tests" ]
+python_files = ["test_local.py"]
