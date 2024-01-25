@@ -51,7 +51,6 @@ include = ["tile2net*"]
 # include .npy for testing; this is 9 MB!
 "tile2net.raster.resources.segmentation" = ["**/*.npy"]
 
-
 [tool.pytest.ini_options]
 testpaths = [ "src/tile2net/tests" ]
 python_files = ["test_local.py"]
