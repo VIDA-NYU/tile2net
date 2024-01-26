@@ -1,6 +1,8 @@
 
 # Tile2Net
 
+![Python application](https://github.com/VIDA-NYU/tile2net/actions/workflows/test.yml/badge.svg)
+
 <!-- HTML image formatting does not cooperate with Sphinx! -->
 <!-- 
 <p align="left">
