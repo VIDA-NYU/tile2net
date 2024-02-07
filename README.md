@@ -1,6 +1,8 @@
 
 # Tile2Net
 
+![Python application](https://github.com/VIDA-NYU/tile2net/actions/workflows/test.yml/badge.svg)
+
 <!-- HTML image formatting does not cooperate with Sphinx! -->
 <!-- 
 <p align="left">
@@ -40,7 +42,7 @@ Maryam Hosseini, Andres Sevtsuk, Fabio Miranda, Roberto M. Cesar Jr, Claudio T. 
 ```
 
 ## Updates:
-- Tile2Net now supports the whole New Jersey state. You can find the list of supported regions [here](https://github.com/VIDA-NYU/tile2net/blob/main/BASICS.md#supported-regions).
+- Tile2Net now supports the whole Oregon state. You can find the list of supported regions [here](https://github.com/VIDA-NYU/tile2net/blob/main/BASICS.md#supported-regions).
 - Tile2Net was featured in [Planitizen](https://www.planetizen.com/news/2023/03/122206-mapping-sidewalks-improved-connectivity)! 
 - Tile2Net was featured in [MIT News Spotlight](https://news.mit.edu/2023/open-source-tool-mapping-sidewalks-0315#:~:text=Now%20MIT%20researchers%2C%20along%20with,want%20to%20expand%20pedestrian%20infrastructure)!
 
