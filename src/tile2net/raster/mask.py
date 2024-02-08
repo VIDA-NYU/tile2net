@@ -1,4 +1,11 @@
 from __future__ import annotations
+
+import functools
+import timeit
+from tqdm import tqdm
+import pyproj
+import pickle
+import json
 from concurrent.futures import *
 
 import copy
@@ -25,7 +32,7 @@ from functools import *
 from typing import *
 from types import *
 from collections import *
-from tile2net.raster import Raster
+# from tile2net.raster import Raster
 from types import *
 from types import *
 from typing import *
@@ -40,13 +47,18 @@ from typing import *
 #
 from typing import TypedDict
 
+if False:
+    from tile2net.raster import Raster
 
-class Surface(UserDict, SimpleNamespace):
+class Surface(dict):
     path: str
     usecols: list[str]
     col: Union[int, dict[str, list[str]]]
     color: str
     order: int
+
+    def __getattr__(self, item) -> Surface:
+        return self[item]
 
 
 class Config(dict):
@@ -63,39 +75,97 @@ class Config(dict):
         }
         return cls(**surfaces)
 
-    def __getattr__(self, item) -> Surface:
-        return self[item]
+    __getattr__: Callable[[Hashable], Surface]
 
 
 class Mask:
+    """
+    clip()
+    for cls in clses:
+        plot()
+    """
+
     def __init__(
             self,
             raster: Raster,
-            geometry: GeoDataFrame,
-            config,
+            geometry: str | Path | GeoDataFrame,
+            config: str | Path | dict
     ):
-        # todo: use property setters to define these
-        self.geometry = geometry
         self.raster = raster
         self.config = config
+        self.geometry = geometry
 
     @property
     def geometry(self):
-        ...
+        return self.__dict__['geometry']
 
     @geometry.setter
     def geometry(self, value):
-        # todo: gdf or file
-        ...
+        if isinstance(value, Path):
+            value = str(value)
+        if isinstance(value, str):
+            match value.rsplit('.', 1)[-1]:
+                case 'parquet':
+                    value = gpd.read_parquet(value)
+                case 'feather':
+                    value = gpd.read_feather(value)
+                case _:
+                    value = gpd.read_file(value)
+        if not isinstance(value, GeoDataFrame):
+            raise ValueError(f'unsupported type: {type(value)}')
+
+        usecols: set[str] = {
+            col
+            for surface in self.config.values()
+            for col in surface.usecols
+        }
+        gdf = value.loc[:, usecols]
+
+        concat: list[GeoDataFrame] = []
+        for name, surface in self.config.items():
+            surface: Surface
+            loc = np.zeros(len(gdf), dtype=bool)
+            if isinstance(surface.col, dict):
+                for col, val in surface.col.items():
+                    if isinstance(val, list):
+                        loc |= gdf[col].isin(val)
+                    else:
+                        loc |= gdf[col] == val
+            else:
+                loc = np.ones(len(gdf), dtype=bool)
+
+            concat.append(
+                gdf.loc[loc]
+                .assign(name=name)
+            )
+
+        gdf = pd.concat(concat)
+        self.__dict__['geometry'] = gdf
 
     @property
     def config(self) -> Config:
-        ...
+        return self.__dict__['config']
 
     @config.setter
     def config(self, value):
-        # todo: json or dict
-        ...
+        if isinstance(value, Path):
+            value = str(value)
+        if isinstance(value, str):
+            match value.rsplit('.', 1)[-1]:
+                case 'json':
+                    with open(value) as f:
+                        value = json.load(f)
+                case 'pkl':
+                    with open(value, 'rb') as f:
+                        value = pickle.load(f)
+                case _:
+                    raise ValueError(f'unsupported file type: {value}')
+        if isinstance(value, dict):
+            value = Config.from_dict(value)
+        else:
+            raise ValueError(f'unsupported type: {type(value)}')
+
+        self.__dict__['config'] = value
 
     @cached_property
     def tiles(self) -> GeoDataFrame:
@@ -121,8 +191,15 @@ class Mask:
         ix = fromiter('x', dtype=int)
         itiles = fromiter('idd', dtype=int)
 
+        trans = (
+            pyproj.Transformer
+            .from_crs(4326, 3857, always_xy=True)
+            .transform
+        )
+        pw, pn = trans(w, n)
+        pe, ps = trans(e, s)
+
         geometry = shapely.box(w, s, e, n)
-        index = pd.Index(itiles, name='itile')
         filename = Series((
             f'{iy_}_{ix_}_{itile}'
             for iy_, ix_, itile in zip(iy, ix, itiles)
@@ -132,7 +209,12 @@ class Mask:
             'ix': ix,
             'iy': iy,
             'filename': filename,
-        }, index=index)
+            'pw': pw,
+            'pn': pn,
+            'pe': pe,
+            'ps': ps,
+            'itile': itiles,
+        }, crs=4326)
         return result
 
     @cached_property
@@ -147,22 +229,6 @@ class Mask:
         tiles = self.tiles.loc[matches.index]
         matches.geometry = matches.intersection(tiles.geometry, align=False)
         return matches
-
-    @classmethod
-    def from_file(
-            cls,
-            raster: Raster,
-            path: str | Path,
-    ) -> Self:
-        path = Path(path)
-        match path.suffix:
-            case '.parquet':
-                geometry = gpd.read_parquet(path)
-            case '.feather':
-                geometry = gpd.read_feather(path)
-            case _:
-                geometry = gpd.read_file(path)
-        return cls(raster, geometry)
 
     @cached_property
     def figax(self) -> tuple[plt.Figure, plt.Axes]:
@@ -182,20 +248,137 @@ class Mask:
 
         return fig, ax
 
-    def to_directory(self, path: str | Path = None):
-        outdir = os.path.join(path, 'annotations')
+    def to_directory(
+            self,
+            outdir: str | Path = None,
+    ) -> Series[str]:
+
+        outdir = os.path.join(outdir, 'annotations')
         os.makedirs(outdir, exist_ok=True)
-        outpaths = os.sep + self.clippings.filename + '.png'
-        clippings = self.clippings.assign(outpath=outpaths)
+        clippings = self.clippings
         futures: list[Future] = []
         threads = ThreadPoolExecutor()
         CANVAS = self.raster.black.array
         FIG, AX = self.figax
-        for itile, clipping in clippings.groupby(level='itile'):
-            canvas = CANVAS.copy()
-            fig = copy.copy(FIG)
-            ax = copy.copy(AX)
-            for surface, gdf in clipping.groupby('surface'):
-                color = surface.color
-                order = surface.order
-                gdf.plot(ax=ax, color=color, zorder=order)
+
+        total: int = (
+            clippings
+            .groupby('itile surface'.split())
+            .nunique()
+            .shape[0]
+        )
+        outpaths: Series[str] = str(outdir) + os.sep + self.tiles.filename
+        tiles = self.tiles.assign(outpath=outpaths)
+        TOP = Series.to_dict(tiles.pn)
+        LEFT = Series.to_dict(tiles.pw)
+        BOTTOM = Series.to_dict(tiles.ps)
+        RIGHT = Series.to_dict(tiles.pe)
+        OUTPATH = Series.to_dict(tiles.outpath)
+
+        with tqdm(total=total, desc='creating annotation masks') as pbar:
+            for itile, clipping in clippings.groupby('itile', sort=False):
+                canvas = CANVAS.copy()
+                fig = copy.deepcopy(FIG)
+                ax = copy.deepcopy(AX)
+
+                outpath = OUTPATH[itile]
+                top = TOP[itile]
+                left = LEFT[itile]
+                bottom = BOTTOM[itile]
+                right = RIGHT[itile]
+
+                for surface, tile in clipping.groupby('surface', sort=False):
+                    color = self.config.__getattr__(surface).col
+                    order = self.config.__getattr__(surface).order
+                    tile.plot(
+                        ax=ax,
+                        color=color,
+                        alpha=1,
+                        zorder=order,
+                        antialiased=False,
+                    )
+                    ax.imshow(canvas, extent=(top, bottom, right, left))
+                    # noinspection PyUnresolvedReferences
+                    s, (width, height) = fig.canvas.print_to_buffer()
+                    data = np.frombuffer(s, dtype=np.uint8).reshape(width, height, 4)
+                    data = data[:, :, 0:3]
+                    cv2.imwrite(outpath, cv2.cvtColor(data, cv2.COLOR_RGB2BGR))
+                    outpath: str
+                    array = cv2.cvtColor(data, cv2.COLOR_RGB2BGR)
+                    pbar.update(1)
+
+                # noinspection PyTypeChecker
+                future = threads.submit(cv2.imwrite, outpath, array)
+                futures.append(future)
+                fig.clf()
+                plt.close(fig)
+
+        for future in futures:
+            future.result()
+        threads.shutdown()
+        return outpaths
+
+
+class ClipMask(Mask):
+    """
+    for cls in clses:
+        clip()
+        plot()
+    """
+
+    @cached_property
+    def clippings(self) -> GeoDataFrame:
+        tiles = self.tiles
+        concat: list[GeoDataFrame] = [
+            tiles
+            .clip(surface.geometry, keep_geom_type=True)
+            .assign(surface=name)
+            for name, surface in self.geometry.groupby('surface', sort=False)
+        ]
+        # noinspection PyTypeChecker
+        result: GeoDataFrame = pd.concat(concat)
+        return result
+
+
+class Comparison:
+    # noinspection PyUnresolvedReferences
+    class Mask(Mask):
+        clippings = property(Mask.clippings.func)
+
+    # noinspection PyUnresolvedReferences
+    class ClipMask(ClipMask):
+        clippings = property(ClipMask.clippings.func)
+
+    def __init__(self, raster, geometry, config):
+        self.mask = self.Mask(raster, geometry, config)
+        self.clipmask = self.ClipMask(raster, geometry, config)
+
+    def __call__(self, *args, **kwargs):
+        mask_time = timeit.timeit(lambda: self.mask.clippings)
+        clipmask_time = timeit.timeit(lambda: self.clipmask.clippings)
+        print(f"mask.clippings access time: {mask_time:.7f} seconds")
+        print(f"clipmask.clippings access time: {clipmask_time:.7f} seconds")
+
+
+def side_by_side(
+        left: Series[str] | str,
+        right: Series[str] | str,
+) -> Series[str]:
+    ...
+
+def annotate(
+        self: Raster,
+        geometry: str | Path | GeoDataFrame,
+        config: str | Path | dict,
+        outdir: str | Path = None,
+):
+    mask = Mask(self, geometry, config)
+    result = mask.to_directory(outdir)
+    return result
+
+
+
+
+
+if __name__ == '__main__':
+    ...
