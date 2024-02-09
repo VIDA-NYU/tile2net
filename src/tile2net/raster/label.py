@@ -448,7 +448,6 @@ class Mask:
         )
         rd = '/home/arstneio/Downloads/BASEMAP_Roads (1).geojson'
         pl = '/home/arstneio/Downloads/BASEMAP_ParkingLots.shp/BASEMAP_ParkingLots.shp'
-        # todo ClipMask generates 2500 matches; Mask generates 4386
         config = {
             'parkinglot': {
                 'path': pl,
@@ -484,6 +483,7 @@ class Mask:
 
 
 class ClipMask(Mask):
+    # clipmask is slower
     """
     for cls in clses:
         clip()
@@ -638,7 +638,7 @@ def label(
     self : Raster
         The raster which defines the tiles to be labeled
     config : str | dict
-        a dict containing the configuration metadata, for example:
+        a dict or path to .json containing the configuration metadata, for example:
         ```
         config = {
             'road': {
