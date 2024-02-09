@@ -630,7 +630,7 @@ def label(
         outdir: str | Path = None,
 ) -> Series[str]:
     """
-    "Annotate", "mask," or "label" the tiles with ground truth data;
+    "Annotate," "mask," or "label" the tiles with ground truth data;
     generate new images from external sources to train the model.
 
     Parameters
