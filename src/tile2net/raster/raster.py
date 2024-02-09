@@ -41,6 +41,7 @@ from tile2net.raster.source import Source
 from tile2net.raster.input_dir import InputDir
 from tile2net.raster.validate import validate
 from tile2net.logger import logger
+from tile2net.raster.label import label
 
 PathLike = Union[str, _PathLike]
 
@@ -79,6 +80,7 @@ class Raster(Grid):
     Project = Project
     input_dir = InputDir()
     black = Black()
+    label = label
 
     @classmethod
     def from_nyc(cls, outdir: PathLike = None) -> "Raster":
