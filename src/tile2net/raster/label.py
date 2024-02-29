@@ -194,7 +194,6 @@ class Mask:
     @cached_property
     def tiles(self) -> GeoDataFrame:
         """GeoSeries of tile bboxes"""
-        # tiles: list[Tile] = self.raster.tiles.tolist()
         tiles: list[Tile] = self.raster.tiles.ravel().tolist()
         count = len(tiles)
 
@@ -224,7 +223,7 @@ class Mask:
         pw, pn = trans(gw, gn)
         pe, ps = trans(ge, gs)
 
-        # geometry = shapely.box(gw, gs, ge, gn)
+        # vectorized some data about the tiles to be used
         geometry = shapely.box(pw, ps, pe, pn)
         filename = Series((
             f'{iy_}_{ix_}_{itile}.png'
@@ -246,7 +245,6 @@ class Mask:
             'ge': ge,
             'itile': itiles,
         }, crs=3857, index=index)
-        # }, crs=4326)
         return result
 
     @cached_property
@@ -262,6 +260,10 @@ class Mask:
         return matches
 
     def to_directory(self, outdir: str | Path = None, ) -> Series[str]:
+        """
+        For each tile, create a mask of the ground truth data and
+        save it to a directory. If outdir is None, tempdir is used.
+        """
         if outdir is None:
             outdir = tempfile.mkdtemp()
         outdir = os.path.join(outdir, 'annotations')
@@ -269,6 +271,7 @@ class Mask:
         clippings = self.clippings
         threads = ThreadPoolExecutor()
 
+        # there is one iteration for each tile for each surface
         total: int = (
             clippings
             .groupby('itile surface'.split())
@@ -303,12 +306,16 @@ class Mask:
             figsize = (img.shape[1] / dpi, img.shape[0] / dpi)
 
             for itile, clipping in clippings.groupby('itile', sort=False):
+                # determine bounds and outpath
                 outpath = OUTPATH[itile]
                 top = TOP[itile]
                 left = LEFT[itile]
                 bottom = BOTTOM[itile]
                 right = RIGHT[itile]
 
+                # configure the figure--I tried to create
+                # copies of fig & ax but this caused errors
+                # one figure per tile
                 fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
                 plt.box(False)
                 fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
@@ -317,6 +324,7 @@ class Mask:
                 ax.set_ylim(bottom, top)
                 ax.set_facecolor('black')
 
+                # for each surface in the tile, plot
                 for surface, tile in clipping.groupby('surface', sort=False):
                     tile: GeoDataFrame
                     color = self.config[surface].color
