@@ -1,15 +1,10 @@
 from __future__ import annotations
 
-import requests
-from urllib.parse import urlparse
-import tempfile
-
-import copy
 import itertools
 import json
 import os.path
 import pickle
-import timeit
+import tempfile
 from collections import *
 from concurrent.futures import *
 from functools import *
@@ -32,7 +27,6 @@ from tile2net.raster.tile import Tile
 
 if False:
     from tile2net.raster import Raster
-    import folium
 
 
 class Surface(dict):
@@ -67,108 +61,25 @@ class Config(dict):
 
 
 class Mask:
-    """
-    clip()
-    for cls in clses:
-        plot()
-    """
 
     def __init__(self, raster: Raster, config: str | Path | dict):
         self.raster = raster
         self.config = config
 
-    @staticmethod
-    def download(path: str, url: str) -> str:
-        if os.path.exists(path):
-            return path
-
-        with requests.get(url, stream=True) as response:
-            response.raise_for_status()
-            with open(path, 'wb') as file:
-                for chunk in response.iter_content(chunk_size=8192):
-                    file.write(chunk)
-
-        return path
-
-    @cached_property
-    def url_paths(self) -> dict[str, str]:
-        threads = ThreadPoolExecutor()
-        directory = tempfile.mkdtemp()
-        url_paths: dict[str, str] = {}
-        files: set[str] = set()
-        # todo: we have to accept lists of urls
-        for name, surface in self.config.items():
-            url = surface.path
-            if isinstance(url, Path):
-                url = str(url)
-            if not isinstance(url, str):
-                continue
-            if urlparse(url).scheme in ('http', 'https'):
-                if url in url_paths:
-                    continue
-                parsed_url = urlparse(url)
-                filename = os.path.basename(parsed_url.path)
-                filepath = os.path.join(directory, filename)
-                url_paths[url] = filepath
-                files.add(filepath)
-
-        paths_urls: dict[str, str] = {
-            path: url
-            for url, path in url_paths.items()
-        }
-
-        for _ in threads.map(self.download, paths_urls.keys(), paths_urls.values()):
-            ...
-
-        return url_paths
-
-    @cached_property
-    def url_paths(self) -> dict[str, str]:
-        """ download missing files and map urls to paths """
-        threads = ThreadPoolExecutor()
-        directory = tempfile.mkdtemp()
-        url_paths: dict[str, str] = {}
-
-        for name, surface in self.config.items():
-            url = surface.path
-            if isinstance(url, str):
-                urls = [url]
-            elif isinstance(url, (list, set, tuple)):
-                urls = url
-            else:
-                continue
-            for url in urls:
-                if urlparse(url).scheme in ('http', 'https'):
-                    if url in url_paths:
-                        continue
-                    parsed_url = urlparse(url)
-                    filename = os.path.basename(parsed_url.path)
-                    path = os.path.join(directory, filename)
-                    url_paths[url] = path
-
-        paths_urls: dict[str, str] = {
-            path: url
-            for url, path in url_paths.items()
-        }
-        futures = [
-            threads.submit(self.download, path, url)
-            for path, url in paths_urls.items()
-        ]
-        for future in futures:
-            future.result()
-
-        return url_paths
-
     @cached_property
     def geometry(self) -> GeoDataFrame:
+        """
+        In the config, 'path' may be str, collection of strs, or GeoDataFrame;
+        here we concat the various sources into a single GeoDataFrame
+        """
         threads = ThreadPoolExecutor()
         surface_paths: dict[str, set[str]] = defaultdict(set)
         surface_frame: dict[str, GeoDataFrame] = {}
         path_surfaces: dict[str, set[str]] = defaultdict(set)
         config = self.config
 
-        url_paths = self.url_paths
-
+        # paths might be shared between surfaces; avoid loading duplicates
+        # iterate across paths and map which frames each surface uses
         for name, surface in self.config.items():
             path = surface.path
 
@@ -176,14 +87,10 @@ class Mask:
                 path = str(path)
 
             if isinstance(path, str):
-                if urlparse(path).scheme in ('http', 'https'):
-                    path = url_paths[path]
                 surface_paths[name].add(path)
 
             elif isinstance(path, (list, tuple, set)):
                 for p in path:
-                    if urlparse(p).scheme in ('http', 'https'):
-                        p = url_paths[p]
                     surface_paths[name].add(p)
 
             elif isinstance(path, GeoDataFrame):
@@ -192,6 +99,7 @@ class Mask:
             else:
                 raise ValueError(f'unsupported type: {type(path)}')
 
+        # reverse the mapping so that instead of many-to-one it's one-to-many
         for surface, paths in surface_paths.items():
             for path in paths:
                 path_surfaces[path].add(surface)
@@ -215,6 +123,7 @@ class Mask:
         )
         paths_frames = list(paths_frames)
 
+        # generate a mapping of each surface to the frame it uses
         surface_frame.update({
             surface: frame
             for path, frame in paths_frames
@@ -229,6 +138,7 @@ class Mask:
             for surface, frame in surface_frame.items()
         }
 
+        # generate a list of frames to concatenate with the surface name
         concat: list[GeoDataFrame] = []
         for name, frame in surface_frame.items():
             frame: GeoDataFrame
@@ -237,6 +147,8 @@ class Mask:
                 usecols = slice(None)
             loc = np.zeros(len(frame), dtype=bool)
             surface = config[name]
+
+            # if user specified cols, mask where the cols are equal to the specification
             if isinstance(surface.col, dict):
                 for col, val in surface.col.items():
                     if isinstance(val, list):
@@ -259,6 +171,7 @@ class Mask:
 
     @config.setter
     def config(self, value):
+        # allows config to be a path to a .json file
         if isinstance(value, Path):
             value = str(value)
         if isinstance(value, str):
@@ -348,24 +261,6 @@ class Mask:
         matches.geometry = matches.intersection(tiles.geometry, align=False)
         return matches
 
-    @cached_property
-    def figax(self) -> tuple[plt.Figure, plt.Axes]:
-        img = self.raster.black.array
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        dpi = 1200
-        fig, ax = plt.subplots(
-            figsize=((img.shape[0] / float(dpi)), (img.shape[1] / float(dpi))))
-        plt.box(False)
-        fig.dpi = dpi
-        fig.tight_layout(pad=0)
-        fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
-        ax.margins(0)
-        ax.get_xaxis().set_visible(False)
-        ax.get_yaxis().set_visible(False)
-        ax.set_facecolor('black')
-
-        return fig, ax
-
     def to_directory(self, outdir: str | Path = None, ) -> Series[str]:
         if outdir is None:
             outdir = tempfile.mkdtemp()
@@ -438,191 +333,6 @@ class Mask:
         threads.shutdown()
         return outpaths
 
-    @classmethod
-    def from_example(cls):
-        from tile2net.raster.raster import Raster
-        raster = Raster(
-            # location='Cambridge, MA',
-            location='42.35725124845672, -71.09518965878434, 42.36809181753787, -71.07791143338436',
-            zoom=18,
-        )
-        rd = '/home/arstneio/Downloads/BASEMAP_Roads (1).geojson'
-        pl = '/home/arstneio/Downloads/BASEMAP_ParkingLots.shp/BASEMAP_ParkingLots.shp'
-        config = {
-            'parkinglot': {
-                'path': pl,
-                'usecols': ['geometry'],
-                'col': -1,
-                'color': 'grey',
-                'order': 10
-            },
-            'road': {
-                'path': rd,
-                'usecols': ['geometry', 'TYPE'],
-                'col': {'TYPE': ['RD-ALLEY', 'RD-UNPAVED', 'RD-PAVED']},
-                'color': 'green',
-                'order': 16
-            },
-            'median': {
-                'path': rd,
-                'usecols': ['geometry', 'TYPE'],
-                'col': {'TYPE': 'RD-TRAF-ISLAND'},
-                'color': 'black',
-                'order': 28
-            },
-            'alley': {
-                'path': rd,
-                'usecols': ['geometry', 'TYPE'],
-                'col': {'TYPE': 'RD-ALLEY'},
-                'color': 'bisque',
-                'order': 12
-            }
-        }
-        result = cls(raster, config)
-        return result
-
-
-class ClipMask(Mask):
-    # clipmask is slower
-    """
-    for cls in clses:
-        clip()
-        plot()
-    """
-
-    @cached_property
-    def clippings(self) -> GeoDataFrame:
-        tiles = self.tiles
-        concat: list[GeoDataFrame] = [
-            tiles
-            .clip(surface.geometry, keep_geom_type=False)
-            .assign(surface=name)
-            for name, surface in self.geometry.groupby('surface', sort=False)
-        ]
-        # noinspection PyTypeChecker
-        result: GeoDataFrame = pd.concat(concat).reset_index(drop=True)
-        return result
-
-
-class Comparison:
-    # todo: compare both runtime and appearance
-
-    # noinspection PyUnresolvedReferences
-    class Mask(Mask):
-        clippings = property(Mask.clippings.func)
-
-    # noinspection PyUnresolvedReferences
-    class ClipMask(ClipMask):
-        clippings = property(ClipMask.clippings.func)
-
-    def __init__(self, raster, config):
-        self.mask = self.Mask(raster, config)
-        self.clipmask = self.ClipMask(raster, config)
-        # save time by reusing the same geometry
-        self.config = self.clipmask.config = self.mask.config
-        self.clipmask.geometry = self.mask.geometry
-        # self.config = config
-
-    def runtime(self):
-        mask_time = timeit.timeit(lambda: self.mask.clippings)
-        clipmask_time = timeit.timeit(lambda: self.clipmask.clippings)
-        print(f"mask.clippings access time: {mask_time:.7f} seconds")
-        print(f"clipmask.clippings access time: {clipmask_time:.7f} seconds")
-
-    @cached_property
-    def MASK(self) -> GeoDataFrame:
-        return self.mask.clippings
-
-    @cached_property
-    def CLIPMASK(self) -> GeoDataFrame:
-        return self.clipmask.clippings
-
-    def explore(self, name=None, *args, **kwargs) -> folium.Map:
-        """
-        for each gdf, for each surface, plot geometry with color
-
-        """
-        import folium
-        kwargs.setdefault('tiles', 'cartodbdark_matter')
-        kwargs.setdefault('style_kwds', dict(weight=5, radius=5))
-        MASK = self.MASK['geometry surface itile'.split()].assign(source='mask')
-        CLIPMASK = self.CLIPMASK['geometry surface itile'.split()].assign(source='clipmask')
-        # noinspection PyTypeChecker
-        m: folium.Map = None
-        colors = iter('red yellow green orange blue purple brown pink'.split())
-        for name, surface in self.config.items():
-            surface: Surface
-            mask: GeoDataFrame = MASK.loc[MASK.surface == name]
-            clipmask: GeoDataFrame = CLIPMASK.loc[CLIPMASK.surface == name]
-            color = next(colors)
-            if len(mask):
-                m = mask.explore(
-                    color=color,
-                    *args,
-                    **kwargs,
-                    m=m,
-                    name=f'{name} Mask',
-                    show=False,
-                    overlay=True,
-                )
-            if len(clipmask):
-                m = clipmask.explore(
-                    color=color,
-                    *args,
-                    **kwargs,
-                    m=m,
-                    name=f'{name} ClipMask',
-                    show=False,
-                    overlay=True,
-                )
-        folium.LayerControl().add_to(m)
-
-        return m
-
-    @classmethod
-    def from_example(cls):
-        from tile2net.raster.raster import Raster
-        raster = Raster(
-            # location='Cambridge, MA',
-            location='42.35725124845672, -71.09518965878434, 42.36809181753787, -71.07791143338436',
-            zoom=18,
-        )
-        rd = '/home/arstneio/Downloads/BASEMAP_Roads (1).geojson'
-        pl = '/home/arstneio/Downloads/BASEMAP_ParkingLots.shp/BASEMAP_ParkingLots.shp'
-        config = {
-            'parkinglot': {
-                'path': pl,
-                'usecols': ['geometry'],
-                'col': -1,
-                'color': 'grey',
-                'order': 10
-            },
-            'road': {
-                'path': rd,
-                'usecols': ['geometry', 'TYPE'],
-                'col': {'TYPE': ['RD-ALLEY', 'RD-UNPAVED', 'RD-PAVED']},
-                'color': 'green',
-                'order': 16
-            },
-            'median': {
-                'path': rd,
-                'usecols': ['geometry', 'TYPE'],
-                'col': {'TYPE': 'RD-TRAF-ISLAND'},
-                'color': 'black',
-                'order': 28
-            },
-            'alley': {
-                'path': rd,
-                'usecols': ['geometry', 'TYPE'],
-                'col': {'TYPE': 'RD-ALLEY'},
-                'color': 'bisque',
-                'order': 12
-            }
-        }
-        comparison = cls(raster, config)
-        return comparison
-
-
 
 def label(
         self: Raster,
@@ -665,5 +375,23 @@ def label(
 
 
 if __name__ == '__main__':
-    files = Mask.from_example().to_directory()
-    files
+    from tile2net.raster import Raster
+
+    raster = Raster(
+        # location='Cambridge, MA',
+        location='42.35725124845672, -71.09518965878434, 42.36809181753787, -71.07791143338436',
+        zoom=18,
+    )
+    result = label(
+        raster,
+        config={
+            'road': {
+                'path': 'https://gis.cambridgema.gov/download/gdb/BASEMAP_Driveways.gdb.zip',
+                'usecols': ['geometry', 'TYPE'],
+                'col': {'TYPE': ['DRIVE-UNP', 'DRIVE-PAV', 'RD-PAVED']},
+                'color': 'green',
+                'order': 16
+            }
+        }
+    )
+    result
