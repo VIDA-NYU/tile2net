@@ -421,6 +421,7 @@ def label(
         self: Raster,
         config: str | Path | dict,
         outdir: str | Path = None,
+        stitch_step=None,
 ) -> Series[str]:
     """
     "Annotate," "mask," or "label" the tiles with ground truth data;
@@ -445,6 +446,8 @@ def label(
         ```
     outdir : str | Path
         the directory to save the labeled images to
+    stitch_step : int
+        if not None, the step to use when stitching tiles together
 
     Returns
     -------
@@ -452,6 +455,8 @@ def label(
         a series of paths to the labeled images, where the index
         is the idd of the tile
     """
+    if stitch_step is not None:
+        self.update(stitch_step)
     mask = Mask(self, config)
     result = mask.to_directory(outdir)
     return result
