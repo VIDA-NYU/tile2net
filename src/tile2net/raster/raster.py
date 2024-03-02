@@ -414,11 +414,12 @@ class Raster(Grid):
             Nothing is returned.
         """
         logger.info(f"Stitching {len(self.tiles):,} tiles...")
-        # self.stitch_step = step
-        # self.calculate_padding()
-        # self.update_tiles()
-        # self.download()
-        self.update(step)
+        self.stitch_step = step
+        self.calculate_padding()
+        self.update_tiles()
+        self.download()
+        # self.update(step)
+        self.download()
         self.project.tiles.stitched.path.mkdir(parents=True, exist_ok=True)
         if not (self.source or self.input_dir):
             raise RuntimeError(
@@ -965,3 +966,4 @@ if __name__ == '__main__':
     )
     raster.generate(2)
     raster.inference()
+    raster.stitched

@@ -334,6 +334,15 @@ class Mask:
         matches.geometry = matches.intersection(tiles.geometry, align=False)
         return matches
 
+    @cached_property
+    def black(self):
+        base_tilesize = self.raster.base_tilesize
+        step = self.raster.stitch_step
+        shape = base_tilesize * step, base_tilesize * step, 4
+        CANVAS = np.zeros(shape, dtype=np.uint8)
+        CANVAS[:, :, 3] = 255
+        return CANVAS
+
     def to_directory(self, outdir: str | Path = None, ) -> Series[str]:
         """
         For each tile, create a mask of the ground truth data and
@@ -375,7 +384,8 @@ class Mask:
 
         with tqdm(total=total, desc='creating annotation masks') as pbar:
             futures = []
-            img = self.raster.black.array
+            # img = self.raster.black.array
+            img = self.black
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             dpi = 1200
             figsize = (img.shape[1] / dpi, img.shape[0] / dpi)
@@ -470,6 +480,8 @@ if __name__ == '__main__':
         location='42.35725124845672, -71.09518965878434, 42.36809181753787, -71.07791143338436',
         zoom=18,
     )
+    raster.stitch(2)
+    raster.stitched
     raster.update(2)
     result = label(
         raster,
