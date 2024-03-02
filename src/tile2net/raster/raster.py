@@ -316,7 +316,6 @@ class Raster(Grid):
             self.boundary_path = boundary_path
             self.get_in_boundary(path=boundary_path)
 
-
         super().__init__(
             location=location,
             name=name,
@@ -386,9 +385,12 @@ class Raster(Grid):
         else:
             return False
 
-    """
-    Stitch Tiles
-    """
+    def update(self, step: int):
+        # Updates the Raster with the new step size; this is necessary
+        # when using the raster not to download or stitch but to label.
+        self.stitch_step = step
+        self.calculate_padding()
+        self.update_tiles()
 
     def stitch(self, step: int, force=False) -> None:
         """
@@ -412,10 +414,11 @@ class Raster(Grid):
             Nothing is returned.
         """
         logger.info(f"Stitching {len(self.tiles):,} tiles...")
-        self.stitch_step = step
-        self.calculate_padding()
-        self.update_tiles()
-        self.download()
+        # self.stitch_step = step
+        # self.calculate_padding()
+        # self.update_tiles()
+        # self.download()
+        self.update(step)
         self.project.tiles.stitched.path.mkdir(parents=True, exist_ok=True)
         if not (self.source or self.input_dir):
             raise RuntimeError(
@@ -441,7 +444,6 @@ class Raster(Grid):
         indices = (
             indices
             # iterate by step to get the top left tile of each new merged tile
-            # [:r:step, :c:step]
             [::step, ::step]
             # reshape to broadcast so offsets can be added
             .reshape((-1, 1, 1))
@@ -628,6 +630,7 @@ class Raster(Grid):
                 except requests.exceptions.RequestException as e:
                     logger.error(f"Request to {url} failed: {e}")
                     return -1
+
             # futures = threads.map(lambda url: session.head(url).status_code, urls)
             futures = threads.map(head, urls)
             codes = np.fromiter(futures, dtype=np.int32, count=len(urls))
@@ -943,7 +946,6 @@ class Raster(Grid):
         stops = steps[1:]
         # noinspection PyTypeChecker
         yield from map(range, starts, stops)
-
 
     @cached_property
     def extension(self):

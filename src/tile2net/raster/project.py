@@ -353,6 +353,26 @@ class Stitched(Directory):
         )
 
 
+class Annotated(Directory):
+    def files(self, tiles: ndarray = None) -> Iterator[str]:
+        if tiles is None:
+            tiles = self.project.raster.tiles
+        # path = Path(path)
+        # path.mkdir(parents=True, exist_ok=True)
+        # path = path.__fspath__()
+        R, C = np.meshgrid(
+            np.arange(tiles.shape[0]),
+            np.arange(tiles.shape[1]),
+            indexing='ij'
+        )
+        extension = self.project.raster.extension
+        for i, (r, c) in enumerate(zip(R.flat, C.flat)):
+            # yield os.path.join(path, f'{r}_{c}_{i}.{extension}')
+            yield f'{r}_{c}_{i}.{extension}'
+
+
+
+
 class Info(File):
     def __fspath__(self):
         raster = self.project.raster
@@ -370,6 +390,7 @@ class Tiles(Directory):
     info = Info('.json')
     static = Static()
     stitched = Stitched()
+    annotated = Annotated()
 
 
 class StructureDict(UserDict):

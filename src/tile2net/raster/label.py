@@ -194,7 +194,14 @@ class Mask:
     @cached_property
     def tiles(self) -> GeoDataFrame:
         """GeoSeries of tile bboxes"""
-        tiles: list[Tile] = self.raster.tiles.ravel().tolist()
+        # tiles: list[Tile] = self.raster.tiles.ravel().tolist()
+        step = self.raster.stitch_step
+        tiles: list[Tile] = (
+            self.raster.tiles
+            # [::step, ::step]
+            .ravel()
+            .tolist()
+        )
         count = len(tiles)
 
         # this is one place where tile2net will benefit from
@@ -234,6 +241,74 @@ class Mask:
             'geometry': geometry,
             'ix': ix,
             'iy': iy,
+            'filename': filename,
+            'pw': pw,
+            'pn': pn,
+            'pe': pe,
+            'ps': ps,
+            'gn': gn,
+            'gs': gs,
+            'gw': gw,
+            'ge': ge,
+            'itile': itiles,
+        }, crs=3857, index=index)
+        return result
+
+    @cached_property
+    def tiles(self) -> GeoDataFrame:
+        raster = self.raster
+        step = raster.stitch_step
+        indices = np.arange(raster.tiles.size).reshape((raster.width, raster.height))
+        indices: ndarray = (
+            indices
+            # iterate by step to get the top left tile of each new merged tile
+            # [:r:step, :c:step]
+            [::step, ::step]
+            # reshape to broadcast so offsets can be added
+            .reshape((-1, 1, 1))
+            # add offsets to get the indices of the tiles to merge
+            .__add__(indices[:step, :step])
+            # flatten to get a list of merged tiles
+            .reshape((-1, step * step))
+        )
+        count = len(indices)
+        tiles = raster.tiles.ravel().tolist()
+
+        def fromiter(attr: str, item: int, dtype=float) -> ndarray:
+            I = (
+                square[item]
+                for square in indices
+            )
+            return np.fromiter((
+                tiles[i].__getattribute__(attr)
+                for i in I
+            ), dtype=dtype, count=count)
+
+        gn = fromiter('top', 0)
+        gs = fromiter('bottom', -1)
+        gw = fromiter('left', 0)
+        ge = fromiter('right', -1)
+
+        trans = (
+            pyproj.Transformer
+            .from_crs(4326, 3857, always_xy=True)
+            .transform
+        )
+        pw, pn = trans(gw, gn)
+        pe, ps = trans(ge, gs)
+
+        # vectorized some data about the tiles to be used
+        geometry = shapely.box(pw, ps, pe, pn)
+        # index = Index(itiles, name='itile')
+        filename = self.raster.project.tiles.annotated.files(
+            raster.tiles[::step, ::step],
+        )
+        filename = list(filename)
+        itiles = np.arange(len(filename))
+        index = Index(itiles, name='itile')
+
+        result = GeoDataFrame({
+            'geometry': geometry,
             'filename': filename,
             'pw': pw,
             'pn': pn,
@@ -390,6 +465,7 @@ if __name__ == '__main__':
         location='42.35725124845672, -71.09518965878434, 42.36809181753787, -71.07791143338436',
         zoom=18,
     )
+    raster.update(2)
     result = label(
         raster,
         config={
