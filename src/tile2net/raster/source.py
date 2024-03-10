@@ -340,6 +340,7 @@ class SpringHillTN(ArcGis):
     keyword = 'Spring Hill'
 
 class Virginia(ArcGis):
+    """Data from https://vgin.vdem.virginia.gov/pages/orthoimagery"""
     server = "https://gismaps.vdem.virginia.gov/arcgis/rest/services/VBMP_Imagery/MostRecentImagery_WGS/MapServer/"
     name = "va"
     keyword = "Virginia"
