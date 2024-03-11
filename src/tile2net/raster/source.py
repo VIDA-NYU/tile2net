@@ -60,6 +60,8 @@ class SourceMeta(ABCMeta):
             cls.__class__.coverage.geometry
             .to_crs(3857)
         )
+        if isinstance(item, str):
+            item = util.geocode(item)
         if isinstance(item, list):
             s, w, n, e = item
             display_name = util.reverse_geocode(item).casefold()
@@ -156,10 +158,11 @@ class Source(ABC, metaclass=SourceMeta):
         super().__init_subclass__()
 
     def __eq__(self, other):
-        if isinstance(other, str):
-            return self.name == other
-        if isinstance(other, Source):
-            return self.__class__ == other.__class__
+        if (
+            isinstance(other, Source)
+            or isinstance(other, SourceMeta)
+        ):
+            return self.name == other.name
         return NotImplemented
 
 class class_attr:
@@ -339,18 +342,23 @@ class SpringHillTN(ArcGis):
     name = 'sh_tn'
     keyword = 'Spring Hill'
 
+class Virginia(ArcGis):
+    """Data from https://vgin.vdem.virginia.gov/pages/orthoimagery"""
+    server = "https://gismaps.vdem.virginia.gov/arcgis/rest/services/VBMP_Imagery/MostRecentImagery_WGS/MapServer/"
+    name = "va"
+    keyword = "Virginia"
 
 if __name__ == '__main__':
-    from tile2net import Raster
-    # when testing, comment out super().
-    assert Raster(location='New Brunswick, New Jersey').source == 'nj'
-    assert Raster(location='New York City').source == 'nyc'
-    assert Raster(location='New York').source in ('nyc', 'ny')
-    assert Raster(location='Massachusetts').source == 'ma'
-    assert Raster(location='King County, Washington').source == 'king'
-    assert Raster(location='Washington, DC', zoom=19).source == 'dc'
-    assert Raster(location='Los Angeles', zoom=19).source == 'la'
-    assert Raster(location='Jersey City', zoom=19).source == 'nj'
-    assert Raster(location='Hoboken', zoom=19).source == 'nj'
-    assert Raster(location="Spring Hill, TN", zoom=20).source == "sh_tn"
+    assert Source['New Brunswick, New Jersey'] == NewJersey
+    assert Source['New York City'] == NewYorkCity
+    assert Source['New York'] in (NewYorkCity, NewYork)
+    assert Source['Massachusetts'] == Massachusetts
+    assert Source['King County, Washington'] == KingCountyWashington
+    assert Source['Washington, DC'] == WashingtonDC
+    assert Source['Los Angeles'] == LosAngeles
+    assert Source['Jersey City'] == NewJersey
+    assert Source['Hoboken'] == NewJersey
+    assert Source["Spring Hill, TN"] == SpringHillTN
+    assert Source['Oregon'] == Oregon
+
 

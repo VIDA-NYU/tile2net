@@ -69,7 +69,7 @@ def geocode(location) -> list[float]:
                 list
             )
         except (ValueError, AttributeError):  # fails if address or list
-            logger.info(f"Geocoding {location}, this may take awhile...")
+            logger.info(f"Geocoding {location}, this may take a while...")
             nom: geopy.Location = Nominatim(user_agent='tile2net').geocode(location, timeout=None)
             if nom is None:
                 raise ValueError(f"Could not geocode '{location}'")
@@ -92,7 +92,7 @@ def geocode(location) -> list[float]:
 
 def reverse_geocode(location: list[float]) -> str:
     # from bbox, get address of centroid
-    logger.info(f"Geocoding {location}, this may take awhile...")
+    logger.info(f"Geocoding {location}, this may take a while...")
     # nom: geopy.Location = Nominatim(user_agent='tile2net').reverse(location, timeout=None)
     y = (location[0] + location[2]) / 2
     x = (location[1] + location[3]) / 2
@@ -128,7 +128,7 @@ def name_from_location(location: str | list[float, str]):
             (location[0] + location[2]) / 2,
             (location[1] + location[3]) / 2,
         )
-        logger.info(f"Geocoding {centroid}, this may take awhile...")
+        logger.info(f"Geocoding {centroid}, this may take a while...")
         nom: geopy.Location = Nominatim(user_agent='tile2net').reverse(centroid, timeout=None)
         logger.info(f"Geocoded '{centroid}' to\n\t'{nom.raw['display_name']}'")
         location = nom.raw['display_name']
