@@ -360,5 +360,6 @@ if __name__ == '__main__':
     assert Source['Hoboken'] == NewJersey
     assert Source["Spring Hill, TN"] == SpringHillTN
     assert Source['Oregon'] == Oregon
+    assert Source['Virginia'] == Virginia
 
 
