@@ -3,8 +3,6 @@ from __future__ import annotations, absolute_import, division
 import concurrent.futures
 from typing import Optional
 
-import time
-
 import numpy
 
 """
@@ -32,10 +30,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 """
 
-from geopandas import GeoDataFrame, GeoSeries
-import itertools
-import torchvision.transforms as standard_transforms
-import torchvision.utils as vutils
+from geopandas import GeoDataFrame
 import pandas as pd
 import geopandas as gpd
 
@@ -46,8 +41,6 @@ import argh
 import torch
 from torch.utils.data import DataLoader
 import torch.distributed as dist
-from torch.cuda import amp
-from runx.logx import logx
 
 import tile2net.tileseg.network.ocrnet
 from tile2net.tileseg.config import assert_and_infer_cfg, cfg
@@ -178,9 +171,9 @@ def inference_(args: Namespace):
         Main Function
         """
         assert args.result_dir is not None, 'need to define result_dir arg'
-        logx.initialize(logdir=str(args.result_dir),
-                        tensorboard=True, hparams=vars(args),
-                        global_rank=args.global_rank)
+        # logx.initialize(logdir=str(args.result_dir),
+        #                 tensorboard=True, hparams=vars(args),
+        #                 global_rank=args.global_rank)
 
         # Set up the Arguments, Tensorboard Writer, Dataloader, Loss Fn, Optimizer
         assert_and_infer_cfg(args)
@@ -196,7 +189,7 @@ def inference_(args: Namespace):
                                     map_location=torch.device('cpu'))
             args.restore_net = True
             msg = "Loading weights from: checkpoint={}".format(args.model.snapshot)
-            logx.msg(msg)
+            logger.debug(msg)
 
         net = network.get_net(args, criterion)
         optim, scheduler = get_optimizer(args, net)
@@ -317,7 +310,7 @@ def inference_(args: Namespace):
                 break
 
             if val_idx % 20 == 0:
-                logx.msg(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
+                logger.debug(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
 
         if testing:
             if grid:
@@ -407,11 +400,11 @@ class Inference:
         optim: torch.optim.sgd.SGD
         args = self.args
 
-        logx.initialize(
-            logdir=str(args.result_dir),
-            tensorboard=True, hparams=vars(args),
-            global_rank=args.global_rank
-        )
+        # logx.initialize(
+        #     logdir=str(args.result_dir),
+        #     tensorboard=True, hparams=vars(args),
+        #     global_rank=args.global_rank
+        # )
 
         assert_and_infer_cfg(args)
         prep_experiment(args)
@@ -550,7 +543,7 @@ class Inference:
                 break
 
             if val_idx % 20 == 0:
-                logx.msg(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
+                logger.debug(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
 
         if testing:
             if grid:
@@ -651,7 +644,7 @@ class Inference:
 #                     break
 #
 #                 if val_idx % 20 == 0:
-#                     logx.msg(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
+#                     logger.debug(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
 #
 #
 #             if testing and grid:
@@ -775,6 +768,8 @@ if __name__ == '__main__':
     --interactive
     --dump_percent 100
     """
+    import warnings
+    warnings.filterwarnings('error', 'CRS not set', UserWarning)
     from tile2net import Raster, Tile
 
     argh.dispatch_command(inference)

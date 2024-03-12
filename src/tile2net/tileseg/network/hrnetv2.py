@@ -20,7 +20,7 @@ import torch.nn.functional as F
 
 from tile2net.tileseg.network.mynn import Norm2d
 from tile2net.logger import logger
-from runx.logx import logx
+from tile2net.logger import logger
 from tile2net.tileseg.config import cfg
 
 
@@ -130,19 +130,19 @@ class HighResolutionModule(nn.Module):
         if num_branches != len(num_blocks):
             error_msg = 'NUM_BRANCHES({}) <> NUM_BLOCKS({})'.format(
                 num_branches, len(num_blocks))
-            logx.msg(error_msg)
+            logger.debug(error_msg)
             raise ValueError(error_msg)
 
         if num_branches != len(num_channels):
             error_msg = 'NUM_BRANCHES({}) <> NUM_CHANNELS({})'.format(
                 num_branches, len(num_channels))
-            logx.msg(error_msg)
+            logger.debug(error_msg)
             raise ValueError(error_msg)
 
         if num_branches != len(num_inchannels):
             error_msg = 'NUM_BRANCHES({}) <> NUM_INCHANNELS({})'.format(
                 num_branches, len(num_inchannels))
-            logx.msg(error_msg)
+            logger.debug(error_msg)
             raise ValueError(error_msg)
 
     def _make_one_branch(self, branch_index, block, num_blocks, num_channels,
@@ -456,7 +456,7 @@ class HighResolutionNet(nn.Module):
         if pretrained is None:
             pretrained = cfg.MODEL.HRNET_CHECKPOINT
 
-        # logx.msg('=> init weights from normal distribution')
+        # logger.debug('=> init weights from normal distribution')
         logger.info('init weights from normal distribution')
         for name, m in self.named_modules():
             if any(part in name for part in {'cls', 'aux', 'ocr'}):
@@ -470,7 +470,7 @@ class HighResolutionNet(nn.Module):
         if os.path.isfile(pretrained):
             pretrained_dict = torch.load(pretrained,
                                          map_location={'cuda:0': 'cpu'})
-            # logx.msg('=> loading pretrained model {}'.format(pretrained))
+            # logger.debug('=> loading pretrained model {}'.format(pretrained))
             logger.info('loading pretrained model {}'.format(pretrained))
             model_dict = self.state_dict()
             pretrained_dict = {k.replace('last_layer',

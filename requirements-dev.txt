@@ -21,7 +21,6 @@ torchvision
 argh==0.28
 coolname
 tabulate
-tensorboardx
 packaging
 torchaudio
 runx
