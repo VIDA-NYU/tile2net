@@ -9,8 +9,8 @@ from typing import *
 
 import shapely
 from geopy.geocoders import Nominatim
+from tile2net.logger import logger
 
-from magicpandas.logger.logger import logger
 
 
 class cached:
