@@ -1,7 +1,7 @@
 argh==0.29.4
 centerline==1.0.1
 coolname==2.2.0
-gdown==5.0.0
+gdown
 geopandas==0.14.2
 geopy==2.4.1
 imageio==2.33.1
