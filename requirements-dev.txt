@@ -18,7 +18,7 @@ tqdm
 torch
 torchvision
 
-argh==0.29.4
+argh==0.28
 coolname
 tabulate
 tensorboardx

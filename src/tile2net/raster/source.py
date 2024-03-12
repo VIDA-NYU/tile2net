@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import TypeVar, Type, Optional, Iterator
 
 import functools
 import json
@@ -77,7 +78,10 @@ class SourceNotFound(Exception):
     ...
 
 
-def not_found_none[T](func: T) -> T:
+T = TypeVar('T')
+
+
+def not_found_none(func: T) -> T:
     @wraps(func)
     def wrapper(*args, **kwargs):
         try:
@@ -162,7 +166,6 @@ class SourceMeta(ABCMeta):
             )
         if len(matches) == 1:
             return cls.catalog[matches.index[0]]()
-
 
         # bboxs = matches.intersection(geocode.polygon).area
         # bboxs /= matches.area

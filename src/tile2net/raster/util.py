@@ -86,6 +86,7 @@ def geocode(location) -> list[float]:
         list,
         round_loc,
         southwest_northeast,
+        tuple
     )
     return location
 
