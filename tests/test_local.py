@@ -8,7 +8,8 @@ def test_small():
         location='Washington Square Park, New York, NY, USA',
         zoom=19,
         # dump_percent=1,
-        name='small'
+        # name='small'
+        name='tiny'
     )
 
     raster.generate(2)
