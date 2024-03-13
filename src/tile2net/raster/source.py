@@ -6,7 +6,7 @@ import json
 import pathlib
 import warnings
 from abc import ABC, ABCMeta
-from functools import *
+from functools import cached_property, wraps
 from typing import Iterator, Optional, Type
 from weakref import WeakKeyDictionary
 
