@@ -22,6 +22,7 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 """
+from __future__ import annotations, absolute_import, division
 import os
 import numpy
 from geopandas import GeoDataFrame, GeoSeries
@@ -90,12 +91,12 @@ def inference_(args: Namespace):
     ):
         weights.path.mkdir(parents=True, exist_ok=True)
         logging.info(
-            "Downloading weights for segmentation, this may take a while..."
+                "Downloading weights for segmentation, this may take a while..."
         )
         weights.download()
         logging.info("Weights downloaded.")
 
-    args.best_record = {'epoch': -1, 'iter': 0, 'val_loss': 1e10, 'acc': 0,
+    args.best_record = {'epoch'  : -1, 'iter': 0, 'val_loss': 1e10, 'acc': 0,
                         'acc_cls': 0, 'mean_iu': 0, 'fwavacc': 0}
 
     # Enable CUDNN Benchmarking optimization
@@ -139,6 +140,7 @@ def inference_(args: Namespace):
         # print('Using CPU.')
         logger.info('Using CPU. This is not recommended for inference.')
         args.local_rank = -1  # Indicating CPU usage
+
 
     def run_inference(args=args, rasterfactory=None):
         """
@@ -271,14 +273,14 @@ def inference_(args: Namespace):
 
                 # pred.update({img_names[0]: dict(zip(values, counts))})
                 dumper.dump(
-                    {'gt_images': labels, 'input_images': input_images, 'img_names': img_names,
-                     'assets': assets},
-                    val_idx, testing=True, grid=grid)
+                        {'gt_images': labels, 'input_images': input_images, 'img_names': img_names,
+                         'assets'   : assets},
+                        val_idx, testing=True, grid=grid)
             else:
-                dumper.dump({'gt_images': labels,
+                dumper.dump({'gt_images'   : labels,
                              'input_images': input_images,
-                             'img_names': img_names,
-                             'assets': assets}, val_idx)
+                             'img_names'   : img_names,
+                             'assets'      : assets}, val_idx)
 
             if val_idx > 5 and args.options.test_mode:
                 break
@@ -292,8 +294,8 @@ def inference_(args: Namespace):
                 polys = grid.ntw_poly
                 # net = PedNet(polys, grid.project)
                 net = PedNet(
-                    poly=polys,
-                    project=grid.project,
+                        poly=polys,
+                        project=grid.project,
                 )
                 net.convert_whole_poly2line()
 
@@ -420,20 +422,20 @@ class Inference:
         match args.model.eval:
             case 'test':
                 self.validate(
-                    val_loader, net, criterion=None, optim=None, epoch=0,
-                    calc_metrics=False, dump_assets=args.dump_assets,
-                    dump_all_images=True, testing=True, grid=city_data,
-                    args=args,
+                        val_loader, net, criterion=None, optim=None, epoch=0,
+                        calc_metrics=False, dump_assets=args.dump_assets,
+                        dump_all_images=True, testing=True, grid=city_data,
+                        args=args,
                 )
                 return 0
 
             case 'folder':
                 # Using a folder for evaluation means to not calculate metrics
                 self.validate(
-                    val_loader, net, criterion=criterion_val, optim=optim, epoch=0,
-                    calc_metrics=False, dump_assets=args.dump_assets,
-                    dump_all_images=True,
-                    args=args,
+                        val_loader, net, criterion=criterion_val, optim=optim, epoch=0,
+                        calc_metrics=False, dump_assets=args.dump_assets,
+                        dump_all_images=True,
+                        args=args,
                 )
                 return 0
 
@@ -469,10 +471,10 @@ class Inference:
         gdfs: list[GeoDataFrame] = []
 
         self.dumper = dumper = self.Dumper(
-            val_len=len(val_loader),
-            dump_all_images=dump_all_images,
-            dump_assets=dump_assets,
-            args=args,
+                val_len=len(val_loader),
+                dump_all_images=dump_all_images,
+                dump_assets=dump_assets,
+                args=args,
         )
 
         net.eval()
@@ -485,16 +487,16 @@ class Inference:
 
             # Run network
             assets, _iou_acc = eval_minibatch(
-                data, net, criterion, val_loss, calc_metrics, args, val_idx,
+                    data, net, criterion, val_loss, calc_metrics, args, val_idx,
             )
             iou_acc += _iou_acc
             input_images, labels, img_names, _ = data
 
             dumpdict = dict(
-                gt_images=labels,
-                input_images=input_images,
-                img_names=img_names,
-                assets=assets,
+                    gt_images=labels,
+                    input_images=input_images,
+                    img_names=img_names,
+                    assets=assets,
             )
             if testing:
                 # prediction = assets['predictions'][0]
@@ -525,7 +527,7 @@ class Inference:
                 if not gdfs:
                     poly_network = gpd.GeoDataFrame()
                     logging.warning(
-                        f'No polygons were dumped'
+                            f'No polygons were dumped'
                     )
                 else:
                     poly_network = pd.concat(gdfs)
@@ -693,15 +695,15 @@ class RemoteInference(Inference):
         it_exists = threads.map(os.path.exists, paths)
         predictions = threads.map(np.load, paths)
         it_polygons = (
-            self.Dumper.map_features(tile, prediction, img_array=True)
-            for tile, prediction, exists in zip(grid.tiles.ravel(), predictions, it_exists)
-            if exists
+                self.Dumper.map_features(tile, prediction, img_array=True)
+                for tile, prediction, exists in zip(grid.tiles.ravel(), predictions, it_exists)
+                if exists
         )
 
         gdfs = [
-            polygons
-            for polygons in it_polygons
-            if polygons is not None
+                polygons
+                for polygons in it_polygons
+                if polygons is not None
         ]
         logger.debug(f'{len(gdfs)} polygons dumped')
         if not len(gdfs):
@@ -710,7 +712,7 @@ class RemoteInference(Inference):
         if not gdfs:
             poly_network = gpd.GeoDataFrame()
             logging.warning(
-                f'No polygons were dumped'
+                    f'No polygons were dumped'
             )
         else:
             poly_network = pd.concat(gdfs)
