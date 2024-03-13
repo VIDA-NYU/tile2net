@@ -22,8 +22,14 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 """
+import os
+import numpy
+from geopandas import GeoDataFrame, GeoSeries
 
-from __future__ import annotations, absolute_import, division
+import pandas as pd
+import geopandas as gpd
+
+import sys
 
 import argh
 import concurrent.futures
@@ -106,58 +112,33 @@ def inference_(args: Namespace):
 
     num_gpus = torch.cuda.device_count()
     if num_gpus > 1:
-        # Distributed training setup
-
-        args.world_size = int(os.environ.get('WORLD_SIZE', num_gpus))
-        dist.init_process_group(backend='nccl', init_method='env://')
-        args.local_rank = dist.get_rank()
-        torch.cuda.set_device(args.local_rank)
-        args.distributed = True
-        args.global_rank = int(os.environ['RANK'])
-        # print(f'Using distributed training with {args.world_size} GPUs.')
-        logger.info(f'Using distributed training with {args.world_size} GPUs.')
+        if args.eval == 'test':
+            # Single GPU setup
+            logger.info('Using a single GPU.')
+            args.local_rank = 0
+            torch.cuda.set_device(args.local_rank)
+        else:
+            # Distributed training setup
+            if "RANK" not in os.environ:
+                raise ValueError("You need to launch the process with torch.distributed.launch to \
+                set RANK environment variable")
+            args.world_size = int(os.environ.get('WORLD_SIZE', num_gpus))
+            dist.init_process_group(backend='nccl', init_method='env://')
+            args.local_rank = dist.get_rank()
+            torch.cuda.set_device(args.local_rank)
+            args.distributed = True
+            args.global_rank = int(os.environ['RANK'])
+            logger.info(f'Using distributed training with {args.world_size} GPUs.')
     elif num_gpus == 1:
         # Single GPU setup
-        logger.info('Using a single GPU.')
         args.local_rank = 0
         torch.cuda.set_device(args.local_rank)
+        logger.info('Using a single GPU.')
     else:
         # CPU setup
         # print('Using CPU.')
-        logger.info('Using CPU.')
+        logger.info('Using CPU. This is not recommended for inference.')
         args.local_rank = -1  # Indicating CPU usage
-
-    # if 'WORLD_SIZE' in os.environ and args.model.apex:
-    #     # args.model.apex = int(os.environ['WORLD_SIZE']) > 1
-    #     args.world_size = int(os.environ['WORLD_SIZE'])
-    #     args.global_rank = int(os.environ['RANK'])
-
-    # if args.model.apex:
-    #     print('Global Rank: {} Local Rank: {}'.format(
-    #         args.global_rank, args.local_rank))
-    #     torch.cuda.set_device(args.local_rank)
-    #     torch.distributed.init_process_group(backend='nccl',
-    #                                          init_method='env://')
-
-    # def check_termination(epoch):
-    #     if AutoResume:
-    #         shouldterminate = AutoResume.termination_requested()
-    #         if shouldterminate:
-    #             if args.global_rank == 0:
-    #                 progress = "Progress %d%% (epoch %d of %d)" % (
-    #                     (epoch * 100 / args.max_epoch),
-    #                     epoch,
-    #                     args.max_epoch
-    #                 )
-    #                 AutoResume.request_resume(
-    #                     user_dict={"RESUME_FILE": logx.save_ckpt_fn,
-    #                                "TENSORBOARD_DIR": args.result_dir,
-    #                                "EPOCH": str(epoch)
-    #                                }, message=progress)
-    #                 return 1
-    #             else:
-    #                 return 1
-    #     return 0
 
     def run_inference(args=args, rasterfactory=None):
         """
@@ -398,7 +379,6 @@ class Inference:
         #     tensorboard=True, hparams=vars(args),
         #     global_rank=args.global_rank
         # )
-
         assert_and_infer_cfg(args)
         prep_experiment(args)
         train_loader, val_loader, train_obj = datasets.setup_loaders(args)
