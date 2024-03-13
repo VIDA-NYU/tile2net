@@ -217,7 +217,7 @@ class ImgWtLossSoftNLL(nn.Module):
         weights[ignore_mask] = 1
 
         loss = 0
-        target_cpu = target.data.cpu().numpy()
+        target_cpu = target.detach().cpu().numpy()
 
         if self.batch_weights:
             class_weights = self.calculate_weights(target_cpu)
@@ -344,7 +344,7 @@ class EdgeWeightedCrossEntropyLoss2d(nn.Module):
 
     def forward(self, inputs, targets, edges):
 
-        target_cpu = targets.data.cpu().numpy()
+        target_cpu = targets.detach().cpu().numpy()
         if self.batch_weights:
             weights = self.calculateWeights(target_cpu)
             self.nll_loss.weight = torch.Tensor(weights).cuda()

@@ -176,8 +176,9 @@ def eval_minibatch(data, net, criterion, val_loss, calc_metrics, args, val_idx):
         if 'attn_' in item:
             assets[item] = output_dict[item]
         if 'pred_' in item:
+            #computesoftmax for each class
             smax = torch.nn.functional.softmax(output_dict[item], dim=1)
-            _, pred = smax.data.max(1)
+            _, pred = smax.detach().max(1)
             assets[item] = pred.cpu().numpy()
 
     predictions = predictions.numpy()
@@ -300,8 +301,9 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=Tr
         #define assests based on the eval_minibatch function
         assets = {}
         for item in output_dict:
-            smax = torch.nn.functional.softmax(output_dict[item],dim=1)
-            _, pred = smax.data.max(1)
+            #compute softmax for each class
+            smax = torch.nn.functional.softmax(output_dict[item], dim=1)
+            _, pred = smax.detach().max(1)
             assets[item] = pred.cpu().numpy()
             #print(assets)
 
