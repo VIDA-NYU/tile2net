@@ -330,9 +330,6 @@ class Inference:
     Dumper = ThreadedDumper
 
     def __init__(self, args: Namespace):
-        print('inference....')
-        # print to stderr
-        print('hello world', file=sys.stderr)
         self.args = args
         if args.dump_percent:
             if not os.path.exists(args.result_dir):
@@ -694,7 +691,7 @@ class LocalDumper(ThreadedDumper):
         # write the segmentation to assets
         future = self.threads.submit(np.save, tile.segmentation, src_img)
         self.futures.append(future)
-        result =  super().map_features(tile, src_img, img_array=img_array)
+        result = super().map_features(tile, src_img, img_array=img_array)
         for future in self.futures:
             future.result()
         return result
@@ -771,8 +768,4 @@ if __name__ == '__main__':
     --interactive
     --dump_percent 100
     """
-    import warnings
-    warnings.filterwarnings('error', 'CRS not set', UserWarning)
-    from tile2net import Raster, Tile
-
     argh.dispatch_command(inference)
