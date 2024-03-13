@@ -1221,7 +1221,7 @@ class CentroidCorners:
                         p = Point(points[i])
 
                         if true_angle(a, b, c) is True:
-                            distance = centroid.dist(
+                            distance = centroid.distance(
                                 p
                             )  # calculate distance point - centroid
                             distances.append(distance)  # add distance to the list
@@ -1235,7 +1235,7 @@ class CentroidCorners:
                         p = Point(points[i])
 
                         if true_angle(a, b, c) is True:
-                            distance = centroid.dist(p)
+                            distance = centroid.distance(p)
                             distances.append(distance)
                         else:
                             continue

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import weakref
-from functools import cached_property, wraps
+from functools import *
 
 import copy
 import inspect

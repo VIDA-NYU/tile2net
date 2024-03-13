@@ -29,14 +29,12 @@ POSSIBILITY OF SUCH DAMAGE.
 
 Null Loader
 """
-from tile2net.tileseg.config import cfg
-from tile2net.logger import logger
-from datasets.base_loader import BaseLoader
-from datasets.utils import make_dataset_folder
-from datasets import uniform
 import numpy as np
 import torch
-from torch.utils import data
+
+from tile2net.tileseg.config import cfg
+from tile2net.tileseg.datasets.base_loader import BaseLoader
+
 
 class Loader(BaseLoader):
     """
