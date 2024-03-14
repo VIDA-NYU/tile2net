@@ -16,7 +16,7 @@ try it on is very different from the US context. However, the required training 
 what would otherwise be needed. We are planning to also provide a detailed tutorial about training the model on your
 data, but at this moment, we only support inference.
 
-### Supported Regions {#supported-regions}
+### Supported Regions 
 
 | Country | State/Province | Entire State/ Province | County Data   | City/Town Data  |
 |---------|----------------|-----------------------|---------------|------------------|
@@ -26,6 +26,8 @@ data, but at this moment, we only support inference.
 | USA     | NY             | TRUE                  |               | NYC (higher res) |
 | USA     | NJ             | TRUE                  |               |                  |
 | USA     | OR             | TRUE                  |               |                  |
+| USA     | TN             | FALSE                 |               | Spring Hill      |
+| USA     | VA             | TRUE                  |               |                  |
 | USA     | WA             | FALSE                 | KING          |                  |
 
 
