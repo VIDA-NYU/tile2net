@@ -347,26 +347,32 @@ class Inference:
 
         num_gpus = torch.cuda.device_count()
         if num_gpus > 1:
-            # Distributed training setup
-
-            args.world_size = int(os.environ.get('WORLD_SIZE', num_gpus))
-            dist.init_process_group(backend='nccl', init_method='env://')
-            args.local_rank = dist.get_rank()
-            torch.cuda.set_device(args.local_rank)
-            args.distributed = True
-            args.global_rank = int(os.environ['RANK'])
-            # print(f'Using distributed training with {args.world_size} GPUs.')
-            logger.info(f'Using distributed training with {args.world_size} GPUs.')
+            if args.eval == 'test':
+                # Single GPU setup
+                logger.info('Using a single GPU.')
+                args.local_rank = 0
+                torch.cuda.set_device(args.local_rank)
+            else:
+                # Distributed training setup
+                if "RANK" not in os.environ:
+                    raise ValueError("You need to launch the process with torch.distributed.launch to \
+                    set RANK environment variable")
+                args.world_size = int(os.environ.get('WORLD_SIZE', num_gpus))
+                dist.init_process_group(backend='nccl', init_method='env://')
+                args.local_rank = dist.get_rank()
+                torch.cuda.set_device(args.local_rank)
+                args.distributed = True
+                args.global_rank = int(os.environ['RANK'])
+                logger.info(f'Using distributed training with {args.world_size} GPUs.')
         elif num_gpus == 1:
             # Single GPU setup
-            # print('Using a single GPU.')
-            logger.info('Using a single GPU.')
             args.local_rank = 0
             torch.cuda.set_device(args.local_rank)
+            logger.info('Using a single GPU.')
         else:
             # CPU setup
             # print('Using CPU.')
-            logger.info('Using CPU.')
+            logger.info('Using CPU. This is not recommended for inference.')
             args.local_rank = -1  # Indicating CPU usage
 
         assert args.result_dir is not None, 'need to define result_dir arg'
