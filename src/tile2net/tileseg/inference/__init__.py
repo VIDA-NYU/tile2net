@@ -116,7 +116,7 @@ def inference_(args: Namespace):
 
     num_gpus = torch.cuda.device_count()
     if num_gpus > 1:
-        if args.eval == 'test':
+        if args.model.eval == 'test':
             # Single GPU setup
             logger.info('Using a single GPU.')
             args.local_rank = 0
@@ -222,7 +222,7 @@ def inference_(args: Namespace):
             return 0
 
         elif args.model.eval is not None:
-            raise 'unknown eval option {}'.format(args.eval)
+            raise 'unknown eval option {}'.format(args.model.eval)
 
     def validate(val_loader, net, criterion, optim, epoch,
                  args,
@@ -347,7 +347,7 @@ class Inference:
 
         num_gpus = torch.cuda.device_count()
         if num_gpus > 1:
-            if args.eval == 'test':
+            if args.model.eval == 'test':
                 # Single GPU setup
                 logger.info('Using a single GPU.')
                 args.local_rank = 0
@@ -450,7 +450,7 @@ class Inference:
                 return 0
 
             case _:
-                raise 'unknown eval option {}'.format(args.eval)
+                raise 'unknown eval option {}'.format(args.model.eval)
 
     def validate(
             self,
