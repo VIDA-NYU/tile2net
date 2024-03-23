@@ -1,11 +1,3 @@
-from __future__ import annotations, absolute_import, division
-
-import concurrent.futures
-from typing import Optional
-
-
-
-
 """
 Copyright 2020 Nvidia Corporation
 Redistribution and use in source and binary forms, with or without
@@ -30,6 +22,7 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 """
+from __future__ import annotations, absolute_import, division
 import os
 import numpy
 from geopandas import GeoDataFrame, GeoSeries
@@ -40,30 +33,34 @@ import geopandas as gpd
 import sys
 
 import argh
+import concurrent.futures
+import copy
+import geopandas as gpd
+import logging
+import numpy
+import numpy as np
+import os
+import pandas as pd
+import sys
 import torch
-from torch.utils.data import DataLoader
 import torch.distributed as dist
-from runx.logx import logx
+from geopandas import GeoDataFrame
+from torch.utils.data import DataLoader
+from typing import Optional
 
 import tile2net.tileseg.network.ocrnet
+from tile2net.logger import logger
+from tile2net.namespace import Namespace
+from tile2net.raster.pednet import PedNet
+from tile2net.tileseg import datasets
+from tile2net.tileseg import network
 from tile2net.tileseg.config import assert_and_infer_cfg, cfg
+from tile2net.tileseg.inference.commandline import commandline
+from tile2net.tileseg.loss.optimizer import get_optimizer, restore_opt, restore_net
+from tile2net.tileseg.loss.utils import get_loss
 from tile2net.tileseg.utils.misc import AverageMeter, prep_experiment
 from tile2net.tileseg.utils.misc import ImageDumper, ThreadedDumper
 from tile2net.tileseg.utils.trnval_utils import eval_minibatch
-from tile2net.tileseg.loss.utils import get_loss
-from tile2net.tileseg.loss.optimizer import get_optimizer, restore_opt, restore_net
-
-from tile2net.tileseg import datasets
-from tile2net.tileseg import network
-from tile2net.tileseg.inference.commandline import commandline
-from tile2net.namespace import Namespace
-from tile2net.logger import logger
-
-from tile2net.raster.pednet import PedNet
-import logging
-
-import numpy as np
-import copy
 
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 AutoResume = None
@@ -150,9 +147,9 @@ def inference_(args: Namespace):
         Main Function
         """
         assert args.result_dir is not None, 'need to define result_dir arg'
-        logx.initialize(logdir=str(args.result_dir),
-                        tensorboard=True, hparams=vars(args),
-                        global_rank=args.global_rank)
+        # logx.initialize(logdir=str(args.result_dir),
+        #                 tensorboard=True, hparams=vars(args),
+        #                 global_rank=args.global_rank)
 
         # Set up the Arguments, Tensorboard Writer, Dataloader, Loss Fn, Optimizer
         assert_and_infer_cfg(args)
@@ -168,7 +165,7 @@ def inference_(args: Namespace):
                                     map_location=torch.device('cpu'))
             args.restore_net = True
             msg = "Loading weights from: checkpoint={}".format(args.model.snapshot)
-            logx.msg(msg)
+            logger.debug(msg)
 
         net = network.get_net(args, criterion)
         optim, scheduler = get_optimizer(args, net)
@@ -289,7 +286,7 @@ def inference_(args: Namespace):
                 break
 
             if val_idx % 20 == 0:
-                logx.msg(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
+                logger.debug(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
 
         if testing:
             if grid:
@@ -385,12 +382,11 @@ class Inference:
         optim: torch.optim.sgd.SGD
         args = self.args
 
-        logx.initialize(
-                logdir=str(args.result_dir),
-                tensorboard=True, hparams=vars(args),
-                global_rank=args.global_rank
-        )
-
+        # logx.initialize(
+        #     logdir=str(args.result_dir),
+        #     tensorboard=True, hparams=vars(args),
+        #     global_rank=args.global_rank
+        # )
         assert_and_infer_cfg(args)
         prep_experiment(args)
         train_loader, val_loader, train_obj = datasets.setup_loaders(args)
@@ -528,7 +524,7 @@ class Inference:
                 break
 
             if val_idx % 20 == 0:
-                logx.msg(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
+                logger.debug(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
 
         if testing:
             if grid:
@@ -629,7 +625,7 @@ class Inference:
 #                     break
 #
 #                 if val_idx % 20 == 0:
-#                     logx.msg(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
+#                     logger.debug(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
 #
 #
 #             if testing and grid:
@@ -753,6 +749,4 @@ if __name__ == '__main__':
     --interactive
     --dump_percent 100
     """
-    from tile2net import Raster, Tile
-
     argh.dispatch_command(inference)

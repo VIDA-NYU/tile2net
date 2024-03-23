@@ -41,7 +41,7 @@ import argh
 import argh.constants
 import itertools
 import torch
-from runx.logx import logx
+from tile2net.logger import logger
 from toolz import pipe
 
 from tile2net.tileseg.config import cfg
@@ -57,10 +57,10 @@ def torch_version_float():
     version_re = re.search(r'^([0-9]+\.[0-9]+)', version_str)
     if version_re:
         version = float(version_re.group(1))
-        logx.msg(f'Torch version: {version}, {version_str}')
+        logger.debug(f'Torch version: {version}, {version_str}')
     else:
         version = 1.0
-        logx.msg(f'Can\'t parse torch version ({version}), assuming {version}')
+        logger.debug(f'Can\'t parse torch version ({version}), assuming {version}')
     return version
 
 

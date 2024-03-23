@@ -158,7 +158,7 @@ class ASDV3P(nn.Module):
             attn = attn_tensor[:, idx:idx+1, :, :]
             attn_1x_scale = scale_as(attn, x_1x)
             if output is None:
-                # logx.msg(f'ps[scale] shape {ps[scale].shape} '
+                # logger.debug(f'ps[scale] shape {ps[scale].shape} '
                 #         f'attn shape {attn_1x_scale.shape}')
                 output = ps[scale] * attn_1x_scale
             else:
