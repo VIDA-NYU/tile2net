@@ -152,7 +152,8 @@ commandline = compose_left(
     arg(
         '--eval', type=str,
         # default='test',
-        help='just run evaluation, can be set to val or trn, test or folder'
+        help='just run evaluation, can be set to val or trn, test or folder',
+        dest='model.eval',
     ),
     arg(
 

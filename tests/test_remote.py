@@ -17,5 +17,7 @@ def test_small():
     raster.generate(2)
     raster.inference('--remote', '--debug')
 
+
 if __name__ == '__main__':
     test_small()
+
