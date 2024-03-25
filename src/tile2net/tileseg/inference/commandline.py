@@ -1,14 +1,18 @@
-import argparse
-from typing import Optional
+import functools
+from tile2net.raster.util import compose_left
+import inspect
 
 import argh
-from toolz import compose_left
+import argparse
+from functools import partial
+from functools import wraps
 
+import toolz
+
+from tile2net.namespace import Namespace
 
 arg = argparse.ArgumentParser().add_argument
 globals()['arg'] = argh.arg
-from tile2net.raster.project import Project
-from tile2net.namespace import Namespace
 
 
 commandline = compose_left(
@@ -329,3 +333,5 @@ commandline = compose_left(
         '--remote', action='store_true'
     ),
 )
+
+

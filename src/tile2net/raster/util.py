@@ -1,4 +1,5 @@
 import inspect
+import functools
 import json
 import os
 import time
@@ -143,6 +144,18 @@ def name_from_location(location: str | list[float, str]):
         )
         return name
     raise TypeError(f"location must be str or list, not {type(location)}")
+
+def compose_left(*functions):
+    def decorator(func):
+        result = (
+            toolz
+            .compose_left(*functions)
+            (func)
+        )
+        functools.update_wrapper(result, func)
+        return result
+    return decorator
+
 
 if __name__ == '__main__':
     print(name_from_location('New York, NY, USA'))

@@ -314,7 +314,6 @@ class Raster(Grid):
             self.boundary_path = boundary_path
             self.get_in_boundary(path=boundary_path)
 
-
         super().__init__(
             location=location,
             name=name,
@@ -626,6 +625,7 @@ class Raster(Grid):
                 except requests.exceptions.RequestException as e:
                     logger.error(f"Request to {url} failed: {e}")
                     return -1
+
             # futures = threads.map(lambda url: session.head(url).status_code, urls)
             futures = threads.map(head, urls)
             codes = np.fromiter(futures, dtype=np.int32, count=len(urls))
@@ -824,10 +824,7 @@ class Raster(Grid):
     # Todo: how to change which inference is run?
 
     # @validate
-    def inference(
-            self,
-            *args: str,
-    ):
+    def inference(self, *args: str, ):
         """
         runs the inference on the tiles
 
@@ -941,7 +938,6 @@ class Raster(Grid):
         stops = steps[1:]
         # noinspection PyTypeChecker
         yield from map(range, starts, stops)
-
 
     @cached_property
     def extension(self):

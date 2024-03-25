@@ -108,6 +108,12 @@ class Immutability:
             raise AttributeError(
                 f'Attempted to set "{key}" to "{value}", but AttrDict is immutable'
             )
+
+        if not hasattr(self.__class__, key):
+            raise AttributeError(
+                f'class {self.__class__.__name__} has no attribute {key}'
+            )
+
         super().__setattr__(key, value)
 
 # class AttrDesc(Immutability, AttrDict):
@@ -126,6 +132,8 @@ class Immutability:
 
 class AttrDesc(Immutability):
     _mutable = '_instance _owner'.split()
+    _instance = None
+    _owner = None
 
     def __get__(self, instance, owner):
         self._instance = instance
@@ -133,10 +141,17 @@ class AttrDesc(Immutability):
         return self
 
     def __set_name__(self, owner, name):
-        self._name = name
+        self.__name__ = name
 
     def __repr__(self):
-        return self._name
+        return self.__name__
+
+    def __setattr__(self, key, value):
+        if not hasattr(self.__class__, key):
+            raise AttributeError(
+                f'class {self.__class__.__name__} has no attribute {key}'
+            )
+
 
 
 class Options(AttrDesc):
