@@ -108,12 +108,6 @@ class Immutability:
             raise AttributeError(
                 f'Attempted to set "{key}" to "{value}", but AttrDict is immutable'
             )
-
-        if not hasattr(self.__class__, key):
-            raise AttributeError(
-                f'class {self.__class__.__name__} has no attribute {key}'
-            )
-
         super().__setattr__(key, value)
 
 # class AttrDesc(Immutability, AttrDict):
@@ -132,8 +126,6 @@ class Immutability:
 
 class AttrDesc(Immutability):
     _mutable = '_instance _owner'.split()
-    _instance = None
-    _owner = None
 
     def __get__(self, instance, owner):
         self._instance = instance
@@ -472,6 +464,8 @@ class Namespace(
     local = False
     remote = False
 
+    _functions_stack = []
+
     @cached_property
     def torch_version(self):
         return torch_version_float()
@@ -483,26 +477,36 @@ class Namespace(
 
     # noinspection PyMissingConstructor
     def __init__(self, **kwargs):
-        logger.debug('Namespace.__init__')
-        # parse nested attributes
-        class SetAttr(NamedTuple):
-            obj: object
-            name: str
-            value: Any
 
+        # logger.debug('Namespace.__init__')
+        # # parse nested attributes
+        # class SetAttr(NamedTuple):
+        #     obj: object
+        #     name: str
+        #     value: Any
+        #
+        #
+        # # noinspection PyTypeChecker
+        # stack = list(map(SetAttr, itertools.repeat(self), kwargs.keys(), kwargs.values()))
+        # while stack:
+        #     struct = stack.pop()
+        #     if struct.value is None:
+        #         continue
+        #     if '.' in struct.name:
+        #         name, rest = struct.name.split('.', maxsplit=1)
+        #         obj = getattr(struct.obj, name)
+        #         stack.append(SetAttr(obj, rest, struct.value))
+        #     else:
+        #         setattr(*struct)
 
-        # noinspection PyTypeChecker
-        stack = list(map(SetAttr, itertools.repeat(self), kwargs.keys(), kwargs.values()))
-        while stack:
-            struct = stack.pop()
-            if struct.value is None:
-                continue
-            if '.' in struct.name:
-                name, rest = struct.name.split('.', maxsplit=1)
-                obj = getattr(struct.obj, name)
-                stack.append(SetAttr(obj, rest, struct.value))
-            else:
-                setattr(*struct)
+        for key, value in kwargs.items():
+            *gets, last = key.split('.')
+            obj = self
+            for get in gets:
+                obj = getattr(obj, get)
+            if not hasattr(obj, last):
+                raise AttributeError(f'{obj} has no attribute {last}')
+            setattr(obj, last, value)
 
         project = None
         if (
