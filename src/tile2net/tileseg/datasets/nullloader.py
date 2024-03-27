@@ -30,7 +30,7 @@ POSSIBILITY OF SUCH DAMAGE.
 Null Loader
 """
 from tile2net.tileseg.config import cfg
-from runx.logx import logx
+from tile2net.logger import logger
 from datasets.base_loader import BaseLoader
 from datasets.utils import make_dataset_folder
 from datasets import uniform

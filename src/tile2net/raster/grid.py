@@ -76,7 +76,7 @@ class BaseRegion:
 
     def __decode_address(self):
         if not isinstance(self.location, str):
-            if isinstance(self.location, list):
+            if isinstance(self.location, (list, tuple)):
                 return 1
             else:
                 raise TypeError(

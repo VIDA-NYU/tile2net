@@ -35,7 +35,7 @@ from tile2net.logger import logger
 import torch
 
 from torch import optim
-from runx.logx import logx
+from tile2net.logger import logger
 
 from tile2net.tileseg.config import cfg
 from tile2net.tileseg.loss.radam import RAdam
@@ -103,7 +103,7 @@ def load_weights(net, optimizer, snapshot_file, restore_optimizer_bool=False):
     """
     Load weights from snapshot file
     """
-    # logx.msg("Loading weights from model {}".format(snapshot_file))
+    # logger.debug("Loading weights from model {}".format(snapshot_file))
     logger.info("Loading weights from model {}".format(snapshot_file))
     net, optimizer = restore_snapshot(net, optimizer, snapshot_file, restore_optimizer_bool)
     return net, optimizer
@@ -114,7 +114,7 @@ def restore_snapshot(net, optimizer, snapshot, restore_optimizer_bool):
     Restore weights and optimizer (if needed ) for resuming job.
     """
     checkpoint = torch.load(snapshot, map_location=torch.device('cpu'))
-    logx.msg("Checkpoint Load Compelete")
+    logger.debug("Checkpoint Load Compelete")
     if optimizer is not None and 'optimizer' in checkpoint and restore_optimizer_bool:
         optimizer.load_state_dict(checkpoint['optimizer'])
 
@@ -150,7 +150,7 @@ def forgiving_state_restore(net, loaded_dict):
         if new_k in loaded_dict and net_state_dict[k].size() == loaded_dict[new_k].size():
             new_loaded_dict[k] = loaded_dict[new_k]
         else:            
-            logx.msg("Skipped loading parameter {}".format(k))
+            logger.debug("Skipped loading parameter {}".format(k))
     net_state_dict.update(new_loaded_dict)
     net.load_state_dict(net_state_dict)
     return net

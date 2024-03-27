@@ -60,7 +60,7 @@ class SourceMeta(ABCMeta):
             cls.__class__.coverage.geometry
             .to_crs(3857)
         )
-        if isinstance(item, list):
+        if isinstance(item, (list, tuple)):
             s, w, n, e = item
             display_name = util.reverse_geocode(item).casefold()
             # noinspection PyTypeChecker

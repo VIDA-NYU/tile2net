@@ -1,13 +1,6 @@
-import functools
-from tile2net.raster.util import compose_left
-import inspect
+import argparse
 
 import argh
-import argparse
-from functools import partial
-from functools import wraps
-
-import toolz
 
 from tile2net.namespace import Namespace
 

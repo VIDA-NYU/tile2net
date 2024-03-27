@@ -43,7 +43,7 @@ import argh
 import torch
 from torch.utils.data import DataLoader
 import torch.distributed as dist
-# from runx.logx import logx
+# from tile2net.logger import logger
 
 import tile2net.tileseg.network.ocrnet
 from tile2net.tileseg.config import assert_and_infer_cfg, cfg
@@ -167,7 +167,7 @@ from tile2net.raster.project import Project
 #                                     map_location=torch.device('cpu'))
 #             args.restore_net = True
 #             msg = "Loading weights from: checkpoint={}".format(args.model.snapshot)
-#             logx.msg(msg)
+#             logger.debug(msg)
 #
 #         net = network.get_net(args, criterion)
 #         optim, scheduler = get_optimizer(args, net)
@@ -288,7 +288,7 @@ from tile2net.raster.project import Project
 #                 break
 #
 #             if val_idx % 20 == 0:
-#                 logx.msg(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
+#                 logger.debug(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
 #
 #         if testing:
 #             if grid:
@@ -384,11 +384,11 @@ class Inference:
         optim: torch.optim.sgd.SGD
         args = self.args
 
-        logx.initialize(
-                logdir=str(args.result_dir),
-                tensorboard=True, hparams=vars(args),
-                global_rank=args.global_rank
-        )
+        # logx.initialize(
+        #     logdir=str(args.result_dir),
+        #     tensorboard=True, hparams=vars(args),
+        #     global_rank=args.global_rank
+        # )
 
         assert_and_infer_cfg(args)
         prep_experiment(args)
@@ -527,7 +527,7 @@ class Inference:
                 break
 
             if val_idx % 20 == 0:
-                logx.msg(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
+                logger.debug(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
 
         if testing:
             if grid:
@@ -628,7 +628,7 @@ class Inference:
 #                     break
 #
 #                 if val_idx % 20 == 0:
-#                     logx.msg(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
+#                     logger.debug(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
 #
 #
 #             if testing and grid:
@@ -751,10 +751,7 @@ def func( *args, **kwargs ):
 
 if __name__ == '__main__':
     """
-    --city_info
-    /tmp/tile2net/washington_square_park/tiles/washington_square_park_256_info.json
-    --interactive
-    --dump_percent 100
+    --city_info /tmp/tile2net/washington_square_park/tiles/washington_square_park_256_info.json --interactive --dump_percent 10
     """
     from tile2net import Raster, Tile
 

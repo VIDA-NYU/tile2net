@@ -41,7 +41,7 @@ import argh
 import argh.constants
 import itertools
 import torch
-from runx.logx import logx
+from tile2net.logger import logger
 from toolz import pipe
 
 from tile2net.tileseg.config import cfg
@@ -57,10 +57,10 @@ def torch_version_float():
     version_re = re.search(r'^([0-9]+\.[0-9]+)', version_str)
     if version_re:
         version = float(version_re.group(1))
-        logx.msg(f'Torch version: {version}, {version_str}')
+        logger.debug(f'Torch version: {version}, {version_str}')
     else:
         version = 1.0
-        logx.msg(f'Can\'t parse torch version ({version}), assuming {version}')
+        logger.debug(f'Can\'t parse torch version ({version}), assuming {version}')
     return version
 
 
@@ -482,26 +482,6 @@ class Namespace(
 
     # noinspection PyMissingConstructor
     def __init__(self, **kwargs):
-        # logger.debug('Namespace.__init__')
-        # # parse nested attributes
-        # class SetAttr(NamedTuple):
-        #     obj: object
-        #     name: str
-        #     value: Any
-        #
-        #
-        # # noinspection PyTypeChecker
-        # stack = list(map(SetAttr, itertools.repeat(self), kwargs.keys(), kwargs.values()))
-        # while stack:
-        #     struct = stack.pop()
-        #     if struct.value is None:
-        #         continue
-        #     if '.' in struct.name:
-        #         name, rest = struct.name.split('.', maxsplit=1)
-        #         obj = getattr(struct.obj, name)
-        #         stack.append(SetAttr(obj, rest, struct.value))
-        #     else:
-        #         setattr(*struct)
 
         missing = []
         for key, value in kwargs.items():

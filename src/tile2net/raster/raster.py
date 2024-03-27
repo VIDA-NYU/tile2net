@@ -952,8 +952,7 @@ class Raster(Grid):
 
 if __name__ == '__main__':
     raster = Raster(
-        # location='Washington Square Park, New York, NY, USA',
-        location="42.35555189953313, -71.07168915322092, 42.35364837213307, -71.06437423368418",
+        location='Washington Square Park, New York, NY, USA',
         zoom=18,
         dump_percent=10,
     )
