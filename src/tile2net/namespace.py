@@ -126,6 +126,9 @@ class Immutability:
 
 class AttrDesc(Immutability):
     _mutable = '_instance _owner'.split()
+    _instance = None
+    _owner = None
+    __name__ = None
 
     def __get__(self, instance, owner):
         self._instance = instance
@@ -136,15 +139,10 @@ class AttrDesc(Immutability):
         self.__name__ = name
 
     def __repr__(self):
-        return self.__name__
-
-    def __setattr__(self, key, value):
-        if not hasattr(self.__class__, key):
-            raise AttributeError(
-                f'class {self.__class__.__name__} has no attribute {key}'
-            )
-
-
+        name = self.__name__
+        if not isinstance(name, str):
+            return super().__repr__()
+        return name
 
 class Options(AttrDesc):
     test_mode = None
@@ -269,11 +267,13 @@ class OcrExtra(AttrDesc):
         # noinspection PyTypeChecker
         return super().__get__(instance, owner)
 
+
 class Model(AttrDesc):
     ocr_extra = OcrExtra()
     ocr = Ocr()
 
     scale_min: float = None
+    scale_max: float = None
     align_corners = None
     alt_two_scale = None
     aspp_bot_ch = None
@@ -359,6 +359,8 @@ class Namespace(
 
     @assets_path.setter
     def assets_path(self, value):
+        if value is None:
+            return
         assets = self._assets_path = value
 
         self.dataset.centroid_root = os.path.join(assets, 'uniform_centroids')
@@ -386,6 +388,10 @@ class Namespace(
         self.dataset.centroid_root = os.path.join(assets, 'uniform_centroids')
         self.dataset.cityscapes_aug_dir = os.path.join(assets, 'data', 'Mapillary', 'data')
         self.dataset.satellite_dir = os.path.join(assets, 'satellite')
+
+    @assets_path.deleter
+    def assets_path(self):
+        del self._assets_path
 
     # result_dir: str = None
     result_dir: str = None
@@ -463,7 +469,6 @@ class Namespace(
     debug: bool = False
     local = False
     remote = False
-
     _functions_stack = []
 
     @cached_property
@@ -477,7 +482,6 @@ class Namespace(
 
     # noinspection PyMissingConstructor
     def __init__(self, **kwargs):
-
         # logger.debug('Namespace.__init__')
         # # parse nested attributes
         # class SetAttr(NamedTuple):
@@ -499,13 +503,21 @@ class Namespace(
         #     else:
         #         setattr(*struct)
 
+        missing = []
         for key, value in kwargs.items():
             *gets, last = key.split('.')
             obj = self
-            for get in gets:
-                obj = getattr(obj, get)
+            try:
+                for get in gets:
+                    obj = getattr(obj, get)
+            except AttributeError:
+                missing.append(key)
+                continue
             if not hasattr(obj, last):
-                raise AttributeError(f'{obj} has no attribute {last}')
+                missing.append(key)
+                continue
+            if value is None:
+                continue
             setattr(obj, last, value)
 
         project = None

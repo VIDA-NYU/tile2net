@@ -14,6 +14,7 @@ from tile2net.namespace import Namespace
 arg = argparse.ArgumentParser().add_argument
 globals()['arg'] = argh.arg
 
+from toolz import compose_left
 
 commandline = compose_left(
     argh.expects_obj,
@@ -108,7 +109,8 @@ commandline = compose_left(
     arg(
         '--bs_val', type=int,
         # default=1,
-        help='Batch size for Validation per gpu'
+        help='Batch size for Validation per gpu',
+        dest='model.bs_val',
     ),
     arg(
         '--restore_net', action='store_true',
@@ -235,7 +237,8 @@ commandline = compose_left(
     arg(
         '--rand_augment',
         # default=None,
-        help='RandAugment setting: set to \'N,M\''
+        help='RandAugment setting: set to \'N,M\'',
+        dest='model.rand_augment',
     ),
     # train
     arg(
@@ -250,13 +253,14 @@ commandline = compose_left(
         '--scale_min', type=float,
         # default=0.5,
         help='dynamically scale training images down to this size',
-
+        dest='model.scale_min',
     ),
     # train
     arg(
         '--scale_max', type=float,
         # default=2.0,
-        help='dynamically scale training images up to this size'
+        help='dynamically scale training images up to this size',
+        dest='model.scale_max',
     ),
     # train
     arg(
@@ -267,9 +271,8 @@ commandline = compose_left(
     # train
     arg(
         '--supervised_mscale_loss_wt', type=float,
-        # default=None,
         help='weighting for the supervised loss',
-        dest='loss.supervised_mscale_loss_wt',
+        dest='loss.supervised_mscale_wt',
     ),
     # train
     arg(

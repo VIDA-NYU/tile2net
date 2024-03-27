@@ -745,6 +745,10 @@ def inference(args: Namespace):
     return inference.inference()
 
 
+def func( *args, **kwargs ):
+    ...
+
+
 if __name__ == '__main__':
     """
     --city_info

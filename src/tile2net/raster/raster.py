@@ -821,7 +821,8 @@ class Raster(Grid):
             indent=4,
         )
 
-    # Todo: how to change which inference is run?
+    # todo: it would have ben better to not use subprocess.run however the default args are hard-coded
+    #   to the commandline wrapper, thus it's hard to do this without the commandline call
 
     # @validate
     def inference(self, *args: str, ):

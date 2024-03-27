@@ -3,7 +3,8 @@ from typing import Optional
 import argh
 from argh import arg
 
-from tile2net.raster.util import compose_left
+# from tile2net.raster.util import compose_left
+from toolz import compose_left
 
 commandline = compose_left(
     argh.expects_obj,
