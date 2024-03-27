@@ -43,7 +43,7 @@ import argh
 import torch
 from torch.utils.data import DataLoader
 import torch.distributed as dist
-from runx.logx import logx
+# from runx.logx import logx
 
 import tile2net.tileseg.network.ocrnet
 from tile2net.tileseg.config import assert_and_infer_cfg, cfg
