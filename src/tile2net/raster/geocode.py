@@ -1,4 +1,18 @@
 from __future__ import annotations
+import osmnx
+from pathlib import Path
+import numpy as np
+from numpy import ndarray
+from geopandas import GeoDataFrame, GeoSeries
+from pandas import IndexSlice as idx, Series, DataFrame, Index, MultiIndex, Categorical, CategoricalDtype
+import pandas as pd
+from pandas.core.groupby import DataFrameGroupBy, SeriesGroupBy
+import geopandas as gpd
+from functools import *
+from typing import *
+from types import *
+from shapely import *
+import magicpandas as magic
 
 import functools
 import weakref
@@ -10,7 +24,6 @@ from typing import *
 import shapely
 from geopy.geocoders import Nominatim
 from tile2net.logger import logger
-
 
 
 class cached:
@@ -120,6 +133,63 @@ class GeoCode:
         cls.cache[centroid] = result
         return result
 
+    @classmethod
+    def from_geometry(
+            cls,
+            geometry: str
+    ) -> Self:
+        result = cls()
+        if (
+                isinstance(geometry, (Path, str))
+                and '.' in geometry
+        ):
+            match str(geometry).split('.')[-1]:
+                case 'feather':
+                    geometry = gpd.read_feather(geometry)
+                case 'parquet':
+                    geometry = gpd.read_parquet(geometry)
+                case _:
+                    geometry = gpd.read_file(geometry)
+        elif isinstance(geometry, str):
+            geometry = osmnx.geocode(geometry)
+        elif isinstance(geometry, (GeoSeries, GeoDataFrame)):
+            result.geometry = GeoDataFrame(geometry)
+        else:
+            raise ValueError(
+                f"Could not infer geometry from '{geometry}'"
+            )
+        result.geometry = geometry
+        return result
+
+    @classmethod
+    def from_osm(cls, query: str):
+        centroid = osmnx.geocode(query)
+        result = cls.from_centroid(centroid)
+        return result
+
+    @classmethod
+    def from_frame(cls, frame: GeoDataFrame | str | Path) -> Self:
+        # if isinstance(frame, (str, Path)):
+        if isinstance(frame, Path):
+            frame = str(frame)
+        if isinstance(frame, str):
+            match frame.split('.')[-1]:
+                case 'feather':
+                    frame = gpd.read_feather(frame)
+                case 'parquet':
+                    frame = gpd.read_parquet(frame)
+                case _:
+                    frame = gpd.read_file(frame)
+        elif isinstance(frame, (GeoDataFrame, GeoSeries)):
+            frame = GeoDataFrame(frame)
+        else:
+            raise ValueError(
+                f"Could not infer frame from '{frame}'"
+            )
+        result = cls()
+        result.geometry = frame
+        return result
+
     @cached_property
     def nwse(self) -> tuple[float, ...]:
         logger.info(
@@ -179,3 +249,18 @@ class GeoCode:
     def polygon(self) -> shapely.Polygon:
         result = shapely.geometry.box(*self.wsen)
         return result
+
+    @cached_property
+    def geometry(self) -> GeoSeries:
+        return osmnx.geocode(self.address)
+
+
+if __name__ == '__main__':
+    # GeoCode.from_geometry('New York City')
+    # GeoCode.from_geometry('Washington Square Park, New York, NY, USA')
+    # GeoCode.from_geometry('40.70661915280362, -74.01066228152449')
+    # GeoCode.from_geometry('55 Exchange Pl #5, New York, NY 10005')
+    GeoCode.from_osm('New York City')
+    GeoCode.from_osm('Washington Square Park, New York, NY, USA')
+    GeoCode.from_osm('40.70661915280362, -74.01066228152449')
+    GeoCode.from_osm('55 Exchange Pl #5, New York, NY 10005')

@@ -6,6 +6,7 @@ from tile2net.raster.raster import Raster
 import tile2net.raster.source
 from tile2net.raster.source import Source
 import abc
+from tile2net.raster.geocode import GeoCode
 
 
 def test_small():
@@ -21,12 +22,6 @@ def test_small():
     raster.generate(2)
     raster.inference('--remote', '--debug')
 
-
-<<<<<<< HEAD
-if __name__ == '__main__':
-    test_small()
-
-=======
 def test_sources():
     import tile2net.raster.source as source
     from tile2net.raster.source import Source
@@ -93,8 +88,7 @@ def test_sources():
     assert Source['Maywood, California'] == source.LosAngeles
     assert Source['Maywood, CA'] == source.LosAngeles
 
-
 if __name__ == '__main__':
+    test_geocode()
     test_small()
     test_sources()
->>>>>>> pr55
