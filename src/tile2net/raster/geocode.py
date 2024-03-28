@@ -152,8 +152,6 @@ class GeoCode:
 
     @classmethod
     def from_osm(cls, query: str):
-        # centroid = osmnx.geocode(query)
-        # result = cls.from_centroid(centroid)
         geometry = osmnx.geocode_to_gdf(query)
         result = cls.from_frame(geometry)
         return result
