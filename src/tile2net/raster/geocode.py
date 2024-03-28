@@ -1,28 +1,17 @@
 from __future__ import annotations
-import osmnx
-from pathlib import Path
-import numpy as np
-from numpy import ndarray
-from geopandas import GeoDataFrame, GeoSeries
-from pandas import IndexSlice as idx, Series, DataFrame, Index, MultiIndex, Categorical, CategoricalDtype
-import pandas as pd
-from pandas.core.groupby import DataFrameGroupBy, SeriesGroupBy
-import geopandas as gpd
-from functools import *
-from typing import *
-from types import *
-from shapely import *
-import magicpandas as magic
 
 import functools
-import weakref
-
 import os.path
 from functools import cached_property
+from pathlib import Path
 from typing import *
 
+import geopandas as gpd
+import osmnx
 import shapely
+from geopandas import GeoDataFrame, GeoSeries
 from geopy.geocoders import Nominatim
+
 from tile2net.logger import logger
 
 
@@ -253,7 +242,6 @@ class GeoCode:
     @cached_property
     def geometry(self) -> GeoSeries:
         return osmnx.geocode(self.address)
-
 
 if __name__ == '__main__':
     # GeoCode.from_geometry('New York City')

@@ -1,12 +1,7 @@
-import os.path
-import shutil
-
-import pytest
-from tile2net.raster.raster import Raster
-import tile2net.raster.source
-from tile2net.raster.source import Source
 import abc
-from tile2net.raster.geocode import GeoCode
+
+import tile2net.raster.source
+from tile2net.raster.raster import Raster
 
 
 def test_small():
