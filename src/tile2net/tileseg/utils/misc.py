@@ -196,7 +196,7 @@ def eval_metrics(iou_acc, args, net, optim, val_loss, epoch, mf_score=None):
         'mean_iu': mean_iu,
         'command': ' '.join(sys.argv[1:])
     }
-    logx.save_model(save_dict, metric=mean_iu, epoch=epoch)
+    # logx.save_model(save_dict, metric=mean_iu, epoch=epoch)
     torch.cuda.synchronize()
 
     if mean_iu > args.best_record['mean_iu']:
@@ -471,7 +471,7 @@ class ImageDumper:
                 imgs_to_tensorboard = torch.stack(flattenned, 0)
                 imgs_to_tensorboard = vutils.make_grid(
                     imgs_to_tensorboard, nrow=num_per_row, padding=5)
-                logx.add_image('imgs', imgs_to_tensorboard, cfg.EPOCH)
+                # logx.add_image('imgs', imgs_to_tensorboard, cfg.EPOCH)
 
 
 def print_evaluate_results(hist, iu, epoch=0, iou_per_scale=None,
