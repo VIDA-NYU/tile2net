@@ -29,7 +29,7 @@ import json
 
 from collections import namedtuple
 from tile2net.tileseg.config import cfg
-from runx.logx import logx
+from tile2net.logger import logger
 from tile2net.tileseg.datasets.base_loader import BaseLoader
 from tile2net.tileseg.datasets.utils import make_dataset_folder
 from tile2net.tileseg.datasets import uniform
@@ -125,7 +125,7 @@ class Loader(BaseLoader):
             mask_root = os.path.join(root, split_name, 'annotations')
             self.all_imgs = self.find_images(img_root, mask_root, img_ext,
                                              mask_ext)
-        # logx.msg('all imgs {}'.format(len(self.all_imgs)))
+        # logger.debug('all imgs {}'.format(len(self.all_imgs)))
         logger.debug('all imgs {}'.format(len(self.all_imgs)))
         self.fine_centroids = uniform.build_centroids(self.all_imgs,
                                                       self.num_classes,

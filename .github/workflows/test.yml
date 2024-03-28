@@ -26,4 +26,7 @@ jobs:
           pip install .
 
       - name: Run tests
-        run: pytest -s ./tests/test_remote.py
+        run: |
+          pytest -s ./tests/test_remote.py
+          pytest -s ./tests/test_namespace.py
+

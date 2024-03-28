@@ -36,7 +36,7 @@ from torch.utils.data import DataLoader
 
 import tile2net.tileseg.transforms.joint_transforms as joint_transforms
 import tile2net.tileseg.transforms.transforms as extended_transforms
-from runx.logx import logx
+from tile2net.logger import logger
 
 from tile2net.tileseg.config import cfg, update_dataset_cfg, update_dataset_inst
 from tile2net.tileseg.datasets.randaugment import RandAugment
@@ -50,13 +50,13 @@ def setup_loaders(args):
     """
 
     # TODO add error checking to make sure class exists
-    #logx.msg(f'dataset = {args.dataset.dataset.name}')
+    #logger.debug(f'dataset = {args.dataset.dataset.name}')
     dataset = 'satellite'
     # mod = importlib.import_module('tile2net.tileseg.datasets.{}'.format(args.dataset.dataset.name))
     mod = importlib.import_module('tile2net.tileseg.datasets.{}'.format(dataset))
     dataset_cls = getattr(mod, 'Loader')
 
-    # logx.msg(f'ignore_label = {dataset_cls.ignore_label}')
+    # logger.debug(f'ignore_label = {dataset_cls.ignore_label}')
     logger.debug(f'ignore_label = {dataset_cls.ignore_label}')
 
     update_dataset_cfg(num_classes=dataset_cls.num_classes,

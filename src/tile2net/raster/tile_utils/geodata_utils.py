@@ -13,7 +13,6 @@ from affine import Affine
 
 import warnings
 
-warnings.filterwarnings('ignore')
 
 
 def read_gdf(path):

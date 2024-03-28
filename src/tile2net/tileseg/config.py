@@ -41,7 +41,7 @@ import re
 from tile2net.logger import logger
 
 import torch
-from runx.logx import logx
+from tile2net.logger import logger
 
 from tile2net.tileseg.utils.attr_dict import AttrDict
 from tile2net.raster.project import  Project
@@ -241,7 +241,6 @@ __C.VAL_FREQ = 1
 __C.DETERMINISTIC = False
 __C.SUMMARY = False
 __C.CALC_METRICS = True
-__C.SUPERVISED_MSCALE_LOSS_WT = None
 __C.OCR_AUX_LOSS_RMI = False
 __C.TAU_FACTOR = 1
 __C.TILE2NET = True
@@ -257,10 +256,10 @@ def torch_version_float():
     version_re = re.search(r'^([0-9]+\.[0-9]+)', version_str)
     if version_re:
         version = float(version_re.group(1))
-        # logx.msg(f'Torch version: {version}, {version_str}')
+        # logger.debug(f'Torch version: {version}, {version_str}')
     else:
         version = 1.0
-        # logx.msg(f'Can\'t parse torch version ({version}), assuming {version}')
+        # logger.debug(f'Can\'t parse torch version ({version}), assuming {version}')
     return version
 
 
@@ -296,7 +295,7 @@ def assert_and_infer_cfg(args, train_mode=True):
 
     if args.model.n_scales:
         cfg.MODEL.N_SCALES = str2list(args.model.n_scales)
-        logx.msg('n scales {}'.format(cfg.MODEL.N_SCALES))
+        logger.debug('n scales {}'.format(cfg.MODEL.N_SCALES))
 
     __C.RESULT_DIR = args.result_dir
 
@@ -316,7 +315,7 @@ def update_dataset_cfg(num_classes, ignore_label):
     cfg.immutable(False)
     cfg.DATASET.NUM_CLASSES = num_classes
     cfg.DATASET.IGNORE_LABEL = ignore_label
-    # logx.msg('num_classes = {}'.format(num_classes))
+    # logger.debug('num_classes = {}'.format(num_classes))
     logger.debug('num_classes = {}'.format(num_classes))
     cfg.immutable(True)
 
