@@ -152,8 +152,10 @@ class GeoCode:
 
     @classmethod
     def from_osm(cls, query: str):
-        centroid = osmnx.geocode(query)
-        result = cls.from_centroid(centroid)
+        # centroid = osmnx.geocode(query)
+        # result = cls.from_centroid(centroid)
+        geometry = osmnx.geocode_to_gdf(query)
+        result = cls.from_frame(geometry)
         return result
 
     @classmethod
@@ -241,7 +243,7 @@ class GeoCode:
 
     @cached_property
     def geometry(self) -> GeoSeries:
-        return osmnx.geocode(self.address)
+        return osmnx.geocode_to_gdf(self.address)
 
 if __name__ == '__main__':
     # GeoCode.from_geometry('New York City')
