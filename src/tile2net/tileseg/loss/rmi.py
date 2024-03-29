@@ -124,8 +124,8 @@ class RMILoss(nn.Module):
         rmi_loss = self.rmi_lower_bound(valid_onehot_labels_4D, probs_4D)
 
         # add together
-        #logx.msg(f'lambda_way {self.lambda_way}')
-        #logx.msg(f'bce_loss {bce_loss} weight_lambda {self.weight_lambda} rmi_loss {rmi_loss}')
+        #logger.debug(f'lambda_way {self.lambda_way}')
+        #logger.debug(f'bce_loss {bce_loss} weight_lambda {self.weight_lambda} rmi_loss {rmi_loss}')
         if self.lambda_way:
             final_loss = self.weight_lambda * bce_loss + rmi_loss * (1 - self.weight_lambda)
         else:
