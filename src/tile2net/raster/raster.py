@@ -61,7 +61,11 @@ class Black:
 
     @cached_property
     def path(self):
-        result: Path = self.owner.project.resources.path / 'black' / f'{self.owner.zoom}.png'
+        result: Path = (
+                self.owner.project.resources.path /
+                'black' /
+                f"{self.owner.base_tilesize}.png"
+        )
         result.parent.mkdir(parents=True, exist_ok=True)
         if not result.exists():
             imageio.v3.imwrite(result, self.array)
