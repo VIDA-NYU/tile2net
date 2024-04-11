@@ -41,6 +41,7 @@ from tile2net.raster.source import Source
 from tile2net.raster.input_dir import InputDir
 from tile2net.raster.validate import validate
 from tile2net.logger import logger
+import shutil
 
 PathLike = Union[str, _PathLike]
 
@@ -76,7 +77,7 @@ class Black:
 
     @cached_property
     def array(self):
-        return np.zeros((self.owner.base_tilesize, self.owner.base_tilesize, 3), dtype=np.uint8)
+        return np.zeros(( self.owner.base_tilesize, self.owner.base_tilesize, 3 ), dtype=np.uint8)
 
 
 class Raster(Grid):
@@ -645,8 +646,13 @@ class Raster(Grid):
                 logger.info(f'{loc.sum():,} tiles returned 404 from the server.')
             if loc.any():
                 src = self.black.__fspath__()
-                for path in paths[loc]:
-                    os.symlink(src, path)
+                assert os.path.exists(src)
+                try:
+                    for path in paths[loc]:
+                        os.symlink(src, path)
+                except PermissionError:
+                    for path in paths[loc]:
+                        shutil.copyfile(src, path)
                 logger.debug(
                     f'{loc.sum():,} tiles were not found and returned 404 from the server '
                     f'so they were set as symlinks to {src}.'
