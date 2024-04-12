@@ -245,6 +245,12 @@ class Raster(Grid):
         dump_percent : int
             percentage of the tiles to dump (default: None)
         """
+        print(
+            f'{location=}',
+            f'{input_dir=}',
+            f'{output_dir=}',
+            f'{name=}'
+        )
         global logger
         if debug:
             logger.setLevel(logging.DEBUG)
@@ -329,6 +335,18 @@ class Raster(Grid):
             padding=padding,
             output_dir=output_dir,
         )
+
+    # @property
+    # def source(self):
+    #     ...
+    #
+    # @source.setter
+    # def _(self, source):
+    #     if self.input_dir is not None:
+    #         raise ValueError(f'Cannot have both input_dir and source')
+    #     self.__dict__['source'] = source
+    #
+
 
     def __repr__(self):
         if self.boundary_path != -1:

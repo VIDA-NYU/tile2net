@@ -48,6 +48,8 @@ class InputDir:
     def __set__(self, instance: Raster, value: str | PathLike):
         if value is None:
             return
+        if instance.source is not None:
+            raise ValueError(f'Cannot set both source and input_dir')
         if isinstance(value, Path):
             value = str(value)
 

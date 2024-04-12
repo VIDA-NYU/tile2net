@@ -31,10 +31,10 @@ commandline = compose_left(
         '--num_class', help='The number of classes', default=4, type=int
     ),
     arg(
-        '--base_tilesize', help='The base tile size', default=256, type=int
+        '--base_tilesize', help='The base tile size', default=None, type=int
     ),
     arg(
-        '--zoom', '-z', help='The slippy zoom level', default=19, type=int)
+        '--zoom', '-z', help='The slippy zoom level', default=None, type=int)
     ,
     arg(
         '--crs', help='The coordinate reference system', default=4326, type=int

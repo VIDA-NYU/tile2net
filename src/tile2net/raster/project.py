@@ -342,8 +342,9 @@ class Stitched(Directory):
             indexing='ij'
         )
         extension = self.project.raster.extension
+        zoom = self.project.raster.zoom.__str__()
         for i, (r, c) in enumerate(zip(R.flat, C.flat)):
-            yield os.path.join(path, f'{r}_{c}_{i}.{extension}')
+            yield os.path.join(path, zoom, f'{r}_{c}_{i}.{extension}')
 
     def __fspath__(self):
         raster = self.project.raster
