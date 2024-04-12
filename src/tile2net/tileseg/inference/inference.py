@@ -292,7 +292,7 @@ class Inference:
                 break
 
             if val_idx % 20 == 0:
-                logger.debug(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
+                logger.info(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
 
         if testing:
             if grid:
