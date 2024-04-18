@@ -959,3 +959,4 @@ if __name__ == '__main__':
     )
     raster.generate(2)
     raster.inference()
+

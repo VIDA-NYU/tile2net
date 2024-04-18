@@ -373,6 +373,7 @@ class ImageDumper:
                 mask = mask.astype(np.uint8)
                 mask_pil = Image.fromarray(mask)
                 mask_pil = mask_pil.convert('RGB')
+                os.makedirs(self.save_dir, exist_ok=True)
                 mask_pil.save(mask_fn)
                 to_tensorboard.append(self.visualize(mask_pil))
 
@@ -578,7 +579,7 @@ class ThreadedDumper(ImageDumper):
         super().__init__(*args, **kwargs)
         self.futures: list[Future] = []
         self.threads = ThreadPoolExecutor()
-        os.makedirs(self.save_dir, exist_ok=True)
+        # os.makedirs(self.save_dir, exist_ok=True)
 
     def dump(self, dump_dict, val_idx, testing=None, grid=None):
 
@@ -665,6 +666,7 @@ class ThreadedDumper(ImageDumper):
         composited.paste(prediction_pil, (prediction_pil.width, 0))
         composited_fn = 'sidebside_{}.png'.format(img_name)
         composited_fn = os.path.join(self.save_dir, composited_fn)
+        os.makedirs(self.save_dir, exist_ok=True)
         # print(f'saving {composited_fn}')
         # composited.save(composited_fn)
         future = threads.submit(composited.save, composited_fn)

@@ -451,7 +451,7 @@ class LocalInference(Inference):
 
     def validate(self, *args, grid: Raster, **kwargs):
         # as a temporary solution just assign the segmentation path to the tile
-        grid.project.resources.segmentation.path.mkdir(exist_ok=True, parents=True)
+        # grid.project.resources.segmentation.path.mkdir(exist_ok=True, parents=True)
         for segmentation, tile in zip(
                 grid.project.resources.segmentation.files(),
                 grid.tiles.ravel(),

@@ -187,7 +187,6 @@ class Segmentation(Directory):
         if tiles is None:
             tiles = self.project.raster.tiles
         path = self.path
-        path.mkdir(parents=True, exist_ok=True)
         path = path.__fspath__()
         R, C = np.meshgrid(
             np.arange(tiles.shape[0]),
