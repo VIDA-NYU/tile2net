@@ -72,7 +72,7 @@ class Black:
 
     @cached_property
     def array(self):
-        return np.zeros((self.owner.base_tilesize, self.owner.base_tilesize, 3), dtype=np.uint8)
+        return np.zeros((self.owner.tile_size, self.owner.tile_size, 3), dtype=np.uint8)
 
 
 class Raster(Grid):

@@ -154,6 +154,7 @@ class PedNet():
             cw_explode = cw_union.explode().reset_index(drop=True)
             cw_explode = cw_explode[cw_explode.geometry.notna()].reset_index(drop=True)
             cw_explode_ = morpho_atts(cw_explode)
+            # polak = []
             for c, geom in enumerate(cw_explode_.geometry):
                 if geom.area < 5:
                     continue
@@ -163,6 +164,7 @@ class PedNet():
                     if cw_explode_.iloc[c, cw_explode_.columns.get_loc(cw_explode_.convexity.name)] < 0.8:
                         av_width = 4 * geom.area / geom.length
                         geom_er = geom.buffer(-av_width / 4)
+                        # polak.append(geom_er)
                         if geom_er.type == "MultiPolygon":
                             for g in list(geom_er.geoms):  # shapely 2
                                 if g.area > 2:
@@ -197,6 +199,7 @@ class PedNet():
                         else:
                             continue
                     else:
+                        # polak.append(geom)
                         line = get_crosswalk_cnl(geom)
                         if line.length < 8:
                             extended = self.make_longer(line, 0.8)
