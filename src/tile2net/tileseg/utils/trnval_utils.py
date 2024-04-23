@@ -33,7 +33,7 @@ from tile2net.tileseg.utils.misc import fast_hist, fmt_scale
 from tile2net.tileseg.utils.misc import AverageMeter, eval_metrics
 from tile2net.tileseg.utils.misc import metrics_per_image
 from tile2net.tileseg.utils.misc import ImageDumper
-from runx.logx import logx
+from tile2net.logger import logger
 
 
 def flip_tensor(x, dim):
@@ -93,7 +93,7 @@ def eval_minibatch(data, net, criterion, val_loss, calc_metrics, args, val_idx):
     if args.multi_scale_inference:
         scales.extend([float(x) for x in args.extra_scales.split(',')])
         if val_idx == 0:
-            logx.msg(f'Using multi-scale inference (AVGPOOL) with scales {scales}')
+            logger.debug(f'Using multi-scale inference (AVGPOOL) with scales {scales}')
 
     # input    = torch.Size([1, 3, h, w])
     # gt_image = torch.Size([1, h, w])
@@ -176,8 +176,9 @@ def eval_minibatch(data, net, criterion, val_loss, calc_metrics, args, val_idx):
         if 'attn_' in item:
             assets[item] = output_dict[item]
         if 'pred_' in item:
+            #computesoftmax for each class
             smax = torch.nn.functional.softmax(output_dict[item], dim=1)
-            _, pred = smax.data.max(1)
+            _, pred = smax.detach().max(1)
             assets[item] = pred.cpu().numpy()
 
     predictions = predictions.numpy()
@@ -209,7 +210,7 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=Tr
     ######################################################################
     # First pass
     ######################################################################
-    logx.msg('First pass')
+    logger.debug('First pass')
     image_metrics = {}
     dumper = ImageDumper(val_len=len(val_loader),
                          dump_all_images=dump_all_images,
@@ -237,7 +238,7 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=Tr
         iou_acc += _iou_acc
 
         if val_idx % 20 == 0:
-            logx.msg(f'validating[Iter: {val_idx + 1} / {len(val_loader)}]')
+            logger.debug(f'validating[Iter: {val_idx + 1} / {len(val_loader)}]')
 
         if val_idx > 5 and args.test_mode:
             break
@@ -263,7 +264,7 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=Tr
             worst_images[img_name][classid] = fail_pixels
             class_to_images[classid][img_name] = fail_pixels
     msg = str(worst_images)
-    logx.msg(msg)
+    logger.debug(msg)
 
     # write out per-gpu jsons
     # barrier
@@ -272,7 +273,7 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=Tr
     ######################################################################
     # 2nd pass
     ######################################################################
-    logx.msg('Second pass')
+    logger.debug('Second pass')
     attn_map = None
 
     for val_idx, data in enumerate(val_loader):
@@ -300,8 +301,9 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=Tr
         #define assests based on the eval_minibatch function
         assets = {}
         for item in output_dict:
-            smax = torch.nn.functional.softmax(output_dict[item],dim=1)
-            _, pred = smax.data.max(1)
+            #compute softmax for each class
+            smax = torch.nn.functional.softmax(output_dict[item], dim=1)
+            _, pred = smax.detach().max(1)
             assets[item] = pred.cpu().numpy()
             #print(assets)
 
@@ -317,7 +319,7 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=Tr
             input_images, gt_image, img_names, _ = data
             class_name = cfg.DATASET_INST.trainid_to_name[classid]
             error_pixels = worst_images[img_name][classid]
-            logx.msg(f'{img_name} {class_name}: {error_pixels}')
+            logger.debug(f'{img_name} {class_name}: {error_pixels}')
             img_names = [img_name + f'_{class_name}']
             #add assests
             assets['predictions'] = predictions.numpy()

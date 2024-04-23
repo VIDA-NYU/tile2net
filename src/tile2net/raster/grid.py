@@ -76,7 +76,7 @@ class BaseRegion:
 
     def __decode_address(self):
         if not isinstance(self.location, str):
-            if isinstance(self.location, list):
+            if isinstance(self.location, (list, tuple)):
                 return 1
             else:
                 raise TypeError(
@@ -134,7 +134,6 @@ class BaseGrid(BaseRegion):
     zoom: int = field(default=19)
     base_tilesize: int = field(default=256)
     padding: bool = field(default=True, repr=False)
-    tile_step: int = field(default=1, repr=False)
     tiles: np.ndarray = field(default_factory=lambda: np.array(Tile), init=False, repr=False)
 
     def __post_init__(self):
@@ -148,18 +147,18 @@ class BaseGrid(BaseRegion):
                     self.xtile + col_idx,
                     self.ytile + row_idx,
                     position=(
-                        int(col_idx / self.tile_step), int(row_idx / self.stitch_step)
+                        int(col_idx), int(row_idx)
                     ),
                     idd=self.pos2id(
-                        int(col_idx / self.tile_step), int(row_idx / self.stitch_step)
+                        int(col_idx), int(row_idx)
                     ),
                     zoom=self.zoom,
-                    size=self.tile_size,
+                    size=self.base_tilesize,
                     crs=self.crs
                 )
-                for row_idx in np.arange(0, self.base_height, self.tile_step)
+                for row_idx in np.arange(0, self.base_height)
             ]
-            for col_idx in np.arange(0, self.base_width, self.tile_step)
+            for col_idx in np.arange(0, self.base_width)
         ])
         self.pose_dict = {tile.idd: tile.position for col in self.tiles for tile in col}
         # due to the rounding issues with deg2num and num2deg, we do this calculation again
@@ -185,9 +184,6 @@ class BaseGrid(BaseRegion):
     def base_width(self):
         return abs(self.xtilem - self.xtile) + 1  # horizontal tiles (#columns)
 
-    @cached_property
-    def tile_size(self):
-        return self.base_tilesize * self.stitch_step
 
     def pos2id(self, col_idx: int, row_idx: int):
         """

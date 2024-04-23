@@ -54,7 +54,7 @@ from tile2net.tileseg.config import cfg
 from tile2net.namespace import Namespace
 from concurrent.futures import Future, ThreadPoolExecutor
 
-from runx.logx import logx
+from tile2net.logger import logger
 
 from geopandas import GeoDataFrame
 
@@ -184,8 +184,8 @@ def eval_metrics(iou_acc, args, net, optim, val_loss, epoch, mf_score=None):
         'acc_cls': acc_cls,
         'acc': acc,
     }
-    logx.metric('val', metrics, epoch)
-    logx.msg('Mean: {:2.2f}'.format(mean_iu * 100))
+    # logx.metric('val', metrics, epoch)
+    logger.debug('Mean: {:2.2f}'.format(mean_iu * 100))
 
     save_dict = {
         'epoch': epoch,
@@ -196,7 +196,7 @@ def eval_metrics(iou_acc, args, net, optim, val_loss, epoch, mf_score=None):
         'mean_iu': mean_iu,
         'command': ' '.join(sys.argv[1:])
     }
-    logx.save_model(save_dict, metric=mean_iu, epoch=epoch)
+    # logx.save_model(save_dict, metric=mean_iu, epoch=epoch)
     torch.cuda.synchronize()
 
     if mean_iu > args.best_record['mean_iu']:
@@ -211,19 +211,19 @@ def eval_metrics(iou_acc, args, net, optim, val_loss, epoch, mf_score=None):
         args.best_record['mean_iu'] = mean_iu
         args.best_record['epoch'] = epoch
 
-    logx.msg('-' * 107)
+    logger.debug('-' * 107)
     if mf_score is None:
         fmt_str = ('{:5}: [epoch {}], [val loss {:0.5f}], [acc {:0.5f}], '
                    '[acc_cls {:.5f}], [mean_iu {:.5f}], [fwavacc {:0.5f}]')
         current_scores = fmt_str.format('this', epoch, val_loss.avg, acc,
                                         acc_cls, mean_iu, fwavacc)
-        logx.msg(current_scores)
+        logger.debug(current_scores)
         best_scores = fmt_str.format(
             'best',
             args.best_record['epoch'], args.best_record['val_loss'],
             args.best_record['acc'], args.best_record['acc_cls'],
             args.best_record['mean_iu'], args.best_record['fwavacc'])
-        logx.msg(best_scores)
+        logger.debug(best_scores)
     else:
         fmt_str = ('{:5}: [epoch {}], [val loss {:0.5f}], [mask f1 {:.5f} ] '
                    '[acc {:0.5f}], '
@@ -231,15 +231,15 @@ def eval_metrics(iou_acc, args, net, optim, val_loss, epoch, mf_score=None):
         current_scores = fmt_str.format('this', epoch, val_loss.avg,
                                         mf_score.avg, acc,
                                         acc_cls, mean_iu, fwavacc)
-        logx.msg(current_scores)
+        logger.debug(current_scores)
         best_scores = fmt_str.format(
             'best',
             args.best_record['epoch'], args.best_record['val_loss'],
             args.best_record['mask_f1_score'],
             args.best_record['acc'], args.best_record['acc_cls'],
             args.best_record['mean_iu'], args.best_record['fwavacc'])
-        logx.msg(best_scores)
-    logx.msg('-' * 107)
+        logger.debug(best_scores)
+    logger.debug('-' * 107)
 
     return was_best
 
@@ -373,6 +373,7 @@ class ImageDumper:
                 mask = mask.astype(np.uint8)
                 mask_pil = Image.fromarray(mask)
                 mask_pil = mask_pil.convert('RGB')
+                os.makedirs(self.save_dir, exist_ok=True)
                 mask_pil.save(mask_fn)
                 to_tensorboard.append(self.visualize(mask_pil))
 
@@ -471,7 +472,7 @@ class ImageDumper:
                 imgs_to_tensorboard = torch.stack(flattenned, 0)
                 imgs_to_tensorboard = vutils.make_grid(
                     imgs_to_tensorboard, nrow=num_per_row, padding=5)
-                logx.add_image('imgs', imgs_to_tensorboard, cfg.EPOCH)
+                # logx.add_image('imgs', imgs_to_tensorboard, cfg.EPOCH)
 
 
 def print_evaluate_results(hist, iu, epoch=0, iou_per_scale=None,
@@ -493,7 +494,7 @@ def print_evaluate_results(hist, iu, epoch=0, iou_per_scale=None,
     iu_TP = np.diag(hist)
     # save the default hist
     # np.save(f'{cfg.RESULT_DIR}/cm_{epoch}.npy', hist)
-    logx.msg('IoU:')
+    logger.debug('IoU:')
 
     header = ['Id', 'label']
     header.extend([f'iU_{scale}' for scale in iou_per_scale])
@@ -516,16 +517,16 @@ def print_evaluate_results(hist, iu, epoch=0, iou_per_scale=None,
         class_data.append(iu_TP[class_id] / (iu_TP[class_id] + iu_FN[class_id] + eps))
         tabulate_data.append(class_data)
 
-        if log_multiscale_tb:
-            logx.add_scalar("xscale_%0.1f/%s" % (0.5, str(id2cat[class_id])),
-                            float(iou_per_scale[0.5][class_id] * 100), epoch)
-            logx.add_scalar("xscale_%0.1f/%s" % (1.0, str(id2cat[class_id])),
-                            float(iou_per_scale[1.0][class_id] * 100), epoch)
-            logx.add_scalar("xscale_%0.1f/%s" % (2.0, str(id2cat[class_id])),
-                            float(iou_per_scale[2.0][class_id] * 100), epoch)
+        # if log_multiscale_tb:
+        #     logx.add_scalar("xscale_%0.1f/%s" % (0.5, str(id2cat[class_id])),
+        #                     float(iou_per_scale[0.5][class_id] * 100), epoch)
+        #     logx.add_scalar("xscale_%0.1f/%s" % (1.0, str(id2cat[class_id])),
+        #                     float(iou_per_scale[1.0][class_id] * 100), epoch)
+        #     logx.add_scalar("xscale_%0.1f/%s" % (2.0, str(id2cat[class_id])),
+        #                     float(iou_per_scale[2.0][class_id] * 100), epoch)
 
     print_str = str(tabulate((tabulate_data), headers=header, floatfmt='1.2f'))
-    logx.msg(print_str)
+    logger.debug(print_str)
 
     # save the histogram in a table :
     class_names = [f"{id2cat[class_id]}" if class_id in id2cat else '' for class_id in range(len(iu))]
@@ -578,7 +579,7 @@ class ThreadedDumper(ImageDumper):
         super().__init__(*args, **kwargs)
         self.futures: list[Future] = []
         self.threads = ThreadPoolExecutor()
-        os.makedirs(self.save_dir, exist_ok=True)
+        # os.makedirs(self.save_dir, exist_ok=True)
 
     def dump(self, dump_dict, val_idx, testing=None, grid=None):
 
@@ -665,6 +666,7 @@ class ThreadedDumper(ImageDumper):
         composited.paste(prediction_pil, (prediction_pil.width, 0))
         composited_fn = 'sidebside_{}.png'.format(img_name)
         composited_fn = os.path.join(self.save_dir, composited_fn)
+        os.makedirs(self.save_dir, exist_ok=True)
         # print(f'saving {composited_fn}')
         # composited.save(composited_fn)
         future = threads.submit(composited.save, composited_fn)

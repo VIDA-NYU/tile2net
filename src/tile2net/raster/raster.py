@@ -73,7 +73,7 @@ class Black:
 
     @cached_property
     def array(self):
-        return np.zeros((self.owner.base_tilesize, self.owner.base_tilesize, 3), dtype=np.uint8)
+        return np.zeros((self.owner.tile_size, self.owner.tile_size, 3), dtype=np.uint8)
 
 
 class Raster(Grid):
@@ -827,13 +827,11 @@ class Raster(Grid):
             indent=4,
         )
 
-    # Todo: how to change which inference is run?
+    # todo: it would have ben better to not use subprocess.run however the default args are hard-coded
+    #   to the commandline wrapper, thus it's hard to do this without the commandline call
 
     # @validate
-    def inference(
-            self,
-            *args: str,
-    ):
+    def inference(self, *args: str, ):
         """
         runs the inference on the tiles
 
@@ -959,11 +957,12 @@ class Raster(Grid):
 
 
 if __name__ == '__main__':
+    location = "42.35555189953313, -71.07168915322092, 42.35364837213307, -71.06437423368418"
     raster = Raster(
-        location='Washington Square Park, New York, NY, USA',
-        zoom=18,
-        dump_percent=10,
+        location=location,
+        name='example',
+        output_dir='',
     )
     raster.generate(2)
     raster.inference()
-    raster.stitched
+

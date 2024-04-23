@@ -187,7 +187,6 @@ class Segmentation(Directory):
         if tiles is None:
             tiles = self.project.raster.tiles
         path = self.path
-        path.mkdir(parents=True, exist_ok=True)
         path = path.__fspath__()
         R, C = np.meshgrid(
             np.arange(tiles.shape[0]),
@@ -400,7 +399,7 @@ class StructureDict(UserDict):
 
     def dump(self, path: PathLike = None) -> Path:
         # dump the file structure to a json file within the project directory
-        if path is None:
+        if not path:
             path = self.path
         else:
             path = Path(path)
@@ -555,7 +554,7 @@ class Project(Directory):
         #         'Avoid using long names for project since it will '
         #         'be added to beginning of each image name!'
         #     )
-        if outdir is None:
+        if not outdir:
             outdir = os.path.join(tempfile.gettempdir(), 'tile2net')
 
         self.name = name

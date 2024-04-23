@@ -2,6 +2,7 @@ import logging
 import datetime
 import pandas as pd
 import os
+
 os.environ['USE_PYGEOS'] = '0'
 import geopandas as gpd
 
@@ -137,37 +138,6 @@ class PedNet():
         merged = shapely.ops.linemerge(new_l)
         return merged
 
-    def update_sw_intersecting(self, cw_pol):
-        """
-        Cleans up sidewalk lines extending over crosswalks polygons and cut them
-
-        Parameters
-        ----------
-        cw_pol : :class:`gpd.GeoDataFrame`
-            :class:`GeoDataFrame` of crosswalks
-        """
-        # finding sidewalk lines that extends to the crosswalks polygons and cut them
-        swl = self.sidewalk.copy()
-        swl = swl.reset_index(drop=True).explode().reset_index(drop=True)
-        # print(swl.head(10))
-        cwrect = [i.minimum_rotated_rectangle for i in cw_pol.geometry]
-        cwrectgdf = geo2geodf(cwrect)
-
-        cwin, swin = swl.geometry.values.sindex.query_bulk(cwrectgdf.geometry.values,
-                                                           predicate="intersects")
-        indsect = list(zip(cwin, swin))
-        inds = []
-        updated_geom = []
-        for v, k in indsect:
-            if swl.iloc[k, 1].intersects(cwrectgdf.iloc[v, 0]):
-                inds.append(k)
-                updated_geom.append(
-                    swl.iloc[k, swl.columns.get_loc(swl.geometry.name)].difference(
-                        cwrectgdf.iloc[v, 0]))
-        swl.iloc[inds, swl.columns.get_loc(swl.geometry.name)] = updated_geom
-        smoothed = wrinkle_remover(swl, 1)
-        self.sidewalk = smoothed
-
     def create_crosswalk(self):
         """
         Create crosswalks centerlines from polygons
@@ -184,27 +154,26 @@ class PedNet():
             cw_explode = cw_union.explode().reset_index(drop=True)
             cw_explode = cw_explode[cw_explode.geometry.notna()].reset_index(drop=True)
             cw_explode_ = morpho_atts(cw_explode)
-            polak = []
+            # polak = []
             for c, geom in enumerate(cw_explode_.geometry):
                 if geom.area < 5:
                     continue
                     # logging.info(c, 'continue')
                 else:
                     # if crosswalks are attached to each other and form a T or U
-                    if cw_explode_.iloc[
-                        c, cw_explode_.columns.get_loc(cw_explode_.convexity.name)] < 0.8:
+                    if cw_explode_.iloc[c, cw_explode_.columns.get_loc(cw_explode_.convexity.name)] < 0.8:
                         av_width = 4 * geom.area / geom.length
                         geom_er = geom.buffer(-av_width / 4)
-                        polak.append(geom_er)
+                        # polak.append(geom_er)
                         if geom_er.type == "MultiPolygon":
                             for g in list(geom_er.geoms):  # shapely 2
                                 if g.area > 2:
                                     cnl = to_cline(g, 0.3, 1)
                                     tr_line_ = trim_checkempty(cnl, 4.5, 2)
-                                    if tr_line_.length < 6:
-                                        extended = self.make_longer(tr_line_, 3/4)
+                                    if tr_line_.length < 8:
+                                        extended = self.make_longer(tr_line_, 0.8)
                                         extended_line = extend_lines(geo2geodf([extended]),
-                                                                     tolerance=5,
+                                                                     tolerance=8,
                                                                      target=geo2geodf([geom.boundary]), extension=0)
                                         for gi in extended_line.geometry:
                                             cw_lin_geom.append(gi)
@@ -214,13 +183,12 @@ class PedNet():
                                     continue
                         elif geom_er.type == "Polygon":
                             if geom_er.area > 2:
-                                # print(geom_er.type, geom_er.area)
                                 cnl = to_cline(geom_er, 0.2, 1)
                                 tr_line_ = trim_checkempty(cnl, 4.5, 2)
-                                if tr_line_.length < 6:
-                                    extended = self.make_longer(tr_line_, 3 / 4)
+                                if tr_line_.length < 8:
+                                    extended = self.make_longer(tr_line_, 0.8)
                                     extended_line = extend_lines(geo2geodf([extended]),
-                                                                 target=geo2geodf([geom.boundary]), tolerance=5,
+                                                                 target=geo2geodf([geom.boundary]), tolerance=8,
                                                                  extension=0)
                                     for g in extended_line.geometry:
                                         cw_lin_geom.append(g)
@@ -231,26 +199,21 @@ class PedNet():
                         else:
                             continue
                     else:
-                        polak.append(geom)
+                        # polak.append(geom)
                         line = get_crosswalk_cnl(geom)
-                        if line.length < 6:
-                            extended = self.make_longer(line, 3 / 4)
+                        if line.length < 8:
+                            extended = self.make_longer(line, 0.8)
                             extended_line = extend_lines(geo2geodf([extended]),
-                                                         target=geo2geodf([geom.boundary]), tolerance=5, extension=0)
+                                                         target=geo2geodf([geom.boundary]), tolerance=8, extension=0)
                             for g in extended_line.geometry:
                                 cw_lin_geom.append(g)
                         else:
                             cw_lin_geom.append(line)
 
-            cwpol = gpd.GeoDataFrame(geometry=polak)
-            cwpol.geometry = cwpol.geometry.set_crs(3857)
-
-            self.update_sw_intersecting(cwpol)
-
             cw_ntw = geo2geodf(cw_lin_geom)
             cw_ntw['f_type'] = 'crosswalk'
             cw_ntw.geometry = cw_ntw.geometry.set_crs(3857)
-            smoothed = wrinkle_remover(cw_ntw, 1.2)
+            smoothed = wrinkle_remover(cw_ntw, 1.3)
             self.crosswalk = smoothed
 
     def create_lines(self, gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
@@ -330,20 +293,14 @@ class PedNet():
         None
         """
         sw_all = self.prepare_class_gdf('sidewalk')
-        cwp = self.prepare_class_gdf('crosswalk')
 
         if len(sw_all) > 0:
-            # sw_filtered = self.find_medianisland(sw_all, cwp)
-            # if not isinstance(sw_filtered, int):
-            #     swntw = self.create_lines(sw_filtered)  # union_df
-            # else:
-            #     swntw = self.create_lines(sw_all)  # swuinon_df
             swntw = self.create_lines(sw_all)
             logging.info('..... creating the processed sidewalk network')
             #
             swntw.geometry = swntw.simplify(0.6)
             sw_modif_uni = gpd.GeoDataFrame(
-                geometry=gpd.GeoSeries([geom for geom in swntw.unary_union.geoms]))
+                    geometry=gpd.GeoSeries([geom for geom in swntw.unary_union.geoms]))
             sw_modif_uni_met = set_gdf_crs(sw_modif_uni, 3857)
             sw_uni_lines = sw_modif_uni_met.explode()
             sw_uni_lines.reset_index(drop=True, inplace=True)
@@ -380,7 +337,7 @@ class PedNet():
 
         # query LineString geometry to identify points intersecting 2 geometries
         inp, res = self.crosswalk.sindex.query(geo2geodf(points).geometry,
-                                                    predicate="intersects")
+                                               predicate="intersects")
         unique, counts = np.unique(inp, return_counts=True)
         ends = np.unique(res[np.isin(inp, unique[counts == 1])])
 
@@ -413,7 +370,7 @@ class PedNet():
         # create a dataframe of points
         if len(new_geoms_s) > 0:
             ps = [g[1] for g in new_geoms_s]
-            ls = [g[0] for g in new_geoms_s]
+            # ls = [g[0] for g in new_geoms_s]
             pdfs = gpd.GeoDataFrame(geometry=ps)
             pdfs.set_crs(3857, inplace=True)
 
@@ -422,7 +379,7 @@ class PedNet():
 
         if len(new_geoms_e) > 0:
             pe = [g[1] for g in new_geoms_e]
-            le = [g[0] for g in new_geoms_e]
+            # le = [g[0] for g in new_geoms_e]
             pdfe = gpd.GeoDataFrame(geometry=pe)
             pdfe.set_crs(3857, inplace=True)
 
@@ -431,14 +388,13 @@ class PedNet():
 
         if len(new_geoms_both) > 0:
             pb = [g[1] for g in new_geoms_both]
-            lb = [g[0] for g in new_geoms_both]  # crosswalk lines where both ends do not intersect
+            # lb = [g[0] for g in new_geoms_both]  # crosswalk lines where both ends do not intersect
             pdfb = gpd.GeoDataFrame(geometry=pb)
             pdfb.set_crs(3857, inplace=True)
 
             connect_b = get_shortest(self.sidewalk, pdfb, f_type='sidewalk_connection')
             all_connections.append(connect_b)
         if len(all_connections) > 1:
-
             connect = pd.concat(all_connections)
         elif len(all_connections) == 1:
             connect = all_connections[0]
@@ -456,8 +412,8 @@ class PedNet():
 
                 for k, v in indcwnear:
                     island_lines.append(
-                        shapely.shortest_line(self.island.geometry.values[v],
-                                              pdfb.geometry.values[k]))
+                            shapely.shortest_line(self.island.geometry.values[v],
+                                                  pdfb.geometry.values[k]))
 
                 island = gpd.GeoDataFrame(geometry=island_lines)
 
@@ -474,12 +430,13 @@ class PedNet():
         combined.geometry = combined.geometry.set_crs(3857)
         combined.geometry = combined.geometry.to_crs(4326)
         combined = combined[~combined.geometry.isna()]
+        combined.drop_duplicates(subset='geometry', inplace=True)
         combined.reset_index(drop=True, inplace=True)
         path = self.project.network.path
 
         path.mkdir(parents=True, exist_ok=True)
         path = path.joinpath(
-            f'{self.project.name}-Network-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}'
+                f'{self.project.name}-Network-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}'
         )
         combined.to_file(path)
 
