@@ -850,16 +850,16 @@ class Raster(Grid):
             "-m",
             "tile2net",
             "inference",
-            "--city_info",
-            str(info),
-            "--interactive",
-            "--dump_percent",
-            str(self.dump_percent),
             *args,
         ]
+        sargs = set(args)
+        if '--city_info' not in sargs:
+            args.extend(['--city_info', str(info)])
+        if '--dump_percent' not in sargs:
+            args.extend(['--dump_percent', str(self.dump_percent)])
+        if '--interactive' not in sargs:
+            args.append('--interactive')
         logger.info(f"Running {args}")
-        # if eval_folder:
-        #     args.extend(["--eval_folder", str(eval_folder)])
         logger.debug(f'Running {" ".join(args)}')
         try:
             # todo: capture_outputs=False if want instant printout
