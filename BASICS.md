@@ -5,7 +5,7 @@ To create the sidewalk networks for your area of interest, please ensure the fol
 1. You have access to at least one CUDA-enabled GPU.
 2. You know the address or the latitude and longitude coordinates (EPSG 4326) of the bounding box of your region.
 3. You either have your own source of high-resolution orthorectified aerial imagery (zoom level 19 and above is
-   preferred), or your area of interest lies within the regions currently supported by Tile2Net so you can use Tile2Net
+   preferred, and not less than 18), or your area of interest lies within the regions currently supported by Tile2Net so you can use Tile2Net
    to download the tiles.
 
 **Note:** If you are using your own imagery, please make sure that your data is in accordance with the data requirement

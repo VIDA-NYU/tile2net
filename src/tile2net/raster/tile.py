@@ -347,7 +347,7 @@ class Tile:
 
     def get_region(self, gdf: gpd.GeoDataFrame, spatial_index, crs=3857):
         """
-        Clips the overlapping region between a given GeoDataframe and a :class:`GeoDataFrame.sindex` when creating masks. 
+        Clips the overlapping region between a given GeoDataframe and :class:`GeoDataFrame.sindex` when creating masks.
         See the [Geopandas documentation](https://geopandas.org/en/stable/docs/reference/api/geopandas.GeoDataFrame.sindex.html) for more
         information on spatial indices. 
 
@@ -670,7 +670,3 @@ class Tile:
         return xformed_g
 
     os.makedirs(os.path.join(tempdir, 'tile2net'), exist_ok=True)
-
-
-#create empty dataframe
-df = pd.DataFrame(columns=['ImageId', 'BuildingId', 'PolygonWKT_Pix', 'PolygonWKT_Geo', 'Confidence'])
