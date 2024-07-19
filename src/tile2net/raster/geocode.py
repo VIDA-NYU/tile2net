@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools
 import os.path
-from functools import cached_property
+
 from pathlib import Path
 from typing import *
 
@@ -13,6 +13,7 @@ from geopandas import GeoDataFrame, GeoSeries
 from geopy.geocoders import Nominatim
 
 from tile2net.logger import logger
+from tile2net.raster import util
 
 
 class cached:
@@ -179,7 +180,7 @@ class GeoCode:
         result.geometry = frame
         return result
 
-    @cached_property
+    @util.cached_property
     def nwse(self) -> tuple[float, ...]:
         logger.info(
             f"Geocoding {self.address}, this may take a while..."
@@ -200,12 +201,12 @@ class GeoCode:
         value = n, w, s, e
         return value
 
-    @cached_property
+    @util.cached_property
     def wsen(self):
         n, w, s, e = self.nwse
         return w, s, e, n
 
-    @cached_property
+    @util.cached_property
     def address(self) -> str:
         # noinspection PyTypeChecker
         reverse = (
@@ -217,14 +218,14 @@ class GeoCode:
         result = reverse.raw['display_name']
         return result
 
-    @cached_property
+    @util.cached_property
     def centroid(self) -> tuple[float, float]:
         bounds = self.nwse
         y = (bounds[0] + bounds[2]) / 2
         x = (bounds[1] + bounds[3]) / 2
         return y, x
 
-    @cached_property
+    @util.cached_property
     def name(self) -> str:
         result = os.path.normcase(
             self.address
@@ -234,12 +235,12 @@ class GeoCode:
         )
         return result
 
-    @cached_property
+    @util.cached_property
     def polygon(self) -> shapely.Polygon:
         result = shapely.geometry.box(*self.wsen)
         return result
 
-    @cached_property
+    @util.cached_property
     def geometry(self) -> GeoSeries:
         return osmnx.geocode_to_gdf(self.address)
 
