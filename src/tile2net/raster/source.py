@@ -114,7 +114,10 @@ class SourceMeta(ABCMeta):
         matches: GeoSeries = SourceMeta.coverage.geometry
         geocode = GeoCode.from_inferred(item)
         loc = matches.intersects(geocode.polygon)
-        if not loc.any():
+        if not (
+            loc.any()
+            and 'address' in geocode.__dict__
+        ):
             # user must've been lazy; compute a new polygon
             del geocode.address
             _ = geocode.address
