@@ -53,7 +53,7 @@ def test_sources():
     assert Source['New Brunswick, New Jersey'] == source.NewJersey
     assert Source['Massachusetts'] == source.Massachusetts
     assert Source['King County, Washington'] == source.KingCountyWashington
-    # assert Source['Washington, DC'] == source.WashingtonDC
+    assert Source['Washington, DC'] == source.WashingtonDC
     assert Source['Los Angeles'] == source.LosAngeles
     assert Source['Jersey City'] == source.NewJersey
     assert Source['Hoboken'] == source.NewJersey
@@ -62,7 +62,7 @@ def test_sources():
     assert Source['Virginia'] == source.Virginia
 
     assert Source['40.72663613847755, -73.99494276578649'] == source.NewYorkCity
-    # assert Source['38.90277706745021, -77.03617656372798'] == source.WashingtonDC
+    assert Source['38.90277706745021, -77.03617656372798'] == source.WashingtonDC
     assert Source['43.05052202494481, -76.19505424681927'] == source.NewYork
     item = '33.97576931943177, -118.19841961122856, 34.116579445776445, -117.97154942950205'
     assert Source[item] == source.LosAngeles
@@ -70,7 +70,7 @@ def test_sources():
     assert Source[item] == source.NewJersey
 
     assert Source[40.72663613847755, -73.99494276578649] == source.NewYorkCity
-    # assert Source[38.90277706745021, -77.03617656372798] == source.WashingtonDC
+    assert Source[38.90277706745021, -77.03617656372798] == source.WashingtonDC
     assert Source[43.05052202494481, -76.19505424681927] == source.NewYork
     item = 33.97576931943177, -118.19841961122856, 34.116579445776445, -117.97154942950205
     assert Source[item] == source.LosAngeles

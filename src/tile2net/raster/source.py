@@ -380,7 +380,7 @@ class KingCountyWashington(ArcGis):
 
 
 class WashingtonDC(ArcGis):
-    ignore = True
+    # ignore = True
     server = 'https://imagery.dcgis.dc.gov/dcgis/rest/services/Ortho/Ortho_2021/ImageServer'
     name = 'dc'
     tilesize = 512
