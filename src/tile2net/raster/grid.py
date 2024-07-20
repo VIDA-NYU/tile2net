@@ -681,7 +681,10 @@ class Grid(BaseGrid):
         simplified.to_crs(self.crs, inplace=True)
 
         self.ntw_poly = simplified
-        path = os.path.join(poly_fold, f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}.shp')
+        path = os.path.join(
+            poly_fold,
+            f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}.shp'
+        )
         simplified.to_file(path)
         logging.info('Polygons are generated and saved!')
 

@@ -436,7 +436,7 @@ class PedNet():
 
         path.mkdir(parents=True, exist_ok=True)
         path = path.joinpath(
-                f'{self.project.name}-Network-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}.shp'
+                f'{self.project.name}-Network-{datetime.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}.shp'
         )
         combined.to_file(path)
 
