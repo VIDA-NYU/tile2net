@@ -146,16 +146,6 @@ def name_from_location(location: str | list[float, str]):
         return name
     raise TypeError(f"location must be str or list, not {type(location)}")
 
-class cached_property(functools.cached_property):
-
-    # prevents attribute error from being raised when deleting
-    def __delete__(self, instance):
-        if self.attrname in instance.__dict__:
-            del instance.__dict__[self.attrname]
-
-    def __set__(self, instance, value):
-        instance.__dict__[self.attrname] = value
-
 
 if __name__ == '__main__':
     print(name_from_location('New York, NY, USA'))

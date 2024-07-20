@@ -114,8 +114,8 @@ class SourceMeta(ABCMeta):
         matches: GeoSeries = SourceMeta.coverage.geometry
         geocode = GeoCode.from_inferred(item)
         loc = matches.intersects(geocode.polygon)
-        if not (
-            loc.any()
+        if (
+            not loc.any()
             and 'address' in geocode.__dict__
         ):
             # user must've been lazy; compute a new polygon
@@ -143,7 +143,10 @@ class SourceMeta(ABCMeta):
                 )
                 loc.append(append)
 
-        if not any(loc):
+        if (
+            not any(loc)
+            and 'address' in geocode.__dict__
+        ):
             # user must've been lazy; compute a new address
             loc = []
             del geocode.address
@@ -162,6 +165,8 @@ class SourceMeta(ABCMeta):
 
         if any(loc):
             matches = matches.loc[loc]
+        elif 'address' not in geocode.__dict__:
+            raise SourceNotFound
         else:
             logger.warning(
                 f'No keyword matches found for {item=} using '
@@ -191,18 +196,14 @@ class SourceMeta(ABCMeta):
             raise TypeError(f'Invalid type {type(item)} for {item}')
         return source()
 
-    def __init__(self: Type[Source], name, bases, attrs, **kwargs):
-        # super(type(self), self).__init__(name, bases, attrs, **kwargs)
-        super().__init__(name, bases, attrs)
-        if (
-                ABC not in bases
-                and kwargs.get('init', True)
-        ):
-            if self.name is None:
-                raise ValueError(f'{self} must have a name')
-            if self.name in self.catalog:
-                raise ValueError(f'{self} name already in use')
-            self.catalog[self.name] = self
+    # def __init__(self: Type[Source], name, bases, attrs, **kwargs):
+    #     super().__init__(name, bases, attrs)
+    #     if not getattr(self, 'ignore', False):
+    #         if self.name is None:
+    #             raise ValueError(f'{self} must have a name')
+    #         if self.name in self.catalog:
+    #             raise ValueError(f'{self} name already in use')
+    #         self.catalog[self.name] = self
 
 
 class Source(ABC, metaclass=SourceMeta):
@@ -232,8 +233,16 @@ class Source(ABC, metaclass=SourceMeta):
         return self.name
 
     def __init_subclass__(cls, **kwargs):
-        # complains if gets kwargs
         super().__init_subclass__()
+        if (
+            not getattr(cls, 'ignore', False)
+            and ABC not in cls.__bases__
+        ):
+            if cls.name is None:
+                raise ValueError(f'{cls} must have a name')
+            if cls.name in cls.catalog:
+                raise ValueError(f'{cls} name already in use')
+            cls.catalog[cls.name] = cls
 
     def __eq__(self, other):
         if (
@@ -371,6 +380,7 @@ class KingCountyWashington(ArcGis):
 
 
 class WashingtonDC(ArcGis):
+    ignore = True
     server = 'https://imagery.dcgis.dc.gov/dcgis/rest/services/Ortho/Ortho_2021/ImageServer'
     name = 'dc'
     tilesize = 512
@@ -405,16 +415,17 @@ class LosAngeles(ArcGis):
     #     raise NotImplementedError
 
 
-# class WestOregon(ArcGis, init=False):
 # class WestOregon(ArcGis):
+#     ignore = True
 #     server = 'https://imagery.oregonexplorer.info/arcgis/rest/services/OSIP_2018/OSIP_2018_WM/ImageServer'
 #     name = 'w_or'
 #     extension = 'jpeg'
 #     keyword = 'Oregon'
 #     # todo: ssl incorrectly configured; come back later
 #
-# # class EastOregon(ArcGis, init=False):
+
 # class EastOregon(ArcGis, init=False):
+#     ignore = True
 #
 #     server = 'https://imagery.oregonexplorer.info/arcgis/rest/services/OSIP_2017/OSIP_2017_WM/ImageServer'
 #     name = 'e_or'

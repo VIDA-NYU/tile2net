@@ -932,7 +932,7 @@ def extend_lines(gdf, tolerance, target=None, barrier=None, extension=0):
     points = vectorize_points(np.unique(coords[edges], axis=0))
 
     # query LineString geometry to identify points intersecting 2 geometries
-    inp, res = df.sindex.query_bulk(geo2geodf(points).geometry, predicate="intersects")
+    inp, res = df.sindex.query(geo2geodf(points).geometry, predicate="intersects")
     unique, counts = np.unique(inp, return_counts=True)
     ends = np.unique(res[np.isin(inp, unique[counts == 1])])
 
