@@ -1,5 +1,7 @@
 import logging
 import datetime
+import shutil
+
 import pandas as pd
 import os
 
@@ -300,7 +302,7 @@ class PedNet():
             #
             swntw.geometry = swntw.simplify(0.6)
             sw_modif_uni = gpd.GeoDataFrame(
-                    geometry=gpd.GeoSeries([geom for geom in swntw.unary_union.geoms]))
+                geometry=gpd.GeoSeries([geom for geom in swntw.unary_union.geoms]))
             sw_modif_uni_met = set_gdf_crs(sw_modif_uni, 3857)
             sw_uni_lines = sw_modif_uni_met.explode()
             sw_uni_lines.reset_index(drop=True, inplace=True)
@@ -412,8 +414,8 @@ class PedNet():
 
                 for k, v in indcwnear:
                     island_lines.append(
-                            shapely.shortest_line(self.island.geometry.values[v],
-                                                  pdfb.geometry.values[k]))
+                        shapely.shortest_line(self.island.geometry.values[v],
+                                              pdfb.geometry.values[k]))
 
                 island = gpd.GeoDataFrame(geometry=island_lines)
 
@@ -435,9 +437,9 @@ class PedNet():
         path = self.project.network.path
 
         path.mkdir(parents=True, exist_ok=True)
-        path = path.joinpath(
-                f'{self.project.name}-Network-{datetime.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}.shp'
-        )
+        path = path.joinpath(f'{self.project.name}-Network-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}')
+        if os.path.exists(path):
+            shutil.rmtree(path)
         combined.to_file(path)
 
         self.complete_net = combined

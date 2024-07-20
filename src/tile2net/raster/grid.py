@@ -15,6 +15,7 @@ from geopy.geocoders import Nominatim
 
 from tile2net.raster.tile_utils.topology import fill_holes, replace_convexhull
 from concurrent.futures import ThreadPoolExecutor, Future, as_completed
+import shutil
 
 os.environ['USE_PYGEOS'] = '0'
 import geopandas as gpd
@@ -644,8 +645,10 @@ class Grid(BaseGrid):
         simplified.to_crs(self.crs, inplace=True)
 
         self.ntw_poly = simplified
-        simplified.to_file(
-            os.path.join(poly_fold, f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}'))
+        path = os.path.join(poly_fold, f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}')
+        if os.path.exists(path):
+            shutil.rmtree(path)
+        simplified.to_file(path )
         logging.info('Polygons are generated and saved!')
 
     def save_ntw_polygons(
@@ -683,8 +686,10 @@ class Grid(BaseGrid):
         self.ntw_poly = simplified
         path = os.path.join(
             poly_fold,
-            f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}.shp'
+            f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}'
         )
+        if os.path.exists(path):
+            shutil.rmtree(path)
         simplified.to_file(path)
         logging.info('Polygons are generated and saved!')
 
