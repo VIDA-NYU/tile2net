@@ -57,7 +57,6 @@ __all__ = [
     "Elongation",
     "CentroidCorners",
     "Linearity",
-    "CompactnessWeightedAxis",
 ]
 
 
