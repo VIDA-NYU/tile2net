@@ -3,7 +3,6 @@ jupyter
 geopandas
 geopy
 matplotlib
-momepy
 numba
 opencv-python
 osmnx
@@ -37,3 +36,4 @@ nbsphinx
 pandoc
 sphinx-autobuild
 sphinx-copybutton
+numpy<2.0

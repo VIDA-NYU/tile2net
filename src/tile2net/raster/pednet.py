@@ -437,7 +437,7 @@ class PedNet():
         path = self.project.network.path
 
         path.mkdir(parents=True, exist_ok=True)
-        path = path.joinpath(f'{self.project.name}-Network-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}')
+        path = path.joinpath(f'{self.project.name}-Network-{datetime.datetime.now().strftime("%d-%m-%Y_%H_%M")}')
         if os.path.exists(path):
             shutil.rmtree(path)
         combined.to_file(path)

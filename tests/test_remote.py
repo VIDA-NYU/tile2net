@@ -1,9 +1,7 @@
 import abc
 
 import pytest
-
 import tile2net.raster.source
-from tile2net.raster.source import SourceNotFound
 from tile2net.raster.raster import Raster
 
 
