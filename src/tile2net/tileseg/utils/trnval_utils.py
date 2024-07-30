@@ -296,7 +296,12 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=Tr
 
         output_data = torch.nn.functional.softmax(output, dim=1).cpu().data
         op = output_data.cpu().detach().numpy()
-        np.save(f'{cfg.RESULT_DIR}/output_{epoch}_{val_idx}.npy', op)
+        path = os.path.join(
+            cfg.RESULT_DIR,
+            f'output_{epoch}_{val_idx}.npy'
+        )
+        os.makedirs(cfg.RESULT_DIR, exist_ok=True)
+        np.save(path, op)
         prob_mask, predictions = output_data.max(1)
         #define assests based on the eval_minibatch function
         assets = {}
