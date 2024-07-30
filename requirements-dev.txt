@@ -1,6 +1,6 @@
 centerline
 jupyter
-geopandas
+geopandas>=1.0
 geopy
 matplotlib
 numba
