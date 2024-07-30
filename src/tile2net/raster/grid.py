@@ -686,7 +686,7 @@ class Grid(BaseGrid):
         self.ntw_poly = simplified
         path = os.path.join(
             poly_fold,
-            f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}'
+            f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H_%M")}'
         )
         if os.path.exists(path):
             shutil.rmtree(path)
