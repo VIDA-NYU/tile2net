@@ -146,6 +146,7 @@ def name_from_location(location: str | list[float, str]):
         return name
     raise TypeError(f"location must be str or list, not {type(location)}")
 
+
 if __name__ == '__main__':
     print(name_from_location('New York, NY, USA'))
     print(name_from_location([1.22456789, 2.3456789, 3.456789, 4.56789]))

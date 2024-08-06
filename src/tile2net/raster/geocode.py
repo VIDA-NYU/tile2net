@@ -1,8 +1,9 @@
 from __future__ import annotations
+from functools import cached_property
 
 import functools
 import os.path
-from functools import cached_property
+
 from pathlib import Path
 from typing import *
 
