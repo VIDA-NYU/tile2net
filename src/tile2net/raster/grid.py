@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import warnings
 import os
 import numpy as np
@@ -506,26 +508,28 @@ class Grid(BaseGrid):
         gdf_grid = gdf_grid.reset_index(drop=True)
         return gdf_grid
 
-    def save_shapefile(self):
+    def save_shapefile(self, dst_path: str = None) -> None:
         """
         Saves the grid data in shapefile format
         """
-        dst_path = self.project.tiles.path
-        if not os.path.exists(dst_path):
-            os.makedirs(dst_path)
+        if not dst_path is None:
+            dst_path = self.project.tiles.path
+            if not os.path.exists(dst_path):
+                os.makedirs(dst_path)
         poly = self._create_pseudo_tiles()
         tileinfo_df = self._create_info_dict(df=True)
         gdf_grid = gpd.GeoDataFrame(tileinfo_df, geometry=poly, crs=self.crs)
         gdf_grid.to_file(
             os.path.join(dst_path, f'{self.name}_{self.tile_size}_pseudo_tiles'))
 
-    def save_csv(self):
+    def save_csv(self, dst_path: str = None):
         """
         Saves the grid data in CSV format without geometry info
         """
-        dst_path = self.project.tiles.path
-        if not os.path.exists(dst_path):
-            os.makedirs(dst_path)
+        if not dst_path:
+            dst_path = self.project.tiles.path
+            if not os.path.exists(dst_path):
+                os.makedirs(dst_path)
         tileinfo_df = self._create_info_dict(df=True)
         tileinfo_df.to_csv(os.path.join(dst_path, f'{self.name}_{self.tile_size}_info.csv'))
 

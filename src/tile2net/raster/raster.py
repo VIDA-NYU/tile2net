@@ -326,7 +326,7 @@ class Raster(Grid):
         )
 
     def __repr__(self):
-        if self.boundary_path != -1:
+        if self.boundary_path != "":
             tiles_within = f"{(self.num_inside / self.num_tiles) * 100:.1f}"
             return (
                 f"{self.name} Data Constructor. \nCoordinate reference system (CRS): {self.crs} \n"
@@ -813,6 +813,7 @@ class Raster(Grid):
         """
         self.stitch(step)
         self.save_info_json(new_tstep=step)
+        self.save_csv()
         logger.info(f"Dumping to {self.project.tiles.info}")
         json.dump(
             dict(self.project.structure),
