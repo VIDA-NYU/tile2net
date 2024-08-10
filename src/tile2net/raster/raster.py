@@ -304,7 +304,7 @@ class Raster(Grid):
         self.dest = ""
         self.name = name
         self.boundary_path = ""
-        self.input_dir: InputDir = input_dir
+        self.input_dir = input_dir
         self.source = source
         self.dump_percent = dump_percent
         self.batch = -1
@@ -960,4 +960,3 @@ if __name__ == '__main__':
     )
     raster.generate(2)
     raster.inference()
-
