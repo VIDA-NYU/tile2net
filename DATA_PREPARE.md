@@ -4,6 +4,14 @@ Tile images are raster tiles delivered as image files, typically in PNG format, 
 Tile2Net.
 All subsequent processes rely on these files.
 
+#### Tile Image Zoom
+
+The zoom level of the tiles determines the level of visible details. 
+Zoom levels below 18 generally lack the detail needed to accurately detect sidewalks, crossings, and footpaths. 
+Zoom levels higher than 20 (in 256 pixels base tiles) are also too zoomed in that will need larger stitched tiles
+to provide the required context for the model to understand what each feature is, hence, demand more GPU memory. 
+Selecting an appropriate zoom level is crucial for getting accurate result. We recommend zoom level 19 or 20.
+
 #### Tile Image Size
 
 Tile images are typically square-shaped, with the width and height of each tile being identical.
@@ -19,7 +27,7 @@ the `Raster.stitch` method.
 
 #### Tile Image Format
 
-Tile2Net only supports the PNG image format. More formats may be supported in upcoming versions.  
+Tile2Net supports the PNG and JPG (JPEG) image formats. More formats may be supported in upcoming versions.  
 If tile images that you already have are in TIFF format, they need to be converted to XYZ in PNG.
 To do that you can use QGIS and the “Generate XYZ Tiles (Directory)” tool to do the conversion.
 Once that’s created, you can pass its path implicating the format of the files, e.g. path/to/tiles/z/x/y.ext

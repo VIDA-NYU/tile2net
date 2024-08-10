@@ -57,7 +57,6 @@ __all__ = [
     "Elongation",
     "CentroidCorners",
     "Linearity",
-    "CompactnessWeightedAxis",
 ]
 
 
@@ -1305,83 +1304,4 @@ class Linearity:
     def _dist(self, a, b):
         return math.hypot(b[0] - a[0], b[1] - a[1])
 
-
-class CompactnessWeightedAxis:
-    """
-    Calculates the compactness-weighted axis of each object in a given GeoDataFrame.
-    Initially designed for blocks.
-
-    .. math::
-        d_{i} \\times\\left(\\frac{4}{\\pi}-\\frac{16 (area_{i})}
-        {perimeter_{i}^{2}}\\right)
-
-    Parameters
-    ----------
-    gdf : GeoDataFrame
-        A GeoDataFrame containing objects.
-    areas : str, list, np.array, pd.Series (default None)
-        The name of the dataframe column, ``np.array``, or ``pd.Series`` where
-        area value are stored . If set to ``None``, this function will calculate areas
-        during the process without saving them separately.
-    perimeters : str, list, np.array, pd.Series (default None)
-        The name of the dataframe column, ``np.array``, or ``pd.Series`` where
-        perimeter values are stored. If set to ``None``, this function will calculate
-        perimeters during the process without saving them separately.
-    longest_axis : str, list, np.array, pd.Series (default None)
-        The name of the dataframe column, ``np.array``, or ``pd.Series`` where
-        longest axis length values are stored. If set to ``None``, this function will
-        calculate longest axis lengths during the process without saving them
-        separately.
-
-    Attributes
-    ----------
-    series : Series
-        A Series containing resulting values
-    gdf : GeoDataFrame
-        The original GeoDataFrame.
-    areas : Series
-        A Series containing used area values.
-    longest_axis : Series
-        A Series containing used area values.
-    perimeters : Series
-        A Series containing used area values.
-
-    Examples
-    --------
-    >>> blocks_df['cwa'] = mm.CompactnessWeightedAxis(blocks_df).series
-    """
-
-    def __init__(self, gdf, areas=None, perimeters=None, longest_axis=None):
-        self.gdf = gdf
-        gdf = gdf.copy()
-
-        if perimeters is None:
-            gdf["mm_p"] = gdf.geometry.length
-            perimeters = "mm_p"
-        else:
-            if not isinstance(perimeters, str):
-                gdf["mm_p"] = perimeters
-                perimeters = "mm_p"
-        self.perimeters = gdf[perimeters]
-        if longest_axis is None:
-            from momepy.dimension import LongestAxisLength
-
-            gdf["mm_la"] = LongestAxisLength(gdf).series
-            longest_axis = "mm_la"
-        else:
-            if not isinstance(longest_axis, str):
-                gdf["mm_la"] = longest_axis
-                longest_axis = "mm_la"
-        self.longest_axis = gdf[longest_axis]
-        if areas is None:
-            areas = gdf.geometry.area
-        if not isinstance(areas, str):
-            gdf["mm_a"] = areas
-            areas = "mm_a"
-        self.areas = gdf[areas]
-        self.series = pd.Series(
-            gdf[longest_axis]
-            * ((4 / np.pi) - (16 * gdf[areas]) / ((gdf[perimeters]) ** 2)),
-            index=gdf.index,
-        )
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import warnings
 import os
 import numpy as np
@@ -15,6 +17,7 @@ from geopy.geocoders import Nominatim
 
 from tile2net.raster.tile_utils.topology import fill_holes, replace_convexhull
 from concurrent.futures import ThreadPoolExecutor, Future, as_completed
+import shutil
 
 os.environ['USE_PYGEOS'] = '0'
 import geopandas as gpd
@@ -183,7 +186,6 @@ class BaseGrid(BaseRegion):
     @cached_property
     def base_width(self):
         return abs(self.xtilem - self.xtile) + 1  # horizontal tiles (#columns)
-
 
     def pos2id(self, col_idx: int, row_idx: int):
         """
@@ -408,7 +410,7 @@ class Grid(BaseGrid):
     def width_pixel(self):
         return self.width * self.tile_size
 
-    def tilexy2pos(self, xtile, ytile):
+    def tilexy2pos(self, xtile: int, ytile: int):
         """
         converts xy coordinates to tile position
 
@@ -429,7 +431,7 @@ class Grid(BaseGrid):
         j = ytile - self.ytile
         return i, j
 
-    def tilexy2id(self, xtile, ytile):
+    def tilexy2id(self, xtile: int, ytile: int):
         """
         converts xy coordinates to tile idd
 
@@ -449,7 +451,7 @@ class Grid(BaseGrid):
         x, y = self.tilexy2pos(xtile, ytile)
         return self.pos2id(x, y)
 
-    def _create_info_dict(self, df=False) -> dict | pd.DataFrame:
+    def _create_info_dict(self, df: bool = False) -> dict | pd.DataFrame:
         """
 
         Parameters
@@ -505,30 +507,32 @@ class Grid(BaseGrid):
         gdf_grid = gdf_grid.reset_index(drop=True)
         return gdf_grid
 
-    def save_shapefile(self):
+    def save_shapefile(self, dst_path: str = None) -> None:
         """
         Saves the grid data in shapefile format
         """
-        dst_path = self.project.tiles.path
-        if not os.path.exists(dst_path):
-            os.makedirs(dst_path)
+        if not dst_path is None:
+            dst_path = self.project.tiles.path
+            if not os.path.exists(dst_path):
+                os.makedirs(dst_path)
         poly = self._create_pseudo_tiles()
         tileinfo_df = self._create_info_dict(df=True)
         gdf_grid = gpd.GeoDataFrame(tileinfo_df, geometry=poly, crs=self.crs)
         gdf_grid.to_file(
             os.path.join(dst_path, f'{self.name}_{self.tile_size}_pseudo_tiles'))
 
-    def save_csv(self):
+    def save_csv(self, dst_path: str = None):
         """
         Saves the grid data in CSV format without geometry info
         """
-        dst_path = self.project.tiles.path
-        if not os.path.exists(dst_path):
-            os.makedirs(dst_path)
+        if not dst_path:
+            dst_path = self.project.tiles.path
+            if not os.path.exists(dst_path):
+                os.makedirs(dst_path)
         tileinfo_df = self._create_info_dict(df=True)
         tileinfo_df.to_csv(os.path.join(dst_path, f'{self.name}_{self.tile_size}_info.csv'))
 
-    def get_boundary(self, city=None, address=None, path=None):
+    def get_boundary(self, city: str = None, address: str = None, path: str = None):
         if city:
             # define the place query
             query = {'city': city}
@@ -547,7 +551,7 @@ class Grid(BaseGrid):
             else:
                 raise ValueError("You must pass a textual address or name of the region")
 
-    def get_in_boundary(self, clipped=None, city=None, address=None, path=None):
+    def get_in_boundary(self, clipped: bool = None, city: str = None, address: str = None, path: str = None):
         """
         Makes the tiles outside the boundary defined by the city or address inactive. 
         This is used to speed up analysis, especially when a region has a shape that results
@@ -586,7 +590,7 @@ class Grid(BaseGrid):
         if clipped:
             return new
 
-    def make_inactive(self, lst):
+    def make_inactive(self, lst: list[int]):
         """
         make the listed tiles inactive.
         Used for setting the boundaries around a region or excluding certain regions.
@@ -644,8 +648,10 @@ class Grid(BaseGrid):
         simplified.to_crs(self.crs, inplace=True)
 
         self.ntw_poly = simplified
-        simplified.to_file(
-            os.path.join(poly_fold, f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}'))
+        path = os.path.join(poly_fold, f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H_%M")}')
+        if os.path.exists(path):
+            shutil.rmtree(path)
+        simplified.to_file(path)
         logging.info('Polygons are generated and saved!')
 
     def save_ntw_polygons(
@@ -681,7 +687,12 @@ class Grid(BaseGrid):
         simplified.to_crs(self.crs, inplace=True)
 
         self.ntw_poly = simplified
-        path = os.path.join(poly_fold, f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}')
+        path = os.path.join(
+            poly_fold,
+            f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H_%M")}'
+        )
+        if os.path.exists(path):
+            shutil.rmtree(path)
         simplified.to_file(path)
         logging.info('Polygons are generated and saved!')
 
@@ -707,34 +718,34 @@ class Grid(BaseGrid):
         return nt
 
     # adopted from solaris library to overcome dependency issues
-    def get_geo_transform(self, raster_src):
-        """
-        *Adopted from the Solaris library to overcome dependency issues*
+    # def get_geo_transform(self, raster_src: str):
+    #     """
+    #     *Adopted from the Solaris library to overcome dependency issues*
+    #
+    #     Get the geotransform for a raster image source.
+    #
+    #     Parameters
+    #     ----------
+    #     raster_src : str, :class:`rasterio.DatasetReader`, or `osgeo.gdal.Dataset`
+    #         Path to a raster image with georeferencing data to apply to `geom`.
+    #         Alternatively, an opened :class:`rasterio.Band` object or
+    #         :class:`osgeo.gdal.Dataset` object can be provided. Required if not
+    #         using `affine_obj`.
+    #
+    #     Returns
+    #     -------
+    #     transform : :class:`affine.Affine`
+    #         An affine transformation object to the image's location in its CRS.
+    #     """
+    #
+    #     if isinstance(raster_src, str):
+    #         affine_obj = rasterio.open(raster_src).transform
+    #     elif isinstance(raster_src, rasterio.DatasetReader):
+    #         affine_obj = raster_src.transform
+    #
+    #     return affine_obj
 
-        Get the geotransform for a raster image source.
-
-        Parameters
-        ----------
-        raster_src : str, :class:`rasterio.DatasetReader`, or `osgeo.gdal.Dataset`
-            Path to a raster image with georeferencing data to apply to `geom`.
-            Alternatively, an opened :class:`rasterio.Band` object or
-            :class:`osgeo.gdal.Dataset` object can be provided. Required if not
-            using `affine_obj`.
-
-        Returns
-        -------
-        transform : :class:`affine.Affine`
-            An affine transformation object to the image's location in its CRS.
-        """
-
-        if isinstance(raster_src, str):
-            affine_obj = rasterio.open(raster_src).transform
-        elif isinstance(raster_src, rasterio.DatasetReader):
-            affine_obj = raster_src.transform
-
-        return affine_obj
-
-    def convert_poly_coords(self, geom, raster_src=None, affine_obj=None, inverse=False,
+    def convert_poly_coords(self, geom, affine_obj=None, inverse=False,
                             precision=None):
         """
         *Adopted from the Solaris library to overcome dependency issues*
@@ -743,11 +754,6 @@ class Grid(BaseGrid):
         
         Parameters
         ----------
-        raster_src : str, optional
-            Path to a raster image with georeferencing data to apply to `geom`.
-            Alternatively, an opened :class:`rasterio.Band` object or
-            :class:`osgeo.gdal.Dataset` object can be provided. Required if not
-            using `affine_obj`.
         affine_obj : list or :class:`affine.Affine`
             An affine transformation to apply to `geom` in the form of an
             ``[a, b, d, e, xoff, yoff]`` list or an :class:`affine.Affine` object.
@@ -766,20 +772,17 @@ class Grid(BaseGrid):
             transformed to match the destination object.
         """
 
-        if not raster_src and not affine_obj:
-            raise ValueError("Either raster_src or affine_obj must be provided.")
+        if not affine_obj:
+            raise ValueError("affine_obj must be provided.")
 
-        if raster_src is not None:
-            affine_xform = self.get_geo_transform(raster_src)
+        if isinstance(affine_obj, Affine):
+            affine_xform = affine_obj
         else:
-            if isinstance(affine_obj, Affine):
-                affine_xform = affine_obj
-            else:
-                # assume it's a list in either gdal or "standard" order
-                # (list_to_affine checks which it is)
-                if len(affine_obj) == 9:  # if it's straight from rasterio
-                    affine_obj = affine_obj[0:6]
-                affine_xform = list_to_affine(affine_obj)
+            # assume it's a list in either gdal or "standard" order
+            # (list_to_affine checks which it is)
+            if len(affine_obj) == 9:  # if it's straight from rasterio
+                affine_obj = affine_obj[0:6]
+            affine_xform = list_to_affine(affine_obj)
 
         if inverse:  # geo->px transform
             affine_xform = ~affine_xform

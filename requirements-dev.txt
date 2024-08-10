@@ -1,9 +1,8 @@
 centerline
 jupyter
-geopandas
+geopandas>=1.0
 geopy
 matplotlib
-momepy
 numba
 opencv-python
 osmnx
@@ -37,3 +36,4 @@ nbsphinx
 pandoc
 sphinx-autobuild
 sphinx-copybutton
+numpy<2.0

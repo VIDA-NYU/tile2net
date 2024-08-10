@@ -347,7 +347,7 @@ class Tile:
 
     def get_region(self, gdf: gpd.GeoDataFrame, spatial_index, crs=3857):
         """
-        Clips the overlapping region between a given GeoDataframe and a :class:`GeoDataFrame.sindex` when creating masks. 
+        Clips the overlapping region between a given GeoDataframe and :class:`GeoDataFrame.sindex` when creating masks.
         See the [Geopandas documentation](https://geopandas.org/en/stable/docs/reference/api/geopandas.GeoDataFrame.sindex.html) for more
         information on spatial indices. 
 
@@ -564,36 +564,8 @@ class Tile:
             )
 
         return polygon_gdf
-    @staticmethod
-    def get_geo_transform(raster_src):
-        """
-        *Adopted from the Solaris library to overcome dependency issues*
 
-        Get the geotransform for a raster image source.
-
-        Arguments
-        ---------
-        raster_src : str, :class:`rasterio.DatasetReader`, or `osgeo.gdal.Dataset`
-            Path to a raster image with georeferencing data to apply to `geom`.
-            Alternatively, an opened :class:`rasterio.Band` object or
-            :class:`osgeo.gdal.Dataset` object can be provided. Required if not
-            using `affine_obj`.
-
-        Returns
-        -------
-        transform : :class:`affine.Affine`
-            An affine transformation object to the image's location in its CRS.
-        """
-
-        if isinstance(raster_src, str):
-            affine_obj = rasterio.open(raster_src).transform
-        elif isinstance(raster_src, rasterio.DatasetReader):
-            affine_obj = raster_src.transform
-        # elif isinstance(raster_src, gdal.Dataset):
-        #   affine_obj = Affine.from_gdal(*raster_src.GetGeoTransform())
-        return affine_obj
-
-    def convert_poly_coords(self, geom, raster_src=None, affine_obj=None, inverse=False,
+    def convert_poly_coords(self, geom, affine_obj=None, inverse=False,
                             precision=None):
         """
         *Adopted from the Solaris library to overcome dependency issues*
@@ -605,11 +577,6 @@ class Tile:
         geom : :class:`shapely.geometry.shape` or str
             A :class:`shapely.geometry.shape`, or WKT string-formatted geometry
             object currently in pixel coordinates.
-        raster_src : str, optional
-            Path to a raster image with georeferencing data to apply to `geom`.
-            Alternatively, an opened :class:`rasterio.Band` object or
-            :class:`osgeo.gdal.Dataset` object can be provided. Required if not
-            using `affine_obj`.
         affine_obj: list or :class:`affine.Affine`
             An affine transformation to apply to `geom` in the form of an
             ``[a, b, d, e, xoff, yoff]`` list or an :class:`affine.Affine` object.
@@ -628,19 +595,16 @@ class Tile:
             transformed to match the destination object.
         """
 
-        if not raster_src and not affine_obj:
-            raise ValueError("Either raster_src or affine_obj must be provided.")
+        if not affine_obj:
+            raise ValueError("affine_obj must be provided.")
 
-        if raster_src is not None:
-            affine_xform = self.get_geo_transform(raster_src)
+        if isinstance(affine_obj, Affine):
+            affine_xform = affine_obj
         else:
-            if isinstance(affine_obj, Affine):
-                affine_xform = affine_obj
-            else:
-                # assume it's a list in either gdal or "standard" order
-                if len(affine_obj) == 9:  # if it's straight from rasterio
-                    affine_obj = affine_obj[0:6]
-                affine_xform = list_to_affine(affine_obj)
+            # assume it's a list in either gdal or "standard" order
+            if len(affine_obj) == 9:  # if it's straight from rasterio
+                affine_obj = affine_obj[0:6]
+            affine_xform = list_to_affine(affine_obj)
 
         if inverse:  # geo->px transform
             affine_xform = ~affine_xform
@@ -670,7 +634,3 @@ class Tile:
         return xformed_g
 
     os.makedirs(os.path.join(tempdir, 'tile2net'), exist_ok=True)
-
-
-#create empty dataframe
-df = pd.DataFrame(columns=['ImageId', 'BuildingId', 'PolygonWKT_Pix', 'PolygonWKT_Geo', 'Confidence'])
