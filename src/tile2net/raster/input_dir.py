@@ -49,9 +49,9 @@ class InputDir:
     def __set__(self, instance: Raster, value: str | PathLike):
         if value is None:
             return
-        value = os.path.normpath(value)
         if isinstance(value, Path):
             value = str(value)
+        value = os.path.normpath(value)
 
         self.original = value
 
