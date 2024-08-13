@@ -18,7 +18,7 @@ import toolz.curried
 from more_itertools import *
 from numpy import ndarray
 from toolz.curried import *
-
+check_free = True
 
 if False:
     from tile2net.raster.raster import Raster
@@ -516,7 +516,7 @@ class Project(Directory):
         self,
         name: str,
         outdir: PathLike,
-        raster: 'Raster'
+        raster: 'Raster',
     ):
         """
         file structure for tile2net project
@@ -548,13 +548,14 @@ class Project(Directory):
         # free = psutil.disk_usage(self.__fspath__()).free
         path = Path(self.__fspath__())
         path.mkdir(parents=True, exist_ok=True)
-        free = psutil.disk_usage(path.__fspath__()).free
-        if free > 2 * 2 ** 30:
-            ...
-        elif free > 1 * 2 ** 30:
-            warnings.warn(f'Low disk space: {free / 2 ** 30} GB')
-        else:
-            warnings.warn(f'Very low disk space: {free / 2 ** 20} MB')
+        if check_free:
+            free = psutil.disk_usage(path.__fspath__()).free
+            if free > 2 * 2 ** 30:
+                ...
+            elif free > 1 * 2 ** 30:
+                warnings.warn(f'Low disk space: {free / 2 ** 30} GB')
+            else:
+                warnings.warn(f'Very low disk space: {free / 2 ** 20} MB')
 
     def to_file(self, path: PathLike = None) -> Path:
         if path is None:
