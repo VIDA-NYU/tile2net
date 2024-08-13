@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+import json
 import os.path
 import re
 from collections import defaultdict
@@ -63,17 +64,13 @@ class AttributeAccesses:
 
     @cached_property
     def misses(self) -> dict:
-        result = {}
-
         exceptions = set(itertools.chain(
             dir(int),
             dir(float),
             dir(str),
             dir(bool),
-
         ))
 
-        # for path, (line, matches) in self.accesses.items():
         result = defaultdict(lambda: defaultdict(set))
         for path, line_matches in self.accesses.items():
             for line, matches in line_matches.items():
@@ -91,6 +88,7 @@ class AttributeAccesses:
                             break
         return result
 
+
 def test_namespaces():
     top = os.path.join(
         __file__,
@@ -103,9 +101,9 @@ def test_namespaces():
     attrs = AttributeAccesses(
         top=top,
         name='args',
-        exclude={'tile2net/src/tile2net/tileseg/tests/', }
+        exclude={'tile2net/src/tile2net/tileseg/tests/'}
     )
-    assert not attrs.misses
+    assert not attrs.misses, json.dumps(attrs.misses, indent=4)
 
 
 if __name__ == '__main__':
