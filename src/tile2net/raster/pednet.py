@@ -349,8 +349,12 @@ class PedNet():
         points = get_line_sepoints(self.crosswalk)
 
         # query LineString geometry to identify points intersecting 2 geometries
-        inp, res = self.crosswalk.sindex.query(geo2geodf(points).geometry,
-                                               predicate="intersects")
+        # inp, res = self.crosswalk.sindex.query(geo2geodf(points).geometry,
+        #                                        predicate="intersects")
+        inp, res = (
+            self.crosswalk.sindex
+                .query(geo2geodf(points).geometry, predicate="intersects")
+        )
         unique, counts = np.unique(inp, return_counts=True)
         ends = np.unique(res[np.isin(inp, unique[counts == 1])])
 
