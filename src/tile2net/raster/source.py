@@ -428,12 +428,12 @@ class LosAngeles(ArcGis):
 #     extension = 'jpeg'
 #     keyword = 'Oregon'
 
-class Oregon(ArcGis):
-    server = 'https://imagery.oregonexplorer.info/arcgis/rest/services/OSIP_2022/OSIP_2022_WM/ImageServer'
-    name = 'or'
-    extension = 'jpeg'
-    keyword = 'Oregon'
-
+# class Oregon(ArcGis):
+#     server = 'https://imagery.oregonexplorer.info/arcgis/rest/services/OSIP_2022/OSIP_2022_WM/ImageServer'
+#     name = 'or'
+#     extension = 'jpeg'
+#     keyword = 'Oregon'
+#
 
 class NewJersey(ArcGis):
     server = 'https://maps.nj.gov/arcgis/rest/services/Basemap/Orthos_Natural_2020_NJ_WM/MapServer'

@@ -56,7 +56,7 @@ def test_sources():
     assert Source['Jersey City'] == source.NewJersey
     assert Source['Hoboken'] == source.NewJersey
     assert Source["Spring Hill, TN"] == source.SpringHillTN
-    assert Source['Oregon'] == source.Oregon
+    # assert Source['Oregon'] == source.Oregon
     assert Source['Virginia'] == source.Virginia
 
     assert Source['40.72663613847755, -73.99494276578649'] == source.NewYorkCity
@@ -102,6 +102,7 @@ def test_sources():
     # gulf of mexico
     assert Source[21.82528963135751, -93.76345422053639, 21.82528963135751, -93.76345422053639] == None
 
+
 if __name__ == '__main__':
-    test_small()
+    # test_small()
     test_sources()
