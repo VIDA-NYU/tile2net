@@ -1,6 +1,3 @@
-import shutil
-
-import pytest
 from tile2net.raster.raster import Raster
 
 def test_small():
@@ -8,8 +5,8 @@ def test_small():
         location='Washington Square Park, New York, NY, USA',
         zoom=19,
         # dump_percent=1,
-        # name='small'
-        name='tiny'
+        name='small'
+        # name='tiny'
     )
 
     raster.generate(2)

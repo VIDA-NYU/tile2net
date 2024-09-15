@@ -11,6 +11,7 @@ from numpy import ndarray
 from toolz import curried, curry as cur, pipe
 
 from tile2net.raster.util import cached_descriptor
+import os
 
 
 if False:
@@ -50,6 +51,7 @@ class InputDir:
             return
         if isinstance(value, Path):
             value = str(value)
+        value = os.path.normpath(value)
 
         self.original = value
 
@@ -141,9 +143,13 @@ class InputDir:
         return self.dir
 
     def __repr__(self):
+        if not self.original:
+            return f'{super().__repr__()} not set'
         return self.original
 
     def __str__(self):
+        if not self.original:
+            return f'{super().__repr__()} not set'
         return self.original
 
     def __set_name__(self, owner, name):

@@ -3,6 +3,7 @@ import os
 import numpy as np
 # import momepy
 import pandas as pd
+from rasterio.windows import shape
 
 pd.options.mode.chained_assignment = None
 os.environ['USE_PYGEOS'] = '0'
@@ -138,7 +139,10 @@ def get_start_end(line_gdf):
 
 
 def vectorize_points(lst):
-    return np.apply_along_axis(Point, 1, lst)
+    try:
+        return np.apply_along_axis(Point, 1, lst)
+    except ValueError:
+        return np.array([], dtype=object)
 
 
 def get_shortest(gdf1, gdf2, f_type: str, max_dist=12):

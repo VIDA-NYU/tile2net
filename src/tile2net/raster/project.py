@@ -19,7 +19,6 @@ from more_itertools import *
 from numpy import ndarray
 from toolz.curried import *
 
-
 if False:
     from tile2net.raster.raster import Raster
     from tile2net.raster.source import Source
@@ -174,6 +173,7 @@ class Weights(Directory):
         # noinspection PyTypeChecker
         return super().__get__(instance, owner)
 
+
 class Segmentation(Directory):
     def __fspath__(self):
         raster = self.project.raster
@@ -198,7 +198,6 @@ class Segmentation(Directory):
             yield os.path.join(path, f'{r}_{c}_{i}.{extension}')
 
 
-
 class Assets(Directory):
     # @directory_method
     def files(self, raster: 'Raster', **kwargs) -> list[Path]:
@@ -209,7 +208,6 @@ class Assets(Directory):
         return super().__get__(instance, owner)
 
     weights = Weights()
-
 
 
 class Config(File):
@@ -291,7 +289,6 @@ class Static(Directory):
 
     _directory = WeakKeyDictionary()
 
-
     def __fspath__(self):
         raster = self.project.raster
         source: 'Source' = raster.source
@@ -305,7 +302,6 @@ class Static(Directory):
             return raster.input_dir.__fspath__()
         else:
             raise ValueError('raster has no source or input_dir')
-
 
     def files(self, tiles: ndarray = None) -> Iterator[Path]:
         raster = self.project.raster
@@ -324,7 +320,6 @@ class Static(Directory):
                 dir / f'{tile.xtile}_{tile.ytile}.{extension}'
                 for tile in tiles
             )
-
 
 
 class Stitched(Directory):
@@ -513,10 +508,10 @@ class Project(Directory):
     segmentation = Segmentation()
 
     def __init__(
-        self,
-        name: str,
-        outdir: PathLike,
-        raster: 'Raster'
+            self,
+            name: str,
+            outdir: PathLike,
+            raster: 'Raster',
     ):
         """
         file structure for tile2net project
@@ -548,13 +543,15 @@ class Project(Directory):
         # free = psutil.disk_usage(self.__fspath__()).free
         path = Path(self.__fspath__())
         path.mkdir(parents=True, exist_ok=True)
-        free = psutil.disk_usage(path.__fspath__()).free
-        if free > 2 * 2 ** 30:
-            ...
-        elif free > 1 * 2 ** 30:
-            warnings.warn(f'Low disk space: {free / 2 ** 30} GB')
-        else:
-            warnings.warn(f'Very low disk space: {free / 2 ** 20} MB')
+
+        # disabled because of python 3.12 bug
+        # free = psutil.disk_usage(path.__fspath__()).free
+        # if free > 2 * 2 ** 30:
+        #     ...
+        # elif free > 1 * 2 ** 30:
+        #     warnings.warn(f'Low disk space: {free / 2 ** 30} GB')
+        # else:
+        #     warnings.warn(f'Very low disk space: {free / 2 ** 20} MB')
 
     def to_file(self, path: PathLike = None) -> Path:
         if path is None:

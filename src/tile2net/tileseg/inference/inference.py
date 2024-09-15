@@ -513,5 +513,7 @@ def inference(args: Namespace):
 if __name__ == '__main__':
     """
     --city_info /tmp/tile2net/washington_square_park/tiles/washington_square_park_256_info.json --interactive --dump_percent 10
+    
+    --city_info /tmp/tile2net/frisco_test_1/tiles/frisco_test_1_256_info.json --interactive --dump_percent 10
     """
     argh.dispatch_command(inference)

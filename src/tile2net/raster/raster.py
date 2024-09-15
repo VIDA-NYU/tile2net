@@ -1,46 +1,59 @@
 from __future__ import annotations
 
-import logging
-import weakref
-from functools import *
-
 import copy
 import inspect
-import math
-
-import tile2net.logger
-from tile2net.raster import util
-import subprocess
-import os
-import certifi
-import imageio.v2
-
-import sys
-
-import numpy as np
-import requests
 import itertools
-
-from tqdm import tqdm
-
+import json
+import logging
+import math
+import mimetypes
+import os
+import subprocess
+import sys
+import weakref
+from concurrent.futures import Future, as_completed
+from concurrent.futures import ThreadPoolExecutor
+from functools import cached_property
+from os import PathLike as _PathLike
+from pathlib import Path
 from typing import Iterator, Optional, Type, Union
 
-from pathlib import Path
-from os import PathLike as _PathLike
-import json
-from concurrent.futures import ThreadPoolExecutor, Future, as_completed
-from functools import cached_property
-
-from PIL import Image
+import certifi
+import imageio.v2
+import numpy as np
+import requests
 import toolz
+from PIL import Image
+from numpy import ndarray
 from toolz import curried, pipe, partial, curry
+from tqdm import tqdm
 
+from tile2net.raster import util
 from tile2net.raster.grid import Grid
+from tile2net.raster.input_dir import InputDir
 from tile2net.raster.project import Project
 from tile2net.raster.source import Source
-from tile2net.raster.input_dir import InputDir
-from tile2net.raster.validate import validate
 from tile2net.logger import logger
+
+
+def get_extension(url):
+    try:
+        response = requests.head(url, allow_redirects=True, timeout=5)
+        content_type = response.headers.get('content-type')
+        if content_type:
+            extension = mimetypes.guess_extension(content_type.split(';')[0])
+            return extension if extension else 'unknown'
+        return 'unknown'
+    except Exception:
+        return 'unknown'
+
+def get_extensions(
+        urls: list[str] | ndarray,
+) -> list[str]:
+    with ThreadPoolExecutor() as executor:
+        extensions = list(executor.map(get_extension, urls))
+    return extensions
+
 
 PathLike = Union[str, _PathLike]
 
@@ -304,7 +317,7 @@ class Raster(Grid):
         self.dest = ""
         self.name = name
         self.boundary_path = ""
-        self.input_dir: InputDir = input_dir
+        self.input_dir = input_dir
         self.source = source
         self.dump_percent = dump_percent
         self.batch = -1
@@ -432,7 +445,10 @@ class Raster(Grid):
             return
 
         infiles: np.ndarray = pipe(
-            self.tiles, self.project.tiles.static.files, list, np.array
+            self.tiles,
+            self.project.tiles.static.files,
+            list,
+            np.array
         )
         indices = np.arange(self.tiles.size).reshape((self.width, self.height))
         indices = (
@@ -845,16 +861,16 @@ class Raster(Grid):
             "-m",
             "tile2net",
             "inference",
-            "--city_info",
-            str(info),
-            "--interactive",
-            "--dump_percent",
-            str(self.dump_percent),
             *args,
         ]
-        logger.info(f"Running {args}")
-        # if eval_folder:
-        #     args.extend(["--eval_folder", str(eval_folder)])
+        sargs = set(args)
+        extend = getattr(args, 'extend')
+        if '--city_info' not in sargs:
+            extend(["--city_info", str(info)])
+        if '--dump_percent' not in sargs:
+            extend(["--dump_percent", str(self.dump_percent)])
+        if '--interactive' not in sargs:
+            args.append("--interactive")
         logger.debug(f'Running {" ".join(args)}')
         try:
             # todo: capture_outputs=False if want instant printout
@@ -960,4 +976,3 @@ if __name__ == '__main__':
     )
     raster.generate(2)
     raster.inference()
-

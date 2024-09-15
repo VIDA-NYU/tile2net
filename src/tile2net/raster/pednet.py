@@ -1,6 +1,7 @@
 import logging
 import datetime
 import shutil
+import warnings
 
 import pandas as pd
 import os
@@ -217,6 +218,11 @@ class PedNet():
             cw_ntw.geometry = cw_ntw.geometry.set_crs(3857)
             smoothed = wrinkle_remover(cw_ntw, 1.3)
             self.crosswalk = smoothed
+        else:
+            warnings.warn('No crosswalks found')
+            self.crosswalk = gpd.GeoDataFrame({
+                'geometry': [],
+            },crs=3857)
 
     def create_lines(self, gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         """
@@ -322,6 +328,11 @@ class PedNet():
             except:
                 # logging.info('cannot save modified')
                 self.sidewalk = sw_uni_lines
+        else:
+            warnings.warn('No sidewalk polygons found')
+            self.sidewalk = gpd.GeoDataFrame({
+                'geometry': [],
+            }, crs=3857)
 
         self.sidewalk['f_type'] = 'sidewalk'
 
@@ -338,8 +349,12 @@ class PedNet():
         points = get_line_sepoints(self.crosswalk)
 
         # query LineString geometry to identify points intersecting 2 geometries
-        inp, res = self.crosswalk.sindex.query(geo2geodf(points).geometry,
-                                               predicate="intersects")
+        # inp, res = self.crosswalk.sindex.query(geo2geodf(points).geometry,
+        #                                        predicate="intersects")
+        inp, res = (
+            self.crosswalk.sindex
+                .query(geo2geodf(points).geometry, predicate="intersects")
+        )
         unique, counts = np.unique(inp, return_counts=True)
         ends = np.unique(res[np.isin(inp, unique[counts == 1])])
 

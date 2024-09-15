@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+import json
 import os.path
 import re
 from collections import defaultdict
@@ -62,19 +63,17 @@ class AttributeAccesses:
         return accesses
 
     @cached_property
-    def misses(self) -> dict:
-        result = {}
-
+    def misses(self) -> dict[str, tuple]:
         exceptions = set(itertools.chain(
             dir(int),
             dir(float),
             dir(str),
             dir(bool),
-
+            dir(list),
+            dir(dict)
         ))
 
-        # for path, (line, matches) in self.accesses.items():
-        result = defaultdict(lambda: defaultdict(set))
+        path2line2words = defaultdict(lambda: defaultdict(set))
         for path, line_matches in self.accesses.items():
             for line, matches in line_matches.items():
                 namespace = self.namespace
@@ -87,9 +86,21 @@ class AttributeAccesses:
                         except AttributeError:
                             if part in exceptions:
                                 continue
-                            result[path][line].add(match)
+                            path2line2words[path][line].add(match)
                             break
+        # result = {
+        #     key: tuple(value)
+        #     for key, value in result.values()
+        # }
+        result = {
+            path: {
+                line: tuple(words)
+                for line, words in line2words.items()
+            }
+            for path, line2words in path2line2words.items()
+        }
         return result
+
 
 def test_namespaces():
     top = os.path.join(
@@ -103,9 +114,9 @@ def test_namespaces():
     attrs = AttributeAccesses(
         top=top,
         name='args',
-        exclude={'tile2net/src/tile2net/tileseg/tests/', }
+        exclude={'tile2net/src/tile2net/tileseg/tests/'}
     )
-    assert not attrs.misses
+    assert not attrs.misses, json.dumps(attrs.misses, indent=4)
 
 
 if __name__ == '__main__':
