@@ -96,11 +96,6 @@ class SourceMeta(ABCMeta):
     catalog: dict[str, Type[Source]] = {}
     coverage = Coverage()
 
-    # @classmethod
-    # @property
-    # def coverage(cls) -> GeoSeries:
-    #     return coverage
-
     @not_found_none
     def __getitem__(
             cls: Type[Source],
@@ -371,6 +366,7 @@ class Massachusetts(ArcGis):
     server = 'https://tiles.arcgis.com/tiles/hGdibHYSPO59RG1h/arcgis/rest/services/USGS_Orthos_2019/MapServer'
     name = 'ma'
     keyword = 'Massachusetts'
+    extension = 'jpg'
 
 
 class KingCountyWashington(ArcGis):
