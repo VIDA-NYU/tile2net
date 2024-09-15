@@ -428,6 +428,7 @@ class LosAngeles(ArcGis):
 #     extension = 'jpeg'
 #     keyword = 'Oregon'
 
+# todo: Oregon also has some SSL issues
 # class Oregon(ArcGis):
 #     server = 'https://imagery.oregonexplorer.info/arcgis/rest/services/OSIP_2022/OSIP_2022_WM/ImageServer'
 #     name = 'or'
