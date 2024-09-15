@@ -33,6 +33,7 @@ from tile2net.raster.grid import Grid
 from tile2net.raster.input_dir import InputDir
 from tile2net.raster.project import Project
 from tile2net.raster.source import Source
+from tile2net.logger import logger
 
 
 def get_extension(url):
