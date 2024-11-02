@@ -163,7 +163,27 @@ def get_shortest(gdf1, gdf2, f_type: str, max_dist=12):
     connect = gpd.GeoDataFrame(geometry=new_lines)
     connect.geometry = connect.geometry.set_crs(METRIC_CRS)
     connect['f_type'] = f_type
+
+    lines = shapely.get_parts(connect.geometry)
+    nlines = shapely.get_num_geometries(connect.geometry)
+    coords = shapely.get_coordinates(lines, include_z=False)
+    npoints = shapely.get_num_points(lines)
+    coords = np.round(coords, 4)
+    # now pack back into geometry
+    # indices = np.arange(nlines).repeat(npoints)
+    indices = (
+        np.arange(nlines.sum())
+        .repeat(npoints)
+    )
+    lines = shapely.linestrings(
+        coords=coords[:, 0],
+        y=coords[:, 1],
+        indices=indices
+    )
+    connect.geometry = lines
+
     return connect
+
 
 
 def find_zigzag_lines(ldf):
