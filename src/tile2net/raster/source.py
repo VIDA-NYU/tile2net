@@ -357,7 +357,7 @@ class NewYorkCity(ArcGis):
 
 
 class NewYork(ArcGis):
-    server = 'https://orthos.its.ny.gov/arcgis/rest/services/wms/2020/MapServer'
+    server = 'https://orthos.its.ny.gov/arcgis/rest/services/wms/2021/MapServer'
     name = 'ny'
     keyword = 'New York'
 
