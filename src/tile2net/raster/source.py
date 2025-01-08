@@ -350,6 +350,18 @@ Note: sometimes we get something like Spring Hill, Maury County,
 """
 
 
+class NAIP(ArcGis):
+    server = 'https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer'
+    name = 'naip'
+    keyword = 'NAIP', 'CONUS'
+    zoom = 17
+
+    @class_attr
+    @property
+    def zoom(cls):
+        return 17
+
+
 class NewYorkCity(ArcGis):
     server = 'https://tiles.arcgis.com/tiles/yG5s3afENB5iO9fj/arcgis/rest/services/NYC_Orthos_-_2020/MapServer'
     name = 'nyc'
