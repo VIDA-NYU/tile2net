@@ -24,7 +24,6 @@ def deg2num_vectorized(lat_deg, lon_deg, zoom):
 
 
 def num2deg_vectorized(xtile, ytile, zoom):
-    print('⚠️AI GENERATED🤖')
     n = 2.0 ** zoom
     lon_deg = xtile / n * 360.0 - 180.0
     lat_rad = np.arctan(np.sinh(np.pi * (1.0 - 2.0 * ytile / n)))
