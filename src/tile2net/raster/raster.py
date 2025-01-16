@@ -1,4 +1,9 @@
 from __future__ import annotations
+import tempfile
+from concurrent.futures import ThreadPoolExecutor
+import pandas as pd
+import geopandas as gpd
+from collections.abc import Callable
 
 import copy
 import inspect
@@ -33,6 +38,44 @@ from tile2net.raster.grid import Grid
 from tile2net.raster.input_dir import InputDir
 from tile2net.raster.project import Project
 from tile2net.raster.source import Source
+from tile2net.raster.frame import Frame
+from tile2net.raster.frame import Frame
+from tile2net.raster.util import read_file
+import tempfile
+import tempfile
+from concurrent.futures import ThreadPoolExecutor
+import pandas as pd
+import geopandas as gpd
+from collections.abc import Callable
+from typing import *
+import geopandas as gpd
+
+import itertools
+import json
+import os
+import subprocess
+import sys
+from concurrent.futures import ThreadPoolExecutor, Future, as_completed
+from functools import cached_property
+from os import PathLike as _PathLike
+from pathlib import Path
+from typing import Iterator, Union
+
+import cv2
+import geopy
+import imageio.v2
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import requests
+import toolz
+from PIL import Image
+from geopy.geocoders import Nominatim
+from more_itertools import *
+from toolz import *
+from toolz import curried, pipe
+from tqdm import tqdm
+from .clipped import Clipped
 from tile2net.logger import logger
 
 
@@ -46,6 +89,7 @@ def get_extension(url):
         return 'unknown'
     except Exception:
         return 'unknown'
+
 
 def get_extensions(
         urls: list[str] | ndarray,
@@ -602,6 +646,217 @@ class Raster(Grid):
         for write in writes:
             write.result()
         threads.shutdown(wait=True)
+
+    @cached_property
+    def frame(self):
+        return Frame.from_raster(self)
+
+    def vector2raster(
+            self,
+            infiles: str | list[str],
+            annotations: Union[
+                str,
+                list[str],
+                Callable[[gpd.GeoDataFrame], pd.Series],
+                list[Callable[[gpd.GeoDataFrame], pd.Series]],
+            ],
+            colors: dict[str, str],
+            outdir=None,
+            zorder: dict[str, int] = None,
+            zorder_default=20,
+    ):
+        """
+        infiles:
+            path or paths to geodataframes of annotations
+        annotations:
+            str:
+                label name of all geometry in the GDF
+            list[str]:
+                label name for all geometry in each respective GDF
+            Callable[[gpd.GeoDataFrame], pd.Series]:
+                function that takes GDF and returns series of labels
+                e.g. lambda gdf: gdf['f_type']
+            list[Callable[[gpd.GeoDataFrame], pd.Series]]:
+                list of functions that take GDF and return series of labels
+                for each respective GDF
+                e.g. [lambda gdf: gdf['f_type'], lambda gdf: gdf['label']]
+        colors:
+            dictionary mapping annotations to their colors
+        outdir:
+            output directory for annotations; tempdir by default
+        zorder:
+            dictionary mapping annotations to their zorder
+        zorder_default:
+            default zorder for annotations
+        """
+        if isinstance(infiles, (str, Path)):
+            infiles = [infiles]
+        if not isinstance(annotations, list):
+            annotations = [annotations]
+
+        if outdir is None:
+            outdir = tempfile.gettempdir()
+        outdir = f'{outdir}{os.sep}annotations'
+        os.makedirs(outdir, exist_ok=True)
+
+        def submit(args):
+            infile, annotation = args
+            gdf = read_file(infile)
+            if isinstance(annotation, str):
+                series = pd.Series(annotation, index=gdf.index)
+            elif isinstance(annotation, Callable):
+                series = annotation(gdf)
+            else:
+                raise ValueError('annotation must be a string or a callable')
+            loc = series.notna()
+            return (
+                gdf.geometry
+                .pipe(gpd.GeoDataFrame)
+                .assign(annotation=series.values)
+                .loc[loc]
+            )
+
+        threads = ThreadPoolExecutor()
+        it = threads.map(submit, zip(infiles, annotations))
+        crs = self.frame.crs
+        concat = [
+            gdf.to_crs(crs)
+            for gdf in it
+        ]
+        vector = (
+            pd.concat(concat)
+            .pipe(gpd.GeoDataFrame)
+        )
+        vector['color'] = (
+            pd.Series(colors)
+            .loc[vector['annotation']]
+            .values
+        )
+        vector['zorder'] = (
+            pd.Series(zorder)
+            .reindex(vector['annotation'], fill_value=zorder_default)
+            .values
+        )
+        predicate = 'intersects'
+        iright, ileft = vector.sindex.query(
+            self.frame.geometry,
+            predicate=predicate,
+        )
+        tiles = self.frame.iloc[iright]
+        # idd = tiles['idd'].values
+        idd = (
+            tiles['idd']
+            .astype('category')
+            .values
+        )
+        vector = vector.iloc[ileft]
+        geometry = vector.geometry.intersection(tiles.geometry, align=False)
+        size = tiles['size'].values
+        clippeds = vector.assign(
+            geometry=geometry,
+            # outfile=outfile,
+            size=size,
+            idd=idd,
+        )
+        tiles = self.frame
+        outfiles = (
+            self.frame
+            .idd2outfile(outdir)
+            .loc[tiles.index]
+            .values
+        )
+        tiles['outfile'] = outfiles
+
+        with ThreadPoolExecutor() as threads:
+            futures = []
+            groupby = 'color zorder'.split()
+            groups = clippeds.groupby('idd', observed=False)
+            total = len(groups)
+
+            desc = f'Writing annotations to {outdir}...'
+            for idd, clipped in tqdm(groups, desc, total):
+                tile = tiles.loc[idd]
+                size = tile['size']
+                outfile = tile['outfile']
+
+                img = np.zeros([size, size, 3], np.uint8)
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                dpi = 1200
+                figsize = (img.shape[0] / float(dpi), img.shape[1] / float(dpi))
+                fig, ax = plt.subplots(figsize=figsize)
+                plt.box(False)
+                fig.dpi = dpi
+                fig.subplots_adjust(
+                    left=0,
+                    bottom=0,
+                    right=1,
+                    top=1,
+                    wspace=0,
+                    hspace=0,
+                )
+                ax.margins(0)
+                ax.get_xaxis().set_visible(False)
+                ax.get_yaxis().set_visible(False)
+                ax.set_facecolor('black')
+
+                for (color, zorder), frame in clipped.groupby(groupby):
+                    frame.plot(
+                        ax=ax,
+                        color=color,
+                        zorder=zorder,
+                        alpha=1,
+                        antialiased=False
+                    )
+
+                pn = tile['pn']
+                pw = tile['pw']
+                ps = tile['ps']
+                pe = tile['pe']
+                extent = (pw, pe, ps, pn)
+                ax.imshow(img, extent=extent)
+                s, (width, height) = fig.canvas.print_to_buffer()
+                data = (
+                    np.frombuffer(s, dtype=np.uint8)
+                    .reshape(width, height, 4)
+                    [:, :, :3]
+                )
+                # noinspection PyTypeChecker
+                future = threads.submit(
+                    cv2.imwrite,
+                    outfile,
+                    cv2.cvtColor(data, cv2.COLOR_RGB2BGR)
+                )
+                futures.append(future)
+                fig.clf()
+                plt.close('all')
+
+            for future in futures:
+                future.result()
+
+    def clipped(
+            self: Raster,
+            infiles: str | list[str],
+            annotations: Union[
+                str,
+                list[str],
+                Callable[[gpd.GeoDataFrame], pd.Series],
+                list[Callable[[gpd.GeoDataFrame], pd.Series]],
+            ],
+            colors: dict[str, str],
+            outdir=None,
+            zorder: dict[str, int] = None,
+            zorder_default=20,
+    ):
+        result = Clipped.from_raster(
+            self,
+            infiles,
+            annotations,
+            colors,
+            outdir,
+            zorder,
+            zorder_default,
+        )
+        return result
 
     def download(self, retry: bool = True):
         """

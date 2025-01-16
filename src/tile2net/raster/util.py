@@ -1,4 +1,7 @@
 import inspect
+import geopandas as gpd
+from pathlib import Path
+
 import functools
 import json
 import os
@@ -13,7 +16,6 @@ from geopy.geocoders import Nominatim
 from toolz import curried, pipe
 
 # import logging
-from tile2net.logger import logger
 
 
 def round_loc(location: list[float], decimals=10) -> list[float]:
@@ -146,6 +148,17 @@ def name_from_location(location: str | list[float, str]):
         return name
     raise TypeError(f"location must be str or list, not {type(location)}")
 
+def read_file(path: str | Path) -> gpd.GeoDataFrame:
+    if isinstance(path, gpd.GeoDataFrame):
+        return path
+    suffix = Path(path).suffix
+    match suffix:
+        case '.parquet':
+            return gpd.read_parquet(path)
+        case '.feather':
+            return gpd.read_feather(path)
+        case _:
+            return gpd.read_file(path)
 
 if __name__ == '__main__':
     print(name_from_location('New York, NY, USA'))
