@@ -24,6 +24,7 @@ def deg2num_vectorized(lat_deg, lon_deg, zoom):
 
 
 def num2deg_vectorized(xtile, ytile, zoom):
+    print('⚠️AI GENERATED🤖')
     n = 2.0 ** zoom
     lon_deg = xtile / n * 360.0 - 180.0
     lat_rad = np.arctan(np.sinh(np.pi * (1.0 - 2.0 * ytile / n)))
@@ -92,8 +93,8 @@ class Frame(
             tile.size
             for tile in tiles
         ), int, len(tiles))
-        te = tw + 1
-        ts = tn + 1
+        te = tw + raster.tile_step
+        ts = tn + raster.tile_step
         zoom = raster.zoom
         gn, gw = num2deg_vectorized(tw, tn, zoom)
         gs, ge = num2deg_vectorized(te, ts, zoom)
