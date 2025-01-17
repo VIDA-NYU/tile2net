@@ -49,7 +49,17 @@ class Clipped(
     def from_raster(
             cls,
             self: Raster,
-            infiles: str | list[str],
+            infiles: Union[
+                # filename
+                str,
+                    # kwargs
+                dict[str, Any],
+                    # list of filenames or kwargs
+                list[Union[
+                    str,
+                    dict[str, Any],
+                ]],
+            ],
             annotations: Union[
                 str,
                 list[str],
@@ -85,7 +95,8 @@ class Clipped(
         zorder_default:
             default zorder for annotations
         """
-        if isinstance(infiles, (str, Path)):
+
+        if not isinstance(infiles, list):
             infiles = [infiles]
         if not isinstance(annotations, list):
             annotations = [annotations]
@@ -95,9 +106,11 @@ class Clipped(
         outdir = f'{outdir}{os.sep}annotations'
         os.makedirs(outdir, exist_ok=True)
 
-        def submit(args):
-            infile, annotation = args
-            gdf = read_file(infile)
+        def submit(annotation, infile):
+            if isinstance(infile, dict):
+                gdf = read_file(**infile)
+            else:
+                gdf = read_file(infile)
             if isinstance(annotation, str):
                 series = pd.Series(annotation, index=gdf.index)
             elif isinstance(annotation, Callable):
@@ -113,7 +126,7 @@ class Clipped(
             )
 
         threads = ThreadPoolExecutor()
-        it = threads.map(submit, zip(infiles, annotations))
+        it = threads.map(submit, annotations, infiles)
         crs = self.frame.crs
         concat = [
             gdf.to_crs(crs)

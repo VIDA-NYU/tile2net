@@ -76,11 +76,11 @@ class Frame(
             tile.ytile
             for tile in tiles
         ), int, len(tiles))
-        r = np.fromiter((
+        c = np.fromiter((
             tile.position[0]
             for tile in tiles
         ), int, len(tiles))
-        c = np.fromiter((
+        r = np.fromiter((
             tile.position[1]
             for tile in tiles
         ), int, len(tiles))
@@ -123,9 +123,10 @@ class Frame(
         """Based on an outdir, maps each IDD to an output file."""
         outdir = str(outdir)
         sep = os.sep
+        it = self[['idd', 'r', 'c']].itertuples(index=False)
         data = [
             f'{outdir}{sep}{c}_{r}_{idd}.{ext}'
-            for idd, r, c in self[['idd', 'r', 'c']].itertuples(index=False)
+            for idd, r, c in it
         ]
         result = pd.Series(data, self.index, 'category')
         return result

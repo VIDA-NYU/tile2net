@@ -15,11 +15,13 @@ from geopy.exc import GeocoderTimedOut
 from geopy.geocoders import Nominatim
 from toolz import curried, pipe
 
+
 # import logging
 
 
 def round_loc(location: list[float], decimals=10) -> list[float]:
     return list(np.around(np.array(location), decimals=decimals))
+
 
 def southwest_northeast(bbox: list[float]):
     return [
@@ -28,6 +30,7 @@ def southwest_northeast(bbox: list[float]):
         max(bbox[0], bbox[2]),
         max(bbox[1], bbox[3]),
     ]
+
 
 def unpack_relevant(cls, info) -> object:
     if not isinstance(info, dict):
@@ -41,6 +44,7 @@ def unpack_relevant(cls, info) -> object:
     )
     res = cls(**relevant)
     return res
+
 
 class cached_descriptor(property):
 
@@ -61,6 +65,7 @@ class cached_descriptor(property):
 
     def __delete__(self, instance):
         del self.cache[instance]
+
 
 def geocode(location) -> list[float]:
     # from address, get bbox
@@ -107,14 +112,13 @@ def reverse_geocode(location: list[float]) -> str:
     result = nom.raw['display_name']
     return result
 
-
     if nom is None:
         raise ValueError(f"Could not geocode '{location}'")
     logger.info(f"Geocoded '{location}' to\n\t'{nom.raw['display_name']}'")
     return nom.raw['display_name']
 
-def name_from_location(location: str | list[float, str]):
 
+def name_from_location(location: str | list[float, str]):
     if isinstance(location, str):
         try:
             # location is bbox
@@ -148,19 +152,21 @@ def name_from_location(location: str | list[float, str]):
         return name
     raise TypeError(f"location must be str or list, not {type(location)}")
 
-def read_file(path: str | Path) -> gpd.GeoDataFrame:
-    if isinstance(path, gpd.GeoDataFrame):
-        return path
-    suffix = Path(path).suffix
-    match suffix:
-        case '.parquet':
-            return gpd.read_parquet(path)
-        case '.feather':
-            return gpd.read_feather(path)
-        case _:
-            return gpd.read_file(path)
+
+def read_file(*args, **kwargs) -> gpd.GeoDataFrame:
+    from pyogrio.errors import DataSourceError
+    try:
+        return gpd.read_file(*args, **kwargs)
+    except DataSourceError:
+        ...
+    try:
+        return gpd.read_parquet(*args, **kwargs)
+    except DataSourceError:
+        ...
+    return gpd.read_feather(*args, **kwargs)
+
+
 
 if __name__ == '__main__':
     print(name_from_location('New York, NY, USA'))
     print(name_from_location([1.22456789, 2.3456789, 3.456789, 4.56789]))
-

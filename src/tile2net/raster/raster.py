@@ -1,82 +1,51 @@
 from __future__ import annotations
-import tempfile
-from concurrent.futures import ThreadPoolExecutor
-import pandas as pd
-import geopandas as gpd
-from collections.abc import Callable
+import numpy as np
 
 import copy
 import inspect
 import itertools
 import json
 import logging
-import math
 import mimetypes
 import os
+import re
 import subprocess
 import sys
+import tempfile
 import weakref
-from concurrent.futures import Future, as_completed
-from concurrent.futures import ThreadPoolExecutor
-from functools import cached_property
-from os import PathLike as _PathLike
-from pathlib import Path
-from typing import Iterator, Optional, Type, Union
-
-import certifi
-import imageio.v2
-import numpy as np
-import requests
-import toolz
-from PIL import Image
-from numpy import ndarray
-from toolz import curried, pipe, partial, curry
-from tqdm import tqdm
-
-from tile2net.raster import util
-from tile2net.raster.grid import Grid
-from tile2net.raster.input_dir import InputDir
-from tile2net.raster.project import Project
-from tile2net.raster.source import Source
-from tile2net.raster.frame import Frame
-from tile2net.raster.frame import Frame
-from tile2net.raster.util import read_file
-import tempfile
-import tempfile
-from concurrent.futures import ThreadPoolExecutor
-import pandas as pd
-import geopandas as gpd
-from collections.abc import Callable
-from typing import *
-import geopandas as gpd
-
-import itertools
-import json
-import os
-import subprocess
-import sys
 from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 from functools import cached_property
 from os import PathLike as _PathLike
 from pathlib import Path
+from typing import *
 from typing import Iterator, Union
+from typing import Type
 
+import certifi
 import cv2
-import geopy
+import geopandas as gpd
 import imageio.v2
+import imageio.v2
+import math
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import requests
 import toolz
 from PIL import Image
-from geopy.geocoders import Nominatim
-from more_itertools import *
+from numpy import ndarray
 from toolz import *
 from toolz import curried, pipe
 from tqdm import tqdm
+
+from tile2net.raster import util
+from tile2net.raster.frame import Frame
+from tile2net.raster.grid import Grid
+from tile2net.raster.input_dir import InputDir
+from tile2net.raster.project import Project
+from tile2net.raster.source import Source
+from tile2net.raster.util import read_file
 from .clipped import Clipped
-from tile2net.logger import logger
 
 
 def get_extension(url):
@@ -297,7 +266,7 @@ class Raster(Grid):
         dump_percent : int
             percentage of the tiles to dump (default: None)
         """
-        global logger
+        from tile2net.logger import logger
         if debug:
             logger.setLevel(logging.DEBUG)
 
@@ -653,7 +622,17 @@ class Raster(Grid):
 
     def vector2raster(
             self,
-            infiles: str | list[str],
+            infiles: Union[
+                # filename
+                str,
+                    # kwargs
+                dict[str, Any],
+                    # list of filenames or kwargs
+                list[Union[
+                    str,
+                    dict[str, Any],
+                ]],
+            ],
             annotations: Union[
                 str,
                 list[str],
@@ -689,35 +668,41 @@ class Raster(Grid):
         zorder_default:
             default zorder for annotations
         """
-        if isinstance(infiles, (str, Path)):
+        if not isinstance(infiles, list):
             infiles = [infiles]
         if not isinstance(annotations, list):
             annotations = [annotations]
 
         if outdir is None:
-            outdir = tempfile.gettempdir()
-        outdir = f'{outdir}{os.sep}annotations'
+            outdir = tempfile.mkdtemp()
+        # outdir = f'{outdir}{os.sep}annotations'
         os.makedirs(outdir, exist_ok=True)
 
-        def submit(args):
-            infile, annotation = args
-            gdf = read_file(infile)
+        def submit(annotation, infile):
+            if isinstance(infile, pd.DataFrame):
+                gdf = infile
+            elif isinstance(infile, dict):
+                gdf = read_file(**infile)
+            else:
+                gdf = read_file(infile)
             if isinstance(annotation, str):
                 series = pd.Series(annotation, index=gdf.index)
             elif isinstance(annotation, Callable):
                 series = annotation(gdf)
+                if not isinstance(series, pd.Series):
+                    series = pd.Series(series, index=gdf.index)
             else:
                 raise ValueError('annotation must be a string or a callable')
             loc = series.notna()
             return (
                 gdf.geometry
                 .pipe(gpd.GeoDataFrame)
-                .assign(annotation=series.values)
+                .assign(annotation=series)
                 .loc[loc]
             )
 
         threads = ThreadPoolExecutor()
-        it = threads.map(submit, zip(infiles, annotations))
+        it = threads.map(submit, annotations, infiles)
         crs = self.frame.crs
         concat = [
             gdf.to_crs(crs)
@@ -743,7 +728,6 @@ class Raster(Grid):
             predicate=predicate,
         )
         tiles = self.frame.iloc[iright]
-        # idd = tiles['idd'].values
         idd = (
             tiles['idd']
             .astype('category')
@@ -754,7 +738,6 @@ class Raster(Grid):
         size = tiles['size'].values
         clippeds = vector.assign(
             geometry=geometry,
-            # outfile=outfile,
             size=size,
             idd=idd,
         )
@@ -766,7 +749,6 @@ class Raster(Grid):
             .values
         )
         tiles['outfile'] = outfiles
-
         with ThreadPoolExecutor() as threads:
             futures = []
             groupby = 'color zorder'.split()
@@ -832,6 +814,57 @@ class Raster(Grid):
 
             for future in futures:
                 future.result()
+
+            return outdir
+
+    @staticmethod
+    def raster_preview(
+            indir: os.PathLike,
+            outres: int = 2048,
+    ) -> Image.Image:
+        indir = Path(indir)
+        files = sorted(indir.glob('*.png'))
+        pattern = re.compile(r'^(\d+)_(\d+)_(.+)\.png$')
+
+        images = {}
+        min_r = float('inf')
+        max_r = float('-inf')
+        min_c = float('inf')
+        max_c = float('-inf')
+
+        for f in files:
+            match = pattern.match(f.name)
+            if not match:
+                continue
+            c = int(match.group(1))
+            r = int(match.group(2))
+            im = Image.open(f)
+            images[(r,c)] = im
+            min_r = min(min_r, r)
+            max_r = max(max_r, r)
+            min_c = min(min_c, c)
+            max_c = max(max_c, c)
+
+        if not images:
+            return Image.new('RGB', (outres, outres), (255, 255, 255))
+
+        tile_width, tile_height = next(iter(images.values())).size
+        rows = max_r - min_r + 1
+        cols = max_c - min_c + 1
+
+        mosaic = Image.new('RGB', (cols * tile_width, rows * tile_height))
+        for (r, c), img in images.items():
+            paste_x = (c - min_c) * tile_width
+            paste_y = (r - min_r) * tile_height
+            mosaic.paste(img, (paste_x, paste_y))
+
+        if max(mosaic.size) > outres:
+            ratio = outres / float(max(mosaic.size))
+            new_size = (int(mosaic.size[0] * ratio), int(mosaic.size[1] * ratio))
+            # Use the older resample parameter directly from Image
+            mosaic = mosaic.resize(new_size, resample=Image.LANCZOS)
+
+        return mosaic
 
     def clipped(
             self: Raster,
