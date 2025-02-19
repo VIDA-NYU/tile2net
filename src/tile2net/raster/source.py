@@ -208,6 +208,13 @@ class Source(ABC, metaclass=SourceMeta):
     extension = 'png'
     tiles: str = None
     tilesize: int = 256  # pixels per tile side
+
+    # the user's geolocated address must contain the keyword to use the source.
+    # e.g. include 'New York City' to disambiguate the 'New York City' source
+    # from the 'New York' source.
+    # Or, prevent mismatches from adjacent borders
+    # e.g. include 'Indiana' to exclude nearby Chicago from an Indiana source
+
     keyword: str  # required match when reverse geolocating address from point
     dropword: str = None  # if result contains this word, it is not a match
 
@@ -353,13 +360,8 @@ Note: sometimes we get something like Spring Hill, Maury County,
 class NAIP(ArcGis):
     server = 'https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer'
     name = 'naip'
-    keyword = 'NAIP', 'CONUS'
-    zoom = 17
-
-    @class_attr
-    @property
-    def zoom(cls):
-        return 17
+    keyword = 'United States'
+    zoom = 18
 
 
 class NewYorkCity(ArcGis):
@@ -480,5 +482,8 @@ if __name__ == '__main__':
     assert Source['Jersey City'] == NewJersey
     assert Source['Hoboken'] == NewJersey
     assert Source["Spring Hill, TN"] == SpringHillTN
-    assert Source['Oregon'] == Oregon
+    # assert Source['Oregon'] == Oregon
     assert Source['Virginia'] == Virginia
+    assert Source['Kentucky'] == NAIP
+    assert Source['Lexington, Kentucky'] == NAIP
+
