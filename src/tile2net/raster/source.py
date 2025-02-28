@@ -1,4 +1,5 @@
 from __future__ import annotations
+import tempfile
 
 import functools
 import json
@@ -30,11 +31,15 @@ class Coverage:
     @cached_property
     def file(self) -> pathlib.Path:
         return pathlib.Path(
-            __file__, '..', '..', 'resources', 'coverage.feather'
-        ).resolve()
+            tempfile.gettempdir(),
+            'tile2net',
+            'coverage.feather',
+        )
 
     def __get__(self, instance, owner: SourceMeta) -> GeoSeries:
-        if self.file.exists():
+        # note: set to False if you are testing new Sources
+        # if self.file.exists():
+        if False:
             coverage = gpd.read_feather(self.file)
             # if not coverage.index.symmetric_difference(owner.catalog.keys()):
             if (
@@ -110,8 +115,8 @@ class SourceMeta(ABCMeta):
         geocode = GeoCode.from_inferred(item)
         loc = matches.intersects(geocode.polygon)
         if (
-            not loc.any()
-            and 'address' in geocode.__dict__
+                not loc.any()
+                and 'address' in geocode.__dict__
         ):
             # user must've been lazy; compute a new polygon
             del geocode.address
@@ -139,8 +144,8 @@ class SourceMeta(ABCMeta):
                 loc.append(append)
 
         if (
-            not any(loc)
-            and 'address' in geocode.__dict__
+                not any(loc)
+                and 'address' in geocode.__dict__
         ):
             # user must've been lazy; compute a new address
             loc = []
@@ -237,8 +242,8 @@ class Source(ABC, metaclass=SourceMeta):
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__()
         if (
-            not getattr(cls, 'ignore', False)
-            and ABC not in cls.__bases__
+                not getattr(cls, 'ignore', False)
+                and ABC not in cls.__bases__
         ):
             if cls.name is None:
                 raise ValueError(f'{cls} must have a name')
@@ -357,13 +362,6 @@ Note: sometimes we get something like Spring Hill, Maury County,
 """
 
 
-class NAIP(ArcGis):
-    server = 'https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer'
-    name = 'naip'
-    keyword = 'United States'
-    zoom = 18
-
-
 class NewYorkCity(ArcGis):
     server = 'https://tiles.arcgis.com/tiles/yG5s3afENB5iO9fj/arcgis/rest/services/NYC_Orthos_-_2020/MapServer'
     name = 'nyc'
@@ -471,7 +469,27 @@ class Virginia(ArcGis):
     coverage = GeoSeries(box, crs='epsg:4326')
 
 
+class Branson(ArcGis):
+    server = 'https://tiles.arcgis.com/tiles/NIkzUpjDtspiBG0j/arcgis/rest/services/2023_BransonAerialsTileCache/MapServer'
+    zoom = 20
+    name = 'bran'
+    keyword = 'Branson', 'Missouri'
+
+    @class_attr
+    @property
+    def coverage(cls):
+        # 102697 isn't supposed by pyproj so I hardcoded 4326 bounds
+        res = GeoSeries([shapely.geometry.box(
+            -93.32326188851331,
+            36.591114039039724,
+            -93.19400990895582,
+            36.72034332353051,
+        )], crs=4326)
+        return res
+
+
 if __name__ == '__main__':
+    assert Source['Branson, Missouri'] == Branson
     assert Source['New Brunswick, New Jersey'] == NewJersey
     assert Source['New York City'] == NewYorkCity
     assert Source['New York'] in (NewYorkCity, NewYork)
@@ -484,6 +502,5 @@ if __name__ == '__main__':
     assert Source["Spring Hill, TN"] == SpringHillTN
     # assert Source['Oregon'] == Oregon
     assert Source['Virginia'] == Virginia
-    assert Source['Kentucky'] == NAIP
+    # assert Source['Kentucky'] == NAIP
     assert Source['Lexington, Kentucky'] == NAIP
-
