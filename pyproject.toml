@@ -12,7 +12,7 @@ keywords = [
     "sidewalk-detection"
 ]
 authors = [
-    { name = "Maryam Hosseini", email = "maryamh@mit.edu" },
+    { name = "Maryam Hosseini", email = "maryamh@berkeley.edu" },
 ]
 maintainers = [
     { name = "Daniel Hodczak", email = "dhodcz2@uic.edu" }
