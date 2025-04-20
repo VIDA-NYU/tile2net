@@ -46,6 +46,7 @@ from tile2net.raster.project import Project
 from tile2net.raster.source import Source
 from tile2net.raster.util import read_file
 from .clipped import Clipped
+from tile2net.logger import logger
 
 
 def get_extension(url):
@@ -1055,25 +1056,24 @@ class Raster(Grid):
             return_dict : bool
                 whether or not to return the updated grid info as a dict instead of saving to a json file
         """
-        city_info = {
-            "name": self.name,
-            "bbox": self.bbox,
-            "location": self.location,
-            "size": self.tile_size,
-            "zoom": self.zoom,
-            "crs": self.crs,
-            "tile_step": self.tile_step,
-            "project": dict(self.project.structure),
-            'debug': self.debug,
-        }
-        if self.source:
-            city_info["source"] = str(self.source)
+        city_info = dict(
+            name=self.name,
+            bbox=self.bbox,
+            location=self.location,
+            size=self.tile_size,
+            zoom=self.zoom,
+            crs=self.crs,
+            tile_step=self.tile_step,
+            project=dict(self.project.structure),
+            debug=self.debug,
+        )
         if self.output_dir:
             city_info["output_dir"] = str(self.output_dir)
         if self.input_dir:
             city_info["input_dir"] = str(self.input_dir)
         if self.source:
             city_info["source"] = str(self.source)
+            city_info["year"] = self.source.year
 
         if "new_tstep" in kwargs:
             city_info["size"] = self.tile_size * kwargs["new_tstep"]

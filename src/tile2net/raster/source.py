@@ -210,6 +210,7 @@ class Source(ABC, metaclass=SourceMeta):
     tilesize: int = 256  # pixels per tile side
     keyword: str  # required match when reverse geolocating address from point
     dropword: str = None  # if result contains this word, it is not a match
+    year: int = None  # year of the data
 
     def __getitem__(self, item: Iterator[Tile]):
         tiles = self.tiles
@@ -225,7 +226,7 @@ class Source(ABC, metaclass=SourceMeta):
         return f'<{self.__class__.__qualname__} {self.name} at {hex(id(self))}>'
 
     def __str__(self):
-        return self.name
+        return f'{self.name} from {self.server}'
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__()
@@ -354,12 +355,14 @@ class NewYorkCity(ArcGis):
     server = 'https://tiles.arcgis.com/tiles/yG5s3afENB5iO9fj/arcgis/rest/services/NYC_Orthos_-_2020/MapServer'
     name = 'nyc'
     keyword = 'New York City', 'City of New York'
+    year =  2020
 
 
 class NewYork(ArcGis):
     server = 'https://orthos.its.ny.gov/arcgis/rest/services/wms/2020/MapServer'
     name = 'ny'
     keyword = 'New York'
+    year = 2020
 
 
 class Massachusetts(ArcGis):
@@ -367,12 +370,14 @@ class Massachusetts(ArcGis):
     name = 'ma'
     keyword = 'Massachusetts'
     extension = 'jpg'
+    year = 2019
 
 
 class KingCountyWashington(ArcGis):
     server = 'https://gismaps.kingcounty.gov/arcgis/rest/services/BaseMaps/KingCo_Aerial_2021/MapServer'
     name = 'king'
     keyword = 'King County, Washington', 'King County'
+    year = 2021
 
 
 class WashingtonDC(ArcGis):
@@ -382,6 +387,7 @@ class WashingtonDC(ArcGis):
     tilesize = 512
     extension = 'jpeg'
     keyword = 'District of Columbia', 'DC'
+    year = 2021
 
     def __getitem__(self, item: Iterator[Tile]):
         for tile in item:
@@ -402,6 +408,7 @@ class LosAngeles(ArcGis):
     server = 'https://cache.gis.lacounty.gov/cache/rest/services/LACounty_Cache/LACounty_Aerial_2014/MapServer'
     name = 'la'
     keyword = 'Los Angeles'
+    year = 2014
 
     # to test case where a source raises an error due to metadata failure
     #   other sources should still function
@@ -440,12 +447,14 @@ class NewJersey(ArcGis):
     server = 'https://maps.nj.gov/arcgis/rest/services/Basemap/Orthos_Natural_2020_NJ_WM/MapServer'
     name = 'nj'
     keyword = 'New Jersey'
+    year = 2020
 
 
 class SpringHillTN(ArcGis):
     server = 'https://tiles.arcgis.com/tiles/tF0XsRR9ptiKNVW2/arcgis/rest/services/Spring_Hill_Imagery_WGS84/MapServer'
     name = 'sh_tn'
     keyword = 'Spring Hill, Tennessee', 'Spring Hill'
+    year = 2020
 
 
 class Virginia(ArcGis):
