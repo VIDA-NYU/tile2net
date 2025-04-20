@@ -1074,6 +1074,7 @@ class Raster(Grid):
         if self.source:
             city_info["source"] = str(self.source)
             city_info["year"] = self.source.year
+            city_info['server'] = self.source.server
 
         if "new_tstep" in kwargs:
             city_info["size"] = self.tile_size * kwargs["new_tstep"]

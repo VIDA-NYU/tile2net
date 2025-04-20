@@ -14,6 +14,7 @@ import toolz
 from geopy.exc import GeocoderTimedOut
 from geopy.geocoders import Nominatim
 from toolz import curried, pipe
+from tile2net.logger import logger
 
 
 # import logging

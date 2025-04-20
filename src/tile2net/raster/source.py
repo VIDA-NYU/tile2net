@@ -226,7 +226,7 @@ class Source(ABC, metaclass=SourceMeta):
         return f'<{self.__class__.__qualname__} {self.name} at {hex(id(self))}>'
 
     def __str__(self):
-        return f'{self.name} from {self.server}'
+        return self.name
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__()

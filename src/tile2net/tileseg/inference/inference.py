@@ -162,7 +162,10 @@ class Inference:
         if args.model.snapshot:
             if 'ASSETS_PATH' in args.model.snapshot:
                 args.model.snapshot = args.model.snapshot.replace('ASSETS_PATH', cfg.ASSETS_PATH)
-            checkpoint = torch.load(args.model.snapshot, map_location=torch.device('cpu'))
+            checkpoint = torch.load(
+                args.model.snapshot,
+                map_location=torch.device('cpu'),
+            )
             args.restore_net = True
             msg = "Loading weights from: checkpoint={}".format(args.model.snapshot)
             logger.info(msg)
