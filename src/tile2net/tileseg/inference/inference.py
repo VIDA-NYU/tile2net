@@ -49,7 +49,7 @@ from torch.utils.data import DataLoader
 from typing import Optional
 import numpy as np
 from numpy.dtypes import Float16DType, Float32DType, Float64DType
-from torch.serialization import add_safe_globals
+from torch.serialization import add_safe_globals, safe_globals
 
 import tile2net.tileseg.network.ocrnet
 from tile2net.logger import logger
@@ -170,7 +170,7 @@ class Inference:
                 np.dtype,
                 Float16DType, Float32DType, Float64DType,  # blocklisted DTypeMeta subclasses
             ])
-            checkpoint = torch.load(args.model.snapshot, map_location=torch.device('cpu'), weights_only=True)
+            checkpoint = torch.load(args.model.snapshot, map_location=torch.device('cpu'))
             args.restore_net = True
             msg = "Loading weights from: checkpoint={}".format(args.model.snapshot)
             logger.info(msg)
