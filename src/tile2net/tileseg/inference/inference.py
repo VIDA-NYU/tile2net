@@ -170,7 +170,7 @@ class Inference:
                 np.dtype,
                 Float16DType, Float32DType, Float64DType,  # blocklisted DTypeMeta subclasses
             ])
-            checkpoint = torch.load(args.model.snapshot, map_location=torch.device('cpu'))
+            checkpoint = torch.load(args.model.snapshot, map_location=torch.device('cpu'), weights_only=True)
             args.restore_net = True
             msg = "Loading weights from: checkpoint={}".format(args.model.snapshot)
             logger.info(msg)

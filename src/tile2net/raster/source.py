@@ -21,6 +21,7 @@ from geopandas import GeoSeries
 
 from tile2net.logger import logger
 from tile2net.raster.geocode import GeoCode
+from shapely import box
 
 if False:
     from tile2net.raster.tile import Tile
@@ -110,8 +111,8 @@ class SourceMeta(ABCMeta):
         geocode = GeoCode.from_inferred(item)
         loc = matches.intersects(geocode.polygon)
         if (
-            not loc.any()
-            and 'address' in geocode.__dict__
+                not loc.any()
+                and 'address' in geocode.__dict__
         ):
             # user must've been lazy; compute a new polygon
             del geocode.address
@@ -139,8 +140,8 @@ class SourceMeta(ABCMeta):
                 loc.append(append)
 
         if (
-            not any(loc)
-            and 'address' in geocode.__dict__
+                not any(loc)
+                and 'address' in geocode.__dict__
         ):
             # user must've been lazy; compute a new address
             loc = []
@@ -231,8 +232,8 @@ class Source(ABC, metaclass=SourceMeta):
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__()
         if (
-            not getattr(cls, 'ignore', False)
-            and ABC not in cls.__bases__
+                not getattr(cls, 'ignore', False)
+                and ABC not in cls.__bases__
         ):
             if cls.name is None:
                 raise ValueError(f'{cls} must have a name')
@@ -355,7 +356,7 @@ class NewYorkCity(ArcGis):
     server = 'https://tiles.arcgis.com/tiles/yG5s3afENB5iO9fj/arcgis/rest/services/NYC_Orthos_-_2020/MapServer'
     name = 'nyc'
     keyword = 'New York City', 'City of New York'
-    year =  2020
+    year = 2020
 
 
 class NewYork(ArcGis):
@@ -466,6 +467,46 @@ class Virginia(ArcGis):
     coverage = GeoSeries(box, crs='epsg:4326')
 
 
+class AlamedaCounty(
+    Source,
+):
+    # https://www.arcgis.com/home/item.html?id=46db377005dc4e76bbc234c680771573
+    # ignore = True
+    name = 'al'
+    extension = 'png'
+    keyword = 'Alameda County', 'California'
+    year = 2023
+    server = (
+        'https://svc.pictometry.com/Image/'
+        '6D9E15C5-C6B4-4ACB-A244-4C44ECA33D90/'
+        'wmts/PICT-CAALAM20-OQ74EOAkBw/default/GoogleMapsCompatible'
+    )
+    zoom = 20
+
+    @class_attr
+    @property
+    def metadata(cls):
+        return 'https://svc.pictometry.com/Image/6D9E15C5-C6B4-4ACB-A244-4C44ECA33D90/wmts?SERVICE=WMTS&REQUEST=GetCapabilities&VERSION=1.0.0'
+
+    @class_attr
+    @property
+    def tiles(cls):
+        return cls.server + '/{z}/{x}/{y}.png'
+
+    @class_attr
+    @property
+    def coverage(cls):
+        res = GeoSeries([
+            box(
+                -122.345118999,  # xmin (W)
+                37.451422681,  # ymin (S)
+                -121.462793698,  # xmax (E)
+                37.912241999  # ymax (N)
+            )
+        ], crs='EPSG:4326')
+        return res
+
+
 if __name__ == '__main__':
     assert Source['New Brunswick, New Jersey'] == NewJersey
     assert Source['New York City'] == NewYorkCity
@@ -479,3 +520,6 @@ if __name__ == '__main__':
     assert Source["Spring Hill, TN"] == SpringHillTN
     assert Source['Oregon'] == Oregon
     assert Source['Virginia'] == Virginia
+    assert Source['Berkeley, California'] == AlamedaCounty
+    assert Source['Fremont, California'] == AlamedaCounty
+    assert Source['Oakland, California'] == AlamedaCounty
