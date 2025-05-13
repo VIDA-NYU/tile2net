@@ -47,6 +47,9 @@ import torch.distributed as dist
 from geopandas import GeoDataFrame
 from torch.utils.data import DataLoader
 from typing import Optional
+import numpy as np
+from numpy.dtypes import Float16DType, Float32DType, Float64DType
+from torch.serialization import add_safe_globals, safe_globals
 
 import tile2net.tileseg.network.ocrnet
 from tile2net.logger import logger
@@ -61,13 +64,21 @@ from tile2net.tileseg.loss.utils import get_loss
 from tile2net.tileseg.utils.misc import AverageMeter, prep_experiment
 from tile2net.tileseg.utils.misc import ImageDumper, ThreadedDumper
 from tile2net.tileseg.utils.trnval_utils import eval_minibatch
+from tile2net.raster.project import Project
+if False:
+    from tile2net.raster.raster import Raster
+import hashlib
+
+def sha256sum(path):
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(8192), b''):
+            h.update(chunk)
+    return h.hexdigest()
 
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 AutoResume = None
 
-from tile2net.raster.project import Project
-if False:
-    from tile2net.raster.raster import Raster
 
 
 class Inference:
@@ -162,7 +173,18 @@ class Inference:
         if args.model.snapshot:
             if 'ASSETS_PATH' in args.model.snapshot:
                 args.model.snapshot = args.model.snapshot.replace('ASSETS_PATH', cfg.ASSETS_PATH)
-            checkpoint = torch.load(args.model.snapshot, map_location=torch.device('cpu'))
+
+            # Compute and validate checksum
+            expected_checksum = '745f8c099e98f112a152aedba493f61fb6d80c1761e5866f936eb5f361c7ab4d'
+            actual_checksum = sha256sum(args.model.snapshot)
+            if actual_checksum != expected_checksum:
+                raise RuntimeError(f"Checksum mismatch: expected {expected_checksum}, got {actual_checksum}")
+
+            checkpoint = torch.load(
+                args.model.snapshot,
+                map_location='cpu',
+                weights_only=False,
+            )
             args.restore_net = True
             msg = "Loading weights from: checkpoint={}".format(args.model.snapshot)
             logger.info(msg)

@@ -21,6 +21,7 @@ from geopandas import GeoSeries
 
 from tile2net.logger import logger
 from tile2net.raster.geocode import GeoCode
+from shapely import box
 
 if False:
     from tile2net.raster.tile import Tile
@@ -110,8 +111,8 @@ class SourceMeta(ABCMeta):
         geocode = GeoCode.from_inferred(item)
         loc = matches.intersects(geocode.polygon)
         if (
-            not loc.any()
-            and 'address' in geocode.__dict__
+                not loc.any()
+                and 'address' in geocode.__dict__
         ):
             # user must've been lazy; compute a new polygon
             del geocode.address
@@ -139,8 +140,8 @@ class SourceMeta(ABCMeta):
                 loc.append(append)
 
         if (
-            not any(loc)
-            and 'address' in geocode.__dict__
+                not any(loc)
+                and 'address' in geocode.__dict__
         ):
             # user must've been lazy; compute a new address
             loc = []
@@ -210,6 +211,7 @@ class Source(ABC, metaclass=SourceMeta):
     tilesize: int = 256  # pixels per tile side
     keyword: str  # required match when reverse geolocating address from point
     dropword: str = None  # if result contains this word, it is not a match
+    year: int = None  # year of the data
 
     def __getitem__(self, item: Iterator[Tile]):
         tiles = self.tiles
@@ -230,8 +232,8 @@ class Source(ABC, metaclass=SourceMeta):
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__()
         if (
-            not getattr(cls, 'ignore', False)
-            and ABC not in cls.__bases__
+                not getattr(cls, 'ignore', False)
+                and ABC not in cls.__bases__
         ):
             if cls.name is None:
                 raise ValueError(f'{cls} must have a name')
@@ -354,12 +356,14 @@ class NewYorkCity(ArcGis):
     server = 'https://tiles.arcgis.com/tiles/yG5s3afENB5iO9fj/arcgis/rest/services/NYC_Orthos_-_2020/MapServer'
     name = 'nyc'
     keyword = 'New York City', 'City of New York'
+    year = 2020
 
 
 class NewYork(ArcGis):
     server = 'https://orthos.its.ny.gov/arcgis/rest/services/wms/2020/MapServer'
     name = 'ny'
     keyword = 'New York'
+    year = 2020
 
 
 class Massachusetts(ArcGis):
@@ -367,12 +371,14 @@ class Massachusetts(ArcGis):
     name = 'ma'
     keyword = 'Massachusetts'
     extension = 'jpg'
+    year = 2019
 
 
 class KingCountyWashington(ArcGis):
     server = 'https://gismaps.kingcounty.gov/arcgis/rest/services/BaseMaps/KingCo_Aerial_2021/MapServer'
     name = 'king'
     keyword = 'King County, Washington', 'King County'
+    year = 2021
 
 
 class WashingtonDC(ArcGis):
@@ -382,6 +388,7 @@ class WashingtonDC(ArcGis):
     tilesize = 512
     extension = 'jpeg'
     keyword = 'District of Columbia', 'DC'
+    year = 2021
 
     def __getitem__(self, item: Iterator[Tile]):
         for tile in item:
@@ -402,6 +409,7 @@ class LosAngeles(ArcGis):
     server = 'https://cache.gis.lacounty.gov/cache/rest/services/LACounty_Cache/LACounty_Aerial_2014/MapServer'
     name = 'la'
     keyword = 'Los Angeles'
+    year = 2014
 
     # to test case where a source raises an error due to metadata failure
     #   other sources should still function
@@ -440,12 +448,14 @@ class NewJersey(ArcGis):
     server = 'https://maps.nj.gov/arcgis/rest/services/Basemap/Orthos_Natural_2020_NJ_WM/MapServer'
     name = 'nj'
     keyword = 'New Jersey'
+    year = 2020
 
 
 class SpringHillTN(ArcGis):
     server = 'https://tiles.arcgis.com/tiles/tF0XsRR9ptiKNVW2/arcgis/rest/services/Spring_Hill_Imagery_WGS84/MapServer'
     name = 'sh_tn'
     keyword = 'Spring Hill, Tennessee', 'Spring Hill'
+    year = 2020
 
 
 class Virginia(ArcGis):
@@ -455,6 +465,46 @@ class Virginia(ArcGis):
     keyword = "Virginia"
     box = shapely.geometry.box(-83.6753, 36.5407, -75.1664, 39.4660)
     coverage = GeoSeries(box, crs='epsg:4326')
+
+
+class AlamedaCounty(
+    Source,
+):
+    # https://www.arcgis.com/home/item.html?id=46db377005dc4e76bbc234c680771573
+    # ignore = True
+    name = 'al'
+    extension = 'png'
+    keyword = 'Alameda County', 'California'
+    year = 2023
+    server = (
+        'https://svc.pictometry.com/Image/'
+        '6D9E15C5-C6B4-4ACB-A244-4C44ECA33D90/'
+        'wmts/PICT-CAALAM20-OQ74EOAkBw/default/GoogleMapsCompatible'
+    )
+    zoom = 20
+
+    @class_attr
+    @property
+    def metadata(cls):
+        return 'https://svc.pictometry.com/Image/6D9E15C5-C6B4-4ACB-A244-4C44ECA33D90/wmts?SERVICE=WMTS&REQUEST=GetCapabilities&VERSION=1.0.0'
+
+    @class_attr
+    @property
+    def tiles(cls):
+        return cls.server + '/{z}/{x}/{y}.png'
+
+    @class_attr
+    @property
+    def coverage(cls):
+        res = GeoSeries([
+            box(
+                -122.345118999,  # xmin (W)
+                37.451422681,  # ymin (S)
+                -121.462793698,  # xmax (E)
+                37.912241999  # ymax (N)
+            )
+        ], crs='EPSG:4326')
+        return res
 
 
 if __name__ == '__main__':
@@ -470,3 +520,6 @@ if __name__ == '__main__':
     assert Source["Spring Hill, TN"] == SpringHillTN
     assert Source['Oregon'] == Oregon
     assert Source['Virginia'] == Virginia
+    assert Source['Berkeley, California'] == AlamedaCounty
+    assert Source['Fremont, California'] == AlamedaCounty
+    assert Source['Oakland, California'] == AlamedaCounty
