@@ -1,0 +1,14 @@
+.with_mosaic(...)
+
+
+(
+    .with_stitch.using_resolution(...)
+    .with_stitch.using_cluster(16)
+    .with_stitch.using_scale(17)
+
+)
+
+
+what default resolution?
+
+how to test
