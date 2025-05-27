@@ -156,7 +156,7 @@ class Tiles(
 
     def with_source(
             self,
-            source,
+            source =None,
             indir: Union[str, Path] = None,
     ) -> Self:
         """
@@ -251,7 +251,8 @@ class Tiles(
             raise ValueError(msg) from e
 
     @property
-    def stitched(self):
+    def stitched(self) -> Self:
+        """If set, will return a Tiles DataFrame with stitched tiles."""
         if 'stitched' not in self.attrs:
             msg = (
                 f'Tiles must be stitched using `Tiles.stitch` for '
