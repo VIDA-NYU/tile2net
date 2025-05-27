@@ -77,7 +77,8 @@ class Stitch:
         ):
             raise ValueError('Cluster must be a positive power of 2.')
         tiles = self.tiles
-        dscale = int(math.log2(cluster))
+        marea = int(math.log2(cluster))
+        dscale = int(math.sqrt(marea))
         scale = tiles.tscale - dscale
         result = tiles.stitch.to_scale(scale, pad=pad)
         return result
