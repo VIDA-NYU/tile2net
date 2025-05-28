@@ -1,9 +1,11 @@
 from __future__ import annotations
+import imageio.v2
 
 import math
 import numpy as np
 import pandas as pd
 from typing import *
+from .indir import Loader
 
 if False:
     from .tiles import Tiles
@@ -35,7 +37,7 @@ class Stitch:
         """
         tiles = self.tiles
         try:
-            _ = tiles.resolution
+            _ = tiles.dimension
         except KeyError as e:
             msg = (
                 'You cannot stitch tiles to a resolution when the tile '
@@ -44,19 +46,19 @@ class Stitch:
                 'resolution to be determined.'
             )
             raise ValueError(msg) from e
-        dscale = int(math.log2(resolution / tiles.resolution))
+        dscale = int(math.log2(resolution / tiles.dimension))
         scale = tiles.tscale - dscale
         result = tiles.stitch.to_scale(scale, pad=pad)
         return result
 
-    def to_cluster(
+    def to_mosaic(
             self,
-            cluster: int = 16,
+            mosaic: int = 16,
             pad: bool = True,
     ) -> Tiles:
         """
-        cluster:
-            Cluster size of the stitched tiles. Must be a power of 2.
+        mosaic:
+            Mosaic size of the stitched tiles. Must be a power of 2.
         pad:
             True:
                 Go back and include more tiles to ensure the stitched
@@ -71,13 +73,13 @@ class Stitch:
                 tiles at the specified cluster size.
         """
         if (
-                not isinstance(cluster, int)
-                or cluster <= 0
-                or (cluster & (cluster - 1)) != 0
+                not isinstance(mosaic, int)
+                or mosaic <= 0
+                or (mosaic & (mosaic - 1)) != 0
         ):
             raise ValueError('Cluster must be a positive power of 2.')
         tiles = self.tiles
-        marea = int(math.log2(cluster))
+        marea = int(math.log2(mosaic))
         dscale = int(math.sqrt(marea))
         scale = tiles.tscale - dscale
         result = tiles.stitch.to_scale(scale, pad=pad)
@@ -178,11 +180,49 @@ class Stitch:
             .all()
         ), msg
 
+        tiles: Tiles
 
-        if (
-                tiles.attrs.get('indir')
-        ):
-            raise NotImplementedError('todo: actually stitch the files')
+        try:
+            indir = tiles.indir
+        except (AttributeError, KeyError) as e:
+            ...
+        else:
+
+            shape = tiles.dimension, tiles.dimension, 3
+            fallback = np.zeros(shape, dtype=np.uint8)
+
+            xtile = tiles.mosaic.xtile
+            ytile = tiles.mosaic.ytile
+            axis = pd.MultiIndex.from_arrays([xtile, ytile])
+            infiles = tiles.file.set_axis(axis)
+
+            loader = Loader(infiles, fallback)
+            outfiles = stitched.file
+
+            shape = stitched.dimension, stitched.dimension, 3
+            # for stack, outfile in zip(loader, outfiles):
+            #     array = stack.reshape(shape)
+            executor = ThreadPoolExecutor()
+            writes = [
+                executor.submit(
+                    imageio.v3.imwrite,
+                    outfile,
+                    stack.reshape(shape)
+                )
+                for stack, outfile in zip(loader, outfiles)
+            ]
+            for w in writes:
+                w.result()
+            executor.shutdown(wait=True)
+
+
+
+
+
+
+
+
+
 
         return tiles
 

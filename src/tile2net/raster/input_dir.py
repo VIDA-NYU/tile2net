@@ -13,7 +13,6 @@ from toolz import curried, curry as cur, pipe
 from tile2net.raster.util import cached_descriptor
 import os
 
-
 if False:
     from tile2net.raster.raster import Raster
     from tile2net.raster.tile import Tile
@@ -164,18 +163,21 @@ if __name__ == '__main__':
             self.extension = '.png'
             self.input_dir = input_dir
 
+
     @dataclasses.dataclass
     class Tile:
         xtile: int
         ytile: int
         zoom: int
+
+
     tiles = [
         Tile(1, 2, 3),
         Tile(4, 5, 6),
         Tile(7, 8, 9),
     ]
 
-    list(test.input_dir(tiles))
+    list(test.input_dir(tiles)
     test = Test('input/dir/x/y/z.png')
     test = Test('input/dir/x_y_z.png')
     test = Test('input/dir/y/x/z.png')

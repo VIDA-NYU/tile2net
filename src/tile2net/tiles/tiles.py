@@ -1,4 +1,31 @@
 from __future__ import annotations
+from concurrent.futures import ThreadPoolExecutor
+import imageio.v3 as iio
+from PIL import Image
+import numpy as np
+import PIL.Image
+
+from numba.np.arrayobj import impl_np_identity
+
+from tile2net.raster import util
+import logging
+import os
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from functools import partial
+
+import certifi
+import imageio.v3
+import numpy as np
+import pandas as pd
+import requests
+from pathlib import Path
+from toolz import curry, curried, pipe
+from tqdm.auto import tqdm
+
+import tempfile
+import geopandas as gpd
+
+import pyproj
 
 import numpy as np
 import pandas as pd
@@ -10,6 +37,10 @@ from . import util
 from .explore import explore
 from .fixed import GeoDataFrameFixed
 from .stitch import Stitch
+from .source import Source
+from .indir import TestIndir, Indir
+from tile2net.logger import logger
+from .mosaic import Mosaic
 
 if False:
     import folium
@@ -26,9 +57,43 @@ class Tiles(
         # stitch to a target resolution e.g. 2048 ptxels
         self.stitch.to_resolution(...)
         # stitch to a cluster size e.g. 16 tiles
-        self.stitch.to_cluster(...)
+        self.stitch.to_mosaic(...)
         # stitch to an XYZ scale e.g. 17
         self.stitch.to_scale(...)
+
+    @Source
+    def source(self):
+        """
+        Returns the Source class, which wraps a tile server.
+        See `Tiles.with_source()` to actually set a source.
+        """
+
+        # This code block is just semantic sugar and does not run.
+        # These methods are how to set the source:
+        self.with_source(...)  # automatically sets the source
+        self.with_source('nyc')
+
+    @Indir
+    def indir(self):
+        """
+        Returns the Indir class, which wraps an input directory, for
+        example `input/dir/x_y_z.png` or `input/dir/x/y/z.png`.
+        See `Tiles.with_indir()` to actually set an input directory.
+        """
+
+        # This code block is just semantic sugar and does not run.
+        # This method is how to set the input directory:
+        self.with_indir(...)
+
+    @Mosaic
+    def mosaic(self):
+
+        # This code block is just semantic sugar and does not run.
+        # These columns are available once the tiles have been stitched:
+        _ = (
+            self.mosaic.xtile,
+            self.mosaic.ytile,
+        )
 
     @classmethod
     def from_bounds(
@@ -87,14 +152,6 @@ class Tiles(
         Construct Tiles from integer tile numbers.
         This allows for a non-rectangular grid of tiles.
         """
-        # if not isinstance(tn, np.nd)
-        # if isinstance(ty, (pd.Series, pd.Index)):
-        #     tn = ty.values
-        #     # tn = ty.values.astype('uint32')
-        # if isinstance(tn, np.ndarray):
-        #     tn = tn.astype('uint32')
-        # else:
-        #     raise TypeError
         if isinstance(ty, (pd.Series, pd.Index)):
             tn = ty.values
         elif isinstance(ty, np.ndarray):
@@ -113,36 +170,70 @@ class Tiles(
 
         te = tw + 1
         ts = tn + 1
-        names = 'tx ty'.split()
+        names = 'xtile ytile'.split()
         index = pd.MultiIndex.from_arrays([tx, ty], names=names)
-        # gn, gw = util.num2deg(tn, tw, zoom=zoom)
-        # gs, ge = util.num2deg(ts, te, zoom=zoom)
         gw, gn = util.num2deg(tw, tn, zoom=zoom)
         ge, gs = util.num2deg(te, ts, zoom=zoom)
-        geometry = shapely.box(gw, gs, ge, gn, )
-        data = dict(
-            gw=gw,
-            gs=gs,
-            ge=ge,
-            gn=gn,
+        trans = (
+            pyproj.proj.Transformer
+            .from_crs(4326, 3857, always_xy=True)
+            .transform
         )
+        pw, pn = trans(gw, gn)
+        pe, ps = trans(ge, gs)
+        geometry = shapely.box(pw, pn, pe, ps)
+
         result = cls(
-            data=data,
+            # data=data,
             geometry=geometry,
             index=index,
-            crs=4326,
+            # crs=4326,
+            crs=3857,
         )
         result.attrs['zoom'] = zoom
         return result
 
     def with_indir(
             self,
-            indir: Union[str, Path],
+            indir: str,
     ) -> Self:
         """
-        Assign an input directory to the tiles,
+        Assign an input directory to the tiles. The directory must
+        implicate the X and Y tile numbers in the file names.
+
+        Good:
+            input/dir/x/y/z.png
+            input/dir/x/y/.png
+            input/dir/x_y_z.png
+            input/dir/x_y.png
+        Bad:
+            input/dir/x.png
+            input/dir/y
+
+        This will set the input directory and format
+        self.with_indir('input/dir/x/y/z.png')
+
+        There is no format specified to, so it will default to
+        input/dir/x_y_z.png:
+        self.with_indir('input/dir')
+
+        This will fail to explicitly set the format, so it will
+        default to input/dir/x/x_y_z.png
+        self.with_indir('input/dir/x')
         """
-        # todo: determine the resolution by reading an input file
+        result = self.copy()
+        try:
+            result.indir = indir
+        except ValueError as e:
+            msg = (
+                f'Invalid input directory: {indir}. '
+                f'The directory directory must implicate the X and Y '
+                f'tile numbers by including `x` and `y` in some format, '
+                f'for example: '
+                f'input/dir/x/y/z.png or input/dir/x_y_z.png.'
+            )
+            raise ValueError(msg) from e
+        return result
 
     def with_outdir(
             self,
@@ -156,23 +247,192 @@ class Tiles(
 
     def with_source(
             self,
-            source =None,
+            source=None,
             indir: Union[str, Path] = None,
     ) -> Self:
         """
         Assign a source to the tiles. The tiles are downloaded from
         the source and saved to an input directory.
+
+        You can pass an indir which will be the destination the files
+        are saved to.
         """
+        if source is None:
+            source = (
+                gpd.GeoSeries([self.union_all()], crs=self.crs)
+                .to_crs(4326)
+                .pipe(Source.from_inferred)
+            )
+        elif isinstance(source, Source):
+            ...
+        else:
+            source = Source.from_inferred(source)
+        result = self.copy()
+        result.source = source
+
+        if indir:
+            if Indir.is_valid(indir):
+                ...
+            else:
+                args = (
+                    indir,
+                    f'x_y_z.{source.extension}',
+                )
+                indir = (
+                    Path(*args)
+                    .resolve()
+                    .__str__()
+                )
+        else:
+            args = (
+                tempfile.gettempdir(),
+                'tile2net',
+                str(source.name),
+                'x_y_z.png',
+            )
+            indir = (
+                Path(*args)
+                .resolve()
+                .__str__()
+            )
+
+        result = self.with_indir(indir)
+
+        files = result.indir.files
+        urls = result.source.urls
+        self.download(files, urls)
+        result.file = files
+
+        return result
+
+    def download(
+            self,
+            paths: pd.Series,
+            urls: pd.Series,
+            retry: bool = True,
+            force: bool = False,
+    ) -> None:
+        """
+        infiles:
+            Series of file path destinations
+        urls:
+            Series of URLs to download from
+        retry:
+            serialize tiles a second time if the first time fails
+        force:
+            redownload the tiles even if they already exist
+        """
+        if paths.empty or urls.empty:
+            logger.warning('Nothing to download.')
+            return
+        if len(paths) != len(urls):
+            raise ValueError('paths and urls must be equal length')
+
+            # ensure directories exist
+        for p in paths.unique():
+            Path(p).parent.mkdir(parents=True, exist_ok=True)
+
+        paths_arr = paths.array
+        urls_arr = urls.array
+
+        if not force:
+            exists_mask = np.fromiter(
+                (Path(p).exists() for p in paths_arr),
+                dtype=bool,
+                count=len(paths_arr),
+            )
+            if exists_mask.all():
+                logger.info('All tiles already on disk.')
+                return
+            paths_arr = paths_arr[~exists_mask]
+            urls_arr = urls_arr[~exists_mask]
+
+        with ThreadPoolExecutor(max_workers=5) as pool, requests.Session() as session:
+            session.headers.update({'User-Agent': 'tiles'})
+            session.verify = certifi.where()
+
+            def head(url: str) -> int:
+                try:
+                    return session.head(url, timeout=10).status_code
+                except requests.exceptions.RequestException:
+                    return -1
+
+            codes = np.fromiter(pool.map(head, urls_arr), dtype=np.int16, count=len(urls_arr))
+
+            not_ok = codes != 200
+            not_ok &= codes != 404
+            if not_ok.any():
+                logger.warning(f'Unexpected status codes: {np.unique(codes[not_ok])}')
+
+            not_found = codes == 404
+            if not_found.any():
+                logger.info(f'{not_found.sum():,} tiles returned 404.')
+                src = self.black.__fspath__()
+                for p in paths_arr[not_found]:
+                    os.symlink(src, p)
+            paths_arr = paths_arr[~not_found]
+            urls_arr = urls_arr[~not_found]
+
+            if not len(paths_arr):
+                return
+
+            submit_get = partial(session.get, timeout=20)
+            desc = f"Downloading {len(paths_arr):,} tiles...".rjust(50)
+            futures = {
+                pool.submit(submit_get, url): Path(path)
+                for url, path in tqdm(zip(urls_arr, paths_arr),
+                                      total=len(paths_arr),
+                                      desc=desc)
+            }
+
+            def write(path: Path, data: bytes) -> Path | None:
+                path.write_bytes(data)
+                try:
+                    imageio.v3.imread(path)
+                except ValueError:
+                    path.unlink(missing_ok=True)
+                    return path
+                return None
+
+            writes = []
+            for fut in tqdm(as_completed(futures), total=len(futures), desc='Writing...'):
+                resp = fut.result()
+                path = futures[fut]
+                try:
+                    resp.raise_for_status()
+                except requests.exceptions.HTTPError:
+                    continue
+                w = pool.submit(write, path, resp.content)
+                writes.append(w)
+
+            failed = [f.result() for f in as_completed(writes) if f.result()]
+
+            if failed:
+                if retry:
+                    logger.error(f'{len(failed):,} failed tiles; retrying once.')
+                    self.download(
+                        paths=pd.Series(failed, dtype=object),
+                        urls=pd.Series(
+                            [urls.iloc[paths.eq(p).argmax()] for p in failed],
+                            dtype=object,
+                        ),
+                        retry=False,
+                        force=force,
+                    )
+                else:
+                    raise FileNotFoundError(f'{len(failed):,} tiles failed: {failed[:3]}')
+
+            logger.info('All requested tiles are on disk.')
 
     @property
-    def tx(self):
+    def xtile(self):
         """Tile integer X"""
-        return self.index.get_level_values('tx')
+        return self.index.get_level_values('xtile')
 
     @property
-    def ty(self):
+    def ytile(self):
         """Tile integer Y"""
-        return self.index.get_level_values('ty')
+        return self.index.get_level_values('ytile')
 
     @property
     def zoom(self) -> int:
@@ -189,18 +449,33 @@ class Tiles(
         self.attrs['zoom'] = value
 
     @property
-    def r(self):
-        ...
+    def r(self) -> pd.Series:
+        """Row of the tile within the overall grid."""
+        # xtile = self.xtile.to_series()
+        xtile = (
+            self.xtile
+            .to_series()
+            .set_axis(self.index)
+        )
+        result = xtile - xtile.min()
+        return result
 
     @property
-    def c(self):
-        ...
+    def c(self) -> pd.Series:
+        """Column of the tile within the overall grid."""
+        ytile = (
+            self.ytile
+            .to_series()
+            .set_axis(self.index)
+        )
+        result = ytile - ytile.min()
+        return result
 
     @property
-    def resolution(self) -> int:
-        """Tile resolution; inferred from input files"""
+    def dimension(self) -> int:
+        """Tile dimension; inferred from input files"""
         try:
-            return self.attrs['resolution']
+            return self.attrs['dimension']
         except KeyError as e:
             msg = (
                 f'Resolution has not yet been set. To set the resolution, '
@@ -210,9 +485,9 @@ class Tiles(
             )
             raise KeyError(msg) from e
 
-    @resolution.setter
-    def resolution(self, value: int):
-        self.attrs['resolution'] = value
+    @dimension.setter
+    def dimension(self, value: int):
+        self.attrs['dimension'] = value
 
     @property
     def tscale(self) -> int:
@@ -224,7 +499,17 @@ class Tiles(
 
     @property
     def file(self) -> pd.Series:
-        ...
+        try:
+            return self['file']
+        except KeyError as e:
+            msg = (
+                "Tiles.file has not been set. You must call "
+                "`Tiles.with_indir()` or `Tiles.with_source()` to set the "
+                "input directory or source for the tiles. The file column "
+                "will then appear, which represents the file paths for the "
+                "tiles on disk."
+            )
+            raise KeyError(msg) from e
 
     @property
     def outdir(self):
@@ -238,17 +523,17 @@ class Tiles(
             )
             raise ValueError(msg) from e
 
-    @property
-    def indir(self):
-        try:
-            return self.attrs['indir']
-        except KeyError as e:
-            msg = (
-                f'Tiles.indir has not been set. '
-                f'You must call `Tiles.with_indir()` to set the input '
-                f'directory for the tiles.'
-            )
-            raise ValueError(msg) from e
+    # @property
+    # def indir(self):
+    #     try:
+    #         return self.attrs['indir']
+    #     except KeyError as e:
+    #         msg = (
+    #             f'Tiles.indir has not been set. '
+    #             f'You must call `Tiles.with_indir()` to set the input '
+    #             f'directory for the tiles.'
+    #         )
+    #         raise ValueError(msg) from e
 
     @property
     def stitched(self) -> Self:
@@ -269,7 +554,6 @@ class Tiles(
             msg = """Tiles.stitched must be a Tiles object"""
             raise TypeError(msg)
         self.attrs['stitched'] = value
-
 
     def explore(
             self,
@@ -329,20 +613,71 @@ class Tiles(
         folium.LayerControl().add_to(m)
         return m
 
+    # def view(
+    #         self,
+    #         maxdim: int = 2048,
+    #         divider: Optional[str] = None,
+    # ) -> PIL.Image:
+    #     _ = imageio.v3.imread
+    #     dimension = self.dimension
+    #     shape = dimension, dimension, 3
+    #     empty = np.zeros(shape, dtype=np.uint8)
+    #     files: pd.Series = self.file
+    #     R: pd.Series = self.r
+    #     C: pd.Series = self.c
+
+    def view(
+            self,
+            maxdim: int = 2048,
+            divider: Optional[str] = None,
+    ) -> PIL.Image.Image:
+        print('⚠️AI GENERATED🤖')
+
+        files: pd.Series = self.file
+        R: pd.Series = self.r
+        C: pd.Series = self.c
+        dim = self.dimension
+
+        # sample tile to determine size
+        sample = iio.imread(files.iloc[0])
+        th, tw = sample.shape[:2]
+
+        # scale factor to satisfy maxdim
+        out_w, out_h = tw * dim, th * dim
+        scale = 1.0
+        if max(out_w, out_h) > maxdim:
+            scale = maxdim / max(out_w, out_h)
+            tw = max(1, int(round(tw * scale)))
+            th = max(1, int(round(th * scale)))
+
+        div_px = 1 if divider else 0
+        full_w = dim * tw + div_px * (dim - 1)
+        full_h = dim * th + div_px * (dim - 1)
+        canvas_color = divider if divider else (0, 0, 0)
+        out = Image.new('RGB', (full_w, full_h), color=canvas_color)
+
+        def load(idx: int) -> tuple[int, int, np.ndarray]:
+            arr = iio.imread(files.iat[idx])
+            if scale != 1.0:
+                arr = np.asarray(
+                    Image.fromarray(arr).resize((tw, th), Image.Resampling.LANCZOS)
+                )
+            return R.iat[idx], C.iat[idx], arr
+
+        with ThreadPoolExecutor() as exe:
+            for r, c, arr in exe.map(load, range(len(files))):
+                x = c * tw + div_px * c
+                y = r * th + div_px * r
+                out.paste(Image.fromarray(arr), (x, y))
+
+        return out
+
+
 if __name__ == '__main__':
-    """
-    .stitch.to_cluster
-    .stitch.to_resolution
-    .stitch()
-    
-    tiles.with_indir().with_outdir
-    
-    tiles = 
-    ( Tiles
-        .from_bounds(...)
-        .with_indir(...)
-        .with_outdir(...)
-        .with_stitch.to_resolution(...)
+    (
+        Tiles
+        .with_source()
+        .with_outdir()
+        .stitch.to_scale()
+        .predict.
     )
-    
-    """
