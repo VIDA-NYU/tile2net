@@ -64,36 +64,44 @@ class Mosaic(
     def r(self) -> pd.Series:
         """row within the mosaic of this tile"""
         tiles = self.tiles
+        if 'mosaic.r' in tiles.columns:
+            return tiles['mosaic.r']
+        stitched = tiles.stitched
         result = (
-            tiles.xtile
+            tiles.ytile
             .to_series(index=tiles.index)
-            .groupby(self.group.values, observed=True)
-            .rank(method='dense', ascending=True)
-            .astype('UInt16')
-            .sub(1)
+            .floordiv(stitched.mlength)
+            .mul(stitched.mlength)
+            .rsub(tiles.ytile.values)
         )
+        tiles['mosaic.r'] = result
+        result = tiles['mosaic.r']
         return result
 
     @property
     def c(self) -> pd.Series:
         """column within the mosaic of this tile"""
         tiles = self.tiles
+        if 'mosaic.c' in tiles.columns:
+            return tiles['mosaic.c']
+        stitched = tiles.stitched
         result = (
-            tiles.ytile
+            tiles.xtile
             .to_series(index=tiles.index)
-            .groupby(self.group.values, observed=True)
-            .rank(method='dense', ascending=True)
-            .astype('UInt16')
-            .sub(1)
+            .floordiv(stitched.mlength)
+            .mul(stitched.mlength)
+            .rsub(tiles.xtile.values)
         )
+        tiles['mosaic.c'] = result
+        result = tiles['mosaic.c']
         return result
 
     @property
     def group(self) -> pd.Series:
-        arrays = self.xtile, self.ytile
         tiles = self.tiles
         if 'mosaic.group' in tiles.columns:
             return tiles['mosaic.group']
+        arrays = self.xtile, self.ytile
         loc = pd.MultiIndex.from_arrays(arrays)
         result = (
             tiles.stitched.group

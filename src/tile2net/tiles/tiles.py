@@ -1,4 +1,5 @@
 from __future__ import annotations
+from requests.adapters import  HTTPAdapter
 
 import os
 import tempfile
@@ -357,11 +358,16 @@ class Tiles(
             urls_arr = urls_arr[~exists_mask]
 
         max_workers = min(max_workers, len(urls_arr))  # or higher if your system/network allows
+        pool_size = max_workers  # keep-alive sockets you want
 
         with (
             ThreadPoolExecutor(max_workers=max_workers) as pool,
             requests.Session() as session
         ):
+            session.mount(
+                'https://',
+                HTTPAdapter(pool_connections=pool_size, pool_maxsize=pool_size)
+            )
             session.headers.update({'User-Agent': 'tiles'})
             session.verify = certifi.where()
 
@@ -481,24 +487,23 @@ class Tiles(
     @property
     def r(self) -> pd.Series:
         """Row of the tile within the overall grid."""
-        # xtile = self.xtile.to_series()
-        xtile = (
-            self.xtile
-            .to_series()
-            .set_axis(self.index)
-        )
-        result = xtile - xtile.min()
-        return result
-
-    @property
-    def c(self) -> pd.Series:
-        """Column of the tile within the overall grid."""
         ytile = (
             self.ytile
             .to_series()
             .set_axis(self.index)
         )
         result = ytile - ytile.min()
+        return result
+
+    @property
+    def c(self) -> pd.Series:
+        """Column of the tile within the overall grid."""
+        xtile = (
+            self.xtile
+            .to_series()
+            .set_axis(self.index)
+        )
+        result = xtile - xtile.min()
         return result
 
     @property
@@ -685,12 +690,8 @@ class Tiles(
         C: pd.Series = self.c
         dim = self.dimension
 
-        # sample tile to determine size
-        # sample = iio.imread(files.iloc[0])
-        # th, tw = sample.shape[:2]
-        # th = R.max()
-        th = (R.max() + 1).astype(int) * dim
-        tw = (C.max() + 1).astype(int) * dim
+        th = self.dimension
+        tw = self.dimension
 
         # scale factor to satisfy maxdim
         out_w, out_h = tw * dim, th * dim
@@ -721,6 +722,57 @@ class Tiles(
                 out.paste(Image.fromarray(arr), (x, y))
 
         return out
+
+    def view(
+            self,
+            maxdim: int = 2048,
+            divider: Optional[str] = None,
+    ) -> PIL.Image.Image:
+        print('⚠️AI GENERATED🤖')
+
+        files: pd.Series = self.file
+        R: pd.Series = self.r        # 0-based row id
+        C: pd.Series = self.c        # 0-based col id
+
+        dim        = self.dimension  # original tile side length
+        n_rows     = int(R.max()) + 1
+        n_cols     = int(C.max()) + 1
+        div_px     = 1 if divider else 0
+
+        # full mosaic size before optional down-scaling
+        full_w0    = n_cols * dim + div_px * (n_cols - 1)
+        full_h0    = n_rows * dim + div_px * (n_rows - 1)
+
+        scale      = 1.0
+        if max(full_w0, full_h0) > maxdim:
+            scale  = maxdim / max(full_w0, full_h0)
+
+        tile_w     = max(1, int(round(dim * scale)))
+        tile_h     = tile_w                                # square tiles
+        full_w     = n_cols * tile_w + div_px * (n_cols - 1)
+        full_h     = n_rows * tile_h + div_px * (n_rows - 1)
+
+        canvas_col = divider if divider else (0, 0, 0)
+        mosaic     = Image.new('RGB', (full_w, full_h), color=canvas_col)
+
+        def load(idx: int) -> tuple[int, int, np.ndarray]:
+            arr = iio.imread(files.iat[idx])
+            if scale != 1.0:
+                arr = np.asarray(
+                    Image.fromarray(arr).resize(
+                        (tile_w, tile_h), Image.Resampling.LANCZOS
+                    )
+                )
+            return R.iat[idx], C.iat[idx], arr
+
+        with ThreadPoolExecutor() as pool:
+            for r, c, arr in pool.map(load, range(len(files))):
+                x0 = c * (tile_w + div_px)
+                y0 = r * (tile_h + div_px)
+                mosaic.paste(Image.fromarray(arr), (x0, y0))
+
+        return mosaic
+
 
     def __deepcopy__(self, memo) -> Tiles:
         return self.copy()

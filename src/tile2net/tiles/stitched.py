@@ -45,6 +45,12 @@ class Stitched(
         return self.tiles.outdir
 
     @property
+    def mlength(self):
+        tiles = self.tiles
+        dscale = int(self.tscale - tiles.tscale)
+        return dscale ** 2
+
+    @property
     def group(self) -> pd.Series:
         if 'group' in self.columns:
             return self['group']

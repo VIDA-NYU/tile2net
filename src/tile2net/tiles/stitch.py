@@ -159,6 +159,9 @@ class Stitch:
             assert not pd.DataFrame(dict(tx=tx, ty=ty)).duplicated().any()
             tiles = Tiles.from_integers(tx, ty, zoom=tiles.zoom)
             tiles.attrs.update(TILES.attrs)
+            if 'source' in TILES.attrs:
+                tiles = tiles.with_source(source=TILES.source)
+            # we need to download from source if appropriate
         else:
             # drop mosaics not containing all tiles
             mxy: pd.DataFrame = txy // mlength
@@ -317,6 +320,7 @@ class Stitch:
             row_sub = tiles.mosaic.r.loc[sel]
             col_sub = tiles.mosaic.c.loc[sel]
             group_sub = tiles.mosaic.group.loc[sel]
+            tiles['mosaic.xtile mosaic.ytile mosaic.group mosaic.r mosaic.c'.split()].iloc[:20]
             tiles
 
             tile_shape = (tiles.dimension, tiles.dimension, 3)
