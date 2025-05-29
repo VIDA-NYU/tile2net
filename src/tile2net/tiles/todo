@@ -26,5 +26,11 @@ problem is, zoom is dependent on the source or input dir
 
 is name necessary?
 
-
 stitch.
+
+mabye Tiles.from_integers
+
+should stitch to /tmp/
+
+'/tmp/tile2net/nyc/z/x_y.png'
+/tmp/tile2net/nyc/stitched/z/x_y.png

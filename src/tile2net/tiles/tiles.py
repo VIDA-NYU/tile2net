@@ -1,61 +1,53 @@
 from __future__ import annotations
-from concurrent.futures import ThreadPoolExecutor
-import imageio.v3 as iio
-from PIL import Image
-import numpy as np
-import PIL.Image
 
-from numba.np.arrayobj import impl_np_identity
-
-from tile2net.raster import util
-import logging
 import os
-from concurrent.futures import Future, ThreadPoolExecutor, as_completed
-from functools import partial
-
-import certifi
-import imageio.v3
-import numpy as np
-import pandas as pd
-import requests
-from pathlib import Path
-from toolz import curry, curried, pipe
-from tqdm.auto import tqdm
-
 import tempfile
-import geopandas as gpd
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import pyproj
-
-import numpy as np
-import pandas as pd
-import shapely
+from fiona.meta import extension
+from functools import partial
 from pathlib import Path
 from typing import *
 
+import PIL.Image
+import certifi
+import geopandas as gpd
+import imageio.v3
+import imageio.v3 as iio
+import numpy as np
+import pandas as pd
+import pyproj
+import requests
+import shapely
+from PIL import Image
+from tqdm.auto import tqdm
+
+from tile2net.logger import logger
+from tile2net.raster import util
 from . import util
 from .explore import explore
 from .fixed import GeoDataFrameFixed
-from .stitch import Stitch
-from .source import Source
-from .indir import TestIndir, Indir
-from tile2net.logger import logger
+from .indir import Indir
 from .mosaic import Mosaic
+from .source import Source
+from .stitch import Stitch
 
 if False:
     import folium
+    from .stitched import Stitched
 
 
 class Tiles(
     GeoDataFrameFixed,
 ):
+
     @Stitch
     def stitch(self):
         # This code block is just semantic sugar and does not run.
         # Take a look at the following methods which do run:
 
         # stitch to a target resolution e.g. 2048 ptxels
-        self.stitch.to_resolution(...)
+        self.stitch.to_dimension(...)
         # stitch to a cluster size e.g. 16 tiles
         self.stitch.to_mosaic(...)
         # stitch to an XYZ scale e.g. 17
@@ -91,8 +83,14 @@ class Tiles(
         # This code block is just semantic sugar and does not run.
         # These columns are available once the tiles have been stitched:
         _ = (
+            # xtile of the larger mosaic
             self.mosaic.xtile,
+            # ytile of the larger mosaic
             self.mosaic.ytile,
+            # row of the tile within the larger mosaic
+            self.mosaic.r,
+            # column of the tile within the larger mosaic
+            self.mosaic.c,
         )
 
     @classmethod
@@ -190,12 +188,13 @@ class Tiles(
             # crs=4326,
             crs=3857,
         )
-        result.attrs['zoom'] = zoom
+        result.zoom = zoom
         return result
 
     def with_indir(
             self,
             indir: str,
+            extension: str = 'png',
     ) -> Self:
         """
         Assign an input directory to the tiles. The directory must
@@ -206,6 +205,7 @@ class Tiles(
             input/dir/x/y/.png
             input/dir/x_y_z.png
             input/dir/x_y.png
+            input/dir/z/x_y.png
         Bad:
             input/dir/x.png
             input/dir/y
@@ -224,6 +224,7 @@ class Tiles(
         result = self.copy()
         try:
             result.indir = indir
+            result.extension = extension
         except ValueError as e:
             msg = (
                 f'Invalid input directory: {indir}. '
@@ -249,6 +250,7 @@ class Tiles(
             self,
             source=None,
             indir: Union[str, Path] = None,
+            max_workers: int = 100,
     ) -> Self:
         """
         Assign a source to the tiles. The tiles are downloaded from
@@ -269,6 +271,7 @@ class Tiles(
             source = Source.from_inferred(source)
         result = self.copy()
         result.source = source
+        result.source
 
         if indir:
             if Indir.is_valid(indir):
@@ -288,7 +291,8 @@ class Tiles(
                 tempfile.gettempdir(),
                 'tile2net',
                 str(source.name),
-                'x_y_z.png',
+                'z',
+                'x_y.png'
             )
             indir = (
                 Path(*args)
@@ -296,12 +300,14 @@ class Tiles(
                 .__str__()
             )
 
-        result = self.with_indir(indir)
+        result = result.with_indir(
+            indir,
+            extension=source.extension,
+        )
 
-        files = result.indir.files
         urls = result.source.urls
-        self.download(files, urls)
-        result.file = files
+        files = result.file
+        self.download(files, urls, max_workers=max_workers)
 
         return result
 
@@ -311,6 +317,7 @@ class Tiles(
             urls: pd.Series,
             retry: bool = True,
             force: bool = False,
+            max_workers: int = 100,
     ) -> None:
         """
         infiles:
@@ -323,7 +330,6 @@ class Tiles(
             redownload the tiles even if they already exist
         """
         if paths.empty or urls.empty:
-            logger.warning('Nothing to download.')
             return
         if len(paths) != len(urls):
             raise ValueError('paths and urls must be equal length')
@@ -341,13 +347,21 @@ class Tiles(
                 dtype=bool,
                 count=len(paths_arr),
             )
+            ndownload = exists_mask.__invert__().sum()
+            msg = f'Downloading {ndownload:,} of {len(paths_arr):,} tiles.'
+            logger.info(msg)
             if exists_mask.all():
                 logger.info('All tiles already on disk.')
                 return
             paths_arr = paths_arr[~exists_mask]
             urls_arr = urls_arr[~exists_mask]
 
-        with ThreadPoolExecutor(max_workers=5) as pool, requests.Session() as session:
+        max_workers = min(max_workers, len(urls_arr))  # or higher if your system/network allows
+
+        with (
+            ThreadPoolExecutor(max_workers=max_workers) as pool,
+            requests.Session() as session
+        ):
             session.headers.update({'User-Agent': 'tiles'})
             session.verify = certifi.where()
 
@@ -357,7 +371,19 @@ class Tiles(
                 except requests.exceptions.RequestException:
                     return -1
 
-            codes = np.fromiter(pool.map(head, urls_arr), dtype=np.int16, count=len(urls_arr))
+            msg = f'Checking {len(urls_arr):,} URLs...'
+            logger.info(msg)
+
+            it = tqdm(
+                pool.map(head, urls_arr),
+                total=len(urls_arr),
+                desc='Checking status codes'
+            )
+            codes = np.fromiter(
+                it,
+                dtype=np.int16,
+                count=len(urls_arr)
+            )
 
             not_ok = codes != 200
             not_ok &= codes != 404
@@ -377,12 +403,16 @@ class Tiles(
                 return
 
             submit_get = partial(session.get, timeout=20)
-            desc = f"Downloading {len(paths_arr):,} tiles...".rjust(50)
+            desc = f"Downloading {len(paths_arr):,} tiles..."
+            it = tqdm(
+                zip(urls_arr, paths_arr),
+                total=len(paths_arr),
+                desc=desc
+            )
+
             futures = {
                 pool.submit(submit_get, url): Path(path)
-                for url, path in tqdm(zip(urls_arr, paths_arr),
-                                      total=len(paths_arr),
-                                      desc=desc)
+                for url, path in it
             }
 
             def write(path: Path, data: bytes) -> Path | None:
@@ -474,16 +504,16 @@ class Tiles(
     @property
     def dimension(self) -> int:
         """Tile dimension; inferred from input files"""
-        try:
+        if 'dimension' in self.attrs:
             return self.attrs['dimension']
-        except KeyError as e:
-            msg = (
-                f'Resolution has not yet been set. To set the resolution, '
-                f'you must call `tiles.with_indir()` or '
-                f'`tiles.with_source()` to set the files from which the '
-                f' resolution can be determined.'
-            )
-            raise KeyError(msg) from e
+
+        try:
+            sample = next(p for p in self.file if Path(p).is_file())
+        except StopIteration:
+            raise FileNotFoundError('No image files found to infer dimension.')
+
+        self.attrs['dimension'] = iio.imread(sample).shape[1]  # width
+        return self.attrs['dimension']
 
     @dimension.setter
     def dimension(self, value: int):
@@ -497,19 +527,35 @@ class Tiles(
         """
         return self.attrs.setdefault('tscale', self.zoom)
 
+    @tscale.setter
+    def tscale(self, value: int):
+        if not isinstance(value, int):
+            raise TypeError('Tile scale must be an integer')
+        self.attrs['tscale'] = value
+
     @property
     def file(self) -> pd.Series:
-        try:
-            return self['file']
-        except KeyError as e:
-            msg = (
-                "Tiles.file has not been set. You must call "
-                "`Tiles.with_indir()` or `Tiles.with_source()` to set the "
-                "input directory or source for the tiles. The file column "
-                "will then appear, which represents the file paths for the "
-                "tiles on disk."
-            )
-            raise KeyError(msg) from e
+        # try:
+        #     return self['file']
+        # except KeyError as e:
+        #     # msg = (
+        #     #     "Tiles.file has not been set. You must call "
+        #     #     "`Tiles.with_indir()` or `Tiles.with_source()` to set the "
+        #     #     "input directory or source for the tiles. The file column "
+        #     #     "will then appear, which represents the file paths for the "
+        #     #     "tiles on disk."
+        #     # )
+        #     # raise KeyError(msg) from e
+        #     result = self.indir.files
+        #     self['file'] = result
+
+        if 'file' not in self:
+            self['file'] = self.indir.files
+        return self['file']
+
+    @file.setter
+    def file(self, value: pd.Series):
+        self['file'] = value
 
     @property
     def outdir(self):
@@ -536,7 +582,7 @@ class Tiles(
     #         raise ValueError(msg) from e
 
     @property
-    def stitched(self) -> Self:
+    def stitched(self) -> Stitched:
         """If set, will return a Tiles DataFrame with stitched tiles."""
         if 'stitched' not in self.attrs:
             msg = (
@@ -546,6 +592,7 @@ class Tiles(
             )
             raise ValueError(msg)
         result = self.attrs['stitched']
+        result.tiles = self
         return result
 
     @stitched.setter
@@ -639,8 +686,11 @@ class Tiles(
         dim = self.dimension
 
         # sample tile to determine size
-        sample = iio.imread(files.iloc[0])
-        th, tw = sample.shape[:2]
+        # sample = iio.imread(files.iloc[0])
+        # th, tw = sample.shape[:2]
+        # th = R.max()
+        th = (R.max() + 1).astype(int) * dim
+        tw = (C.max() + 1).astype(int) * dim
 
         # scale factor to satisfy maxdim
         out_w, out_h = tw * dim, th * dim
@@ -672,12 +722,9 @@ class Tiles(
 
         return out
 
+    def __deepcopy__(self, memo) -> Tiles:
+        return self.copy()
+
 
 if __name__ == '__main__':
-    (
-        Tiles
-        .with_source()
-        .with_outdir()
-        .stitch.to_scale()
-        .predict.
-    )
+    ...

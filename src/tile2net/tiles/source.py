@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import functools
 import json
+import pathlib
 import warnings
 from abc import ABC
+from functools import *
 from functools import wraps
 from typing import *
 from typing import Optional
 from typing import TypeVar
 from weakref import WeakKeyDictionary
 
+import geopandas as gpd
 import pandas as pd
 import requests
 import shapely.geometry
@@ -45,10 +48,103 @@ def not_found_none(func: T) -> T:
     return wrapper
 
 
+class Coverage:
+    @cached_property
+    def file(self) -> pathlib.Path:
+        return pathlib.Path(
+            __file__, '..', '..', 'resources', 'coverage.feather'
+        ).resolve()
+
+    def __get__(
+            self,
+            instance,
+            owner: type[Source]
+    ):
+        ...
+
+        if self.file.exists():
+            coverage = gpd.read_feather(self.file)
+            # if not coverage.index.symmetric_difference(owner.catalog.keys()):
+            empty = (
+                coverage.index
+                .symmetric_difference(owner.catalog.keys())
+                .empty
+            )
+            if empty:
+                # noinspection PyTypeChecker
+                return coverage.geometry
+        coverages: list[GeoSeries] = []
+        for source in owner.catalog.values():
+            try:
+                axis = pd.Index([source.name] * len(source.coverage), name='source')
+                coverage = (
+                    source.coverage
+                    .set_crs('epsg:4326')
+                    .set_axis(axis)
+                )
+            except Exception as e:
+                logger.error(
+                    f'Could not get coverage for {source.name}, skipping:\n'
+                    f'{e}'
+                )
+            else:
+                coverages.append(coverage)
+
+        self.file.parent.mkdir(parents=True, exist_ok=True)
+        coverage = GeoDataFrame({
+            'geometry': pd.concat(coverages),
+        })
+        coverage.to_feather(self.file)
+        coverage = coverage.geometry
+        setattr(owner, self.__name__, coverage)
+        return coverage
+
+    def __set_name__(self, owner, name):
+        self.__name__ = name
+
+    def __init__(
+            self,
+            *args,
+            **kwargs,
+    ):
+        ...
+
+
+def __get__(
+        self: cls_attr,
+        instance,
+        owner: Source | type[Source]
+) -> T:
+    result = self.func(owner)
+    type.__setattr__(owner, self.name, result)
+    return result
+
+
+
+def __init__(
+        self: cls_attr,
+        func: Callable[..., T],
+):
+    # if not isinstance(func, property):
+    #     raise TypeError(f'{func} must be a property')
+    # func = func.fget
+    if isinstance(func, property):
+        func = func.fget
+    self.func = func
+    functools.update_wrapper(self, func)
+
 class cls_attr(
-    Generic[T],
+    # Generic[T],
 ):
     cache = WeakKeyDictionary()
+    locals().update(
+        __get__=__get__,
+        __init__=__init__,
+    )
+
+    if False:
+        def __new__(cls, func: Callable[..., T]) -> T:
+            ...
 
     @classmethod
     def relevant_to(cls, item: type[Source]) -> set[class_attr]:
@@ -60,25 +156,6 @@ class cls_attr(
         }
         return res
 
-    def __get__(
-            self,
-            instance,
-            owner: Source | type[Source]
-    ) -> T:
-        result = self.func(owner)
-        type.__setattr__(owner, self.name, result)
-        return result
-
-    def __init__(
-            self,
-            func: Callable[..., T],
-    ):
-        if not isinstance(func, property):
-            raise TypeError(f'{func} must be a property')
-        func = func.fget
-        self.func = func
-        functools.update_wrapper(self, func)
-        return
 
     def __set_name__(self, owner, name):
         self.name = name
@@ -99,28 +176,30 @@ class Source(
     ABC,
 ):
     tiles: Tiles
+    catalog: dict[str, type[Source]] = {}
 
-    @cls_attr
-    def catalog(cls) -> dict[str, type[Source]]:
-        """
-        Catalog of all sources available in the package.
-        This is used to look up sources by name.
-        """
-        return {}
+    """
+    Catalog of all sources available in the package.
+    This is used to look up sources by name.
+    """
 
     @cls_attr
     def name(cls) -> str:
         """Short name of the source, e.g. `nyc` for New York City."""
 
-    @cls_attr
-    def coverage(cls) -> Union[
-        GeoSeries,
-        GeoDataFrame,
-    ]:
-        """
-        Spatial coverage of the source, to be used for deciding which
-        sources are relevant to an area.
-        """
+    @Coverage
+    def coverage(cls) -> GeoSeries:
+        ...
+
+    # @cls_attr
+    # def coverage(cls) -> Union[
+    #     GeoSeries,
+    #     GeoDataFrame,
+    # ]:
+    #     """
+    #     Spatial coverage of the source, to be used for deciding which
+    #     sources are relevant to an area.
+    #     """
 
     @cls_attr
     def zoom(cls) -> int:
@@ -246,12 +325,23 @@ class Source(
     @not_found_none
     def from_inferred(
             cls,
-            item: list[float] | str | shapely.geometry.base.BaseGeometry,
+            # item: list[float] | str | shapely.geometry.base.BaseGeometry,
+            item: Union[
+                list[float],
+                str,
+                shapely.geometry.base.BaseGeometry,
+                gpd.GeoSeries,
+                gpd.GeoDataFrame,
+            ]
     ) -> Optional['Source']:
         # todo: index index for which sources contain keyword
 
         matches: GeoSeries = Source.coverage.geometry
-        geocode = GeoCode.from_inferred(item)
+        if isinstance(item, (gpd.GeoSeries, gpd.GeoDataFrame)):
+            infer = item.geometry.iat[0].centroid
+        else:
+            infer = item
+        geocode = GeoCode.from_inferred(infer)
         loc = matches.intersects(geocode.polygon)
         if (
                 not loc.any()
@@ -335,6 +425,18 @@ class Source(
             raise TypeError(f'Invalid type {type(item)} for {item}')
         return source()
 
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__()
+        if (
+                not getattr(cls, 'ignore', False)
+                and ABC not in cls.__bases__
+        ):
+            if cls.name is None:
+                raise ValueError(f'{cls} must have a name')
+            if cls.name in cls.catalog:
+                raise ValueError(f'{cls} name {cls.name} already in use')
+            cls.catalog[cls.name] = cls
+
 
 # noinspection PyMethodParameters
 class ArcGis(
@@ -384,7 +486,7 @@ class ArcGis(
         return cls.server + '?f=json'
 
     @cls_attr
-    def tiles(cls):
+    def template(cls):
         return cls.server + '/tile/{z}/{y}/{x}'
 
 
@@ -549,3 +651,8 @@ class AlamedaCounty(
             )
         ], crs='EPSG:4326')
         return res
+
+
+
+
+

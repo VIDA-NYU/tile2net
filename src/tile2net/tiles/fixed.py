@@ -1,4 +1,7 @@
 from __future__ import annotations
+
+import copy
+
 from geopandas.base import is_geometry_type
 from geopandas.geodataframe import _ensure_geometry
 from geopandas.geoseries import GeoSeries
@@ -135,7 +138,8 @@ class GeoDataFrameFixed(
                 # impact if attrs are not used; i.e. attrs is an empty dict.
                 # One could make the deepcopy unconditionally, but a deepcopy
                 # of an empty dict is 50x more expensive than the empty check.
-                self.attrs = deepcopy(other.attrs)
+                # self.attrs = deepcopy(other.attrs)
+                self.attrs = copy.copy(other.attrs)
 
             self.flags.allows_duplicate_labels = other.flags.allows_duplicate_labels
             # For subclasses using _metadata.

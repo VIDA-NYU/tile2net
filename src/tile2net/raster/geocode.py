@@ -54,6 +54,8 @@ class GeoCode:
     def from_inferred(cls, obj: str | Any) -> Self:
         if isinstance(obj, shapely.Polygon):
             return cls.from_polygon(obj)
+        if isinstance(obj, shapely.geometry.Point):
+            return cls.from_point(obj)
         if isinstance(obj, str):
             try:
                 bounds = [
@@ -100,6 +102,17 @@ class GeoCode:
         result.address = address
         cls.cache[address] = result
         return result
+
+    @classmethod
+    def from_point(cls, point: shapely.geometry.Point) -> Self:
+        centroid = (cls._round(point.y), cls._round(point.x))
+        if centroid in cls.cache:
+            return cls.cache[centroid]
+        result = cls()
+        result.centroid = centroid
+        cls.cache[centroid] = result
+        return result
+
 
     @classmethod
     def from_nwse(cls, bounds: list[float]) -> Self:

@@ -1,21 +1,6 @@
 from __future__ import annotations
-import numpy as np
-from numpy import ndarray
-from geopandas import GeoDataFrame, GeoSeries
-from pandas import IndexSlice as idx, Series, DataFrame, Index, MultiIndex, Categorical, CategoricalDtype
-import pandas as pd
-from pandas.core.groupby import DataFrameGroupBy, SeriesGroupBy
-import geopandas as gpd
-from functools import *
+
 from typing import *
-from types import *
-from shapely import *
-import magicpandas as magic
-from dataclasses import dataclass, field
-from concurrent.futures import ThreadPoolExecutor, Future, as_completed
-from pathlib import Path
-from itertools import *
-from pandas.api.extensions import ExtensionArray
 
 import pandas as pd
 
@@ -23,41 +8,100 @@ if False:
     from .tiles import Tiles
 
 
+def __get__(
+        self: Mosaic,
+        instance: Tiles,
+        owner: type[Tiles],
+) -> Self:
+    self.tiles = instance
+    self.Tiles = owner
+    return self
+
+
 class Mosaic(
 
 ):
     tiles: Tiles
-
-    def __get__(
-            self,
-            instance: Tiles,
-            owner: type[Tiles],
-    ) -> Self:
-        self.tiles = instance
-        self.Tiles = owner
-        return self
+    locals().update(
+        __get__=__get__,
+    )
 
     @property
     def xtile(self) -> pd.Series:
         """Tile integer X of this tile in the stitched mosaic"""
         tiles = self.tiles
-        if 'xtile' not in tiles.columns:
-            stitched = tiles.stitched
-            dscale = tiles.tscale - stitched.tscale
+        if 'mosaic.xtile' in tiles.columns:
+            return tiles['mosaic.xtile']
 
+        stitched = tiles.stitched
+        dscale = tiles.tscale - stitched.tscale
+        mdim = dscale ** 2  # mosaic length
 
+        result = tiles.xtile // mdim
+        msg = 'All mosaic.xtile must be in stitched.xtile!'
+        assert result.isin(stitched.xtile).all(), msg
+        tiles['mosaic.xtile'] = result
+        return result
 
     @property
     def ytile(self) -> pd.Series:
-        """Tile integer Y of this tile in the stitched mosaic"""
+        """Tile integer X of this tile in the stitched mosaic"""
+        tiles = self.tiles
+        if 'mosaic.ytile' in tiles.columns:
+            return tiles['mosaic.ytile']
+
+        stitched = tiles.stitched
+        dscale = tiles.tscale - stitched.tscale
+        mdim = dscale ** 2  # mosaic length
+
+        result = tiles.ytile // mdim
+        msg = 'All mosaic.ytile must be in stitched.ytile!'
+        assert result.isin(stitched.ytile).all(), msg
+        tiles['mosaic.ytile'] = result
+        return result
 
     @property
     def r(self) -> pd.Series:
         """row within the mosaic of this tile"""
+        tiles = self.tiles
+        result = (
+            tiles.xtile
+            .to_series(index=tiles.index)
+            .groupby(self.group.values, observed=True)
+            .rank(method='dense', ascending=True)
+            .astype('UInt16')
+            .sub(1)
+        )
+        return result
 
     @property
-    def c(self):
+    def c(self) -> pd.Series:
         """column within the mosaic of this tile"""
+        tiles = self.tiles
+        result = (
+            tiles.ytile
+            .to_series(index=tiles.index)
+            .groupby(self.group.values, observed=True)
+            .rank(method='dense', ascending=True)
+            .astype('UInt16')
+            .sub(1)
+        )
+        return result
+
+    @property
+    def group(self) -> pd.Series:
+        arrays = self.xtile, self.ytile
+        tiles = self.tiles
+        if 'mosaic.group' in tiles.columns:
+            return tiles['mosaic.group']
+        loc = pd.MultiIndex.from_arrays(arrays)
+        result = (
+            tiles.stitched.group
+            .loc[loc]
+            .values
+        )
+        tiles['mosaic.group'] = result
+        return tiles['mosaic.group']
 
     @property
     def px(self):
