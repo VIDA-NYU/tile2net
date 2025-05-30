@@ -1,5 +1,5 @@
 from __future__ import annotations
-from requests.adapters import  HTTPAdapter
+from requests.adapters import HTTPAdapter
 
 import os
 import tempfile
@@ -32,6 +32,9 @@ from .indir import Indir
 from .mosaic import Mosaic
 from .source import Source
 from .stitch import Stitch
+from .infer import Infer
+from .cfg import Cfg
+from .withconfig import WithConfig
 
 if False:
     import folium
@@ -53,6 +56,28 @@ class Tiles(
         self.stitch.to_mosaic(...)
         # stitch to an XYZ scale e.g. 17
         self.stitch.to_scale(...)
+
+    @Infer
+    def infer(self):
+        ...
+
+    @Cfg
+    def cfg(self):
+        # This code block is just semantic sugar and does not run.
+        # cfg is a container for various configuration options
+        # which can be get and set as shown below:
+        self.cfg.max_cu_epoch = ...
+        self.cfg.model.snapshot = ...
+        self.cfg.model.ocr_extra.stage1.num_blocks = ...
+
+        # See `Tiles.with_cfg` to set the configuration, given a json.
+
+    @WithConfig
+    def with_config(self):
+        # This code block is just semantic sugar and does not run.
+        # These methods are how to set the configuration:
+        self.with_config.from_dict(...)
+        self.with_config.from_json(...)
 
     @Source
     def source(self):
@@ -665,95 +690,36 @@ class Tiles(
         folium.LayerControl().add_to(m)
         return m
 
-    # def view(
-    #         self,
-    #         maxdim: int = 2048,
-    #         divider: Optional[str] = None,
-    # ) -> PIL.Image:
-    #     _ = imageio.v3.imread
-    #     dimension = self.dimension
-    #     shape = dimension, dimension, 3
-    #     empty = np.zeros(shape, dtype=np.uint8)
-    #     files: pd.Series = self.file
-    #     R: pd.Series = self.r
-    #     C: pd.Series = self.c
-
     def view(
             self,
             maxdim: int = 2048,
             divider: Optional[str] = None,
     ) -> PIL.Image.Image:
-        print('⚠️AI GENERATED🤖')
 
         files: pd.Series = self.file
-        R: pd.Series = self.r
-        C: pd.Series = self.c
-        dim = self.dimension
+        R: pd.Series = self.r  # 0-based row id
+        C: pd.Series = self.c  # 0-based col id
 
-        th = self.dimension
-        tw = self.dimension
-
-        # scale factor to satisfy maxdim
-        out_w, out_h = tw * dim, th * dim
-        scale = 1.0
-        if max(out_w, out_h) > maxdim:
-            scale = maxdim / max(out_w, out_h)
-            tw = max(1, int(round(tw * scale)))
-            th = max(1, int(round(th * scale)))
-
+        dim = self.dimension  # original tile side length
+        n_rows = int(R.max()) + 1
+        n_cols = int(C.max()) + 1
         div_px = 1 if divider else 0
-        full_w = dim * tw + div_px * (dim - 1)
-        full_h = dim * th + div_px * (dim - 1)
-        canvas_color = divider if divider else (0, 0, 0)
-        out = Image.new('RGB', (full_w, full_h), color=canvas_color)
-
-        def load(idx: int) -> tuple[int, int, np.ndarray]:
-            arr = iio.imread(files.iat[idx])
-            if scale != 1.0:
-                arr = np.asarray(
-                    Image.fromarray(arr).resize((tw, th), Image.Resampling.LANCZOS)
-                )
-            return R.iat[idx], C.iat[idx], arr
-
-        with ThreadPoolExecutor() as exe:
-            for r, c, arr in exe.map(load, range(len(files))):
-                x = c * tw + div_px * c
-                y = r * th + div_px * r
-                out.paste(Image.fromarray(arr), (x, y))
-
-        return out
-
-    def view(
-            self,
-            maxdim: int = 2048,
-            divider: Optional[str] = None,
-    ) -> PIL.Image.Image:
-        print('⚠️AI GENERATED🤖')
-
-        files: pd.Series = self.file
-        R: pd.Series = self.r        # 0-based row id
-        C: pd.Series = self.c        # 0-based col id
-
-        dim        = self.dimension  # original tile side length
-        n_rows     = int(R.max()) + 1
-        n_cols     = int(C.max()) + 1
-        div_px     = 1 if divider else 0
 
         # full mosaic size before optional down-scaling
-        full_w0    = n_cols * dim + div_px * (n_cols - 1)
-        full_h0    = n_rows * dim + div_px * (n_rows - 1)
+        full_w0 = n_cols * dim + div_px * (n_cols - 1)
+        full_h0 = n_rows * dim + div_px * (n_rows - 1)
 
-        scale      = 1.0
+        scale = 1.0
         if max(full_w0, full_h0) > maxdim:
-            scale  = maxdim / max(full_w0, full_h0)
+            scale = maxdim / max(full_w0, full_h0)
 
-        tile_w     = max(1, int(round(dim * scale)))
-        tile_h     = tile_w                                # square tiles
-        full_w     = n_cols * tile_w + div_px * (n_cols - 1)
-        full_h     = n_rows * tile_h + div_px * (n_rows - 1)
+        tile_w = max(1, int(round(dim * scale)))
+        tile_h = tile_w  # square tiles
+        full_w = n_cols * tile_w + div_px * (n_cols - 1)
+        full_h = n_rows * tile_h + div_px * (n_rows - 1)
 
         canvas_col = divider if divider else (0, 0, 0)
-        mosaic     = Image.new('RGB', (full_w, full_h), color=canvas_col)
+        mosaic = Image.new('RGB', (full_w, full_h), color=canvas_col)
 
         def load(idx: int) -> tuple[int, int, np.ndarray]:
             arr = iio.imread(files.iat[idx])
@@ -772,7 +738,6 @@ class Tiles(
                 mosaic.paste(Image.fromarray(arr), (x0, y0))
 
         return mosaic
-
 
     def __deepcopy__(self, memo) -> Tiles:
         return self.copy()

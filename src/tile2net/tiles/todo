@@ -1,13 +1,6 @@
 .with_mosaic(...)
 
 
-(
-    .with_stitch.using_resolution(...)
-    .with_stitch.using_cluster(16)
-    .with_stitch.using_scale(17)
-)
-
-
 what default resolution?
 
 how to test
@@ -34,3 +27,9 @@ should stitch to /tmp/
 
 '/tmp/tile2net/nyc/z/x_y.png'
 /tmp/tile2net/nyc/stitched/z/x_y.png
+
+cfg.trace2property
+
+cfg should also be a dict so the user can see all specified values
+
+how to update cfg?

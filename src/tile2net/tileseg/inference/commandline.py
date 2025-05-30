@@ -306,7 +306,6 @@ commandline = compose_left(
         # default=True,
         action='store_false', dest='tile2net',
         help='if true, creates the polygons and lines from the results',
-
     ),
     # tile2net
     arg(
