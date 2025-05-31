@@ -11,6 +11,10 @@ class Predictions(
     ...
 
     @property
+    def outdir(self):
+        ...
+
+    @property
     def probability(self) -> pd.Series:
         ...
 
