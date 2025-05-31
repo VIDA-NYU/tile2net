@@ -24,7 +24,9 @@ class Predictions(
 
     @property
     def file(self) -> pd.Series:
-        ...
+        if 'file' in self.columns:
+            return self['file']
+        self.outdir.files
 
     @property
     def polygons(self):

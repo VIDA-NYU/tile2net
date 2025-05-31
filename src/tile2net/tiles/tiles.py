@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from fiona.meta import extension
 from functools import partial
 from pathlib import Path
+from torch import set_grad_enabled
 from typing import *
 
 import PIL.Image
@@ -29,7 +30,7 @@ from tile2net.raster import util
 from . import util
 from .explore import explore
 from .fixed import GeoDataFrameFixed
-from .indir import Indir
+from .dir import Dir
 from .mosaic import Mosaic
 from .source import Source
 from .stitch import Stitch
@@ -68,7 +69,8 @@ class Tiles(
 
     @Infer
     def infer(self):
-        ...
+        # This code block is just semantic sugar and does not run.
+        self.infer(...)
 
     @Cfg.from_wrapper
     def cfg(self):
@@ -101,7 +103,7 @@ class Tiles(
         self.with_source(...)  # automatically sets the source
         self.with_source('nyc')
 
-    @Indir
+    @Dir
     def indir(self):
         """
         Returns the Indir class, which wraps an input directory, for
@@ -161,7 +163,6 @@ class Tiles(
                 indir=cfg.input_dir,
             )
 
-
         pad = cfg.padding
         stitch = tiles.stitch
         if cfg.stitch.dimension:
@@ -170,6 +171,8 @@ class Tiles(
             tiles = stitch.to_mosaic(cfg.stitch.mosaic, pad)
         elif cfg.stitch.scale:
             tiles = stitch.to_scale(cfg.stitch.scale, pad)
+
+        tiles.infer(cfg.output_dir)
 
     @classmethod
     def from_location(
@@ -329,7 +332,9 @@ class Tiles(
         Assign an output directory to the tiles.
         The tiles are saved to the output directory.
         """
-        self.outdir = outdir
+        result = self.copy()
+        result.outdir = outdir
+        return result
 
     def with_source(
             self,
@@ -359,7 +364,7 @@ class Tiles(
         result.source
 
         if indir:
-            if Indir.is_valid(indir):
+            if Dir.is_valid(indir):
                 ...
             else:
                 args = (
@@ -624,20 +629,6 @@ class Tiles(
 
     @property
     def file(self) -> pd.Series:
-        # try:
-        #     return self['file']
-        # except KeyError as e:
-        #     # msg = (
-        #     #     "Tiles.file has not been set. You must call "
-        #     #     "`Tiles.with_indir()` or `Tiles.with_source()` to set the "
-        #     #     "input directory or source for the tiles. The file column "
-        #     #     "will then appear, which represents the file paths for the "
-        #     #     "tiles on disk."
-        #     # )
-        #     # raise KeyError(msg) from e
-        #     result = self.indir.files
-        #     self['file'] = result
-
         if 'file' not in self:
             self['file'] = self.indir.files
         return self['file']

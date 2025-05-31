@@ -465,7 +465,7 @@ class ImageDumper:
                         idd_ = img_name.split('_')[-1]
                         save_dir = os.path.join(cfg.RESULT_DIR, 'seg_results')
                         self.save_dir = save_dir
-                        grid.tiles[grid.pose_dict[int(idd_)]].map_features(np.array(prediction_pil), img_array=True)
+                        # grid.tiles[grid.pose_dict[int(idd_)]].map_features(np.array(prediction_pil), img_array=True)
             else:
                 # gt_fn = '{}_gt.png'.format(img_name)
                 gt_pil = colorize_mask_fn(gt_image.cpu().numpy())
@@ -623,7 +623,6 @@ class ThreadedDumper(ImageDumper):
         super().__init__(*args, **kwargs)
         self.futures: list[Future] = []
         self.threads = ThreadPoolExecutor()
-        # os.makedirs(self.save_dir, exist_ok=True)
 
     def dump(self, dump_dict, val_idx, testing=None, grid=None):
 

@@ -41,10 +41,6 @@ def __get__(
         self.Cfg = instance.Cfg
 
     cfg = self.cfg
-    # if cfg is None:
-    #     return self
-    # if cfg.instance is None:
-    #     ...
     if (
             cfg is None
             or cfg.instance is None
@@ -315,3 +311,19 @@ class Namespace(
 #         if self.long:
 #             result.long = self.long
 #         return result
+
+class options:
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        ...
+
+    def __call__(self, func):
+        return func
+
+
+
+
+

@@ -107,7 +107,10 @@ class Infer:
     ):
         tiles = self.tiles
         args = self.tiles.cfg
-        inference = Inference(tiles)
+        inference = Inference(
+            tiles,
+            outdir=outdir,
+        )
 
     def __init__(
             self,

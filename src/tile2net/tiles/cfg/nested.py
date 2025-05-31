@@ -63,8 +63,6 @@ class Nested(
 
     @cached_property
     def _trace(self):
-        # if issubclass(self.owner, Cfg):
-        #     return self.__name__
         if (
                 self.instance is None
                 or self.instance.instance is None

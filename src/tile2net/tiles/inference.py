@@ -19,7 +19,7 @@ from tile2net.raster.tile_utils.topology import fill_holes, replace_convexhull
 from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 import shutil
 
-from .indir import Indir
+from .dir import Dir
 
 os.environ['USE_PYGEOS'] = '0'
 import geopandas as gpd
@@ -120,17 +120,6 @@ AutoResume = None
 if False:
     from .tiles import Tiles
 
-
-class Outdir(
-    pathlib.Path
-):
-    @cached_property
-    def polygons(self) -> pathlib.Path:
-        return self / 'polygons'
-
-    @cached_property
-    def network(self) -> pathlib.Path:
-        return self / 'network'
 
 
 class Inference(
