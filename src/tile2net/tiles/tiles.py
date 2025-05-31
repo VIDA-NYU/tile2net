@@ -70,8 +70,7 @@ class Tiles(
     def infer(self):
         ...
 
-
-    @Cfg
+    @Cfg.from_wrapper
     def cfg(self):
         # This code block is just semantic sugar and does not run.
         # cfg is a container for various configuration options
@@ -82,12 +81,13 @@ class Tiles(
 
         # See `Tiles.with_cfg` to set the configuration, given a json.
 
-    @WithConfig
-    def with_config(self):
-        # This code block is just semantic sugar and does not run.
-        # These methods are how to set the configuration:
-        self.with_config.from_dict(...)
-        self.with_config.from_json(...)
+    #
+    # @WithConfig
+    # def with_config(self) -> Self:
+    #     # This code block is just semantic sugar and does not run.
+    #     # These methods are how to set the configuration:
+    #     self.with_config.from_dict(...)
+    #     self.with_config.from_json(...)
 
     @Source
     def source(self):
@@ -128,6 +128,56 @@ class Tiles(
             # column of the tile within the larger mosaic
             self.mosaic.c,
         )
+
+    @classmethod
+    def from_config(
+            cls,
+            args
+    ):
+        from tile2net.tiles.cfg import Cfg
+        cfg = vars(args)
+        cfg = Cfg(cfg)
+
+        tiles = Tiles.from_location(
+            location=cfg.location,
+            zoom=cfg.zoom,
+        )
+        tiles.cfg = cfg
+
+        if cfg.source:
+            # use specified source
+            tiles = tiles.with_source(
+                source=cfg.source,
+                indir=cfg.input_dir,
+            )
+        elif cfg.input_dir:
+            # use local files
+            tiles = tiles.with_indir(
+                indir=cfg.input_dir,
+            )
+        else:
+            # infer source from location
+            tiles = tiles.with_source(
+                indir=cfg.input_dir,
+            )
+
+
+        pad = cfg.padding
+        stitch = tiles.stitch
+        if cfg.stitch.dimension:
+            tiles = stitch.to_dimension(cfg.stitch.dimension, pad)
+        elif cfg.stitch.mosaic:
+            tiles = stitch.to_mosaic(cfg.stitch.mosaic, pad)
+        elif cfg.stitch.scale:
+            tiles = stitch.to_scale(cfg.stitch.scale, pad)
+
+    @classmethod
+    def from_location(
+            cls,
+            location,
+            zoom: int = None,
+    ) -> Self:
+        ...
 
     @classmethod
     def from_bounds(
@@ -230,7 +280,7 @@ class Tiles(
     def with_indir(
             self,
             indir: str,
-            extension: str = 'png',
+            # extension: str = 'png',
     ) -> Self:
         """
         Assign an input directory to the tiles. The directory must
@@ -260,7 +310,6 @@ class Tiles(
         result = self.copy()
         try:
             result.indir = indir
-            result.extension = extension
         except ValueError as e:
             msg = (
                 f'Invalid input directory: {indir}. '

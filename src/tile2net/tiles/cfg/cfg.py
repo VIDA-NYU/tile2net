@@ -402,14 +402,14 @@ class Model(cmdline.Namespace):
         """
         return False
 
-    @cmdline.property.with_options(
-        long='--no_bblur'
-    )
+    @cmdline.property
     def bblur(self) -> bool:
         """
         Enable box blur
         """
         return True
+
+    bblur.add_options(long='--no_bblur')
 
     @cmdline.property
     def full_crop_modeling(self) -> bool:
@@ -451,14 +451,14 @@ class Model(cmdline.Namespace):
         """
         return False
 
-    @cmdline.property.with_options(
-        long='--no_img_wt_loss'
-    )
+    @cmdline.property
     def img_wt_loss(self) -> bool:
         """
         Enable per-pixel image-weighted loss
         """
         return True
+
+    img_wt_loss.add_options(long='--no_img_wt_loss')
 
     @cmdline.property
     def bn(self) -> str:
@@ -549,12 +549,14 @@ class Model(cmdline.Namespace):
         """
         return False
 
-    @cmdline.property.with_options(long='--no_mscale_inner_3x3')
+    @cmdline.property
     def mscale_inner_3x3(self) -> bool:
         """
         Use 3x3 conv in mscale inner branch
         """
         return True
+
+    mscale_inner_3x3.add_options(long='--no_mscale_inner_3x3')
 
     @cmdline.property
     def mscale_dropout(self) -> bool:
@@ -636,6 +638,21 @@ class Model(cmdline.Namespace):
         ...
 
 
+class Stitch(cmdline.Namespace):
+    @cmdline.property
+    def dimension(self) -> int:
+        ...
+
+    @cmdline.property
+    def mosaic(self) -> int:
+        ...
+
+    @cmdline.property
+    def scale(self) -> int:
+        ...
+
+
+
 class Loss(cmdline.Namespace):
 
     @cmdline.property
@@ -693,8 +710,9 @@ class Cfg(
     )
     _nested: dict[str, cmdline.Nested] = {}
 
-    def __init__(self, *args, **kwargs):
-        super(Cfg, self).__init__()
+    @classmethod
+    def from_wrapper(cls, func) -> Self:
+        return cls()
 
     @Options
     def options(self):
@@ -716,16 +734,22 @@ class Cfg(
     def model(self):
         ...
 
-    @cmdline.property.with_options(
-        short='-o',
-        long='--output',
-    )
+    @Stitch
+    def stitch(self):
+        ...
+
+    @cmdline.property
     def output_dir(self) -> str:
         """The path to the output directory; "~/tmp/tile2net" by default"""
         return os.path.join(
             tempfile.gettempdir(),
             'tile2net',
         )
+
+    output_dir.add_options(
+        short='-o',
+        long='--output',
+    )
 
     @cmdline.property
     def dump_percent(self) -> int:
@@ -738,12 +762,15 @@ class Cfg(
     def assets_path(self) -> str:
         """"""
 
-    @cmdline.property.with_options(short='--q')
+    @cmdline.property
     def quiet(self) -> bool:
         """
         Suppress all output
         """
         return False
+
+    quiet.add_options(short='--q')
+
 
     @cmdline.property
     def arch(self) -> str:
@@ -897,14 +924,14 @@ class Cfg(
         """
         return False
 
-    @cmdline.property.with_options(
-        short='--d',
-    )
+    @cmdline.property
     def debug(self) -> bool:
         """
         Enable debug mode
         """
         return False
+
+    debug.add_options(short='-d')
 
     @cmdline.property
     def local(self) -> bool:
@@ -930,12 +957,13 @@ class Cfg(
         """"""
         return False
 
-    @cmdline.property.with_options(
-        long='--no_batch_weighting',
-    )
+    @cmdline.property
     def batch_weighting(self) -> bool:
         """"""
         return True
+
+    batch_weighting.add_options(long='--no_batch_weighting')
+
 
     @cmdline.property
     def repoly(self) -> float:
@@ -1011,12 +1039,12 @@ class Cfg(
         """"""
         return 'O1'
 
-    @cmdline.property.with_options(
-        long='--no_dump_topn_all',
-    )
+    @cmdline.property
     def dump_topn_all(self) -> bool:
         """"""
         return True
+
+    dump_topn_all.add_options(long='--no_dump_topn_all')
 
     @cmdline.property
     def only_coarse(self) -> bool:
@@ -1051,17 +1079,23 @@ class Cfg(
         """
         return False
 
-    @cmdline.property.with_options(short='-n')
+    @cmdline.property
     def name(self) -> str:
         ...
 
-    @cmdline.property.with_options(short='-l')
+    name.add_options(short='-n')
+
+    @cmdline.property
     def location(self) -> str:
         ...
 
-    @cmdline.property.with_options(short='-i', long='--input')
+    location.add_options(short='-l')
+
+    @cmdline.property
     def input_dir(self) -> Optional[str]:
         ...
+
+    input_dir.add_options(short='-i', long='--input')
 
     @cmdline.property
     def num_class(self) -> int:
@@ -1071,17 +1105,21 @@ class Cfg(
     def base_tilesize(self) -> int:
         return 256
 
-    @cmdline.property.with_options(short='-z')
+    @cmdline.property
     def zoom(self) -> int:
         return 19
+
+    zoom.add_options(short='-z')
 
     @cmdline.property
     def crs(self) -> int:
         return 4326
 
-    @cmdline.property.with_options(long='--nopadding')
+    @cmdline.property
     def padding(self) -> bool:
         return True
+
+    padding.add_options(long='--nopadding')
 
     @cmdline.property
     def extension(self) -> str:
@@ -1091,13 +1129,17 @@ class Cfg(
     def tile_step(self) -> int:
         return 1
 
-    @cmdline.property.with_options(short='-st')
+    @cmdline.property
     def stitch_step(self) -> int:
         return 4
 
-    @cmdline.property.with_options(short='-s')
+    stitch_step.add_options(short='-st')
+
+    @cmdline.property
     def source(self) -> Optional[str]:
         ...
+
+    source.add_options(long='--source', short='-s')
 
     @cached_property
     def _trace2property(self) -> dict[str, cmdline.property]:

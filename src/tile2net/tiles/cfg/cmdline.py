@@ -19,6 +19,9 @@ T = TypeVar(
     bound=Callable[..., Any]
 )
 
+P = ParamSpec("P")  # parameters of the wrapped function
+R = TypeVar("R")  # return type of the wrapped function
+
 
 # todo: if Config is just the class, we should return self
 
@@ -43,8 +46,8 @@ def __get__(
     # if cfg.instance is None:
     #     ...
     if (
-        cfg is None
-        or cfg.instance is None
+            cfg is None
+            or cfg.instance is None
     ):
         return self
     trace = self._trace
@@ -96,21 +99,32 @@ class property(
             msg = f"{type(self).__name__!r} object has no attribute {self._trace!r}"
             raise AttributeError(msg)
 
-    @classmethod
-    def with_options(
-            cls: Self,
+    # @classmethod
+    # def with_options(
+    #         cls,
+    #         short: str | None = None,
+    #         long: str | None = None,
+    # ) -> Type[property]:
+    #     def wrapper(func: Callable[..., T]) -> "property":
+    #         inst = cls(func)
+    #         if short:
+    #             inst.short = short
+    #         if long:
+    #             inst.long = long
+    #         return inst  # <<< missing
+    #
+    #     return wrapper
+
+    def add_options(
+            self,
             short: str | None = None,
             long: str | None = None,
-    ) -> Callable[..., Type[Self]]:
-        def wrapper(func: Callable[..., T]) -> "property":
-            inst = cls(func)
-            if short:
-                inst.short = short
-            if long:
-                inst.long = long
-            return inst  # <<< missing
-
-        return wrapper
+    ):
+        if short:
+            self.short = short
+        if long:
+            self.long = long
+        return self
 
     def __init__(
             self,
@@ -280,3 +294,24 @@ class Namespace(
                 return
 
         raise AttributeError(f"{type(self).__name__!r} object has no attribute {key!r}")
+
+
+# class with_options(
+#
+# ):
+#
+#     def __init__(
+#             self,
+#             short: str | None = None,
+#             long: str | None = None,
+#     ):
+#         self.short = short
+#         self.long = long
+#
+#     def property(self, func) -> property:
+#         result = property(func)
+#         if self.short:
+#             result.short = self.short
+#         if self.long:
+#             result.long = self.long
+#         return result
