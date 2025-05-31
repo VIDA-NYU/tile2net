@@ -8,11 +8,6 @@ how to implement sources for tile dataframes
 
 self.source[self]
 
-min_lat
-min_lon
-max_lat
-max_lon
-
 where to start downloading from source?
 
 problem is, zoom is dependent on the source or input dir
@@ -33,3 +28,12 @@ cfg.trace2property
 cfg should also be a dict so the user can see all specified values
 
 how to update cfg?
+
+tile2net/resources/assets/weights/
+
+where to download?
+
+loader
+predictor
+writer
+

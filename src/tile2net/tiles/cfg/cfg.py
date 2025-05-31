@@ -4,17 +4,20 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from collections import deque, UserDict
+import os.path
+import tempfile
+
 import argparse
-import collections
 import re
+from collections import deque, UserDict
 from functools import cached_property
 from typing import *
-from .cmdline import Nested
 
 import torch
+from toolz.curried import *
 
 from . import cmdline
+from .nested import Nested
 
 if False:
     from ..tiles import Tiles
@@ -102,11 +105,6 @@ class Dataset(cmdline.Namespace):
         """
         Path to satellite imagery directory
         """
-
-    # @satellite_dir.backup
-    # def satellite_dir(self) -> str:
-    #     return self
-    #
 
     @cmdline.property
     def mean(self) -> list[float]:
@@ -404,7 +402,9 @@ class Model(cmdline.Namespace):
         """
         return False
 
-    @cmdline.property
+    @cmdline.property.with_options(
+        long='--no_bblur'
+    )
     def bblur(self) -> bool:
         """
         Enable box blur
@@ -451,7 +451,9 @@ class Model(cmdline.Namespace):
         """
         return False
 
-    @cmdline.property
+    @cmdline.property.with_options(
+        long='--no_img_wt_loss'
+    )
     def img_wt_loss(self) -> bool:
         """
         Enable per-pixel image-weighted loss
@@ -547,7 +549,7 @@ class Model(cmdline.Namespace):
         """
         return False
 
-    @cmdline.property
+    @cmdline.property.with_options(long='--no_mscale_inner_3x3')
     def mscale_inner_3x3(self) -> bool:
         """
         Use 3x3 conv in mscale inner branch
@@ -605,33 +607,16 @@ class Model(cmdline.Namespace):
         """
         Path to HRNet checkpoint
         """
+        from ..tiles import Tiles
+        return Tiles.static.hrnet_checkpoint
 
     @cmdline.property
     def snapshot(self) -> str:
         """
         Path to the model snapshot
         """
-
-    @cmdline.property
-    def dump_topn(self) -> int:
-        """
-        Dump worst validation images
-        """
-        return 50
-
-    @cmdline.property
-    def dump_assets(self) -> bool:
-        """
-        Dump interesting assets
-        """
-        return False
-
-    @cmdline.property
-    def dump_all_images(self) -> bool:
-        """
-        Dump all images, not just a subset
-        """
-        return False
+        from ..tiles import Tiles
+        return Tiles.static.snapshot
 
     @cmdline.property
     def trial(self) -> int:
@@ -645,13 +630,6 @@ class Model(cmdline.Namespace):
         How often (in epochs) to run validation
         """
         return 1
-
-    @cmdline.property
-    def deterministic(self) -> bool:
-        """
-        Use deterministic training
-        """
-        return False
 
     @OcrExtra
     def ocr_extra(self) -> OcrExtra:
@@ -698,6 +676,7 @@ def __get__(
     result.Tiles = owner
     result.instance = instance
     result.owner = owner
+    assert result is not None
     return result
 
 
@@ -712,9 +691,10 @@ class Cfg(
     locals().update(
         __get__=__get__,
     )
+    _nested: dict[str, cmdline.Nested] = {}
 
     def __init__(self, *args, **kwargs):
-        ...
+        super(Cfg, self).__init__()
 
     @Options
     def options(self):
@@ -736,9 +716,16 @@ class Cfg(
     def model(self):
         ...
 
-    @cmdline.property
-    def result_dir(self) -> str:
-        """"""
+    @cmdline.property.with_options(
+        short='-o',
+        long='--output',
+    )
+    def output_dir(self) -> str:
+        """The path to the output directory; "~/tmp/tile2net" by default"""
+        return os.path.join(
+            tempfile.gettempdir(),
+            'tile2net',
+        )
 
     @cmdline.property
     def dump_percent(self) -> int:
@@ -910,7 +897,9 @@ class Cfg(
         """
         return False
 
-    @cmdline.property
+    @cmdline.property.with_options(
+        short='--d',
+    )
     def debug(self) -> bool:
         """
         Enable debug mode
@@ -941,7 +930,9 @@ class Cfg(
         """"""
         return False
 
-    @cmdline.property
+    @cmdline.property.with_options(
+        long='--no_batch_weighting',
+    )
     def batch_weighting(self) -> bool:
         """"""
         return True
@@ -1020,7 +1011,9 @@ class Cfg(
         """"""
         return 'O1'
 
-    @cmdline.property
+    @cmdline.property.with_options(
+        long='--no_dump_topn_all',
+    )
     def dump_topn_all(self) -> bool:
         """"""
         return True
@@ -1030,26 +1023,107 @@ class Cfg(
         """"""
         return False
 
+    @cmdline.property
+    def deterministic(self) -> bool:
+        """
+        Use deterministic training
+        """
+        return False
+
+    @cmdline.property
+    def dump_topn(self) -> int:
+        """
+        Dump worst validation images
+        """
+        return 50
+
+    @cmdline.property
+    def dump_assets(self) -> bool:
+        """
+        Dump interesting assets
+        """
+        return False
+
+    @cmdline.property
+    def dump_all_images(self) -> bool:
+        """
+        Dump all images, not just a subset
+        """
+        return False
+
+    @cmdline.property.with_options(short='-n')
+    def name(self) -> str:
+        ...
+
+    @cmdline.property.with_options(short='-l')
+    def location(self) -> str:
+        ...
+
+    @cmdline.property.with_options(short='-i', long='--input')
+    def input_dir(self) -> Optional[str]:
+        ...
+
+    @cmdline.property
+    def num_class(self) -> int:
+        return 4
+
+    @cmdline.property
+    def base_tilesize(self) -> int:
+        return 256
+
+    @cmdline.property.with_options(short='-z')
+    def zoom(self) -> int:
+        return 19
+
+    @cmdline.property
+    def crs(self) -> int:
+        return 4326
+
+    @cmdline.property.with_options(long='--nopadding')
+    def padding(self) -> bool:
+        return True
+
+    @cmdline.property
+    def extension(self) -> str:
+        return 'png'
+
+    @cmdline.property
+    def tile_step(self) -> int:
+        return 1
+
+    @cmdline.property.with_options(short='-st')
+    def stitch_step(self) -> int:
+        return 4
+
+    @cmdline.property.with_options(short='-s')
+    def source(self) -> Optional[str]:
+        ...
+
     @cached_property
     def _trace2property(self) -> dict[str, cmdline.property]:
+        nested = [
+            getattr(self, key)
+            for key in self._nested
+        ]
         result: dict[str, cmdline.property] = {
             value._trace: value
-            for key, value in self._nested.items()
+            for value in nested
             if isinstance(value, cmdline.property)
         }
         stack: deque[cmdline.Namespace] = deque([
-            getattr(self, key)
-            for key, value in self._nested.items()
+            value
+            for value in nested
             if isinstance(value, cmdline.Namespace)
         ])
         while stack:
-            obj = stack.popleft()
-            for key, value in obj._nested.items():
+            namespace = stack.popleft()
+            for key, value in namespace._nested.items():
                 if isinstance(value, cmdline.property):
-                    value: cmdline.property = getattr(obj, key)
+                    value: cmdline.property = getattr(namespace, key)
+                    namespace.__class__.__get__
                     result[value._trace] = value
-                elif isinstance(value, Nested):
-                    stack.append(getattr(obj, key))
+                elif isinstance(value, cmdline.Namespace):
+                    stack.append(getattr(namespace, key))
                 else:
                     raise TypeError(f"Unexpected type {type(value)} in _trace2property")
 

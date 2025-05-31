@@ -1,4 +1,5 @@
 from __future__ import annotations
+from functools import cached_property
 from requests.adapters import HTTPAdapter
 
 import os
@@ -35,6 +36,7 @@ from .stitch import Stitch
 from .infer import Infer
 from .cfg import Cfg
 from .withconfig import WithConfig
+from .static import Static
 
 if False:
     import folium
@@ -44,6 +46,13 @@ if False:
 class Tiles(
     GeoDataFrameFixed,
 ):
+
+    @Static
+    def static(self):
+        # This code block is just semantic sugar and does not run.
+        # This is a namespace container for static files:
+        _ = self.static.hrnet_checkpoint
+        _ = self.static.snapshot
 
     @Stitch
     def stitch(self):
@@ -60,6 +69,7 @@ class Tiles(
     @Infer
     def infer(self):
         ...
+
 
     @Cfg
     def cfg(self):

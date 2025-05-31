@@ -4,7 +4,11 @@ import builtins
 import functools
 import inspect
 from functools import *
+from torch.fx.experimental.recording import trace_shape_events_log
 from typing import *
+
+from pandas.core.indexing import is_nested_tuple
+from .nested import Nested
 
 if False:
     from .cfg import Cfg
@@ -16,70 +20,39 @@ T = TypeVar(
 )
 
 
+# todo: if Config is just the class, we should return self
+
 def __get__(
         self: property,
-        instance: Union[
-            Cfg,
-            Namespace
-        ],
-        owner: Union[
-            type[Cfg],
-            type[Namespace]
-        ]
+        instance: Nested,
+        owner: type[Nested]
 ):
-    """"""
+    from .cfg import Cfg
     self.instance = instance
     self.owner = owner
-    return self
+    if issubclass(owner, Cfg):
+        self.cfg = instance
+        self.Cfg = owner
+    else:
+        self.cfg = instance.cfg
+        self.Cfg = instance.Cfg
 
-
-class Nested(
-
-):
-    instance: Union[Cfg, Namespace] = None
-    owner: Union[Type[Cfg], Type[Namespace]] = None
-    _nested: dict[str, Nested]
-
-    locals().update(
-        __get__=__get__
-    )
-
-    @builtins.property
-    def tiles(self) -> Tiles:
-        instance = self.instance
-        while not isinstance(instance, Cfg):
-            instance = instance.instance
-        return instance.instance
-
-
-    def __init__(
-            self,
-            *args,
-            **kwargs,
+    cfg = self.cfg
+    # if cfg is None:
+    #     return self
+    # if cfg.instance is None:
+    #     ...
+    if (
+        cfg is None
+        or cfg.instance is None
     ):
-        ...
-
-    @cached_property
-    def _trace(self):
-        from .cfg import Cfg
-        if issubclass(self.owner, Cfg):
-            return self.__name__
-        elif isinstance(self.instance, Nested):
-            return f'{self.instance._trace}.{self.__name__}'
-        else:
-            msg = (
-                f'Cannot determine trace for {self.__name__} in '
-                f'{self.owner} with {self.instance=}'
-            )
-            raise ValueError(msg)
-
-    def __set_name__(self, owner: type[Nested], name):
-        self.__name__ = name
-        self.owner = owner
-        if issubclass(owner, Nested):
-            if '_nested' not in owner.__dict__:
-                owner._nested = {}
-            owner._nested[name] = self
+        return self
+    trace = self._trace
+    if trace in cfg:
+        return cfg[trace]
+    cfg[trace] = self.default
+    result = cfg[trace]
+    return result
 
 
 class property(
@@ -89,15 +62,54 @@ class property(
     This class allows for properties to also generate metadata
     that can be used as a command line argument.
     """
-    __wrapped__: Callable[..., T] = None
+    locals().update(
+        __get__=__get__,
+    )
+
+    def __set__(
+            self,
+            instance: Nested,
+            value,
+    ):
+        from .cfg import Cfg
+        self.instance = instance
+        self.owner = owner = type(instance)
+        if issubclass(owner, Cfg):
+            self.cfg = instance
+            self.Cfg = owner
+        else:
+            self.cfg = instance.cfg
+            self.Cfg = instance.Cfg
+
+        return self
+        cfg = instance.cfg
+        cfg[self._trace] = value
+
+    def __delete__(
+            self,
+            instance: Nested,
+    ):
+        cfg = instance.cfg
+        if self._trace in cfg:
+            del cfg[self._trace]
+        else:
+            msg = f"{type(self).__name__!r} object has no attribute {self._trace!r}"
+            raise AttributeError(msg)
 
     @classmethod
-    def with_options(cls: Self, short: str | None = None) -> Callable[..., Type[Self]]:
+    def with_options(
+            cls: Self,
+            short: str | None = None,
+            long: str | None = None,
+    ) -> Callable[..., Type[Self]]:
         def wrapper(func: Callable[..., T]) -> "property":
             inst = cls(func)
-            if short is not None:
+            if short:
                 inst.short = short
-            return inst              # <<< missing
+            if long:
+                inst.long = long
+            return inst  # <<< missing
+
         return wrapper
 
     def __init__(
@@ -209,4 +221,62 @@ class Namespace(
     namespaces, similar to how argparse works with subparsers.
     """
 
-property.__set_name__
+    def __getattr__(self, key: str) -> Any:
+        # Normalize ALL-CAPS names to lowercase
+        if key.isupper():
+            key = key.lower()
+
+        # 1. descriptor / attribute on the instance or class
+        try:
+            return object.__getattribute__(self, key)
+        except AttributeError:
+            pass
+
+        # 2. fallback to cfg dict
+        if self.cfg is not None:
+            trace_key = f"{self._trace}.{key}"
+            if trace_key in self.cfg:
+                return self.cfg[trace_key]
+
+        raise AttributeError(f"{type(self).__name__!r} object has no attribute {key!r}")
+
+    def __setattr__(self, key: str, value: Any) -> None:
+        cls = self.__class__
+
+        # No owner yet (during __set_name__) → default behaviour
+        # if self.owner is None:
+        if object.__getattribute__(self, 'owner') is None:
+            return object.__setattr__(self, key, value)
+
+        # Normalize ALL-CAPS names to lowercase
+        if key.isupper():
+            key = key.lower()
+
+        # 1. internal/descriptor attributes
+        if key.startswith('_') or hasattr(cls, key):
+            return object.__setattr__(self, key, value)
+
+        if self.cfg is not None:
+            # 2. fallback to cfg dict
+            trace_key = f"{self._trace}.{key}"
+            self.cfg[trace_key] = value
+
+    def __delattr__(self, key: str) -> None:
+        cls = self.__class__
+
+        # Normalize ALL-CAPS names to lowercase
+        if key.isupper():
+            key = key.lower()
+
+        # 1. internal/descriptor attributes
+        if key.startswith('_') or hasattr(cls, key):
+            return object.__delattr__(self, key)
+
+        # 2. try to remove from cfg dict
+        if self.cfg is not None:
+            trace_key = f"{self._trace}.{key}"
+            if trace_key in self.cfg:
+                del self.cfg[trace_key]
+                return
+
+        raise AttributeError(f"{type(self).__name__!r} object has no attribute {key!r}")
