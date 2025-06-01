@@ -35,7 +35,8 @@ def __get__(
 ):
     if instance is None:
         return self
-    key = self.__name__
+    # key = self.__name__
+    key = self._trace
     if isinstance(instance, pd.DataFrame):
         if key in instance.attrs:
             result = instance.attrs[key]
@@ -51,6 +52,7 @@ def __get__(
                 instance.suffix
             )
             result = self.__class__(dir)
+            result.__name__ = self.__name__
             instance.__dict__[key] = result
 
     from .tiles import Tiles
@@ -66,32 +68,42 @@ def __get__(
     return result
 
 
-
-
-
+def __get__(
+        self: Dir,
+        instance: Union[
+            Tiles, Dir
+        ],
+        owner
+):
+    self.instance = instance
+    self.owner = owner
+    self.tiles = instance
+    self.Tiles = owner
+    if instance is None:
+        return self
+    try:
+        result = instance.attrs[self._trace]
+        result.tiles = instance
+        result.Tiles = owner
+        return result
+    except KeyError as e:
+        msg = (
+            f'{self.__name__!r} is not set. '
+            f'See `Tiles.with_indir()` to actually set an '
+            f'input directory. See `Tiles.with_source()` to download '
+            f'tiles from a source into an input directory.'
+        )
+        raise AttributeError(msg) from e
 
 
 class Dir:
     tiles: Tiles
     instance: Tiles | Dir
     owner: type[Tiles] | type[Dir]
+    locals().update(
+        __get__=__get__
+    )
 
-    # def __get__(
-    #         self,
-    #         instance: Dir,
-    #         owner: type[Dir]
-    # ) -> Self:
-    #     if instance is None:
-    #         return self
-    #     if self.__name__ in instance.__dict__:
-    #         return instance.__dict__[self.__name__]
-    #     dir = os.path.join(
-    #         instance.dir,
-    #         self.__name__,
-    #         instance.suffix
-    #     )
-    #     result = self.__class__(dir)
-    #     return result
 
     def __set_name__(self, owner, name):
         self.__name__ = name
@@ -161,29 +173,6 @@ class Dir:
     def suffix(self, value: str | None):
         self.__dict__['suffix'] = value
 
-    def __get__(
-            self,
-            instance: Tiles,
-            owner
-    ):
-        self.tiles = instance
-        self.Tiles = owner
-        if instance is None:
-            return self
-        try:
-            result = instance.attrs[self.__name__]
-            result.tiles = instance
-            result.Tiles = owner
-            return result
-        except KeyError as e:
-            msg = (
-                f'{self.__name__!r} is not set. '
-                f'See `Tiles.with_indir()` to actually set an '
-                f'input directory. See `Tiles.with_source()` to download '
-                f'tiles from a source into an input directory.'
-            )
-            raise AttributeError(msg) from e
-
     def __bool__(self):
         return self.format is not None
 
@@ -192,21 +181,14 @@ class Dir:
             instance: Tiles,
             value: str | PathLike
     ):
-        from .tiles import Tiles
-        self.instance = instance
-        owner = type(instance)
-        self.owner = owner
-        if issubclass(owner, Tiles):
-            self.tiles = instance
-            self.Tiles = owner
-        else:
-            self.tiles = instance.tiles
-            self.Tiles = instance.Tiles
 
         if value is None:
-            return
-        if isinstance(value, self.__class__):
-            instance.attrs[self._trace] = value
+            raise NotImplementedError
+        if isinstance(value, Dir):
+            # result = type(value)(value)
+            # result.__name__ = self.__name__
+            # instance.attrs[self._trace] = result
+            raise NotImplementedError
             return
         if isinstance(value, Path):
             value = str(value)
@@ -215,6 +197,7 @@ class Dir:
         instance.attrs[self._trace] = indir
 
         indir.original = value
+        indir.__name__ = self.__name__
 
         try:
             indir.extension = value.rsplit('.', 1)[1]
@@ -269,6 +252,17 @@ class Dir:
         indir.dir = parts[0].rsplit('/', 1)[0]
         indir.suffix = os.path.relpath(indir.original, indir.dir)
 
+        from .tiles import Tiles
+        indir.instance = instance
+        owner = type(instance)
+        indir.owner = owner
+        if issubclass(owner, Tiles):
+            indir.tiles = instance
+            indir.Tiles = owner
+        else:
+            indir.tiles = instance.tiles
+            indir.Tiles = instance.Tiles
+
     @cached_property
     def dir(self) -> str:
         ...
@@ -291,9 +285,6 @@ class Dir:
             f')'
         )
 
-    def __set_name__(self, owner, name):
-        self.__name__ = name
-
     def __init__(self, *args, **kwargs):
         ...
 
@@ -308,9 +299,10 @@ class Dir:
 
     @cached_property
     def _trace(self):
+        from .tiles import Tiles
         if (
                 self.instance is None
-                or self.instance.instance is None
+                or isinstance(self.instance, Tiles)
         ):
             return self.__name__
         elif isinstance(self.instance, Dir):
@@ -471,3 +463,5 @@ if __name__ == '__main__':
 
     test = TestIndir('input/dir/arst_x_y_z.png')
     test
+
+Dir.__get__

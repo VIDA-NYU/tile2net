@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 from .tiles import Tiles
+from .outdir import Outdir
 
 
 class Stitched(
@@ -18,7 +19,7 @@ class Stitched(
         except KeyError as e:
             raise AttributeError(
 
-            )
+            ) from e
 
     @tiles.setter
     def tiles(self, value: Tiles):
@@ -41,10 +42,6 @@ class Stitched(
         return result
 
     @property
-    def outdir(self):
-        return self.tiles.outdir
-
-    @property
     def mlength(self):
         tiles = self.tiles
         dscale = int(self.tscale - tiles.tscale)
@@ -57,3 +54,4 @@ class Stitched(
         result = pd.Series(np.arange(len(self)), index=self.index)
         self['group'] = result
         return self['group']
+

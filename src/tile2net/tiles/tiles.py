@@ -1,4 +1,8 @@
 from __future__ import annotations
+
+import copy
+
+from .indir import Indir
 from functools import cached_property
 from requests.adapters import HTTPAdapter
 
@@ -38,6 +42,7 @@ from .infer import Infer
 from .cfg import Cfg
 from .withconfig import WithConfig
 from .static import Static
+from .outdir import Outdir
 
 if False:
     import folium
@@ -80,7 +85,6 @@ class Tiles(
         self.cfg.max_cu_epoch = ...
         self.cfg.model.snapshot = ...
         self.cfg.model.ocr_extra.stage1.num_blocks = ...
-
         # See `Tiles.with_cfg` to set the configuration, given a json.
 
     #
@@ -97,27 +101,28 @@ class Tiles(
         Returns the Source class, which wraps a tile server.
         See `Tiles.with_source()` to actually set a source.
         """
-
         # This code block is just semantic sugar and does not run.
         # These methods are how to set the source:
         self.with_source(...)  # automatically sets the source
         self.with_source('nyc')
 
-    @Dir
+    @Indir
     def indir(self):
         """
         Returns the Indir class, which wraps an input directory, for
         example `input/dir/x_y_z.png` or `input/dir/x/y/z.png`.
         See `Tiles.with_indir()` to actually set an input directory.
         """
-
         # This code block is just semantic sugar and does not run.
         # This method is how to set the input directory:
         self.with_indir(...)
 
+    @Outdir
+    def outdir(self):
+        ...
+
     @Mosaic
     def mosaic(self):
-
         # This code block is just semantic sugar and does not run.
         # These columns are available once the tiles have been stitched:
         _ = (
@@ -313,6 +318,10 @@ class Tiles(
         result = self.copy()
         try:
             result.indir = indir
+            indir: Indir = result.indir
+            msg = f'Setting input directory to {indir.original}. '
+            logger.info(msg)
+
         except ValueError as e:
             msg = (
                 f'Invalid input directory: {indir}. '
@@ -322,18 +331,62 @@ class Tiles(
                 f'input/dir/x/y/z.png or input/dir/x_y_z.png.'
             )
             raise ValueError(msg) from e
+        try:
+            _ = result.outdir
+        except AttributeError:
+            msg = (
+                f'Output directory not yet set. Based on the input directory, '
+                f'setting it to a default value.'
+            )
+            logger.info(msg)
+            result = result.with_outdir()
         return result
 
     def with_outdir(
             self,
-            outdir: Union[str, Path],
+            outdir: Union[str, Path] = None,
     ) -> Self:
         """
         Assign an output directory to the tiles.
         The tiles are saved to the output directory.
         """
-        result = self.copy()
-        result.outdir = outdir
+        result: Tiles = self.copy()
+        if outdir:
+            ...
+        elif self.cfg.output_dir:
+            outdir = self.cfg.output_dir
+        else:
+            if self.cfg.name:
+                name = self.cfg.name
+            elif (
+                    self.source
+                    and self.source.name
+            ):
+                name = self.source.name
+            else:
+                msg = (
+                    f'No output directory specified, and unable to infer '
+                    f'a name for a temporary output directory. Either '
+                    f'set a name, use a source, or specify an output directory.'
+                )
+                raise ValueError(msg)
+
+            outdir = os.path.join(
+                tempfile.gettempdir(),
+                'tile2net',
+                name,
+                'outdir'
+            )
+
+        try:
+            result.outdir = outdir
+        except ValueError:
+            retry = os.path.join( outdir, 'z', 'x_y.png' )
+            result.outdir = retry
+            logger.info(f'Setting output directory to {retry}')
+        else:
+            logger.info(f'Setting output directory to {outdir}')
+
         return result
 
     def with_source(
@@ -361,7 +414,6 @@ class Tiles(
             source = Source.from_inferred(source)
         result = self.copy()
         result.source = source
-        result.source
 
         if indir:
             if Dir.is_valid(indir):
@@ -390,14 +442,11 @@ class Tiles(
                 .__str__()
             )
 
-        result = result.with_indir(
-            indir,
-            extension=source.extension,
-        )
+        result = result.with_indir(indir)
 
         urls = result.source.urls
         files = result.file
-        self.download(files, urls, max_workers=max_workers)
+        result.download(files, urls, max_workers=max_workers)
 
         return result
 
@@ -437,9 +486,6 @@ class Tiles(
                 dtype=bool,
                 count=len(paths_arr),
             )
-            ndownload = exists_mask.__invert__().sum()
-            msg = f'Downloading {ndownload:,} of {len(paths_arr):,} tiles.'
-            logger.info(msg)
             if exists_mask.all():
                 logger.info('All tiles already on disk.')
                 return
@@ -453,6 +499,7 @@ class Tiles(
             ThreadPoolExecutor(max_workers=max_workers) as pool,
             requests.Session() as session
         ):
+
             session.mount(
                 'https://',
                 HTTPAdapter(pool_connections=pool_size, pool_maxsize=pool_size)
@@ -466,8 +513,21 @@ class Tiles(
                 except requests.exceptions.RequestException:
                     return -1
 
-            msg = f'Checking {len(urls_arr):,} URLs...'
-            logger.info(msg)
+            # Only check URLs whose files do not already exist
+            exists = np.fromiter(
+                (os.path.exists(p) for p in paths_arr),
+                dtype=bool,
+                count=len(paths_arr)
+            )
+            if exists.all():
+                return
+
+            paths_arr = paths_arr[~exists]
+            urls_arr = urls_arr[~exists]
+
+            if len(urls_arr):
+                msg = f'Checking {len(urls_arr):,} URLs...'
+                logger.info(msg)
 
             it = tqdm(
                 pool.map(head, urls_arr),
@@ -480,8 +540,7 @@ class Tiles(
                 count=len(urls_arr)
             )
 
-            not_ok = codes != 200
-            not_ok &= codes != 404
+            not_ok = (codes != 200) & (codes != 404)
             if not_ok.any():
                 logger.warning(f'Unexpected status codes: {np.unique(codes[not_ok])}')
 
@@ -491,6 +550,7 @@ class Tiles(
                 src = self.black.__fspath__()
                 for p in paths_arr[not_found]:
                     os.symlink(src, p)
+
             paths_arr = paths_arr[~not_found]
             urls_arr = urls_arr[~not_found]
 
@@ -498,7 +558,7 @@ class Tiles(
                 return
 
             submit_get = partial(session.get, timeout=20)
-            desc = f"Downloading {len(paths_arr):,} tiles..."
+            desc = f"Downloading {len(paths_arr):,} tiles to {self.indir.format}"
             it = tqdm(
                 zip(urls_arr, paths_arr),
                 total=len(paths_arr),
@@ -638,30 +698,6 @@ class Tiles(
         self['file'] = value
 
     @property
-    def outdir(self):
-        try:
-            return self.attrs['outdir']
-        except KeyError as e:
-            msg = (
-                f'Tiles.outdir has not been set. '
-                f'You must call `Tiles.with_outdir()` to set the output '
-                f'directory for the tiles.'
-            )
-            raise ValueError(msg) from e
-
-    # @property
-    # def indir(self):
-    #     try:
-    #         return self.attrs['indir']
-    #     except KeyError as e:
-    #         msg = (
-    #             f'Tiles.indir has not been set. '
-    #             f'You must call `Tiles.with_indir()` to set the input '
-    #             f'directory for the tiles.'
-    #         )
-    #         raise ValueError(msg) from e
-
-    @property
     def stitched(self) -> Stitched:
         """If set, will return a Tiles DataFrame with stitched tiles."""
         if 'stitched' not in self.attrs:
@@ -681,6 +717,21 @@ class Tiles(
             msg = """Tiles.stitched must be a Tiles object"""
             raise TypeError(msg)
         self.attrs['stitched'] = value
+
+    @property
+    def name(self) -> str:
+        if 'name' not in self.attrs:
+            name = self.cfg.name
+            self.attrs['name'] = name
+        return self.attrs['name']
+
+    @name.setter
+    def name(self, value: str):
+        if not isinstance(value, str):
+            raise TypeError('Tiles.name must be a string')
+        self.attrs['name'] = value
+
+
 
     def explore(
             self,
@@ -791,6 +842,12 @@ class Tiles(
 
     def __deepcopy__(self, memo) -> Tiles:
         return self.copy()
+
+    def copy(self, deep=True) -> Self:
+        result = super().copy(deep=deep)
+        result.cfg = copy.copy(self.cfg)
+        return result
+
 
 
 if __name__ == '__main__':

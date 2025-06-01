@@ -43,7 +43,7 @@ def __get__(
     cfg = self.cfg
     if (
             cfg is None
-            or cfg.instance is None
+            or not cfg._active
     ):
         return self
     trace = self._trace
@@ -137,16 +137,31 @@ class property(
         """Return annotation of wrapped function (if any)."""
         return get_type_hints(self.__wrapped__).get("return")
 
+    # @cached_property
+    # def default(self) -> Any:
+    #     """Best-effort evaluation of the wrapped function to obtain a default."""
+    #     try:
+    #         sig = inspect.signature(self.__wrapped__)
+    #         if not sig.parameters:
+    #             return self.__wrapped__(self)  # type: ignore[arg-type]
+    #     except Exception:
+    #         pass
+    #     return None
+    #
+
     @cached_property
     def default(self) -> Any:
-        """Best-effort evaluation of the wrapped function to obtain a default."""
         try:
             sig = inspect.signature(self.__wrapped__)
-            if not sig.parameters:
-                return self.__wrapped__(self)  # type: ignore[arg-type]
+            params = tuple(sig.parameters.values())
+            if not params:  # () -> T
+                return self.__wrapped__()                    # type: ignore[misc]
+            if len(params) == 1 and self.instance is not None:  # (self) -> T
+                return self.__wrapped__(self.instance)       # type: ignore[arg-type]
         except Exception:
             pass
         return None
+
 
     @cached_property
     def type(self):

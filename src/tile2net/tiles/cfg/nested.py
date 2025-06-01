@@ -39,8 +39,8 @@ class Nested(
     instance: Nested = None
     owner: Type[Nested] = None
     _nested: dict[str, Nested]
-    cfg: Cfg
-    Cfg: type[Cfg]
+    cfg: Cfg = None
+    Cfg: type[Cfg] = None
 
     locals().update(
         __get__=__get__

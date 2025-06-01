@@ -1,6 +1,5 @@
 .with_mosaic(...)
 
-
 what default resolution?
 
 how to test
@@ -36,4 +35,5 @@ where to download?
 loader
 predictor
 writer
+
 

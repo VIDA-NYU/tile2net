@@ -679,16 +679,17 @@ class Loss(cmdline.Namespace):
 
 def __get__(
         self: Cfg,
-        instance,
-        owner
+        instance: Tiles,
+        owner: type[Tiles]
 ) -> Self:
     if instance is None:
         result = self
-    elif self.__name__ in instance:
-        result = instance[self.__name__]
+    elif self._trace in instance.attrs:
+        result = instance.attrs[self._trace]
     else:
-        result = self.__class__.__new__(self.__class__)
-        instance[self.__name__] = result
+        result = self.__class__(self._trace2default)
+        instance.attrs[self._trace] = result
+    result.__name__ = self.__name__
     result.tiles = instance
     result.Tiles = owner
     result.instance = instance
@@ -709,6 +710,10 @@ class Cfg(
         __get__=__get__,
     )
     _nested: dict[str, cmdline.Nested] = {}
+
+    def __repr__(self) -> str:
+        lines = (f'  "{k}": {v!r}' for k, v in self.items())
+        return "{\n" + ",\n".join(lines) + "\n}"
 
     @classmethod
     def from_wrapper(cls, func) -> Self:
@@ -738,13 +743,17 @@ class Cfg(
     def stitch(self):
         ...
 
+    def __setitem__(self, key, value):
+        super(self.__class__, self).__setitem__(key, value)
+
+
     @cmdline.property
     def output_dir(self) -> str:
         """The path to the output directory; "~/tmp/tile2net" by default"""
-        return os.path.join(
-            tempfile.gettempdir(),
-            'tile2net',
-        )
+        # return os.path.join(
+        #     tempfile.gettempdir(),
+        #     'tile2net',
+        # )
 
     output_dir.add_options(
         short='-o',
@@ -1193,3 +1202,44 @@ class Cfg(
             parser.add_argument(*prop.posargs, **prop.kwargs)
 
         return parser
+
+    @cached_property
+    def _trace2default(self) -> dict[str, cmdline.property]:
+        active = self._active
+        self._active = False
+        nested = [
+            getattr(self, key)
+            for key in self._nested
+        ]
+        result: dict[str, cmdline.property] = {
+            value._trace: value.default
+            for value in nested
+            if isinstance(value, cmdline.property)
+        }
+        stack: deque[cmdline.Namespace] = deque([
+            value
+            for value in nested
+            if isinstance(value, cmdline.Namespace)
+        ])
+        while stack:
+            namespace = stack.popleft()
+            for key, value in namespace._nested.items():
+                if isinstance(value, cmdline.property):
+                    value: cmdline.property = getattr(namespace, key)
+                    result[value._trace] = value.default
+                elif isinstance(value, cmdline.Namespace):
+                    stack.append(getattr(namespace, key))
+                else:
+                    raise TypeError(f"Unexpected type {type(value)} in _trace2property")
+
+        self._active = active
+        return dict(sorted(result.items()))
+
+
+    @cached_property
+    def _active(self):
+        return True
+
+
+
+
