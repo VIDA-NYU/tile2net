@@ -1,6 +1,9 @@
 from __future__ import annotations
+from .inference import Inference
 
 import copy
+
+from ipywidgets import Valid
 
 from .indir import Indir
 from functools import cached_property
@@ -36,11 +39,10 @@ from .explore import explore
 from .fixed import GeoDataFrameFixed
 from .dir import Dir
 from .mosaic import Mosaic
-from .source import Source
+from .source import Source, SourceNotFound
 from .stitch import Stitch
 from .infer import Infer
 from .cfg import Cfg
-from .withconfig import WithConfig
 from .static import Static
 from .outdir import Outdir
 
@@ -72,10 +74,16 @@ class Tiles(
         # stitch to an XYZ scale e.g. 17
         self.stitch.to_scale(...)
 
-    @Infer
+    # @Infer
+    # def infer(self):
+    #     # This code block is just semantic sugar and does not run.
+    #     self.infer(...)
+    #     self.infer.__call__(...)
+
     def infer(self):
-        # This code block is just semantic sugar and does not run.
-        self.infer(...)
+        inference = Inference( self )
+        inference.validate()
+
 
     @Cfg.from_wrapper
     def cfg(self):
@@ -183,9 +191,14 @@ class Tiles(
     def from_location(
             cls,
             location,
-            zoom: int = None,
+            zoom: int = 19,
     ) -> Self:
-        ...
+        latlon = util.geocode(location)
+        result = cls.from_bounds(
+            latlon=latlon,
+            zoom=zoom
+        )
+        return result
 
     @classmethod
     def from_bounds(
@@ -288,7 +301,7 @@ class Tiles(
     def with_indir(
             self,
             indir: str,
-            # extension: str = 'png',
+            name: str = None,
     ) -> Self:
         """
         Assign an input directory to the tiles. The directory must
@@ -316,6 +329,8 @@ class Tiles(
         self.with_indir('input/dir/x')
         """
         result = self.copy()
+        if name:
+            result.name = name
         try:
             result.indir = indir
             indir: Indir = result.indir
@@ -356,7 +371,9 @@ class Tiles(
         elif self.cfg.output_dir:
             outdir = self.cfg.output_dir
         else:
-            if self.cfg.name:
+            if self.name:
+                name = self.name
+            elif self.cfg.name:
                 name = self.cfg.name
             elif (
                     self.source
@@ -381,7 +398,7 @@ class Tiles(
         try:
             result.outdir = outdir
         except ValueError:
-            retry = os.path.join( outdir, 'z', 'x_y.png' )
+            retry = os.path.join(outdir, 'z', 'x_y.png')
             result.outdir = retry
             logger.info(f'Setting output directory to {retry}')
         else:
@@ -392,6 +409,7 @@ class Tiles(
     def with_source(
             self,
             source=None,
+            name: str = None,
             indir: Union[str, Path] = None,
             max_workers: int = 100,
     ) -> Self:
@@ -411,9 +429,20 @@ class Tiles(
         elif isinstance(source, Source):
             ...
         else:
-            source = Source.from_inferred(source)
+            try:
+                source = Source.from_inferred(source)
+            except SourceNotFound as e:
+                msg = (
+                    f'Unable to infer a source from {source}. '
+                    f'Please specify a valid source or use a '
+                    f'different method to set the tiles.'
+                )
+                raise ValueError(msg) from e
+
         result = self.copy()
         result.source = source
+        if name:
+            result.name = name
 
         if indir:
             if Dir.is_valid(indir):
@@ -429,10 +458,14 @@ class Tiles(
                     .__str__()
                 )
         else:
+            if result.name:
+                name = result.name
+            else:
+                name = result.source.name
             args = (
                 tempfile.gettempdir(),
                 'tile2net',
-                str(source.name),
+                name,
                 'z',
                 'x_y.png'
             )
@@ -442,7 +475,10 @@ class Tiles(
                 .__str__()
             )
 
-        result = result.with_indir(indir)
+        result = result.with_indir(
+            indir,
+            name=name,
+        )
 
         urls = result.source.urls
         files = result.file
@@ -720,18 +756,13 @@ class Tiles(
 
     @property
     def name(self) -> str:
-        if 'name' not in self.attrs:
-            name = self.cfg.name
-            self.attrs['name'] = name
-        return self.attrs['name']
+        return self.attrs.get('name')
 
     @name.setter
     def name(self, value: str):
         if not isinstance(value, str):
             raise TypeError('Tiles.name must be a string')
         self.attrs['name'] = value
-
-
 
     def explore(
             self,
@@ -847,7 +878,6 @@ class Tiles(
         result = super().copy(deep=deep)
         result.cfg = copy.copy(self.cfg)
         return result
-
 
 
 if __name__ == '__main__':

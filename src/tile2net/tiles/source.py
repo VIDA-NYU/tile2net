@@ -37,15 +37,15 @@ class SourceNotFound(Exception):
 T = TypeVar('T')
 
 
-def not_found_none(func: T) -> T:
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except SourceNotFound as e:
-            return None
-
-    return wrapper
+# def not_found_none(func: T) -> T:
+#     @wraps(func)
+#     def wrapper(*args, **kwargs):
+#         try:
+#             return func(*args, **kwargs)
+#         except SourceNotFound as e:
+#             return None
+#
+#     return wrapper
 
 
 class Coverage:
@@ -322,7 +322,7 @@ class Source(
         raise SourceNotFound(f'Source {name} not found.')
 
     @classmethod
-    @not_found_none
+    # @not_found_none
     def from_inferred(
             cls,
             # item: list[float] | str | shapely.geometry.base.BaseGeometry,

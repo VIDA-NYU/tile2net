@@ -86,19 +86,19 @@ import numpy as np
 from numpy.dtypes import Float16DType, Float32DType, Float64DType
 from torch.serialization import add_safe_globals, safe_globals
 
-import tile2net.tileseg.network.ocrnet
+import tile2net.tiles.tileseg.network.ocrnet
 from tile2net.logger import logger
 from tile2net.namespace import Namespace
 from tile2net.raster.pednet import PedNet
-from tile2net.tileseg import datasets
-from tile2net.tileseg import network
-from tile2net.tileseg.config import assert_and_infer_cfg, cfg
-from tile2net.tileseg.inference.commandline import commandline
-from tile2net.tileseg.loss.optimizer import get_optimizer, restore_opt, restore_net
-from tile2net.tileseg.loss.utils import get_loss
-from tile2net.tileseg.utils.misc import AverageMeter, prep_experiment
-from tile2net.tileseg.utils.misc import ImageDumper, ThreadedDumper
-from tile2net.tileseg.utils.trnval_utils import eval_minibatch
+from tile2net.tiles.tileseg import datasets
+from tile2net.tiles.tileseg import network
+from tile2net.tiles.tileseg.config import assert_and_infer_cfg, cfg
+from tile2net.tiles.tileseg.inference.commandline import commandline
+from tile2net.tiles.tileseg.loss.optimizer import get_optimizer, restore_opt, restore_net
+from tile2net.tiles.tileseg.loss.utils import get_loss
+from tile2net.tiles.tileseg.utils.misc import AverageMeter, prep_experiment
+from tile2net.tiles.tileseg.utils.misc import ImageDumper, ThreadedDumper
+from tile2net.tiles.tileseg.utils.trnval_utils import eval_minibatch
 from tile2net.raster.project import Project
 
 if False:
@@ -142,10 +142,8 @@ class Inference(
     def __init__(
             self,
             tiles: Tiles,
-            outdir: Union[str, pathlib.Path],
             crs=3857,
     ):
-        self.indir = Outdir(outdir)
         self.tiles = tiles
         self.crs = crs
         args = self.tiles.cfg
@@ -231,7 +229,7 @@ class Inference(
 
         assert_and_infer_cfg(args)
         prep_experiment(args)
-        train_loader, val_loader, train_obj = datasets.setup_loaders(args)
+        train_loader, val_loader, train_obj = datasets.setup_loaders(tiles)
         criterion, criterion_val = get_loss(args)
 
         args.restore_net = True
@@ -253,7 +251,7 @@ class Inference(
             weights_only=False,
         )
 
-        net: tile2net.tileseg.network.ocrnet.MscaleOCR = network.get_net(args, criterion)
+        net: tile2net.tiles.tileseg.network.ocrnet.MscaleOCR = network.get_net(args, criterion)
         optim, scheduler = get_optimizer(args, net)
 
         net = network.wrap_network_in_dataparallel(args, net)
@@ -300,7 +298,7 @@ class Inference(
             self,
             val_loader: DataLoader,
             net: torch.nn.parallel.DataParallel,
-            criterion: Optional[tile2net.tileseg.loss.utils.CrossEntropyLoss2d] = None,
+            criterion: Optional[tile2net.tiles.tileseg.loss.utils.CrossEntropyLoss2d] = None,
             optim: Optional[torch.optim.Optimizer] = None,
             epoch: int = 0,
             calc_metrics=False,

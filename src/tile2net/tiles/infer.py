@@ -41,16 +41,11 @@ class Infer:
 
     def __call__(
             self,
-            outdir: Optional[
-                Path,
-                str
-            ] = None,
     ):
         tiles = self.tiles
         args = self.tiles.cfg
         inference = Inference(
             tiles,
-            outdir=outdir,
         )
 
     def __init__(

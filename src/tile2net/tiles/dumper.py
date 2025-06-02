@@ -50,7 +50,7 @@ import torchvision.utils as vutils
 from tabulate import tabulate
 from PIL import Image
 
-from tile2net.tileseg.config import cfg
+from tile2net.tiles.tileseg.config import cfg
 from tile2net.namespace import Namespace
 from concurrent.futures import Future, ThreadPoolExecutor
 
