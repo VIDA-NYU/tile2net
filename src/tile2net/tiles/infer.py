@@ -43,7 +43,7 @@ class Infer:
             self,
     ):
         tiles = self.tiles
-        args = self.tiles.cfg
+        args = cfg
         inference = Inference(
             tiles,
         )

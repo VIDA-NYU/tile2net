@@ -77,7 +77,7 @@ sota_iu_results = {
     255: 0}
 
 
-class ResultsPage(object):
+class ResultsPage:
     '''
     This creates an HTML page of embedded images, useful for showing evaluation results.
 

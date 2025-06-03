@@ -36,7 +36,7 @@ from tile2net.tiles.tileseg.network.mynn import Norm2d, Upsample
 import tile2net.tiles.tileseg.network.hrnetv2 as hrnetv2
 from tile2net.logger import  logger
 from tile2net.logger import logger
-from tile2net.tiles.tileseg.config import cfg
+from tile2net.tiles.cfg import cfg
 
 
 def get_trunk(trunk_name, output_stride=8):

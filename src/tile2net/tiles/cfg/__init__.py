@@ -1,1 +1,1 @@
-from .cfg import  Cfg
+from .cfg import  Cfg, cfg

@@ -37,7 +37,7 @@ import torch
 from torch import optim
 from tile2net.logger import logger
 
-from tile2net.tiles.tileseg.config import cfg
+from tile2net.tiles.cfg import cfg
 from tile2net.tiles.tileseg.loss.radam import RAdam
 
 

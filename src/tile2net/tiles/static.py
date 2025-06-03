@@ -1,21 +1,10 @@
 from __future__ import annotations
-import gdown
-import numpy as np
-from numpy import ndarray
-from geopandas import GeoDataFrame, GeoSeries
-from pandas import IndexSlice as idx, Series, DataFrame, Index, MultiIndex, Categorical, CategoricalDtype
-import pandas as pd
-from pandas.core.groupby import DataFrameGroupBy, SeriesGroupBy
-import geopandas as gpd
+
 from functools import *
-from typing import *
-from types import *
-from shapely import *
-from dataclasses import dataclass, field
-from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 from pathlib import Path
-from itertools import *
-from pandas.api.extensions import ExtensionArray
+from typing import *
+
+import gdown
 
 if False:
     from .tiles import Tiles
@@ -41,6 +30,12 @@ class Static:
         self.owner = owner
         return self
 
+    def __call__(
+            self,
+            *args
+    ) -> Static:
+        ...
+
     @cached_property
     def path(self) -> Path:
         """Static directory into which weights are saved."""
@@ -60,7 +55,7 @@ class Static:
             output=self.path.__str__(),
         )
 
-    @property
+    @cached_property
     def hrnet_checkpoint(self) -> str:
         result = (
             self.path
@@ -69,7 +64,7 @@ class Static:
         )
         return result
 
-    @property
+    @cached_property
     def snapshot(self) -> str:
         result = (
             self.path
@@ -77,3 +72,6 @@ class Static:
             .absolute().__fspath__()
         )
         return result
+
+
+static = Static()

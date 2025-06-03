@@ -32,35 +32,204 @@ Miscellanous Functions
 """
 
 from __future__ import annotations
-from typing import *
-from geopandas import GeoDataFrame
 
-import tempfile
+import os
+from concurrent.futures import Future, ThreadPoolExecutor
+from typing import *
 from typing import Optional
 
 import cv2
-import sys
-import os
-import torch
 import numpy as np
 import pandas as pd
+import torch
 import torchvision.transforms as standard_transforms
-import torchvision.utils as vutils
-
-from tabulate import tabulate
 from PIL import Image
-
-from tile2net.tiles.tileseg.config import cfg
-from tile2net.namespace import Namespace
-from concurrent.futures import Future, ThreadPoolExecutor
-
-from tile2net.logger import logger
-
 from geopandas import GeoDataFrame
+from tile2net.tiles.cfg import cfg
 
 if False:
-    from tile2net.raster.tile import Tile
     from ...tiles import Tiles
+
+
+def fmt_scale(
+        prefix,
+        scale,
+):
+    return f'{prefix}_{str(float(scale)).replace(".", "")}x'
+
+
+def fast_hist(
+        pred,
+        gtruth,
+        num_classes,
+):
+    mask = (gtruth >= 0) & (gtruth < num_classes)
+    hist = np.bincount(
+        num_classes * gtruth[mask].astype(int) + pred[mask],
+        minlength=num_classes ** 2,
+    )
+    return hist.reshape(num_classes, num_classes)
+
+
+def calculate_iou(
+        hist_data,
+):
+    if (
+            not isinstance(hist_data, np.ndarray)
+            or len(hist_data.shape) != 2
+            or hist_data.shape[0] != hist_data.shape[1]
+    ):
+        raise ValueError('hist_data must be a square 2D numpy array')
+
+    acc = np.diag(hist_data).sum() / hist_data.sum()
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        acc_cls = np.diag(hist_data) / hist_data.sum(axis=1)
+        acc_cls = np.nanmean(acc_cls)
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        divisor = (
+                hist_data.sum(axis=1)
+                + hist_data.sum(axis=0)
+                - np.diag(hist_data)
+        )
+        iu = np.diag(hist_data) / divisor
+        iu = iu[~np.isnan(iu)]
+
+    return iu, acc, acc_cls
+
+
+def prep_experiment(
+):
+    cfg.ngpu = torch.cuda.device_count()
+    cfg.best_record = dict(mean_iu=-1, epoch=0)
+
+
+def tensor_to_pil(
+        img,
+):
+    inv_mean = [-m / s for m, s in zip(cfg.dataset.mean, cfg.dataset.std)]
+    inv_std = [1 / s for s in cfg.dataset.std]
+    inv_norm = standard_transforms.Normalize(mean=inv_mean, std=inv_std)
+    img = inv_norm(img).cpu()
+    return standard_transforms.ToPILImage()(img).convert('RGB')
+
+
+def eval_metrics(
+        iou_acc,
+        net,
+        optim,
+        val_loss,
+        epoch,
+        mf_score=None,
+):
+    was_best = False
+
+    iou_per_scale = dict()
+    iou_per_scale[1.0] = iou_acc
+    if cfg.distributed:
+        iou_tensor = torch.cuda.FloatTensor(iou_acc)
+        torch.distributed.all_reduce(iou_tensor, op=torch.distributed.ReduceOp.SUM)
+        iou_per_scale[1.0] = iou_tensor.cpu().numpy()
+
+    if cfg.global_rank != 0:
+        return
+
+    hist = iou_per_scale[cfg.default_scale]
+    iu, acc, acc_cls = self.calculate_iou(hist)
+    iou_per_scale = dict({cfg.default_scale: iu})
+
+    self.print_evaluate_results(hist, iu, epoch, iou_per_scale)
+
+    freq = hist.sum(axis=1) / hist.sum()
+    mean_iu = np.nanmean(iu)
+    fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
+
+    _ = dict(
+        loss=val_loss.avg,
+        mean_iu=mean_iu,
+        acc_cls=acc_cls,
+        acc=acc,
+    )  # metrics for potential logging
+
+    save_dict = dict(
+        epoch=epoch,
+        arch=cfg.arch,
+        num_classes=cfg.dataset_inst.num_classes,
+        state_dict=net.state_dict(),
+        optimizer=optim.state_dict(),
+        mean_iu=mean_iu,
+        command=' '.join(sys.argv[1:]),
+    )
+    torch.cuda.synchronize()
+
+    if mean_iu > cfg.best_record['mean_iu']:
+        was_best = True
+        cfg.best_record = dict(
+            val_loss=val_loss.avg,
+            mask_f1_score=mf_score.avg if mf_score else None,
+            acc=acc,
+            acc_cls=acc_cls,
+            fwavacc=fwavacc,
+            mean_iu=mean_iu,
+            epoch=epoch,
+        )
+
+    logger.debug('-' * 107)
+    return was_best
+
+
+def print_evaluate_results(
+        hist,
+        iu,
+        epoch=0,
+        iou_per_scale=None,
+        eps=1e-8,
+):
+    if iou_per_scale is None:
+        iou_per_scale = dict({1.0: iu})
+
+    id2cat = cfg.dataset_inst.trainid_to_name
+    iu_FP = hist.sum(axis=1) - np.diag(hist)
+    iu_FN = hist.sum(axis=0) - np.diag(hist)
+    iu_TP = np.diag(hist)
+
+    header = ['Id', 'label']
+    header.extend([f'iU_{s}' for s in iou_per_scale])
+    header.extend(['TP', 'FP', 'FN', 'Precision', 'Recall'])
+
+    rows = []
+    total_pix = hist.sum()
+
+    for cid in range(len(iu)):
+        rows.append(
+            [
+                cid,
+                id2cat.get(cid, ''),
+                *[iou_per_scale[s][cid] * 100 for s in iou_per_scale],
+                100 * iu_TP[cid] / total_pix,
+                100 * iu_FP[cid] / total_pix,
+                100 * iu_FN[cid] / total_pix,
+                iu_TP[cid] / (iu_TP[cid] + iu_FP[cid] + eps),
+                iu_TP[cid] / (iu_TP[cid] + iu_FN[cid] + eps),
+            ],
+        )
+
+    logger.debug(tabulate(rows, headers=header, floatfmt='1.2f'))
+
+    class_names = [id2cat.get(cid, '') for cid in range(len(iu))]
+    pd.DataFrame(hist, index=class_names, columns=class_names).to_csv(
+        f'{cfg.result_dir}/histogram_{epoch}.csv',
+    )
+
+
+def metrics_per_image(
+        hist,
+):
+    FP = hist.sum(axis=1) - np.diag(hist)
+    FN = hist.sum(axis=0) - np.diag(hist)
+    return FP, FN
+
 
 class DumpDict(TypedDict, total=False):
     gt_images: torch.Tensor
@@ -73,6 +242,27 @@ class DumpDict(TypedDict, total=False):
     attn_maps: Optional[np.ndarray]
 
 
+class AverageMeter:
+    def __init__(self):
+        self.reset()
+
+    def reset(
+            self,
+    ):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(
+            self,
+            val,
+            n=1,
+    ):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
 
 
 class ImageDumper:
@@ -80,31 +270,9 @@ class ImageDumper:
     Converts tensors to images, writes them to disk, and handles summary artifacts.
     """
 
-    class AverageMeter:
-        def __init__(self):
-            self.reset()
-
-        def reset(
-                self,
-        ):
-            self.val = 0
-            self.avg = 0
-            self.sum = 0
-            self.count = 0
-
-        def update(
-                self,
-                val,
-                n=1,
-        ):
-            self.val = val
-            self.sum += val * n
-            self.count += n
-            self.avg = self.sum / self.count
-
     def __init__(
             self,
-            tiles,
+            tiles: Tiles,
             val_len,
             tensorboard=True,
             write_webpage=True,
@@ -120,7 +288,7 @@ class ImageDumper:
         self.tensorboard = tensorboard
         self.write_webpage = write_webpage
         self.webpage_fn = os.path.join(
-            cfg.RESULT_DIR,
+            cfg.result_dir,
             'best_images',
             webpage_fn,
         )
@@ -129,19 +297,19 @@ class ImageDumper:
         self.dump_for_submission = dump_for_submission
         self.viz_frequency = max(1, val_len // dump_num)
 
-        inv_mean = [-mean / std for mean, std in zip(cfg.DATASET.MEAN, cfg.DATASET.STD)]
-        inv_std = [1 / std for std in cfg.DATASET.STD]
+        inv_mean = [-mean / std for mean, std in zip(cfg.dataset.mean, cfg.dataset.std)]
+        inv_std = [1 / std for std in cfg.dataset.std]
         self.inv_normalize = standard_transforms.Normalize(
             mean=inv_mean,
             std=inv_std,
         )
 
         if self.dump_for_submission:
-            self.save_dir = os.path.join(cfg.RESULT_DIR, 'submit')
+            self.save_dir = os.path.join(cfg.result_dir, 'submit')
         elif self.dump_for_auto_labelling:
-            self.save_dir = os.path.join(cfg.RESULT_DIR)
+            self.save_dir = os.path.join(cfg.result_dir)
         else:
-            self.save_dir = os.path.join(cfg.RESULT_DIR, 'seg_results')
+            self.save_dir = os.path.join(cfg.result_dir, 'seg_results')
 
         self.imgs_to_tensorboard: list = []
         self.imgs_to_webpage: list = []
@@ -155,189 +323,6 @@ class ImageDumper:
         )
         self.args = tiles.cfg
         self.dump_percent = 100
-
-    # ------------------------------------------------------------------ #
-    #                         metric utilities                           #
-    # ------------------------------------------------------------------ #
-    def fast_hist(
-            self,
-            pred,
-            gtruth,
-            num_classes,
-    ):
-        mask = (gtruth >= 0) & (gtruth < num_classes)
-        hist = np.bincount(
-            num_classes * gtruth[mask].astype(int) + pred[mask],
-            minlength=num_classes ** 2,
-        )
-        return hist.reshape(num_classes, num_classes)
-
-    def prep_experiment(
-            self,
-    ):
-        self.args.ngpu = torch.cuda.device_count()
-        self.args.best_record = dict(mean_iu=-1, epoch=0)
-
-    def calculate_iou(
-            self,
-            hist_data,
-    ):
-        if (
-                not isinstance(hist_data, np.ndarray)
-                or len(hist_data.shape) != 2
-                or hist_data.shape[0] != hist_data.shape[1]
-        ):
-            raise ValueError('hist_data must be a square 2D numpy array')
-
-        acc = np.diag(hist_data).sum() / hist_data.sum()
-
-        with np.errstate(divide='ignore', invalid='ignore'):
-            acc_cls = np.diag(hist_data) / hist_data.sum(axis=1)
-            acc_cls = np.nanmean(acc_cls)
-
-        with np.errstate(divide='ignore', invalid='ignore'):
-            divisor = (
-                    hist_data.sum(axis=1)
-                    + hist_data.sum(axis=0)
-                    - np.diag(hist_data)
-            )
-            iu = np.diag(hist_data) / divisor
-            iu = iu[~np.isnan(iu)]
-
-        return iu, acc, acc_cls
-
-    def tensor_to_pil(
-            self,
-            img,
-    ):
-        inv_mean = [-m / s for m, s in zip(cfg.DATASET.MEAN, cfg.DATASET.STD)]
-        inv_std = [1 / s for s in cfg.DATASET.STD]
-        inv_norm = standard_transforms.Normalize(mean=inv_mean, std=inv_std)
-        img = inv_norm(img).cpu()
-        return standard_transforms.ToPILImage()(img).convert('RGB')
-
-    def eval_metrics(
-            self,
-            iou_acc,
-            net,
-            optim,
-            val_loss,
-            epoch,
-            mf_score=None,
-    ):
-        was_best = False
-
-        iou_per_scale = dict()
-        iou_per_scale[1.0] = iou_acc
-        if self.args.distributed:
-            iou_tensor = torch.cuda.FloatTensor(iou_acc)
-            torch.distributed.all_reduce(iou_tensor, op=torch.distributed.ReduceOp.SUM)
-            iou_per_scale[1.0] = iou_tensor.cpu().numpy()
-
-        if self.args.global_rank != 0:
-            return
-
-        hist = iou_per_scale[self.args.default_scale]
-        iu, acc, acc_cls = self.calculate_iou(hist)
-        iou_per_scale = dict({self.args.default_scale: iu})
-
-        self.print_evaluate_results(hist, iu, epoch, iou_per_scale)
-
-        freq = hist.sum(axis=1) / hist.sum()
-        mean_iu = np.nanmean(iu)
-        fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
-
-        _ = dict(
-            loss=val_loss.avg,
-            mean_iu=mean_iu,
-            acc_cls=acc_cls,
-            acc=acc,
-        )  # metrics for potential logging
-
-        save_dict = dict(
-            epoch=epoch,
-            arch=self.args.arch,
-            num_classes=cfg.DATASET_INST.num_classes,
-            state_dict=net.state_dict(),
-            optimizer=optim.state_dict(),
-            mean_iu=mean_iu,
-            command=' '.join(sys.argv[1:]),
-        )
-        torch.cuda.synchronize()
-
-        if mean_iu > self.args.best_record['mean_iu']:
-            was_best = True
-            self.args.best_record = dict(
-                val_loss=val_loss.avg,
-                mask_f1_score=mf_score.avg if mf_score else None,
-                acc=acc,
-                acc_cls=acc_cls,
-                fwavacc=fwavacc,
-                mean_iu=mean_iu,
-                epoch=epoch,
-            )
-
-        logger.debug('-' * 107)
-        return was_best
-
-    def print_evaluate_results(
-            self,
-            hist,
-            iu,
-            epoch=0,
-            iou_per_scale=None,
-            eps=1e-8,
-    ):
-        if iou_per_scale is None:
-            iou_per_scale = dict({1.0: iu})
-
-        id2cat = cfg.DATASET_INST.trainid_to_name
-        iu_FP = hist.sum(axis=1) - np.diag(hist)
-        iu_FN = hist.sum(axis=0) - np.diag(hist)
-        iu_TP = np.diag(hist)
-
-        header = ['Id', 'label']
-        header.extend([f'iU_{s}' for s in iou_per_scale])
-        header.extend(['TP', 'FP', 'FN', 'Precision', 'Recall'])
-
-        rows = []
-        total_pix = hist.sum()
-
-        for cid in range(len(iu)):
-            rows.append(
-                [
-                    cid,
-                    id2cat.get(cid, ''),
-                    *[iou_per_scale[s][cid] * 100 for s in iou_per_scale],
-                    100 * iu_TP[cid] / total_pix,
-                    100 * iu_FP[cid] / total_pix,
-                    100 * iu_FN[cid] / total_pix,
-                    iu_TP[cid] / (iu_TP[cid] + iu_FP[cid] + eps),
-                    iu_TP[cid] / (iu_TP[cid] + iu_FN[cid] + eps),
-                ],
-            )
-
-        logger.debug(tabulate(rows, headers=header, floatfmt='1.2f'))
-
-        class_names = [id2cat.get(cid, '') for cid in range(len(iu))]
-        pd.DataFrame(hist, index=class_names, columns=class_names).to_csv(
-            f'{cfg.RESULT_DIR}/histogram_{epoch}.csv',
-        )
-
-    def metrics_per_image(
-            self,
-            hist,
-    ):
-        FP = hist.sum(axis=1) - np.diag(hist)
-        FN = hist.sum(axis=0) - np.diag(hist)
-        return FP, FN
-
-    def fmt_scale(
-            self,
-            prefix,
-            scale,
-    ):
-        return f'{prefix}_{str(float(scale)).replace(".", "")}x'
 
     # ------------------------------------------------------------------ #
     #                        dumping utilities                            #
@@ -377,12 +362,12 @@ class ThreadedDumper(
 
     def dump(
             self,
-            dump_dict,
+            dump_dict: DumpDict,
             val_idx,
             testing=None,
-            grid=None,
+            tiles: Tiles=None,
     ):
-        colorize_mask_fn = cfg.DATASET_INST.colorize_mask
+        colorize_mask_fn = cfg.dataset_inst.colorize_mask
 
         for idx in range(len(dump_dict['input_images'])):
             input_image = dump_dict['input_images'][idx]
@@ -391,10 +376,10 @@ class ThreadedDumper(
             img_name = dump_dict['img_names'][idx]
 
             er_prob, err_pil = self.save_prob_and_err_mask(
-                dump_dict,
-                img_name,
-                idx,
-                prediction,
+                dump_dict=dump_dict,
+                img_name=img_name,
+                idx=idx,
+                prediction=prediction
             )
 
             input_image = self.inv_normalize(input_image).cpu()
@@ -417,28 +402,28 @@ class ThreadedDumper(
 
                 prediction_pil = colorize_mask_fn(prediction).convert('RGB')
                 self.create_composite_image(
-                    input_image,
-                    prediction_pil,
-                    img_name,
+                    input_image=input_image,
+                    prediction_pil=prediction_pil,
+                    img_name=img_name
                 )
 
-                if grid is not None:
+                if tiles is not None:
                     idd_ = int(img_name.split('_')[-1])
-                    self.save_dir = os.path.join(cfg.RESULT_DIR, 'seg_results')
-                    tile = grid.tiles[grid.pose_dict[idd_]]
+                    self.save_dir = os.path.join(cfg.result_dir, 'seg_results')
+                    tile = tiles.tiles[tiles.pose_dict[idd_]]
                     polygons = self.map_features(
-                        tile,
-                        np.array(prediction_pil),
-                        img_array=True,
+                        tile=tile,
+                        src_img=np.array(prediction_pil),
+                        img_array=True
                     )
                     if polygons is not None:
                         yield polygons
             else:
                 prediction_pil = colorize_mask_fn(prediction).convert('RGB')
                 self.create_composite_image(
-                    input_image,
-                    prediction_pil,
-                    img_name,
+                    input_image=input_image,
+                    prediction_pil=prediction_pil,
+                    img_name=img_name
                 )
 
             gt_pil = colorize_mask_fn(gt_image.cpu().numpy())
@@ -451,11 +436,11 @@ class ThreadedDumper(
                 to_tb.append(self.visualize(err_pil.convert('RGB')))
 
             self.get_dump_assets(
-                dump_dict,
-                img_name,
-                idx,
-                colorize_mask_fn,
-                to_tb,
+                dump_dict=dump_dict,
+                img_name=img_name,
+                idx=idx,
+                colorize_mask_fn=colorize_mask_fn,
+                to_tensorboard=to_tb
             )
 
         for future in self.futures:
@@ -476,10 +461,9 @@ class ThreadedDumper(
         self.dump_percent -= 100
 
         os.makedirs(self.save_dir, exist_ok=True)
-        composited = Image.new(
-            'RGB',
-            (input_image.width * 2, input_image.height),
-        )
+
+        size = (input_image.width * 2, input_image.height)
+        composited = Image.new('RGB', size)
         composited.paste(input_image, (0, 0))
         composited.paste(prediction_pil, (input_image.width, 0))
         fn = os.path.join(
@@ -531,7 +515,11 @@ class ThreadedDumper(
             prediction,
     ):
         err_pil = None
-        if 'err_mask' in dump_dict and 'prob_mask' in dump_dict['assets']:
+        # if 'err_mask' in dump_dict and 'prob_mask' in dump_dict['assets']:
+        if (
+                'err_mask' in dump_dict
+                and 'prob_mask' in dump_dict['assets']
+        ):
             prob = dump_dict['assets']['prob_mask'][idx]
             err_mask = dump_dict['err_mask'][idx]  # noqa: F841
             prob_arr = (prob.cpu().numpy() * 255).astype(np.uint8)
@@ -564,11 +552,11 @@ class ThreadedDumper(
             ('road', 1, 30),
         ]:
             gdf = tile.mask2poly(
-                src_img,
+                src_img=src_img,
                 class_name=name,
                 class_id=cid,
                 class_hole_size=hole,
-                img_array=img_array,
+                img_array=img_array
             )
             if gdf is not False:
                 layers.append(gdf)
@@ -587,7 +575,7 @@ class PushDumper(
             img_name: str,
     ):
         return super().create_composite_image(
-            input_image,
-            prediction_pil,
-            img_name,
+            input_image=input_image,
+            prediction_pil=prediction_pil,
+            img_name=img_name
         )

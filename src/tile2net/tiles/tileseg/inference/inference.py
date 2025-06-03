@@ -290,7 +290,7 @@ class Inference:
                 # for v in range(len(values)):
                 #     pred[img_names[0]][values[v]] = counts[v]
                 #
-                dump = dumper.dump(dumpdict, val_idx, testing=True, grid=grid)
+                dump = dumper.dump(dumpdict, val_idx, testing=True, tiles=grid)
             else:
                 dump = dumper.dump(dumpdict, val_idx)
             gdfs.extend(dump)

@@ -28,7 +28,7 @@ from tile2net.logger import logger
 import json
 
 from collections import namedtuple
-from tile2net.tiles.tileseg.config import cfg
+from tile2net.tiles.cfg import cfg
 from tile2net.logger import logger
 from tile2net.tiles.tileseg.datasets.base_loader import BaseLoader
 from tile2net.tiles.tileseg.datasets.utils import make_dataset_folder
@@ -105,7 +105,7 @@ class Loader(BaseLoader):
             tiles=tiles
         )
 
-        root = self.tiles.cfg.DATASET.SATELLITE_DIR
+        root = cfg.DATASET.SATELLITE_DIR
         self.id_to_trainid = label2trainid
         self.trainid_to_name = trainId2name
         self.fill_colormap()
@@ -139,7 +139,7 @@ class Loader(BaseLoader):
             self.all_imgs,
             self.num_classes,
             self.train,
-            cv=self.tiles.cfg.DATASET.CV,
+            cv=cfg.DATASET.CV,
             id2trainid=self.id_to_trainid
         )
         self.centroids = self.fine_centroids

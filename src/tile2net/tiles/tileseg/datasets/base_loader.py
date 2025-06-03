@@ -29,6 +29,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 Generic dataloader base class
 """
+from __future__ import annotations
 import os
 import glob
 import numpy as np
@@ -37,6 +38,7 @@ from PIL import Image
 from torch.utils import data
 from tile2net.tiles.tileseg.datasets import uniform
 from tile2net.tiles.tileseg.utils.misc import tensor_to_pil
+from tile2net.tiles.cfg import cfg
 
 if False:
     from ...tiles import Tiles
@@ -149,7 +151,7 @@ class BaseLoader(data.Dataset):
         if self.img_transform is not None:
             img = self.img_transform(img)
 
-        if self.tiles.cfg.DATASET.DUMP_IMAGES:
+        if cfg.DATASET.DUMP_IMAGES:
             self.dump_images(img_name, mask, centroid, class_id, img)
 
         if self.label_transform is not None:
@@ -200,8 +202,8 @@ class BaseLoader(data.Dataset):
             prob_mask_path = mask_path.replace('.png', '_prob.png')
             # put it in 0 to 1
             prob_map = np.array(Image.open(prob_mask_path)) / 255.0
-            prob_map_threshold = (prob_map < self.tiles.cfg.DATASET.CUSTOM_COARSE_PROB)
-            mask[prob_map_threshold] = self.tiles.cfg.DATASET.IGNORE_LABEL
+            prob_map_threshold = (prob_map < cfg.DATASET.CUSTOM_COARSE_PROB)
+            mask[prob_map_threshold] = cfg.DATASET.IGNORE_LABEL
             mask = Image.fromarray(mask.astype(np.uint8))
 
         img, mask, scale_float = self.do_transforms(

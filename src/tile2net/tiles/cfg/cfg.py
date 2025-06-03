@@ -4,9 +4,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import os.path
-import tempfile
-
 import argparse
 import re
 from collections import deque, UserDict
@@ -609,7 +606,8 @@ class Model(cmdline.Namespace):
         """
         Path to HRNet checkpoint
         """
-        from ..tiles import Tiles
+        # from ..tiles.st import Tiles
+        from tile2net.tiles.static import
         return Tiles.static.hrnet_checkpoint
 
     @cmdline.property
@@ -808,6 +806,8 @@ class Cfg(
         Number of processes in distributed training
         """
         return 1
+
+    param = 5
 
     @cmdline.property
     def trunk(self) -> str:
@@ -1235,11 +1235,30 @@ class Cfg(
         self._active = active
         return dict(sorted(result.items()))
 
-
     @cached_property
     def _active(self):
         return True
 
+    def stack_cfg(self):  # push
+        import tile2net.tiles.tileseg.config as _conf
+        _stack = getattr(_conf, "_cfg_stack", [])
+        _stack.append(_conf.cfg)
+        _conf._cfg_stack = _stack
+        _conf.cfg = self.cfg  # assumes the instance carries the replacement
 
+    def unstack_cfg(self):  # pop
+        import tile2net.tiles.tileseg.config as _conf
+        _stack = getattr(_conf, "_cfg_stack", [])
+        if not _stack:
+            raise RuntimeError("CFG stack is empty")
+        _conf.cfg = _stack.pop()
+        _conf._cfg_stack = _stack
+
+    def __call__(self, *args, **kwargs) -> Cfg:
+        return self
+
+
+cfg = Cfg()
+cfg.update(cfg._trace2default)
 
 

@@ -42,9 +42,10 @@ from .mosaic import Mosaic
 from .source import Source, SourceNotFound
 from .stitch import Stitch
 from .infer import Infer
-from .cfg import Cfg
 from .static import Static
+# from .static import static
 from .outdir import Outdir
+from tile2net.tiles.cfg import cfg
 
 if False:
     import folium
@@ -82,26 +83,6 @@ class Tiles(
 
     def infer(self):
         inference = Inference( self )
-        inference.validate()
-
-
-    @Cfg.from_wrapper
-    def cfg(self):
-        # This code block is just semantic sugar and does not run.
-        # cfg is a container for various configuration options
-        # which can be get and set as shown below:
-        self.cfg.max_cu_epoch = ...
-        self.cfg.model.snapshot = ...
-        self.cfg.model.ocr_extra.stage1.num_blocks = ...
-        # See `Tiles.with_cfg` to set the configuration, given a json.
-
-    #
-    # @WithConfig
-    # def with_config(self) -> Self:
-    #     # This code block is just semantic sugar and does not run.
-    #     # These methods are how to set the configuration:
-    #     self.with_config.from_dict(...)
-    #     self.with_config.from_json(...)
 
     @Source
     def source(self):
@@ -157,7 +138,6 @@ class Tiles(
             location=cfg.location,
             zoom=cfg.zoom,
         )
-        tiles.cfg = cfg
 
         if cfg.source:
             # use specified source
@@ -368,13 +348,13 @@ class Tiles(
         result: Tiles = self.copy()
         if outdir:
             ...
-        elif self.cfg.output_dir:
-            outdir = self.cfg.output_dir
+        elif cfg.output_dir:
+            outdir = cfg.output_dir
         else:
             if self.name:
                 name = self.name
-            elif self.cfg.name:
-                name = self.cfg.name
+            elif cfg.name:
+                name = cfg.name
             elif (
                     self.source
                     and self.source.name
@@ -874,11 +854,11 @@ class Tiles(
     def __deepcopy__(self, memo) -> Tiles:
         return self.copy()
 
-    def copy(self, deep=True) -> Self:
-        result = super().copy(deep=deep)
-        result.cfg = copy.copy(self.cfg)
-        return result
-
-
 if __name__ == '__main__':
+    tiles = Tiles()
+    tiles.indir
+    tiles.outdir
+    tiles.name
+    tiles.source
+    tiles.cfg.model.snapshot
     ...

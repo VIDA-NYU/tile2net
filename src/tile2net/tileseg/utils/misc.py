@@ -389,6 +389,7 @@ class ImageDumper:
             gt_image = dump_dict['gt_images'][idx]
             prediction = dump_dict['assets']['predictions'][idx]
             img_name = dump_dict['img_names'][idx]
+            
 
             er_prob, err_pil = self.save_prob_and_err_mask(dump_dict, img_name, idx, prediction)
 

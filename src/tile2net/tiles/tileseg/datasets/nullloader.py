@@ -32,6 +32,7 @@ Null Loader
 import numpy as np
 import torch
 from tile2net.tiles.tileseg.datasets.base_loader import BaseLoader
+from tile2net.tiles.cfg import cfg
 
 
 class Loader(BaseLoader):
@@ -61,7 +62,7 @@ class Loader(BaseLoader):
 
     def __getitem__(self, index):
         # return img, mask, img_name, scale_float
-        crop_size = self.tiles.cfg.DATASET.CROP_SIZE
+        crop_size = cfg.DATASET.CROP_SIZE
         if ',' in crop_size:
             crop_size = [int(x) for x in crop_size.split(',')]
         else:

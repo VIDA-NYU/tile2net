@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from tile2net.tiles.tileseg.config import cfg
+from tile2net.tiles.cfg import cfg
 from tile2net.tiles.tileseg.network.utils import BNReLU, get_aspp
 
 

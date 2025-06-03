@@ -15,7 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tile2net.tiles.tileseg.loss import rmi_utils
-from tile2net.tiles.tileseg.config import cfg
+from tile2net.tiles.cfg import cfg
 from torch.cuda import amp
 
 _euler_num = 2.718281828        # euler number

@@ -50,7 +50,7 @@ import torchvision.utils as vutils
 from tabulate import tabulate
 from PIL import Image
 
-from tile2net.tiles.tileseg.config import cfg
+from tile2net.tiles.cfg import cfg
 from tile2net.namespace import Namespace
 from concurrent.futures import Future, ThreadPoolExecutor
 
@@ -587,7 +587,7 @@ def metrics_per_image(hist):
     return FP, FN
 
 
-class AverageMeter(object):
+class AverageMeter:
 
     def __init__(self):
         self.reset()

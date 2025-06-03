@@ -1,79 +1,25 @@
 from __future__ import annotations
 
-import warnings
-import os
-import numpy as np
-import pandas as pd
 import datetime
-import tempfile
-from typing import Dict, Any, Union
-import shapely
-import rasterio
-from affine import Affine
-import osmnx as ox
-from dataclasses import dataclass, field
-from functools import cached_property
-from geopy.geocoders import Nominatim
+import os
+import shutil
+import warnings
 
 from tile2net.raster.tile_utils.topology import fill_holes, replace_convexhull
-from concurrent.futures import ThreadPoolExecutor, Future, as_completed
-import shutil
-
-from .dir import Dir
 
 os.environ['USE_PYGEOS'] = '0'
-import geopandas as gpd
-from tile2net.raster.tile import Tile
-from tile2net.raster.tile_utils.genutils import (
-    deg2num, num2deg, createfolder,
-)
 from tile2net.raster.tile_utils.geodata_utils import (
-    _reduce_geom_precision, list_to_affine, read_gdf, buff_dfs,
+    buff_dfs,
 )
-import logging
-from tile2net.raster.project import Project
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
-from tile2net.logger import logger
 from tile2net.raster.tile_utils.genutils import (
-    deg2num, num2deg, createfolder,
+    createfolder,
 )
-import numpy as np
-from numpy import ndarray
-from geopandas import GeoDataFrame, GeoSeries
-from pandas import IndexSlice as idx, Series, DataFrame, Index, MultiIndex, Categorical, CategoricalDtype
-import pandas as pd
-from pandas.core.groupby import DataFrameGroupBy, SeriesGroupBy
-import geopandas as gpd
-from functools import *
-from typing import *
-from types import *
-from shapely import *
-from dataclasses import dataclass, field
-from concurrent.futures import ThreadPoolExecutor, Future, as_completed
-from pathlib import Path
-from itertools import *
-from pandas.api.extensions import ExtensionArray
-from functools import *
 
-import pathlib
-
-import os
-import numpy
-from geopandas import GeoDataFrame, GeoSeries
-
-import pandas as pd
-import geopandas as gpd
-
-import sys
-
-import argh
-import concurrent.futures
-import copy
 import geopandas as gpd
 import logging
 import numpy
-import numpy as np
 import os
 import pandas as pd
 import sys
@@ -82,27 +28,24 @@ import torch.distributed as dist
 from geopandas import GeoDataFrame
 from torch.utils.data import DataLoader
 from typing import Optional
-import numpy as np
-from numpy.dtypes import Float16DType, Float32DType, Float64DType
-from torch.serialization import add_safe_globals, safe_globals
 
 import tile2net.tiles.tileseg.network.ocrnet
 from tile2net.logger import logger
-from tile2net.namespace import Namespace
 from tile2net.raster.pednet import PedNet
 from tile2net.tiles.tileseg import datasets
 from tile2net.tiles.tileseg import network
-from tile2net.tiles.tileseg.config import assert_and_infer_cfg, cfg
-from tile2net.tiles.tileseg.inference.commandline import commandline
+from tile2net.tiles.tileseg.config import assert_and_infer_cfg
 from tile2net.tiles.tileseg.loss.optimizer import get_optimizer, restore_opt, restore_net
 from tile2net.tiles.tileseg.loss.utils import get_loss
 from tile2net.tiles.tileseg.utils.misc import AverageMeter, prep_experiment
-from tile2net.tiles.tileseg.utils.misc import ImageDumper, ThreadedDumper
+from tile2net.tiles.tileseg.utils.misc import ThreadedDumper
 from tile2net.tiles.tileseg.utils.trnval_utils import eval_minibatch
-from tile2net.raster.project import Project
+from tile2net.tiles.cfg import cfg
+from tile2net.tiles.tileseg.utils.misc import DumpDict
+args = cfg
 
 if False:
-    from tile2net.raster.raster import Raster
+    pass
 import hashlib
 
 
@@ -119,7 +62,6 @@ AutoResume = None
 
 if False:
     from .tiles import Tiles
-
 
 
 class Inference(
@@ -146,21 +88,28 @@ class Inference(
     ):
         self.tiles = tiles
         self.crs = crs
-        args = self.tiles.cfg
 
         if args.dump_percent:
             if not os.path.exists(args.output_dir):
                 os.makedirs(args.output_dir, exist_ok=True)
-            logger.info(f'Inferencing. Segmentation results will be saved to {args.output_dir}')
+            logger.info(f'Inferencing. Segmentation results will be saved to {tiles.outdir.seg_results}')
         else:
             logger.info('Inferencing. Segmentation results will not be saved.')
 
+        # if (
+        #         args.model.snapshot == Tiles.static.snapshot
+        #         and not os.path.exists(args.model.snapshot)
+        # ) or (
+        #         args.model.hrnet_checkpoint == Tiles.static.hrnet_checkpoint
+        #         and not os.path.exists(args.model.hrnet_checkpoint)
+        # ):
+        args.model.snapshot
+        args.model.hrnet_checkpoint
+        args.model.snapshot
+        args.model.hrnet_checkpoint
         if (
-                args.model.snapshot == Tiles.static.snapshot
-                and not os.path.exists(args.model.snapshot)
-        ) or (
-                args.model.hrnet_checkpoint == Tiles.static.hrnet_checkpoint
-                and not os.path.exists(args.model.hrnet_checkpoint)
+            not os.path.exists(args.model.snapshot)
+            or not os.path.exists(args.model.hrnet_checkpoint)
         ):
             logger.info('Downloading weights for segmentation, this may take a while...')
             tiles.static.download()
@@ -229,7 +178,7 @@ class Inference(
 
         assert_and_infer_cfg(args)
         prep_experiment(args)
-        train_loader, val_loader, train_obj = datasets.setup_loaders(tiles)
+        train_loader, val_loader, train_obj = datasets.setup_loaders()
         criterion, criterion_val = get_loss(args)
 
         args.restore_net = True
@@ -317,7 +266,7 @@ class Inference(
         prediction: numpy.ndarray
         pred: dict
         values: numpy.ndarray
-        args = self.tiles.cfg
+        args = cfg
         gdfs: list[GeoDataFrame] = []
 
         # todo map_feature is how Tile generates poly
@@ -328,6 +277,7 @@ class Inference(
             args=args,
         )
 
+        tiles = self.tiles
         net.eval()
         val_loss = AverageMeter()
         iou_acc = 0
@@ -349,14 +299,14 @@ class Inference(
             iou_acc += _iou_acc
             input_images, labels, img_names, _ = data
 
-            dumpdict = dict(
+            dumpdict = DumpDict(
                 gt_images=labels,
                 input_images=input_images,
                 img_names=img_names,
                 assets=assets,
             )
             if testing:
-                dump = dumper.dump(dumpdict, val_idx, testing=True, grid=grid)
+                dump = dumper.dump(dumpdict, val_idx, testing=True, tiles=tiles)
             else:
                 dump = dumper.dump(dumpdict, val_idx)
             gdfs.extend(dump)

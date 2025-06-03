@@ -151,17 +151,28 @@ class property(
 
     @cached_property
     def default(self) -> Any:
-        try:
-            sig = inspect.signature(self.__wrapped__)
-            params = tuple(sig.parameters.values())
-            if not params:  # () -> T
-                return self.__wrapped__()                    # type: ignore[misc]
-            if len(params) == 1 and self.instance is not None:  # (self) -> T
-                return self.__wrapped__(self.instance)       # type: ignore[arg-type]
-        except Exception:
-            pass
+        # try:
+        #     sig = inspect.signature(self.__wrapped__)
+        #     params = tuple(sig.parameters.values())
+        #     if not params:  # () -> T
+        #         return self.__wrapped__()                    # type: ignore[misc]
+        #     if (
+        #         len(params) == 1
+        #         and self.instance is not None
+        #     ):
+        #         return self.__wrapped__(self.instance)       # type: ignore[arg-type]
+        # except Exception:
+        #     pass
+        sig = inspect.signature(self.__wrapped__)
+        params = tuple(sig.parameters.values())
+        if not params:  # () -> T
+            return self.__wrapped__()  # type: ignore[misc]
+        if (
+                len(params) == 1
+                and self.instance is not None
+        ):
+            return self.__wrapped__(self.instance)  # type: ignore[arg-type]
         return None
-
 
     @cached_property
     def type(self):
@@ -245,100 +256,3 @@ class Namespace(
     This class allows for cmdline properties to be nested within
     namespaces, similar to how argparse works with subparsers.
     """
-
-    def __getattr__(self, key: str) -> Any:
-        # Normalize ALL-CAPS names to lowercase
-        if key.isupper():
-            key = key.lower()
-
-        # 1. descriptor / attribute on the instance or class
-        try:
-            return object.__getattribute__(self, key)
-        except AttributeError:
-            pass
-
-        # 2. fallback to cfg dict
-        if self.cfg is not None:
-            trace_key = f"{self._trace}.{key}"
-            if trace_key in self.cfg:
-                return self.cfg[trace_key]
-
-        raise AttributeError(f"{type(self).__name__!r} object has no attribute {key!r}")
-
-    def __setattr__(self, key: str, value: Any) -> None:
-        cls = self.__class__
-
-        # No owner yet (during __set_name__) → default behaviour
-        # if self.owner is None:
-        if object.__getattribute__(self, 'owner') is None:
-            return object.__setattr__(self, key, value)
-
-        # Normalize ALL-CAPS names to lowercase
-        if key.isupper():
-            key = key.lower()
-
-        # 1. internal/descriptor attributes
-        if key.startswith('_') or hasattr(cls, key):
-            return object.__setattr__(self, key, value)
-
-        if self.cfg is not None:
-            # 2. fallback to cfg dict
-            trace_key = f"{self._trace}.{key}"
-            self.cfg[trace_key] = value
-
-    def __delattr__(self, key: str) -> None:
-        cls = self.__class__
-
-        # Normalize ALL-CAPS names to lowercase
-        if key.isupper():
-            key = key.lower()
-
-        # 1. internal/descriptor attributes
-        if key.startswith('_') or hasattr(cls, key):
-            return object.__delattr__(self, key)
-
-        # 2. try to remove from cfg dict
-        if self.cfg is not None:
-            trace_key = f"{self._trace}.{key}"
-            if trace_key in self.cfg:
-                del self.cfg[trace_key]
-                return
-
-        raise AttributeError(f"{type(self).__name__!r} object has no attribute {key!r}")
-
-
-# class with_options(
-#
-# ):
-#
-#     def __init__(
-#             self,
-#             short: str | None = None,
-#             long: str | None = None,
-#     ):
-#         self.short = short
-#         self.long = long
-#
-#     def property(self, func) -> property:
-#         result = property(func)
-#         if self.short:
-#             result.short = self.short
-#         if self.long:
-#             result.long = self.long
-#         return result
-
-class options:
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        ...
-
-    def __call__(self, func):
-        return func
-
-
-
-
-

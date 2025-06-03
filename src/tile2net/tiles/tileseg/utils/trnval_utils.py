@@ -24,274 +24,350 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 """
 import os
-
-import numpy as np
 import torch
+import numpy as np
+import pandas as pd
 
+from tile2net.tileseg.config import cfg
+from tile2net.tileseg.utils.misc import fast_hist, fmt_scale
+from tile2net.tileseg.utils.misc import AverageMeter, eval_metrics
+from tile2net.tileseg.utils.misc import metrics_per_image
+from tile2net.tileseg.utils.misc import ImageDumper
 from tile2net.logger import logger
-from tile2net.tiles.tileseg.utils.misc import AverageMeter, eval_metrics
-from tile2net.tiles.tileseg.utils.misc import ImageDumper
-from tile2net.tiles.tileseg.utils.misc import fast_hist, fmt_scale
-from tile2net.tiles.tileseg.utils.misc import metrics_per_image
-from tile2net.tiles.tileseg.utils.results_page import ResultsPage
-
-if False:
-    from ...tiles import Tiles
-
-import os
-from collections import defaultdict
-
-import numpy as np
-import torch
-
-from tile2net.logger import logger
-from tile2net.tiles.tileseg.utils.misc import (
-    AverageMeter,
-    eval_metrics,
-    ImageDumper,
-    fast_hist,
-    fmt_scale,
-    metrics_per_image,
-)
-from typing import TypedDict, Any, List, Optional
-import torch
-import numpy as np
-
-if False:  # type-checking
-    from ...tiles import Tiles
 
 
+def flip_tensor(x, dim):
+    """
+    Flip Tensor along a dimension
+    """
+    dim = x.dim() + dim if dim < 0 else dim
+    return x[tuple(slice(None, None) if i != dim
+                   else torch.arange(x.size(i) - 1, -1, -1).long()
+                   for i in range(x.dim()))]
 
-class SegValidator:
-    def __init__(self, tiles: "Tiles"):
-        self.tiles = tiles
-        self.cfg = tiles.cfg
 
-    @staticmethod
-    def flip_tensor(x: torch.Tensor, dim: int) -> torch.Tensor:
-        dim = x.dim() + dim if dim < 0 else dim
-        return x[
-            tuple(
-                slice(None)
-                if i != dim
-                else torch.arange(x.size(i) - 1, -1, -1, device=x.device).long()
-                for i in range(x.dim())
-            )
-        ]
+def resize_tensor(inputs, target_size):
+    inputs = torch.nn.functional.interpolate(
+        inputs, size=target_size, mode='bilinear',
+        align_corners=cfg.MODEL.ALIGN_CORNERS)
+    return inputs
 
-    def resize_tensor(self, x: torch.Tensor, target) -> torch.Tensor:
-        return torch.nn.functional.interpolate(
-            x,
-            size=target,
-            mode="bilinear",
-            align_corners=self.cfg.MODEL.ALIGN_CORNERS,
-        )
 
-    def calc_err_mask(self, pred, gtruth, num_classes, classid):
-        err_mask = gtruth >= 0
-        err_mask &= gtruth == classid
-        err_mask &= (
-                ((pred == classid) & (gtruth != classid) & (gtruth != self.cfg.DATASET.IGNORE_LABEL))
-                | ((pred != classid) & (gtruth == classid))
-        )
-        return err_mask.astype(int)
+def calc_err_mask(pred, gtruth, num_classes, classid):
+    """
+    calculate class-specific error masks
+    """
+    # Class-specific error mask
+    class_mask = (gtruth >= 0) & (gtruth == classid)
+    fp = (pred == classid) & ~class_mask & (gtruth != cfg.DATASET.IGNORE_LABEL)
+    fn = (pred != classid) & class_mask
+    err_mask = fp | fn
 
-    def calc_err_mask_all(self, pred, gtruth, num_classes):
-        err_mask = gtruth >= 0
-        err_mask &= gtruth != self.cfg.DATASET.IGNORE_LABEL
-        err_mask &= pred != gtruth
-        return err_mask.astype(int)
+    return err_mask.astype(int)
 
-    def eval_minibatch(
-            self,
-            data,
-            net,
-            criterion,
-            val_loss,
-            calc_metrics: bool,
-            val_idx: int,
-    ):
-        args = cfg = self.cfg
-        torch.cuda.empty_cache()
 
-        scales = [args.default_scale]
-        if args.multi_scale_inference:
-            scales.extend(float(x) for x in args.extra_scales.split(","))
-            if val_idx == 0:
-                logger.debug(f"Using multi-scale inference (AVGPOOL) with scales {scales}")
+def calc_err_mask_all(pred, gtruth, num_classes):
+    """
+    calculate class-agnostic error masks
+    """
+    # Class-specific error mask
+    mask = (gtruth >= 0) & (gtruth != cfg.DATASET.IGNORE_LABEL)
+    err_mask = mask & (pred != gtruth)
 
-        images, gt_image, img_names, scale_float = data
-        batch_px = images.size(0) * images.size(2) * images.size(3)
-        hw = images.size(2), images.size(3)
-        flips = [1, 0] if args.do_flip else [0]
+    return err_mask.astype(int)
+
+
+def eval_minibatch(data, net, criterion, val_loss, calc_metrics, args, val_idx):
+    """
+    Evaluate a single minibatch of images.
+     * calculate metrics
+     * dump images
+    There are two primary multi-scale inference types:
+      1. 'MSCALE', or in-model multi-scale: where the multi-scale iteration loop is
+         handled within the model itself (see networks/mscale.py -> nscale_forward())
+      2. 'multi_scale_inference', where we use Averaging to combine scales
+    """
+    torch.cuda.empty_cache()
+
+    scales = [args.default_scale]
+    if args.multi_scale_inference:
+        scales.extend([float(x) for x in args.extra_scales.split(',')])
+        if val_idx == 0:
+            logger.debug(f'Using multi-scale inference (AVGPOOL) with scales {scales}')
+
+    # input    = torch.Size([1, 3, h, w])
+    # gt_image = torch.Size([1, h, w])
+    images, gt_image, img_names, scale_float = data
+    assert len(images.size()) == 4 and len(gt_image.size()) == 3
+    assert images.size()[2:] == gt_image.size()[1:]
+    batch_pixel_size = images.size(0) * images.size(2) * images.size(3)
+    input_size = images.size(2), images.size(3)
+
+    if args.do_flip:
+        # By ending with flip=0, we insure that the images that are dumped
+        # out correspond to the unflipped versions. A bit hacky.
+        flips = [1, 0]
+    else:
+        flips = [0]
+
+    with torch.no_grad():
+        output = 0.0
+
+        for flip in flips:
+            for scale in scales:
+                if flip == 1:
+                    inputs = flip_tensor(images, 3)
+                else:
+                    inputs = images
+
+                infer_size = [round(sz * scale) for sz in input_size]
+
+                if scale != 1.0:
+                    inputs = resize_tensor(inputs, infer_size)
+
+                inputs = {'images': inputs, 'gts': gt_image}
+                inputs = {k: v.cuda() for k, v in inputs.items()}
+
+                # Expected Model outputs:
+                #   required:
+                #     'pred'  the network prediction, shape (1, 19, h, w)
+                #
+                #   optional:
+                #     'pred_*' - multi-scale predictions from mscale model
+                #     'attn_*' - multi-scale attentions from mscale model
+                output_dict = net(inputs)
+
+                _pred = output_dict['pred']
+
+                # save AVGPOOL style multi-scale output for visualizing
+                if not cfg.MODEL.MSCALE:
+                    scale_name = fmt_scale('pred', scale)
+                    output_dict[scale_name] = _pred
+
+                # resize tensor down to 1.0x scale in order to combine
+                # with other scales of prediction
+                if scale != 1.0:
+                    _pred = resize_tensor(_pred, input_size)
+
+                if flip == 1:
+                    output = output + flip_tensor(_pred, 3)
+                else:
+                    output = output + _pred
+
+    output = output / len(scales) / len(flips)
+    assert_msg = 'output_size {} gt_cuda size {}'
+    gt_cuda = gt_image.cuda()
+    assert_msg = assert_msg.format(
+        output.size()[2:], gt_cuda.size()[1:])
+    assert output.size()[2:] == gt_cuda.size()[1:], assert_msg
+    assert output.size()[1] == cfg.DATASET.NUM_CLASSES, assert_msg
+
+    # Update loss and scoring datastructure
+    if calc_metrics:
+        val_loss.update(criterion(output, gt_image.cuda()).item(),
+                        batch_pixel_size)
+
+    output_data = torch.nn.functional.softmax(output, dim=1).cpu().data
+    max_probs, predictions = output_data.max(1)
+
+    # Assemble assets to visualize
+    assets = {}
+    for item in output_dict:
+        if 'attn_' in item:
+            assets[item] = output_dict[item]
+        if 'pred_' in item:
+            #computesoftmax for each class
+            smax = torch.nn.functional.softmax(output_dict[item], dim=1)
+            _, pred = smax.detach().max(1)
+            assets[item] = pred.cpu().numpy()
+
+    predictions = predictions.numpy()
+    assets['predictions'] = predictions
+    assets['prob_mask'] = max_probs
+    if calc_metrics:
+        assets['err_mask'] = calc_err_mask_all(predictions,
+                                               gt_image.numpy(),
+                                               cfg.DATASET.NUM_CLASSES)
+
+    _iou_acc = fast_hist(predictions.flatten(),
+                         gt_image.numpy().flatten(),
+                         cfg.DATASET.NUM_CLASSES)
+
+    return assets, _iou_acc
+
+
+def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=True,
+             dump_all_images=True):
+    """
+    Find worse case failures ...
+    Only single GPU for now
+    First pass = calculate TP, FP, FN pixels per image per class
+      Take these stats and determine the top20 images to dump per class
+    Second pass = dump all those selected images
+    """
+    assert args.bs_val == 1
+
+    ######################################################################
+    # First pass
+    ######################################################################
+    logger.debug('First pass')
+    image_metrics = {}
+    dumper = ImageDumper(val_len=len(val_loader),
+                         dump_all_images=dump_all_images,
+                         dump_assets=dump_assets,
+                         dump_for_auto_labelling=args.dump_for_auto_labelling,
+                         dump_for_submission=args.dump_for_submission)
+
+    net.eval()
+    val_loss = AverageMeter()
+    iou_acc = 0
+
+    for val_idx, data in enumerate(val_loader):
+
+        # Run network
+        assets, _iou_acc = \
+            eval_minibatch(data, net, criterion, val_loss, True, args, val_idx)
+
+        # per-class metrics
+        input_images, labels, img_names, _ = data
+
+        fp, fn = metrics_per_image(_iou_acc)
+        img_name = img_names[0]
+        image_metrics[img_name] = (fp, fn)
+
+        iou_acc += _iou_acc
+
+        if val_idx % 20 == 0:
+            logger.debug(f'validating[Iter: {val_idx + 1} / {len(val_loader)}]')
+
+        if val_idx > 5 and args.test_mode:
+            break
+
+    eval_metrics(iou_acc, args, net, optim, val_loss, epoch)
+
+    ######################################################################
+    # Find top 20 worst failures from a pixel count perspective
+    ######################################################################
+    from collections import defaultdict
+    worst_images = defaultdict(dict)
+    class_to_images = defaultdict(dict)
+    for classid in range(cfg.DATASET.NUM_CLASSES):
+        tbl = {}
+        for img_name in image_metrics.keys():
+            fp, fn = image_metrics[img_name]
+            fp = fp[classid]
+            fn = fn[classid]
+            tbl[img_name] = fp + fn
+        worst = sorted(tbl, key=tbl.get, reverse=True)
+        for img_name in worst[:args.dump_topn]:
+            fail_pixels = tbl[img_name]
+            worst_images[img_name][classid] = fail_pixels
+            class_to_images[classid][img_name] = fail_pixels
+    msg = str(worst_images)
+    logger.debug(msg)
+
+    # write out per-gpu jsons
+    # barrier
+    # make single table
+
+    ######################################################################
+    # 2nd pass
+    ######################################################################
+    logger.debug('Second pass')
+    attn_map = None
+
+    for val_idx, data in enumerate(val_loader):
+        in_image, gt_image, img_names, _ = data
+
+        # Only process images that were identified in first pass
+        if not args.dump_topn_all and img_names[0] not in worst_images:
+            continue
 
         with torch.no_grad():
-            output = 0.0
-            for flip in flips:
-                for scale in scales:
-                    inp = self.flip_tensor(images, 3) if flip else images
-                    if scale != 1.0:
-                        inp = self.resize_tensor(inp, [round(s * scale) for s in hw])
+            inputs = in_image.cuda()
+            inputs = {'images': inputs, 'gts': gt_image}
 
-                    inp = {"images": inp.cuda(), "gts": gt_image.cuda()}
-                    out_dict = net(inp)
-                    pred = out_dict["pred"]
+            if cfg.MODEL.MSCALE:
+                #output, attn_map = net(inputs)
+                output_dict = net(inputs)
+            else:
+                output_dict = net(inputs)
+        output = output_dict['pred']
 
-                    if not cfg.MODEL.MSCALE:
-                        out_dict[fmt_scale("pred", scale)] = pred
-                    if scale != 1.0:
-                        pred = self.resize_tensor(pred, hw)
-
-                    output += self.flip_tensor(pred, 3) if flip else pred
-
-        output /= len(scales) * len(flips)
-        gt_cuda = gt_image.cuda()
-        assert output.shape[2:] == gt_cuda.shape[1:]
-        assert output.shape[1] == cfg.DATASET.NUM_CLASSES
-
-        if calc_metrics:
-            val_loss.update(criterion(output, gt_cuda).item(), batch_px)
-
-        soft = torch.nn.functional.softmax(output, dim=1).cpu()
-        max_probs, predictions = soft.max(1)
-        preds_np = predictions.numpy()
-
-        assets = {
-            k: (
-                torch.nn.functional.softmax(v, dim=1).detach().max(1)[1].cpu().numpy()
-                if "pred_" in k
-                else v
-            )
-            for k, v in out_dict.items()
-            if "pred_" in k or "attn_" in k
-        }
-        assets.update(
-            predictions=preds_np,
-            prob_mask=max_probs,
+        output_data = torch.nn.functional.softmax(output, dim=1).cpu().data
+        op = output_data.cpu().detach().numpy()
+        path = os.path.join(
+            cfg.RESULT_DIR,
+            f'output_{epoch}_{val_idx}.npy'
         )
-        if calc_metrics:
-            assets["err_mask"] = self.calc_err_mask_all(preds_np, gt_image.numpy(), cfg.DATASET.NUM_CLASSES)
+        os.makedirs(cfg.RESULT_DIR, exist_ok=True)
+        np.save(path, op)
+        prob_mask, predictions = output_data.max(1)
+        #define assests based on the eval_minibatch function
+        assets = {}
+        for item in output_dict:
+            #compute softmax for each class
+            smax = torch.nn.functional.softmax(output_dict[item], dim=1)
+            _, pred = smax.detach().max(1)
+            assets[item] = pred.cpu().numpy()
+            #print(assets)
 
-        iou_acc = fast_hist(preds_np.flatten(), gt_image.numpy().flatten(), cfg.DATASET.NUM_CLASSES)
-        return assets, iou_acc
+        # this has shape [bs, h, w]
+        img_name = img_names[0]
+        for classid in worst_images[img_name].keys():
 
-    def validate_topn(
-            self,
-            val_loader,
-            net,
-            criterion,
-            optim,
-            epoch: int,
-            dump_assets: bool = True,
-            dump_all_images: bool = True,
-    ):
-        args = cfg = self.cfg
-        assert args.bs_val == 1
+            err_mask = calc_err_mask(predictions.numpy(),
+                                     gt_image.numpy(),
+                                     cfg.DATASET.NUM_CLASSES,
+                                     classid)
 
-        logger.debug("First pass")
-        image_metrics, iou_acc = {}, 0
-        dumper = ImageDumper(
-            val_len=len(val_loader),
-            dump_all_images=dump_all_images,
-            dump_assets=dump_assets,
-            dump_for_auto_labelling=args.dump_for_auto_labelling,
-            dump_for_submission=args.dump_for_submission,
-        )
-        net.eval()
-        val_loss = AverageMeter()
+            input_images, gt_image, img_names, _ = data
+            class_name = cfg.DATASET_INST.trainid_to_name[classid]
+            error_pixels = worst_images[img_name][classid]
+            logger.debug(f'{img_name} {class_name}: {error_pixels}')
+            img_names = [img_name + f'_{class_name}']
+            #add assests
+            assets['predictions'] = predictions.numpy()
+            assets['prob_mask'] = prob_mask
+            assets['err_mask'] = err_mask
 
-        for val_idx, data in enumerate(val_loader):
-            assets, ia = self.eval_minibatch(
-                data=data,
-                net=net,
-                criterion=criterion,
-                val_loss=val_loss,
-                calc_metrics=True,
-                val_idx=val_idx,
-            )
+            to_dump = {'gt_images': gt_image,
+                       'input_images': input_images,
+                       'predictions': predictions.numpy(),
+                       'err_mask': err_mask,
+                       'prob_mask': prob_mask,
+                       'img_names': img_names,
+                       'assets': assets}
 
-            _, _, img_names, _ = data
-            fp, fn = metrics_per_image(ia)
-            image_metrics[img_names[0]] = (fp, fn)
-            iou_acc += ia
+            if attn_map is not None:
+                to_dump['attn_maps'] = attn_map
 
-            if val_idx % 20 == 0:
-                logger.debug(f"validating[Iter: {val_idx + 1} / {len(val_loader)}]")
+            # FIXME!
+            # do_dump_images([to_dump])
+            #fixed
+            dumper.dump(to_dump,val_idx)
+    # html_fn = os.path.join(args.result_dir, 'seg_results',
+    #                        'topn_failures.html')
+    from tile2net.tileseg.utils.results_page import ResultsPage
+    ip = ResultsPage('topn failures', html_fn)
+    for classid in class_to_images:
+        class_name = cfg.DATASET_INST.trainid_to_name[classid]
+        img_dict = class_to_images[classid]
+        for img_name in sorted(img_dict, key=img_dict.get, reverse=True):
+            fail_pixels = class_to_images[classid][img_name]
+            img_cls = f'{img_name}_{class_name}'
+            pred_fn = f'{img_cls}_prediction.png'
+            gt_fn = f'{img_cls}_gt.png'
+            inp_fn = f'{img_cls}_input.png'
+            err_fn = f'{img_cls}_err_mask.png'
+            prob_fn = f'{img_cls}_prob_mask.png'
+            img_label_pairs = [(pred_fn, 'pred'),
+                               (gt_fn, 'gt'),
+                               (inp_fn, 'input'),
+                               (err_fn, 'errors'),
+                               (prob_fn, 'prob')]
+            ip.add_table(img_label_pairs,
+                         table_heading=f'{class_name}-{fail_pixels}')
+    ip.write_page()
 
-            if val_idx > 5 and args.test_mode:
-                break
-
-        eval_metrics(iou_acc, args, net, optim, val_loss, epoch)
-
-        worst_images, class_to_images = defaultdict(dict), defaultdict(dict)
-        for cid in range(cfg.DATASET.NUM_CLASSES):
-            tbl = {n: sum(m[i][cid] for i in (0, 1)) for n, m in image_metrics.items()}
-            for n in sorted(tbl, key=tbl.get, reverse=True)[: args.dump_topn]:
-                worst_images[n][cid] = tbl[n]
-                class_to_images[cid][n] = tbl[n]
-
-        logger.debug(str(worst_images))
-        logger.debug("Second pass")
-        attn_map = None
-
-        for val_idx, data in enumerate(val_loader):
-            in_img, gt_img, img_names, _ = data
-            if not args.dump_topn_all and img_names[0] not in worst_images:
-                continue
-
-            with torch.no_grad():
-                out_dict = net({"images": in_img.cuda(), "gts": gt_img})
-
-            output = out_dict["pred"]
-            prob_mask, predictions = torch.nn.functional.softmax(output, dim=1).max(1)
-            assets = {
-                k: torch.nn.functional.softmax(v, dim=1).detach().max(1)[1].cpu().numpy()
-                for k, v in out_dict.items()
-            }
-
-            img_name = img_names[0]
-            for cid, fail_px in worst_images[img_name].items():
-                err_mask = self.calc_err_mask(
-                    predictions.numpy(),
-                    gt_img.numpy(),
-                    cfg.DATASET.NUM_CLASSES,
-                    cid,
-                )
-                cls_name = cfg.DATASET_INST.trainid_to_name[cid]
-                img_cls = f"{img_name}_{cls_name}"
-
-                dump: DumpDict = dict(
-                    gt_images=gt_img,
-                    input_images=in_img,
-                    predictions=predictions.numpy(),
-                    err_mask=err_mask,
-                    prob_mask=prob_mask,
-                    img_names=[img_cls],
-                    assets=dict(
-                        **assets,
-                        predictions=predictions.numpy(),
-                        prob_mask=prob_mask,
-                        err_mask=err_mask,
-                    ),
-                    attn_maps=attn_map,
-                )
-                dumper.dump(dump, val_idx)
-
-        html_fn = os.path.join(args.result_dir, "seg_results", "topn_failures.html")
-        page = ResultsPage("topn failures", html_fn)
-        for cid, imgs in class_to_images.items():
-            cls_name = cfg.DATASET_INST.trainid_to_name[cid]
-            for img_name, fail_px in sorted(imgs.items(), key=lambda x: x[1], reverse=True):
-                img_cls = f"{img_name}_{cls_name}"
-                page.add_table(
-                    [
-                        (f"{img_cls}_prediction.png", "pred"),
-                        (f"{img_cls}_gt.png", "gt"),
-                        (f"{img_cls}_input.png", "input"),
-                        (f"{img_cls}_err_mask.png", "errors"),
-                        (f"{img_cls}_prob_mask.png", "prob"),
-                    ],
-                    table_heading=f"{cls_name}-{fail_px}",
-                )
-        page.write_page()
-        return val_loss.avg
+    return val_loss.avg

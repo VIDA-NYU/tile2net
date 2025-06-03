@@ -42,6 +42,7 @@ from tile2net.logger import logger
 from tile2net.tiles.tileseg.config import update_dataset_cfg, update_dataset_inst
 from tile2net.tiles.tileseg.datasets.randaugment import RandAugment
 from .base_loader import BaseLoader
+from tile2net.tiles.cfg import cfg
 
 if False:
     from ...tiles import Tiles
@@ -54,14 +55,12 @@ class LoaderBundle(NamedTuple):
 
 
 def setup_loaders(
-        tiles: Tiles
 ):
     """
     Setup Data Loaders[Currently supports Cityscapes, Mapillary and ADE20kin]
     input: argument passed by the user
     return:  training data loader, validation data loader loader,  train_set
     """
-    args = cfg = tiles.cfg
 
     # TODO add error checking to make sure class exists
     # logger.debug(f'dataset = {args.dataset.dataset.name}')
@@ -216,7 +215,7 @@ def setup_loaders(
         else:
             # Assuming args.distributed indicates if distributed training is being used
             train_sampler = None
-            train_batch_size = cfg.MODEL.BS_TRN * args.ngpu
+            train_batch_size = cfg.MODEL.BS_TRN * cfg.ngpu
 
         train_loader = DataLoader(
             train_set,

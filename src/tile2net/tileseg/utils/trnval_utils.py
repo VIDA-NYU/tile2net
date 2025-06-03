@@ -348,6 +348,7 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=Tr
             dumper.dump(to_dump,val_idx)
     # html_fn = os.path.join(args.result_dir, 'seg_results',
     #                        'topn_failures.html')
+    html_fn = set
     from tile2net.tileseg.utils.results_page import ResultsPage
     ip = ResultsPage('topn failures', html_fn)
     for classid in class_to_images:

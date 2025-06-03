@@ -6,7 +6,7 @@ import numpy as np
 import torch
 
 from PIL import Image, ImageOps, ImageEnhance, ImageDraw
-from tile2net.tiles.tileseg.config import cfg
+from tile2net.tiles.cfg import cfg
 
 
 fillmask = cfg.DATASET.IGNORE_LABEL
@@ -201,7 +201,7 @@ def augment_list():  # 16 oeprations and their ranges
     return l
 
 
-class Lighting(object):
+class Lighting:
     """Lighting noise(AlexNet - style PCA - based noise)"""
 
     def __init__(self, alphastd, eigval, eigvec):
@@ -222,7 +222,7 @@ class Lighting(object):
         return img.add(rgb.view(3, 1, 1).expand_as(img))
 
 
-class CutoutDefault(object):
+class CutoutDefault:
     """
     Reference : https://github.com/quark0/darts/blob/master/cnn/utils.py
     """

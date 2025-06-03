@@ -34,7 +34,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from tile2net.logger import logger
-from tile2net.tiles.tileseg.config import cfg
+from tile2net.tiles.cfg import cfg
 from tile2net.tiles.tileseg.loss.rmi import RMILoss
 from tile2net.namespace import Namespace
 
@@ -74,12 +74,23 @@ class ImageBasedCrossEntropyLoss2d(nn.Module):
     Image Weighted Cross Entropy Loss
     """
 
-    def __init__(self, classes, weight=None, ignore_index=cfg.DATASET.IGNORE_LABEL,
-                 norm=False, upper_bound=1.0, fp16=False):
+    def __init__(
+            self,
+            classes,
+            weight=None,
+            ignore_index=None,
+            norm=False,
+            upper_bound=1.0,
+            fp16=False
+    ):
         super(ImageBasedCrossEntropyLoss2d, self).__init__()
         # logger.debug("Using Per Image based weighted loss")
         logger.info("Using Per Image based weighted loss")
         self.num_classes = classes
+
+        if ignore_index is None:
+            ignore_index = cfg.DATASET.IGNORE_LABEL
+
         self.nll_loss = nn.NLLLoss(weight, reduction='mean',
                                    ignore_index=ignore_index)
         self.norm = norm
@@ -126,11 +137,19 @@ class CrossEntropyLoss2d(nn.Module):
     Cross Entroply NLL Loss
     """
 
-    def __init__(self, weight=None, ignore_index=cfg.DATASET.IGNORE_LABEL,
-                 reduction='mean'):
+    def __init__(
+            self,
+            weight=None,
+            ignore_index=None,
+            reduction='mean'
+    ):
         super(CrossEntropyLoss2d, self).__init__()
         # logger.debug("Using Cross Entropy Loss")
         logger.info("Using Cross Entropy Loss")
+
+        if ignore_index is None:
+            ignore_index = cfg.DATASET.IGNORE_LABEL
+
         self.nll_loss = nn.NLLLoss(weight, reduction=reduction,
                                    ignore_index=ignore_index)
 
@@ -155,11 +174,21 @@ class ImgWtLossSoftNLL(nn.Module):
     """
     Relax Loss
     """
-    def __init__(self, classes, ignore_index=cfg.DATASET.IGNORE_LABEL, weights=None,
-                 upper_bound=1.0, norm=False):
+    def __init__(
+            self,
+            classes,
+            ignore_index=None,
+            weights=None,
+            upper_bound=1.0,
+            norm=False
+    ):
         super(ImgWtLossSoftNLL, self).__init__()
         self.weights = weights
         self.num_classes = classes
+
+        if ignore_index is None:
+            ignore_index = cfg.DATASET.IGNORE_LABEL
+
         self.ignore_index = ignore_index
         self.upper_bound = upper_bound
         self.norm = norm
@@ -236,14 +265,24 @@ class ImgWtLossSoftNLL(nn.Module):
 
 
 class MultiChannelBCEWithLogits(nn.Module):
-    def __init__(self, size_average=False, reduce=True, use_beta=True, divide_by_N=True,
-                 ignore_label=cfg.DATASET.IGNORE_LABEL,
-                 sum_by_non_zero_weights=False):
+    def __init__(
+            self,
+            size_average=False,
+            reduce=True,
+            use_beta=True,
+            divide_by_N=True,
+            ignore_label=None,
+            sum_by_non_zero_weights=False
+    ):
         super(MultiChannelBCEWithLogits, self).__init__()
         self.size_average = size_average
         self.reduce = reduce
         self.use_beta = use_beta
         self.divide_by_N = divide_by_N
+
+        if ignore_label is None:
+            ignore_label = cfg.DATASET.IGNORE_LABEL
+
         self.ignore_label = ignore_label
         self._first_log = True
         self.sum_by_non_zero_weights = sum_by_non_zero_weights
@@ -270,7 +309,7 @@ class MultiChannelBCEWithLogits(nn.Module):
         count_all = count_pos + count_neg
         beta = count_neg / (count_all + 1e-8)
         beta = beta.unsqueeze(1)
-        
+
         target = target.contiguous().view(batch_size, -1)
         input = input.view(batch_size, -1)
 
@@ -322,12 +361,22 @@ class MultiChannelBCEWithLogits(nn.Module):
 
 class EdgeWeightedCrossEntropyLoss2d(nn.Module):
 
-    def __init__(self, classes, weight=None, size_average=False,
-                 ignore_index=cfg.DATASET.IGNORE_LABEL,
-                 norm=False, upper_bound=1.0):
+    def __init__(
+            self,
+            classes,
+            weight=None,
+            size_average=False,
+            ignore_index=None,
+            norm=False,
+            upper_bound=1.0
+    ):
         super(EdgeWeightedCrossEntropyLoss2d, self).__init__()
         logger.debug("Using Per Image based weighted loss")
         self.num_classes = classes
+
+        if ignore_index is None:
+            ignore_index = cfg.DATASET.IGNORE_LABEL
+
         self.nll_loss = nn.NLLLoss2d(weight, size_average,ignore_index)
         self.norm = norm
         self.upper_bound = upper_bound
@@ -354,12 +403,9 @@ class EdgeWeightedCrossEntropyLoss2d(nn.Module):
             if not self.batch_weights:
                 weights = self.calculateWeights(target_cpu[i])
                 self.nll_loss.weight = torch.Tensor(weights).cuda()
-            
+
             out = self.nll_loss(F.log_softmax(inputs[i].unsqueeze(0)),
                                                targets[i].unsqueeze(0))
             out = torch.mul(edges[i].unsqueeze(0), out)
             loss += out.sum() / (800 * 800)
         return loss
-
-
-

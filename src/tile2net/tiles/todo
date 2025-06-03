@@ -37,3 +37,49 @@ predictor
 writer
 
 
+check util/trnval_utils and misc.py
+
+There are many scattered classes with methods that require a global `cfg` variable. We are trying to move
+away from this global variable. We need to update the __init__ of these classes to require `tiles` as a parameter.
+We can type hint the Tiles class without importnig it using this:
+
+if False:
+    from tile2net.tiles.tiles import Tiles
+
+then in the init we have a parameter `tiles: Tiles`. We store it as a variable, and we also use it for the cfg.
+The cfg is available from `cfg`. For example, here:
+
+if cfg.DATASET.TRANSLATE_AUG_FIX:
+
+This is better off as:
+
+if tiles.cfg.dataset.translate_aug_fix:
+
+I need you to go through all of the tile2net/tiles/tileseg directory and update these classes to use the new tiles object passed.
+Note that the tiles:Tiles is a positional argument and cannot be returned as None. Do not fall back to `cfg`.
+
+
+
+
+stuff like this is quite unappealing to read:
+        slid_mask = add_margin(mask, top, right, bottom, left,
+                               self.ignore_index)
+If the parameters cannot fit on one line, I much prefer them to be one-per-line, with the argument name specified like so:
+        add_margin(
+            pil_img=mask,
+            top=top,
+            right=right,
+            bottom=bottom,
+            left=left,
+            margin_color=self.ignore_index
+        )
+
+Go through all of tile2net/tiles/tileseg and update any method calls to use this new, vertically expanded style.
+
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/arstneio/PycharmProjects/tile2net/src/tile2net/tiles/cfg/cfg.py", line 609, in hrnet_checkpoint
+    from ..tiles import Tiles
+ImportError: cannot import name 'Tiles' from partially initialized module 'tile2net.tiles.tiles' (most likely due to a circular import) (/home/arstneio/PycharmProjects/tile2net/src/tile2net/tiles/tiles.py)
+python-BaseException
+
+todo: instead of importnig tiles and accessing Tiles.static, import static from static
