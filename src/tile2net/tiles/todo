@@ -59,8 +59,6 @@ I need you to go through all of the tile2net/tiles/tileseg directory and update 
 Note that the tiles:Tiles is a positional argument and cannot be returned as None. Do not fall back to `cfg`.
 
 
-
-
 stuff like this is quite unappealing to read:
         slid_mask = add_margin(mask, top, right, bottom, left,
                                self.ignore_index)
@@ -82,4 +80,4 @@ Go through all of tile2net/tiles/tileseg and update any method calls to use this
 ImportError: cannot import name 'Tiles' from partially initialized module 'tile2net.tiles.tiles' (most likely due to a circular import) (/home/arstneio/PycharmProjects/tile2net/src/tile2net/tiles/tiles.py)
 python-BaseException
 
-todo: instead of importnig tiles and accessing Tiles.static, import static from static
+profile the inference

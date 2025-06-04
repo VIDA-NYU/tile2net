@@ -34,6 +34,9 @@ from tile2net.tiles.tileseg.datasets.base_loader import BaseLoader
 from tile2net.tiles.tileseg.datasets.utils import make_dataset_folder
 from tile2net.tiles.tileseg.datasets import uniform
 
+if False:
+    from tile2net.tiles import Tiles
+
 Label = namedtuple('Label', [
 
     'name',  # The identifier of this label, e.g. 'car', 'person', ... .
@@ -87,14 +90,13 @@ class Loader(BaseLoader):
 
     def __init__(
             self,
-            mode,
-            quality='semantic',
-            joint_transform_list=None,
-            img_transform=None,
-            label_transform=None,
-            eval_folder=None,
-            tiles=None
-    ):
+            mode: str,
+            tiles: 'Tiles',
+            quality: str = 'semantic',
+            joint_transform_list = None,
+            img_transform = None,
+            label_transform = None,
+    ) -> None:
 
         super(Loader, self).__init__(
             quality=quality,
@@ -113,27 +115,29 @@ class Loader(BaseLoader):
         ######################################################################
         # Assemble image lists
         ######################################################################
-        if mode == 'folder':
-            self.all_imgs = make_dataset_folder(eval_folder)
-        elif mode == 'test':
-            self.all_imgs = make_dataset_folder(eval_folder, testing=True)
-        else:
-            splits = dict(
-                train='train',
-                val='val',
-                test='tests',
-            )
-            split_name = splits[mode]
-            img_ext = '*'
-            mask_ext = '*'
-            img_root = os.path.join(root, split_name, 'images')
-            mask_root = os.path.join(root, split_name, 'annotations')
-            self.all_imgs = self.find_images(
-                img_root,
-                mask_root,
-                img_ext,
-                mask_ext
-            )
+        # if mode == 'folder':
+        #     self.all_imgs = make_dataset_folder(eval_folder)
+        # elif mode == 'test':
+        #     self.all_imgs = make_dataset_folder(eval_folder, testing=True)
+        # else:
+        #     splits = dict(
+        #         train='train',
+        #         val='val',
+        #         test='tests',
+        #     )
+        #     split_name = splits[mode]
+        #     img_ext = '*'
+        #     mask_ext = '*'
+        #     img_root = os.path.join(root, split_name, 'images')
+        #     mask_root = os.path.join(root, split_name, 'annotations')
+        #     self.all_imgs = self.find_images(
+        #         img_root,
+        #         mask_root,
+        #         img_ext,
+        #         mask_ext
+        #     )
+
+        self.all_imgs = tiles.indir.files
         logger.debug('all imgs {}'.format(len(self.all_imgs)))
         self.fine_centroids = uniform.build_centroids(
             self.all_imgs,
@@ -145,7 +149,7 @@ class Loader(BaseLoader):
         self.centroids = self.fine_centroids
         self.build_epoch()
 
-    def fill_colormap(self):
+    def fill_colormap(self) -> None:
         palette = [
             0, 0, 255,
             0, 128, 0,

@@ -5,6 +5,8 @@ import os
 import shutil
 import warnings
 
+from more_itertools.more import time_limited
+
 from tile2net.raster.tile_utils.topology import fill_holes, replace_convexhull
 
 os.environ['USE_PYGEOS'] = '0'
@@ -17,6 +19,7 @@ from tile2net.raster.tile_utils.genutils import (
     createfolder,
 )
 
+from tile2net.tiles.static import static
 import geopandas as gpd
 import logging
 import numpy
@@ -34,7 +37,7 @@ from tile2net.logger import logger
 from tile2net.raster.pednet import PedNet
 from tile2net.tiles.tileseg import datasets
 from tile2net.tiles.tileseg import network
-from tile2net.tiles.tileseg.config import assert_and_infer_cfg
+from tile2net.tiles.cfg.cfg import assert_and_infer_cfg
 from tile2net.tiles.tileseg.loss.optimizer import get_optimizer, restore_opt, restore_net
 from tile2net.tiles.tileseg.loss.utils import get_loss
 from tile2net.tiles.tileseg.utils.misc import AverageMeter, prep_experiment
@@ -42,6 +45,7 @@ from tile2net.tiles.tileseg.utils.misc import ThreadedDumper
 from tile2net.tiles.tileseg.utils.trnval_utils import eval_minibatch
 from tile2net.tiles.cfg import cfg
 from tile2net.tiles.tileseg.utils.misc import DumpDict
+
 args = cfg
 
 if False:
@@ -96,39 +100,29 @@ class Inference(
         else:
             logger.info('Inferencing. Segmentation results will not be saved.')
 
-        # if (
-        #         args.model.snapshot == Tiles.static.snapshot
-        #         and not os.path.exists(args.model.snapshot)
-        # ) or (
-        #         args.model.hrnet_checkpoint == Tiles.static.hrnet_checkpoint
-        #         and not os.path.exists(args.model.hrnet_checkpoint)
-        # ):
-        args.model.snapshot
-        args.model.hrnet_checkpoint
-        args.model.snapshot
-        args.model.hrnet_checkpoint
         if (
-            not os.path.exists(args.model.snapshot)
-            or not os.path.exists(args.model.hrnet_checkpoint)
+                not os.path.exists(args.model.snapshot)
+                and args.model.snapshot == static.snapshot
+        ) or (
+                not os.path.exists(args.model.hrnet_checkpoint)
+                and args.model.hrnet_checkpoint == static.hrnet_checkpoint
         ):
             logger.info('Downloading weights for segmentation, this may take a while...')
             tiles.static.download()
-            if not os.path.exists(args.model.snapshot):
-                msg = (
-                    f'Downloaded snapshot not found: {args.model.snapshot}. '
-                    f'You must have passed a custom path that does not exist.'
-                )
-                raise FileNotFoundError(msg)
-            if not os.path.exists(args.model.hrnet_checkpoint):
-                msg = (
-                    f'Downloaded HRNet checkpoint not found: {args.model.hrnet_checkpoint}. '
-                    f'You must have passed a custom path that does not exist.'
-                )
-                raise FileNotFoundError(msg)
+            logger.info('Weights downloaded successfully.')
             expected_checksum = '745f8c099e98f112a152aedba493f61fb6d80c1761e5866f936eb5f361c7ab4d'
             actual_checksum = sha256sum(args.model.snapshot)
             if actual_checksum != expected_checksum:
                 raise RuntimeError(f"Checksum mismatch: expected {expected_checksum}, got {actual_checksum}")
+
+        if not os.path.exists(args.model.hrnet_checkpoint):
+            msg = f'HRNet checkpoint not found: {args.model.hrnet_checkpoint}. ' \
+                  f'You must have passed a custom path that does not exist.'
+            raise FileNotFoundError(msg)
+        if not os.path.exists(args.model.snapshot):
+            msg = f'Snapshot not found: {args.model.snapshot}. ' \
+                  f'You must have passed a custom path that does not exist.'
+            raise FileNotFoundError(msg)
 
         args.best_record = self.best_record
 
@@ -177,16 +171,17 @@ class Inference(
         # assert args.result_dir is not None, 'need to define result_dir arg'
 
         assert_and_infer_cfg(args)
-        prep_experiment(args)
-        train_loader, val_loader, train_obj = datasets.setup_loaders()
+        prep_experiment()
+        struct = datasets.setup_loaders(tiles=tiles)
+        train_loader = struct.train_loader
+        val_loader = struct.val_loader
+        train_obj = struct.train_set
         criterion, criterion_val = get_loss(args)
 
         args.restore_net = True
         msg = "Loading weights from: checkpoint={}".format(args.model.snapshot)
         logger.info(msg)
-        if (
-                args.model.snapshot != Tiles.static.snapshot
-        ):
+        if args.model.snapshot != static.snapshot:
             msg = (
                 f'Weights are being loaded using weights_only=False. '
                 f'We assure the security of our weights by using a checksum, '
@@ -200,10 +195,10 @@ class Inference(
             weights_only=False,
         )
 
-        net: tile2net.tiles.tileseg.network.ocrnet.MscaleOCR = network.get_net(args, criterion)
+        net: tile2net.tiles.tileseg.network.ocrnet.MscaleOCR = network.get_net(criterion)
         optim, scheduler = get_optimizer(args, net)
 
-        net = network.wrap_network_in_dataparallel(args, net)
+        net = network.wrap_network_in_dataparallel(net)
         if args.restore_optimizer:
             restore_opt(optim, checkpoint)
         if args.restore_net:
@@ -215,7 +210,7 @@ class Inference(
         if args.model.eval == 'test':
             self.validate(
                 val_loader=val_loader,
-                net=checkpoint['net'],
+                net=net,
                 criterion=None,
                 optim=None,
                 epoch=0,
@@ -229,7 +224,7 @@ class Inference(
         elif args.model.eval == 'folder':
             self.validate(
                 val_loader=val_loader,
-                net=checkpoint['net'],
+                net=net,
                 criterion=criterion_val,
                 optim=optim,
                 epoch=0,
@@ -275,6 +270,7 @@ class Inference(
             dump_all_images=dump_all_images,
             dump_assets=dump_assets,
             args=args,
+            tiles=self.tiles,
         )
 
         tiles = self.tiles

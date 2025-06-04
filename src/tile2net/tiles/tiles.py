@@ -1,22 +1,10 @@
 from __future__ import annotations
-from .inference import Inference
-
-import copy
-
-from ipywidgets import Valid
-
-from .indir import Indir
-from functools import cached_property
-from requests.adapters import HTTPAdapter
 
 import os
 import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
-from fiona.meta import extension
 from functools import partial
 from pathlib import Path
-from torch import set_grad_enabled
 from typing import *
 
 import PIL.Image
@@ -30,22 +18,24 @@ import pyproj
 import requests
 import shapely
 from PIL import Image
+from requests.adapters import HTTPAdapter
 from tqdm.auto import tqdm
 
 from tile2net.logger import logger
 from tile2net.raster import util
+from tile2net.tiles.cfg import cfg
 from . import util
+from .dir import Dir
 from .explore import explore
 from .fixed import GeoDataFrameFixed
-from .dir import Dir
+from .indir import Indir
+from .inference import Inference
 from .mosaic import Mosaic
-from .source import Source, SourceNotFound
-from .stitch import Stitch
-from .infer import Infer
-from .static import Static
 # from .static import static
 from .outdir import Outdir
-from tile2net.tiles.cfg import cfg
+from .source import Source, SourceNotFound
+from .static import Static, static
+from .stitch import Stitch
 
 if False:
     import folium
@@ -56,12 +46,14 @@ class Tiles(
     GeoDataFrameFixed,
 ):
 
-    @Static
-    def static(self):
-        # This code block is just semantic sugar and does not run.
-        # This is a namespace container for static files:
-        _ = self.static.hrnet_checkpoint
-        _ = self.static.snapshot
+    # @Static
+    # def static(self):
+    #     # This code block is just semantic sugar and does not run.
+    #     # This is a namespace container for static files:
+    #     _ = self.static.hrnet_checkpoint
+    #     _ = self.static.snapshot
+
+    static = static
 
     @Stitch
     def stitch(self):

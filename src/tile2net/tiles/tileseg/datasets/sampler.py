@@ -35,6 +35,7 @@
 
 import math
 import torch
+from typing import List, Iterator, Optional, Any, Union
 from torch.distributed import get_world_size, get_rank
 from torch.utils.data import Sampler
 
@@ -58,13 +59,14 @@ class DistributedSampler(Sampler):
     """
 
     def __init__(
-            self, dataset,
-            pad=False,
-            consecutive_sample=False,
-            permutation=False,
-            num_replicas=None,
-            rank=None
-    ):
+            self, 
+            dataset: Any,
+            pad: bool = False,
+            consecutive_sample: bool = False,
+            permutation: bool = False,
+            num_replicas: Optional[int] = None,
+            rank: Optional[int] = None
+    ) -> None:
         if num_replicas is None:
             num_replicas = get_world_size()
         if rank is None:
@@ -81,7 +83,7 @@ class DistributedSampler(Sampler):
             self.num_samples = int(math.floor(len(self.dataset) * 1.0 / self.num_replicas))
         self.total_size = self.num_samples * self.num_replicas
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[int]:
         # deterministically shuffle based on epoch
         g = torch.Generator()
         g.manual_seed(self.epoch)

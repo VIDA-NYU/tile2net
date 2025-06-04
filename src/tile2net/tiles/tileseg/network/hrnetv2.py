@@ -25,7 +25,6 @@ from tile2net.tiles.cfg import cfg
 
 
 BN_MOMENTUM = 0.1
-align_corners = cfg.MODEL.ALIGN_CORNERS
 relu_inplace = True
 
 
@@ -247,7 +246,7 @@ class HighResolutionModule(nn.Module):
                     y = y + F.interpolate(
                         self.fuse_layers[i][j](x[j]),
                         size=[height_output, width_output],
-                        mode='bilinear', align_corners=align_corners)
+                        mode='bilinear', align_corners=cfg.MODEL.ALIGN_CORNERS)
                 else:
                     y = y + self.fuse_layers[i][j](x[j])
             x_fuse.append(self.relu(y))
@@ -277,6 +276,8 @@ class HighResolutionNet(nn.Module):
         self.relu = nn.ReLU(inplace=relu_inplace)
 
         self.stage1_cfg = extra['STAGE1']
+        self.stage1_cfg.num_modules
+        extra['STAGE1']._trace
         num_channels = self.stage1_cfg['NUM_CHANNELS'][0]
         block = blocks_dict[self.stage1_cfg['BLOCK']]
         num_blocks = self.stage1_cfg['NUM_BLOCKS'][0]
@@ -439,11 +440,11 @@ class HighResolutionNet(nn.Module):
         # Upsampling
         x0_h, x0_w = x[0].size(2), x[0].size(3)
         x1 = F.interpolate(x[1], size=(x0_h, x0_w),
-                           mode='bilinear', align_corners=align_corners)
+                           mode='bilinear', align_corners=cfg.MODEL.ALIGN_CORNERS)
         x2 = F.interpolate(x[2], size=(x0_h, x0_w),
-                           mode='bilinear', align_corners=align_corners)
+                           mode='bilinear', align_corners=cfg.MODEL.ALIGN_CORNERS)
         x3 = F.interpolate(x[3], size=(x0_h, x0_w),
-                           mode='bilinear', align_corners=align_corners)
+                           mode='bilinear', align_corners=cfg.MODEL.ALIGN_CORNERS)
 
         feats = torch.cat([x[0], x1, x2, x3], 1)
 

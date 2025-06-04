@@ -4,6 +4,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from tile2net.tiles.static import static
 import argparse
 import re
 from collections import deque, UserDict
@@ -606,17 +607,14 @@ class Model(cmdline.Namespace):
         """
         Path to HRNet checkpoint
         """
-        # from ..tiles.st import Tiles
-        from tile2net.tiles.static import
-        return Tiles.static.hrnet_checkpoint
+        return static.hrnet_checkpoint
 
     @cmdline.property
     def snapshot(self) -> str:
         """
         Path to the model snapshot
         """
-        from ..tiles import Tiles
-        return Tiles.static.snapshot
+        return static.snapshot
 
     @cmdline.property
     def trial(self) -> int:
@@ -635,6 +633,10 @@ class Model(cmdline.Namespace):
     def ocr_extra(self) -> OcrExtra:
         ...
 
+    @OCR
+    def ocr(self) -> OCR:
+        ...
+
 
 class Stitch(cmdline.Namespace):
     @cmdline.property
@@ -648,7 +650,6 @@ class Stitch(cmdline.Namespace):
     @cmdline.property
     def scale(self) -> int:
         ...
-
 
 
 class Loss(cmdline.Namespace):
@@ -744,7 +745,6 @@ class Cfg(
     def __setitem__(self, key, value):
         super(self.__class__, self).__setitem__(key, value)
 
-
     @cmdline.property
     def output_dir(self) -> str:
         """The path to the output directory; "~/tmp/tile2net" by default"""
@@ -777,7 +777,6 @@ class Cfg(
         return False
 
     quiet.add_options(short='--q')
-
 
     @cmdline.property
     def arch(self) -> str:
@@ -973,7 +972,6 @@ class Cfg(
 
     batch_weighting.add_options(long='--no_batch_weighting')
 
-
     @cmdline.property
     def repoly(self) -> float:
         """"""
@@ -1150,6 +1148,67 @@ class Cfg(
 
     source.add_options(long='--source', short='-s')
 
+    @cmdline.property
+    def border_window(self) -> int:
+        """
+        Border relaxation count
+        """
+        return 1
+
+    @cmdline.property
+    def city_info_path(self) -> Optional[str]:
+        """
+        Path to city info metadata
+        """
+
+    @cmdline.property
+    def do_flip(self) -> bool:
+        """
+        Enable horizontal flipping in inference
+        """
+        return False
+
+    @cmdline.property
+    def epoch(self) -> int:
+        """
+        Runtime epoch counter
+        """
+        return 0
+
+    @cmdline.property
+    def num_workers(self) -> int:
+        """
+        Number of workers for data loading
+        """
+        return 4
+
+    @cmdline.property
+    def reduce_border_epoch(self) -> int:
+        """
+        Number of epochs to use before disabling border restriction
+        """
+        return -1
+
+    @cmdline.property
+    def scf(self) -> bool:
+        """
+        Enable SCF (Scale-Channel Fusion)
+        """
+        return False
+
+    @cmdline.property
+    def strictborderclass(self) -> Optional[str]:
+        """
+        Comma-separated list of class ids for border relaxation
+        """
+
+    @cmdline.property
+    def wt_bound(self) -> float:
+        """
+        Class weighting bound
+        """
+        return 1.0
+
     @cached_property
     def _trace2property(self) -> dict[str, cmdline.property]:
         nested = [
@@ -1244,7 +1303,7 @@ class Cfg(
         _stack = getattr(_conf, "_cfg_stack", [])
         _stack.append(_conf.cfg)
         _conf._cfg_stack = _stack
-        _conf.cfg = self.cfg  # assumes the instance carries the replacement
+        _conf.cfg = self._cfg  # assumes the instance carries the replacement
 
     def unstack_cfg(self):  # pop
         import tile2net.tiles.tileseg.config as _conf
@@ -1261,4 +1320,49 @@ class Cfg(
 cfg = Cfg()
 cfg.update(cfg._trace2default)
 
+# -------------------------------------------------------------------------
+# Utility functions mirroring the legacy API
+# -------------------------------------------------------------------------
+def assert_and_infer_cfg(args, train_mode: bool = True) -> None:
+    """
+    Port of detectron‐style assert_and_infer_cfg for the new `Cfg`.
+    Mutates the global `cfg` in-place based on parsed CLI `args`.
+    """
+    # --- static assignments ------------------------------------------------
+    cfg.model.bnfunc = torch.nn.BatchNorm2d
 
+    # --- CLI-driven overrides ---------------------------------------------
+    if hasattr(args, "dataset") and hasattr(args.dataset, "name"):
+        cfg.dataset.name = args.dataset.name
+    if hasattr(args, "dump_augmentation_images"):
+        cfg.dump_augmentation_images = args.dump_augmentation_images
+
+    arch = getattr(args, "arch", cfg.arch)
+    cfg.model.mscale = ("mscale" in arch.lower()) or ("attnscale" in arch.lower())
+
+    n_scales = getattr(args.model, "n_scales", None)
+    if n_scales:
+        cfg.model.n_scales = [float(x) for x in n_scales.split(",")]
+
+    # canonical crop override to match legacy behaviour
+    cfg.dataset.crop_size = (1024, 1024)
+
+    # freeze read-only when not training
+    if not train_mode:
+        cfg._active = False
+
+
+def update_epoch(epoch: int) -> None:
+    """Update runtime epoch counter inside `cfg`."""
+    cfg.epoch = epoch
+
+
+def update_dataset_cfg(num_classes: int, ignore_label: int) -> None:
+    """Synchronise dataset cardinality and ignore label."""
+    cfg.dataset.num_classes = num_classes
+    cfg.dataset.ignore_label = ignore_label
+
+
+def update_dataset_inst(dataset_inst) -> None:
+    """Attach a dataset instance for downstream convenience."""
+    cfg.dataset_inst = dataset_inst

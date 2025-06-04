@@ -29,8 +29,9 @@ POSSIBILITY OF SUCH DAMAGE.
 
 Dataset setup and loaders
 """
+from __future__ import annotations
 import importlib
-from typing import NamedTuple, Optional
+from typing import NamedTuple, Optional, List, Any, Union, Dict
 
 import torchvision.transforms as standard_transforms
 from toolz import pipe, curried
@@ -55,7 +56,8 @@ class LoaderBundle(NamedTuple):
 
 
 def setup_loaders(
-):
+        tiles: Tiles
+) -> LoaderBundle:
     """
     Setup Data Loaders[Currently supports Cityscapes, Mapillary and ADE20kin]
     input: argument passed by the user
@@ -63,10 +65,11 @@ def setup_loaders(
     """
 
     # TODO add error checking to make sure class exists
-    # logger.debug(f'dataset = {args.dataset.dataset.name}')
     dataset = 'satellite'
-    mod = importlib.import_module('tile2net.tiles.tileseg.datasets.{}'.format(dataset))
-    dataset_cls = getattr(mod, 'Loader')
+    if dataset == 'satellite':
+        from .satellite import Loader as dataset_cls
+    else:
+        raise ValueError(f'Unknown dataset {dataset}')
 
     logger.debug(f'ignore_label = {dataset_cls.ignore_label}')
 
@@ -80,12 +83,17 @@ def setup_loaders(
     ######################################################################
 
     crop_size = cfg.DATASET.CROP_SIZE
-    if ',' in crop_size:
+    if (
+        isinstance(crop_size, str)
+        and ',' in crop_size
+    ):
         crop_size = pipe(
             crop_size.split(','),
             curried.map(int),
             list
         )
+    elif isinstance(crop_size, (list, tuple)):
+        ...
     else:
         crop_size = int(crop_size)
 
@@ -96,14 +104,18 @@ def setup_loaders(
             scale_min=cfg.MODEL.SCALE_MIN,
             scale_max=cfg.MODEL.SCALE_MAX,
             full_size=cfg.MODEL.FULL_CROP_MODELING,
-            pre_size=cfg.MODEL.PRE_SIZE)
+            pre_size=cfg.MODEL.PRE_SIZE
+        )
     ]
 
     item = joint_transforms.RandomHorizontallyFlip()
     train_joint_transform_list.append(item)
 
     if cfg.MODEL.RAND_AUGMENT is not None:
-        N, M = [int(i) for i in cfg.MODEL.RAND_AUGMENT.split(',')]
+        N, M = [
+            int(i)
+            for i in cfg.MODEL.RAND_AUGMENT.split(',')
+        ]
         assert (
                 isinstance(N, int)
                 and isinstance(M, int)
@@ -168,7 +180,7 @@ def setup_loaders(
         joint_transform_list=val_joint_transform_list,
         img_transform=val_input_transform,
         label_transform=target_transform,
-        eval_folder=cfg.EVAL_FOLDER
+        tiles=tiles,
     )
 
     update_dataset_inst(dataset_inst=val_set)

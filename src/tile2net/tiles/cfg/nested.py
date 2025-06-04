@@ -18,11 +18,11 @@ def __get__(
     self.instance = instance
     self.owner = owner
     if issubclass(owner, Cfg):
-        self.cfg = instance
-        self.Cfg = owner
+        self._cfg = instance
+        self._Cfg = owner
     else:
-        self.cfg = instance.cfg
-        self.Cfg = instance.Cfg
+        self._cfg = instance._cfg
+        self._Cfg = instance._Cfg
 
     return self
 
@@ -39,11 +39,7 @@ class Nested(
     )
 
     @cached_property
-    def tiles(self) -> Tiles:
-        return None
-
-    @cached_property
-    def cfg(self) -> Optional[Cfg]:
+    def _cfg(self) -> Optional[Cfg]:
         return None
 
     def __init__(
@@ -81,63 +77,125 @@ class Nested(
                 owner._nested = {}
             owner._nested[name] = self
 
-    def __getattr__(self, key: str) -> Any:
-        # Normalize ALL-CAPS names to lowercase
-        if key.isupper():
-            key = key.lower()
+    # def __getattr__(self, key: str) -> Any:
+    #     if key.isupper():
+    #         key = key.lower()
+    #
+    #     attr_err: AttributeError | None = None
+    #     try:
+    #         return object.__getattribute__(self, key)
+    #     except AttributeError as e:
+    #         attr_err = e
+    #
+    #     if self._cfg is not None:
+    #         trace_key = f"{self._trace}.{key}"
+    #         if trace_key in self._cfg:
+    #             return self._cfg[trace_key]
+    #
+    #     raise attr_err if attr_err is not None else AttributeError(key)
+    #
+    # def __setattr__(self, key: str, value: Any) -> None:
+    #     cls = self.__class__
+    #
+    #     # No owner yet (during __set_name__) → default behaviour
+    #     # if self.owner is None:
+    #     if object.__getattribute__(self, 'owner') is None:
+    #         return object.__setattr__(self, key, value)
+    #
+    #     # Normalize ALL-CAPS names to lowercase
+    #     if key.isupper():
+    #         key = key.lower()
+    #
+    #     # 1. internal/descriptor attributes
+    #     if key.startswith('_') or hasattr(cls, key):
+    #         return object.__setattr__(self, key, value)
+    #
+    #     if self._cfg is not None:
+    #         # 2. fallback to cfg dict
+    #         trace_key = f"{self._trace}.{key}"
+    #         self._cfg[trace_key] = value
+    #
+    # def __delattr__(self, key: str) -> None:
+    #     cls = self.__class__
+    #
+    #     # Normalize ALL-CAPS names to lowercase
+    #     if key.isupper():
+    #         key = key.lower()
+    #
+    #     # 1. internal/descriptor attributes
+    #     if key.startswith('_') or hasattr(cls, key):
+    #         return object.__delattr__(self, key)
+    #
+    #     # 2. try to remove from cfg dict
+    #     # if self.cfg is not None:
+    #     if isinstance(self._cfg, Cfg):
+    #         trace_key = f"{self._trace}.{key}"
+    #         if trace_key in self._cfg:
+    #             del self._cfg[trace_key]
+    #             return
+    #
+    #     raise AttributeError(f"{type(self).__name__!r} object has no attribute {key!r}")
 
-        # 1. descriptor / attribute on the instance or class
+    def __getattr__(self, key: str) -> Any:
         try:
             return object.__getattribute__(self, key)
-        except AttributeError:
-            pass
+        except AttributeError as attr_err:
+            low_key = key.lower()
+            if low_key != key:
+                try:
+                    return object.__getattribute__(self, low_key)
+                except AttributeError:
+                    pass
 
-        # 2. fallback to cfg dict
-        if self.cfg is not None:
-            trace_key = f"{self._trace}.{key}"
-            if trace_key in self.cfg:
-                return self.cfg[trace_key]
+            if self._cfg is not None:
+                for k in (key, low_key):
+                    trace_key = f"{self._trace}.{k}"
+                    if trace_key in self._cfg:
+                        return self._cfg[trace_key]
 
-        raise AttributeError(f"{type(self).__name__!r} object has no attribute {key!r}")
+            raise attr_err
 
     def __setattr__(self, key: str, value: Any) -> None:
         cls = self.__class__
 
-        # No owner yet (during __set_name__) → default behaviour
-        # if self.owner is None:
+        # Owner not yet assigned → default behaviour
         if object.__getattribute__(self, 'owner') is None:
             return object.__setattr__(self, key, value)
-
-        # Normalize ALL-CAPS names to lowercase
-        if key.isupper():
-            key = key.lower()
 
         # 1. internal/descriptor attributes
         if key.startswith('_') or hasattr(cls, key):
             return object.__setattr__(self, key, value)
 
-        if self.cfg is not None:
-            # 2. fallback to cfg dict
+        # 2. first attempt with original key
+        if self._cfg is not None:
             trace_key = f"{self._trace}.{key}"
-            self.cfg[trace_key] = value
+            self._cfg[trace_key] = value
+            return
+
+        # 3. last-resort lowercase key
+        low_key = key.lower()
+        if low_key != key and self._cfg is not None:
+            trace_key = f"{self._trace}.{low_key}"
+            self._cfg[trace_key] = value
+            return
+
+        # Fallback to default setattr if cfg absent
+        object.__setattr__(self, key, value)
 
     def __delattr__(self, key: str) -> None:
         cls = self.__class__
-
-        # Normalize ALL-CAPS names to lowercase
-        if key.isupper():
-            key = key.lower()
 
         # 1. internal/descriptor attributes
         if key.startswith('_') or hasattr(cls, key):
             return object.__delattr__(self, key)
 
-        # 2. try to remove from cfg dict
-        # if self.cfg is not None:
-        if isinstance(self.cfg, Cfg):
-            trace_key = f"{self._trace}.{key}"
-            if trace_key in self.cfg:
-                del self.cfg[trace_key]
-                return
+        # 2. try original and lowercase keys in cfg
+        if isinstance(self._cfg, Cfg):
+            for k in (key, key.lower()):
+                trace_key = f"{self._trace}.{k}"
+                if trace_key in self._cfg:
+                    del self._cfg[trace_key]
+                    return
 
         raise AttributeError(f"{type(self).__name__!r} object has no attribute {key!r}")
+

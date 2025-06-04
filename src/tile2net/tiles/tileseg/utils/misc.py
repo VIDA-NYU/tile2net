@@ -282,6 +282,8 @@ class ImageDumper:
             dump_for_auto_labelling=False,
             dump_for_submission=False,
             dump_num=10,
+            *args,
+            **kwargs
     ):
         self.tiles = tiles
         self.val_len = val_len

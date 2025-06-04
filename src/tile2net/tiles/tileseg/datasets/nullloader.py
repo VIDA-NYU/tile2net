@@ -31,6 +31,7 @@ Null Loader
 """
 import numpy as np
 import torch
+from typing import Optional, List, Tuple, Union
 from tile2net.tiles.tileseg.datasets.base_loader import BaseLoader
 from tile2net.tiles.cfg import cfg
 
@@ -44,13 +45,13 @@ class Loader(BaseLoader):
 
     def __init__(
             self,
-            mode,
-            tiles,
-            quality=None,
-            joint_transform_list=None,
-            img_transform=None,
-            label_transform=None,
-    ):
+            mode: str,
+            tiles: 'Tiles',
+            quality: Optional[str] = None,
+            joint_transform_list: Optional[list] = None,
+            img_transform: Optional[object] = None,
+            label_transform: Optional[object] = None,
+    ) -> None:
         super(Loader, self).__init__(
             quality=quality,
             mode=mode,
@@ -60,7 +61,7 @@ class Loader(BaseLoader):
             tiles=tiles
         )
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> Tuple[torch.FloatTensor, torch.LongTensor, str, float]:
         # return img, mask, img_name, scale_float
         crop_size = cfg.DATASET.CROP_SIZE
         if ',' in crop_size:
@@ -75,5 +76,5 @@ class Loader(BaseLoader):
         scale_float = 0.0
         return img, mask, img_name, scale_float
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 3000

@@ -34,13 +34,13 @@ def __get__(
     self.instance = instance
     self.owner = owner
     if issubclass(owner, Cfg):
-        self.cfg = instance
-        self.Cfg = owner
+        self._cfg = instance
+        self._Cfg = owner
     else:
-        self.cfg = instance.cfg
-        self.Cfg = instance.Cfg
+        self._cfg = instance._cfg
+        self._Cfg = instance._Cfg
 
-    cfg = self.cfg
+    cfg = self._cfg
     if (
             cfg is None
             or not cfg._active
@@ -74,21 +74,21 @@ class property(
         self.instance = instance
         self.owner = owner = type(instance)
         if issubclass(owner, Cfg):
-            self.cfg = instance
-            self.Cfg = owner
+            self._cfg = instance
+            self._Cfg = owner
         else:
-            self.cfg = instance.cfg
-            self.Cfg = instance.Cfg
+            self._cfg = instance._cfg
+            self._Cfg = instance.Cfg
 
         return self
-        cfg = instance.cfg
+        cfg = instance._cfg
         cfg[self._trace] = value
 
     def __delete__(
             self,
             instance: Nested,
     ):
-        cfg = instance.cfg
+        cfg = instance._cfg
         if self._trace in cfg:
             del cfg[self._trace]
         else:
@@ -256,3 +256,114 @@ class Namespace(
     This class allows for cmdline properties to be nested within
     namespaces, similar to how argparse works with subparsers.
     """
+
+    # def _trace_key(self, key: str) -> str:
+    #     key = key.lower() if key.isupper() else key
+    #     return f"{self._trace}.{key}" if self._trace else key
+    #
+    # def __getitem__(self, key: str):
+    #     trace = self._trace_key(key)
+    #     return self._cfg[trace]
+    #
+    # def __setitem__(self, key: str, value):
+    #     trace = self._trace_key(key)
+    #     self._cfg[trace] = value
+    #
+    # def __delitem__(self, key: str):
+    #     trace = self._trace_key(key)
+    #     if trace in self._cfg:
+    #         del self._cfg[trace]
+    #     else:
+    #         raise KeyError(trace)
+
+    # def _trace_key(self, key: str) -> str:
+    #     key = key.lower() if key.isupper() else key
+    #     return f"{self._trace}.{key}" if self._trace else key
+    #
+    # def _navigate(self, dotted: str):
+    #     obj: Any = self
+    #     for part in dotted.split("."):
+    #         part = part.lower() if part.isupper() else part
+    #         obj = getattr(obj, part)
+    #     return obj
+    #
+    # def __getitem__(self, key: str):
+    #     trace = self._trace_key(key)
+    #     try:
+    #         return self._cfg[trace]
+    #     except KeyError:
+    #         if "." in key:
+    #             return self._navigate(key)
+    #         raise
+    #
+    # def __setitem__(self, key: str, value):
+    #     if "." in key:
+    #         obj = self._navigate(".".join(key.split(".")[:-1]))
+    #         leaf = key.split(".")[-1]
+    #         setattr(obj, leaf.lower() if leaf.isupper() else leaf, value)
+    #     else:
+    #         self._cfg[self._trace_key(key)] = value
+    #
+    # def __delitem__(self, key: str):
+    #     if "." in key:
+    #         obj = self._navigate(".".join(key.split(".")[:-1]))
+    #         leaf = key.split(".")[-1]
+    #         delattr(obj, leaf.lower() if leaf.isupper() else leaf)
+    #     else:
+    #         trace = self._trace_key(key)
+    #         if trace in self._cfg:
+    #             del self._cfg[trace]
+    #         else:
+    #             raise KeyError(trace)
+
+    # --------------------------- helpers ---------------------------------
+    def _trace_key(self, key: str) -> str:
+        key = key.lower() if key.isupper() else key
+        return f"{self._trace}.{key}" if self._trace else key
+
+    def _navigate(self, dotted: str):
+        obj: Any = self
+        for part in dotted.split("."):
+            part = part.lower() if part.isupper() else part
+            obj = getattr(obj, part)
+        return obj
+
+    # --------------------- mapping interface -----------------------------
+    def __getitem__(self, key: str):
+        trace = self._trace_key(key)
+        try:
+            return self._cfg[trace]
+        except KeyError:
+            try:
+                return self._navigate(key)
+            except AttributeError:
+                raise KeyError(trace) from None
+
+    def __setitem__(self, key: str, value):
+        if "." in key:
+            parent_path, leaf = key.rsplit(".", 1)
+            parent = self._navigate(parent_path)
+            setattr(parent, leaf.lower() if leaf.isupper() else leaf, value)
+        else:
+            self._cfg[self._trace_key(key)] = value
+
+    def __delitem__(self, key: str):
+        if "." in key:
+            parent_path, leaf = key.rsplit(".", 1)
+            parent = self._navigate(parent_path)
+            delattr(parent, leaf.lower() if leaf.isupper() else leaf)
+        else:
+            trace = self._trace_key(key)
+            if trace in self._cfg:
+                del self._cfg[trace]
+            else:
+                raise KeyError(trace)
+
+
+
+
+
+
+
+
+

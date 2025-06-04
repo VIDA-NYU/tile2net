@@ -60,11 +60,24 @@ def get_trunk(trunk_name, output_stride=8):
 
 class ConvBnRelu(nn.Module):
     # https://github.com/lingtengqiu/Deeperlab-pytorch/blob/master/seg_opr/seg_oprs.py
-    def __init__(self, in_planes, out_planes, kernel_size, stride=1, padding=0,
-                 norm_layer=Norm2d):
+    def __init__(
+        self, 
+        in_planes, 
+        out_planes, 
+        kernel_size, 
+        stride=1, 
+        padding=0,
+        norm_layer=Norm2d
+    ):
         super(ConvBnRelu, self).__init__()
-        self.conv = nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size,
-                              stride=stride, padding=padding, bias=False)
+        self.conv = nn.Conv2d(
+            in_planes, 
+            out_planes, 
+            kernel_size=kernel_size,
+            stride=stride, 
+            padding=padding, 
+            bias=False
+        )
         self.bn = norm_layer(out_planes, eps=1e-5)
         self.relu = nn.ReLU(inplace=True)
 
@@ -88,8 +101,13 @@ class AtrousSpatialPyramidPoolingModule(nn.Module):
       Final 1x1 conv
     """
 
-    def __init__(self, in_dim, reduction_dim=256, output_stride=16,
-                 rates=(6, 12, 18)):
+    def __init__(
+        self, 
+        in_dim, 
+        reduction_dim=256, 
+        output_stride=16,
+        rates=(6, 12, 18)
+    ):
         super(AtrousSpatialPyramidPoolingModule, self).__init__()
 
         if output_stride == 8:
@@ -102,14 +120,28 @@ class AtrousSpatialPyramidPoolingModule(nn.Module):
         self.features = []
         # 1x1
         self.features.append(
-            nn.Sequential(nn.Conv2d(in_dim, reduction_dim, kernel_size=1,
-                                    bias=False),
-                          Norm2d(reduction_dim), nn.ReLU(inplace=True)))
+            nn.Sequential(
+                nn.Conv2d(
+                    in_dim, 
+                    reduction_dim, 
+                    kernel_size=1,
+                    bias=False
+                ),
+                Norm2d(reduction_dim), 
+                nn.ReLU(inplace=True)
+            )
+        )
         # other rates
         for r in rates:
             self.features.append(nn.Sequential(
-                nn.Conv2d(in_dim, reduction_dim, kernel_size=3,
-                          dilation=r, padding=r, bias=False),
+                nn.Conv2d(
+                    in_dim, 
+                    reduction_dim, 
+                    kernel_size=3,
+                    dilation=r, 
+                    padding=r, 
+                    bias=False
+                ),
                 Norm2d(reduction_dim),
                 nn.ReLU(inplace=True)
             ))
@@ -136,15 +168,29 @@ class AtrousSpatialPyramidPoolingModule(nn.Module):
 
 
 class ASPP_edge(AtrousSpatialPyramidPoolingModule):
-    def __init__(self, in_dim, reduction_dim=256, output_stride=16,
-                 rates=(6, 12, 18)):
-        super(ASPP_edge, self).__init__(in_dim=in_dim,
-                                        reduction_dim=reduction_dim,
-                                        output_stride=output_stride,
-                                        rates=rates)
+    def __init__(
+        self, 
+        in_dim, 
+        reduction_dim=256, 
+        output_stride=16,
+        rates=(6, 12, 18)
+    ):
+        super(ASPP_edge, self).__init__(
+            in_dim=in_dim,
+            reduction_dim=reduction_dim,
+            output_stride=output_stride,
+            rates=rates
+        )
         self.edge_conv = nn.Sequential(
-            nn.Conv2d(1, reduction_dim, kernel_size=1, bias=False),
-            Norm2d(reduction_dim), nn.ReLU(inplace=True))
+            nn.Conv2d(
+                1, 
+                reduction_dim, 
+                kernel_size=1, 
+                bias=False
+            ),
+            Norm2d(reduction_dim), 
+            nn.ReLU(inplace=True)
+        )
 
     def forward(self, x, edge):
         x_size = x.size()
@@ -170,8 +216,15 @@ def dpc_conv(in_dim, reduction_dim, dil, separable):
         groups = 1
 
     return nn.Sequential(
-        nn.Conv2d(in_dim, reduction_dim, kernel_size=3, dilation=dil,
-                  padding=dil, bias=False, groups=groups),
+        nn.Conv2d(
+            in_dim, 
+            reduction_dim, 
+            kernel_size=3, 
+            dilation=dil,
+            padding=dil, 
+            bias=False, 
+            groups=groups
+        ),
         nn.BatchNorm2d(reduction_dim),
         nn.ReLU(inplace=True)
     )
@@ -182,9 +235,15 @@ class DPC(nn.Module):
     From: Searching for Efficient Multi-scale architectures for dense
     prediction
     '''
-    def __init__(self, in_dim, reduction_dim=256, output_stride=16,
-                 rates=[(1, 6), (18, 15), (6, 21), (1, 1), (6, 3)],
-                 dropout=False, separable=False):
+    def __init__(
+        self, 
+        in_dim, 
+        reduction_dim=256, 
+        output_stride=16,
+        rates=[(1, 6), (18, 15), (6, 21), (1, 1), (6, 3)],
+        dropout=False, 
+        separable=False
+    ):
         super(DPC, self).__init__()
 
         self.dropout = dropout
@@ -220,10 +279,17 @@ def get_aspp(high_level_ch, bottleneck_ch, output_stride, dpc=False):
     Create aspp block
     """
     if dpc:
-        aspp = DPC(high_level_ch, bottleneck_ch, output_stride=output_stride)
+        aspp = DPC(
+            high_level_ch, 
+            bottleneck_ch, 
+            output_stride=output_stride
+        )
     else:
-        aspp = AtrousSpatialPyramidPoolingModule(high_level_ch, bottleneck_ch,
-                                                 output_stride=output_stride)
+        aspp = AtrousSpatialPyramidPoolingModule(
+            high_level_ch, 
+            bottleneck_ch,
+            output_stride=output_stride
+        )
     aspp_out_ch = 5 * bottleneck_ch
     return aspp, aspp_out_ch
 
@@ -243,7 +309,8 @@ def make_seg_head(in_ch, out_ch):
         nn.Conv2d(bot_ch, bot_ch, kernel_size=3, padding=1, bias=False),
         Norm2d(bot_ch),
         nn.ReLU(inplace=True),
-        nn.Conv2d(bot_ch, out_ch, kernel_size=1, bias=False))
+        nn.Conv2d(bot_ch, out_ch, kernel_size=1, bias=False)
+    )
 
 
 def init_attn(m):
@@ -262,21 +329,39 @@ def make_attn_head(in_ch, out_ch):
     if cfg.MODEL.MSCALE_OLDARCH:
         return old_make_attn_head(in_ch, bot_ch, out_ch)
 
-    od = OrderedDict([('conv0', nn.Conv2d(in_ch, bot_ch, kernel_size=3,
-                                          padding=1, bias=False)),
-                      ('bn0', Norm2d(bot_ch)),
-                      ('re0', nn.ReLU(inplace=True))])
+    od = OrderedDict([
+        ('conv0', nn.Conv2d(
+            in_ch, 
+            bot_ch, 
+            kernel_size=3,
+            padding=1, 
+            bias=False
+        )),
+        ('bn0', Norm2d(bot_ch)),
+        ('re0', nn.ReLU(inplace=True))
+    ])
+
 
     if cfg.MODEL.MSCALE_INNER_3x3:
-        od['conv1'] = nn.Conv2d(bot_ch, bot_ch, kernel_size=3, padding=1,
-                                bias=False)
+        od['conv1'] = nn.Conv2d(
+            bot_ch, 
+            bot_ch, 
+            kernel_size=3, 
+            padding=1,
+            bias=False
+        )
         od['bn1'] = Norm2d(bot_ch)
         od['re1'] = nn.ReLU(inplace=True)
 
     if cfg.MODEL.MSCALE_DROPOUT:
         od['drop'] = nn.Dropout(0.5)
 
-    od['conv2'] = nn.Conv2d(bot_ch, out_ch, kernel_size=1, bias=False)
+    od['conv2'] = nn.Conv2d(
+        bot_ch, 
+        out_ch, 
+        kernel_size=1, 
+        bias=False
+    )
     od['sig'] = nn.Sigmoid()
 
     attn_head = nn.Sequential(od)

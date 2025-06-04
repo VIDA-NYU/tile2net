@@ -51,7 +51,7 @@ class Static:
         url = 'https://drive.google.com/drive/folders/1cu-MATHgekWUYqj9TFr12utl6VB-XKSu'
         gdown.download_folder(
             url=url,
-            quiet=True,
+            # quiet=True,
             output=self.path.__str__(),
         )
 

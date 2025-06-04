@@ -40,9 +40,6 @@ from tile2net.tiles.tileseg.network.ocr_utils import SpatialGather_Module, Spati
 from tile2net.tiles.tileseg.utils.misc import fmt_scale
 from tile2net.tiles.cfg import cfg
 
-if False:
-    from tile2net.tiles.tiles import Tiles
-
 
 class OCR_block(nn.Module):
     """
@@ -50,35 +47,31 @@ class OCR_block(nn.Module):
     https://github.com/HRNet/HRNet-Semantic-Segmentation/tree/HRNet-OCR
     """
 
-    def __init__(self, high_level_ch, tiles: 'Tiles'):
+    def __init__(self, high_level_ch):
         super(OCR_block, self).__init__()
-
-        self.tiles = tiles
-        ocr_mid_channels = cfg.model.ocr.mid_channels
-        ocr_key_channels = cfg.model.ocr.key_channels
-        num_classes = cfg.dataset.num_classes
+        num_classes = cfg.DATASET.NUM_CLASSES
 
         self.conv3x3_ocr = nn.Sequential(
             nn.Conv2d(
                 high_level_ch, 
-                ocr_mid_channels,
+                cfg.model.ocr.mid_channels,
                 kernel_size=3, 
                 stride=1, 
                 padding=1
             ),
-            BNReLU(ocr_mid_channels),
+            BNReLU(cfg.model.ocr.mid_channels),
         )
-        self.ocr_gather_head = SpatialGather_Module(num_classes)
+        self.ocr_gather_head = SpatialGather_Module(cfg.dataset.num_classes)
         self.ocr_distri_head = SpatialOCR_Module(
-            in_channels=ocr_mid_channels,
-            key_channels=ocr_key_channels,
-            out_channels=ocr_mid_channels,
+            in_channels=cfg.model.ocr.mid_channels,
+            key_channels=cfg.model.ocr.key_channels,
+            out_channels=cfg.model.ocr.mid_channels,
             scale=1,
             dropout=0.05,
         )
         self.cls_head = nn.Conv2d(
-            ocr_mid_channels, 
-            num_classes, 
+            cfg.model.ocr.mid_channels, 
+            cfg.dataset.num_classes, 
             kernel_size=1, 
             stride=1, 
             padding=0,
@@ -127,12 +120,11 @@ class OCRNet(nn.Module):
     OCR net
     """
 
-    def __init__(self, tiles:Tiles, num_classes, trunk='hrnetv2', criterion=None):
+    def __init__(self, num_classes, trunk='hrnetv2', criterion=None):
         super(OCRNet, self).__init__()
         self.criterion = criterion
-        self.tiles = tiles
         self.backbone, _, _, high_level_ch = get_trunk(trunk)
-        self.ocr = OCR_block(high_level_ch, tiles)
+        self.ocr = OCR_block(high_level_ch)
 
     def forward(self, inputs):
         assert 'images' in inputs
@@ -163,17 +155,16 @@ class OCRNetASPP(nn.Module):
     OCR net
     """
 
-    def __init__(self,tiles:Tiles, num_classes, trunk='hrnetv2', criterion=None):
+    def __init__(self, num_classes, trunk='hrnetv2', criterion=None):
         super(OCRNetASPP, self).__init__()
         self.criterion = criterion
-        self.tiles = tiles
         self.backbone, _, _, high_level_ch = get_trunk(trunk)
         self.aspp, aspp_out_ch = get_aspp(
             high_level_ch,
             bottleneck_ch=256,
             output_stride=8
         )
-        self.ocr = OCR_block(aspp_out_ch, tiles)
+        self.ocr = OCR_block(aspp_out_ch)
 
     def forward(self, inputs):
         assert 'images' in inputs
@@ -200,12 +191,11 @@ class MscaleOCR(nn.Module):
     OCR net
     """
 
-    def __init__(self,tiles:Tiles, num_classes, trunk='hrnetv2', criterion=None):
+    def __init__(self, num_classes, trunk='hrnetv2', criterion=None):
         super(MscaleOCR, self).__init__()
         self.criterion = criterion
-        self.tiles = tiles
         self.backbone, _, _, high_level_ch = get_trunk(trunk)
-        self.ocr = OCR_block(high_level_ch, tiles)
+        self.ocr = OCR_block(high_level_ch)
         self.scale_attn = make_attn_head(
             in_ch=cfg.model.ocr.mid_channels, 
             out_ch=1
@@ -222,9 +212,11 @@ class MscaleOCR(nn.Module):
         cls_out = Upsample(cls_out, x_size)
         attn = Upsample(attn, x_size)
 
-        return {'cls_out': cls_out,
-                'aux_out': aux_out,
-                'logit_attn': attn}
+        return dict(
+            cls_out=cls_out,
+            aux_out=aux_out,
+            logit_attn=attn
+        )
 
     def nscale_forward(self, inputs, scales):
         """
@@ -362,12 +354,12 @@ class MscaleOCR(nn.Module):
                 loss += cfg.loss.supervised_mscale_wt * loss_hi
             return loss
         else:
-            output_dict = {
-                'pred': joint_pred,
-                'pred_05x': pred_05x,
-                'pred_10x': pred_10x,
-                'attn_05x': attn_05x,
-            }
+            output_dict = dict(
+                pred=joint_pred,
+                pred_05x=pred_05x,
+                pred_10x=pred_10x,
+                attn_05x=attn_05x,
+            )
             return output_dict
 
     def forward(self, inputs):
@@ -378,9 +370,9 @@ class MscaleOCR(nn.Module):
         return self.two_scale_forward(inputs)
 
 
-def HRNet(num_classes, criterion, tiles: 'Tiles'):
-    return OCRNet(num_classes, trunk='hrnetv2', criterion=criterion, tiles=tiles)
+def HRNet(num_classes, criterion):
+    return OCRNet(num_classes, trunk='hrnetv2', criterion=criterion)
 
 
-def HRNet_Mscale(num_classes, criterion, tiles: 'Tiles'):
-    return MscaleOCR(num_classes, trunk='hrnetv2', criterion=criterion, tiles=tiles)
+def HRNet_Mscale(num_classes, criterion):
+    return MscaleOCR(num_classes, trunk='hrnetv2', criterion=criterion)

@@ -33,6 +33,7 @@ from __future__ import annotations
 import os
 import glob
 import numpy as np
+from typing import List, Tuple, Optional, Union, Any, Dict
 
 from PIL import Image
 from torch.utils import data
@@ -46,13 +47,13 @@ if False:
 class BaseLoader(data.Dataset):
     def __init__(
             self,
-            quality,
-            mode,
-            joint_transform_list,
-            img_transform,
-            label_transform,
-            tiles: Tiles,
-    ):
+            quality: Optional[str],
+            mode: str,
+            joint_transform_list: Optional[List[Any]],
+            img_transform: Optional[Any],
+            label_transform: Optional[Any],
+            tiles: 'Tiles',
+    ) -> None:
         super(BaseLoader, self).__init__()
         self.quality = quality
         self.mode = mode
@@ -67,7 +68,7 @@ class BaseLoader(data.Dataset):
         self.drop_mask[15:840, 14:2030] = 1.0
         self.tiles = tiles
 
-    def build_epoch(self):
+    def build_epoch(self) -> None:
         """
         For class uniform sampling ... every epoch, we want to recompute
         which tiles from which images we want to sample from, so that the
@@ -81,7 +82,7 @@ class BaseLoader(data.Dataset):
         )
 
     @staticmethod
-    def find_images(img_root, mask_root, img_ext, mask_ext):
+    def find_images(img_root: str, mask_root: str, img_ext: str, mask_ext: str) -> List[Tuple[str, str]]:
         """
         Find image and segmentation mask files and return a list of
         tuples of them.
@@ -98,10 +99,10 @@ class BaseLoader(data.Dataset):
             items.append((full_img_fn, full_mask_fn))
         return items
 
-    def disable_coarse(self):
+    def disable_coarse(self) -> None:
         pass
 
-    def colorize_mask(self, image_array):
+    def colorize_mask(self, image_array: np.ndarray) -> Image.Image:
         """
         Colorize the segmentation mask
         """
@@ -109,7 +110,7 @@ class BaseLoader(data.Dataset):
         new_mask.putpalette(self.color_mapping)
         return new_mask
 
-    def dump_images(self, img_name, mask, centroid, class_id, img):
+    def dump_images(self, img_name: str, mask: Any, centroid: Optional[Tuple[int, int]], class_id: Optional[int], img: Any) -> None:
         img = tensor_to_pil(img)
         outdir = 'new_dump_imgs_{}'.format(self.mode)
         os.makedirs(outdir, exist_ok=True)
@@ -127,7 +128,8 @@ class BaseLoader(data.Dataset):
         mask_img.save(out_msk_fn)
         raw_img.save(out_raw_fn)
 
-    def do_transforms(self, img, mask, centroid, img_name, class_id):
+    def do_transforms(self, img: Image.Image, mask: Image.Image, centroid: Optional[Tuple[int, int]], 
+                  img_name: str, class_id: Optional[int]) -> Tuple[Any, Any, float]:
         """
         Do transformations to image and mask
 
@@ -159,7 +161,7 @@ class BaseLoader(data.Dataset):
 
         return img, mask, scale_float
 
-    def read_images(self, img_path, mask_path):
+    def read_images(self, img_path: str, mask_path: Optional[str]) -> Tuple[Image.Image, Image.Image, str]:
         img = Image.open(img_path).convert('RGB')
         if mask_path is None or mask_path == '':
             w, h = img.size
@@ -178,7 +180,7 @@ class BaseLoader(data.Dataset):
         mask = Image.fromarray(mask.astype(np.uint8))
         return img, mask, img_name
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> Tuple[Any, Any, str, float]:
         """
         Generate data:
 
@@ -216,8 +218,8 @@ class BaseLoader(data.Dataset):
 
         return img, mask, img_name, scale_float
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.imgs)
 
-    def calculate_weights(self):
+    def calculate_weights(self) -> None:
         raise BaseException("not supported yet")
