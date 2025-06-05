@@ -33,6 +33,8 @@ Miscellanous Functions
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import os
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import *
@@ -232,20 +234,20 @@ def metrics_per_image(
     return FP, FN
 
 
-# class DumpDict(TypedDict, total=False):
-class DumpDict(TypedDict):
+@dataclass
+class DumpData:
     gt_images: torch.Tensor
     input_images: torch.Tensor
-    predictions: np.ndarray
-    err_mask: np.ndarray
-    prob_mask: torch.Tensor
-    img_names: List[str]
+    # img_names: List[str]
     assets: dict[str, Any]
-    attn_maps: Optional[np.ndarray]
+    predictions: np.ndarray = None
+    err_mask: np.ndarray = None
+    prob_mask: torch.Tensor = None
+    attn_maps: Optional[np.ndarray] = None
 
-    error_files: np.ndarray
-    prob_files: np.ndarray
-    sidebyside_files: np.ndarray
+    error_files: np.ndarray = None
+    prob_files: np.ndarray = None
+    sidebyside_files: np.ndarray = None
 
 
 class AverageMeter:
@@ -360,25 +362,29 @@ class ThreadedDumper(
 
     def dump(
             self,
-            dump_dict: DumpDict,
+            dump_data: DumpData,
             val_idx,
             testing=None,
             tiles: Tiles = None,
     ):
         colorize_mask_fn = cfg.dataset_inst.colorize_mask
 
-        for idx in range(len(dump_dict['input_images'])):
-            # input_image = dump_dict['input_images'][idx]
-            # gt_image = dump_dict['gt_images'][idx]
-            # prediction = dump_dict['assets']['predictions'][idx]
-            # img_name = dump_dict['img_names'][idx]
-            input_image = dump_dict
+        for idx in range(len(dump_data.input_images)):
+            input_image = dump_data.input_images[idx]
+            gt_image = dump_data.gt_images[idx]
+            prediction = dump_data.assets['predictions'][idx]
+            # img_name = dump_data.img_names[idx]
+            sidebyside = dump_data.sidebyside_files[idx]
+            prob = dump_data.prob_files[idx]
+            error = dump_data.error_files[idx]
 
             er_prob, err_pil = self.save_prob_and_err_mask(
-                dump_dict=dump_dict,
-                img_name=img_name,
+                dump_data=dump_data,
+                # img_name=img_name,
                 idx=idx,
-                prediction=prediction
+                prediction=prediction,
+                prob_file=prob,
+                err_file=error,
             )
 
             input_image = self.inv_normalize(input_image).cpu()
@@ -403,7 +409,8 @@ class ThreadedDumper(
                 self.create_composite_image(
                     input_image=input_image,
                     prediction_pil=prediction_pil,
-                    img_name=img_name
+                    # img_name=img_name,
+                    sidebyside=sidebyside
                 )
 
                 if tiles is not None:
@@ -451,7 +458,7 @@ class ThreadedDumper(
             self,
             input_image,
             prediction_pil,
-            img_name,
+            # img_name,
             sidebyside: str,
     ):
         if not cfg.dump_percent:
@@ -477,7 +484,7 @@ class ThreadedDumper(
 
     def get_dump_assets(
             self,
-            dump_dict,
+            dump_data: DumpData,
             img_name,
             idx,
             colorize_mask_fn,
@@ -485,7 +492,7 @@ class ThreadedDumper(
     ):
         if not self.dump_assets:
             return
-        assets = dump_dict['assets']
+        assets = dump_data.assets
         for asset, mask in assets.items():
             mask = mask[idx]
             fn = os.path.join(
@@ -510,32 +517,38 @@ class ThreadedDumper(
 
     def save_prob_and_err_mask(
             self,
-            dump_dict,
-            img_name,
+            dump_data: DumpData,
+            # img_name,
             idx,
             prediction,
+            prob_file,
+            err_file,
     ):
         err_pil = None
-        # if 'err_mask' in dump_dict and 'prob_mask' in dump_dict['assets']:
+        # Check if err_mask and prob_mask are available
         if (
-                'err_mask' in dump_dict
-                and 'prob_mask' in dump_dict['assets']
+                dump_data.err_mask is not None
+                and 'prob_mask' in dump_data.assets
         ):
-            prob = dump_dict['assets']['prob_mask'][idx]
-            err_mask = dump_dict['err_mask'][idx]  # noqa: F841
+            prob = dump_data.assets['prob_mask'][idx]
+            err_mask = dump_data.err_mask[idx]  # noqa: F841
             prob_arr = (prob.cpu().numpy() * 255).astype(np.uint8)
-            self.futures.append(
-                self.threads.submit(
-                    self.save_image,
-                    prob_arr,
-                    f'{img_name}_prob.png',
-                ),
-            )
+            # self.futures.append(
+            #     self.threads.submit(
+            #         self.save_image,
+            #         prob_arr,
+            #         f'{img_name}_prob.png',
+            #     ),
+            # )
+            future = self.threads.submit(self.save_image, prob_arr, prob_file)
+            self.futures.append(future)
             err_pil = Image.fromarray(prediction.astype(np.uint8)).convert('RGB')
-            path = os.path.join(self.save_dir, f'{img_name}_err_mask.png')
-            self.futures.append(
-                self.threads.submit(err_pil.save, path),
-            )
+            # path = os.path.join(self.save_dir, f'{img_name}_err_mask.png')
+            # self.futures.append(
+            #     self.threads.submit(err_pil.save, path),
+            # )
+            future = self.threads.submit(err_pil.save, err_file)
+            self.futures.append(future)
             return True, err_pil
         return False, err_pil
 

@@ -168,15 +168,7 @@ class MaskRaw(
 class Mask(
     Dir
 ):
-    @MaskRaw
-    def raw(self):
-        format = os.path.join(
-            self.dir,
-            'raw',
-            self.suffix,
-        )
-        result = MaskRaw.from_format(format)
-        return result
+    ...
 
 
 class BestImages(
@@ -190,6 +182,26 @@ class BestImages(
 class Outdir(
     Dir
 ):
+    @Mask
+    def mask(self):
+        format = os.path.join(
+            self.dir,
+            'mask',
+            self.suffix,
+        )
+        result = Mask.from_format(format)
+        return result
+
+    @MaskRaw
+    def raw(self):
+        format = os.path.join(
+            self.dir,
+            'mask_raw',
+            self.suffix,
+        )
+        result = MaskRaw.from_format(format)
+        return result
+
     @SegResults
     def seg_results(self):
         format = os.path.join(

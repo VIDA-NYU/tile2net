@@ -44,7 +44,7 @@ from tile2net.tiles.tileseg.utils.misc import AverageMeter, prep_experiment
 from tile2net.tiles.tileseg.utils.misc import ThreadedDumper
 from tile2net.tiles.tileseg.utils.trnval_utils import eval_minibatch
 from tile2net.tiles.cfg import cfg
-from tile2net.tiles.tileseg.utils.misc import DumpDict
+from tile2net.tiles.tileseg.utils.misc import DumpData
 
 args = cfg
 
@@ -280,9 +280,17 @@ class Inference(
         _temp = dict.fromkeys([i for i in range(10)], None)
         tiles = TILES
         tiles.outdir.seg_results.dir
+        prob = tiles.outdir.seg_results.prob
+        error = tiles.outdir.seg_results.error
+        sidebyside = tiles.outdir.seg_results.sidebyside
+        os.makedirs(prob.dir)
+        os.makedirs(error.dir)
+        os.makedirs(sidebyside.dir)
+
         PROB = tiles.outdir.seg_results.prob.files.values
         ERROR = tiles.outdir.seg_results.error.files.values
         SIDEBYSIDE = tiles.outdir.seg_results.sidebyside.files.values
+        RESULT = tiles.outdir
         i = 0
         for val_idx, data in enumerate(val_loader):
             input_images, labels, img_names, _ = data
@@ -305,7 +313,7 @@ class Inference(
             input_images, labels, img_names, _ = data
 
             # prob_path, err_path, sidebyside_path,
-            dumpdict = DumpDict(
+            dumpdict = DumpData(
                 gt_images=labels,
                 input_images=input_images,
                 assets=assets,
