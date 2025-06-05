@@ -32,7 +32,7 @@ class PedNet():
             poly: gpd.GeoDataFrame,
             tiles: Tiles,
     ):
-
+        self.tiles = tiles
         self.polygons = poly
         self.nodes = []
         self.edges = []
@@ -41,7 +41,6 @@ class PedNet():
         self.sidewalk = -1
         self.crosswalk = -1
         self.complete_net = -1
-        self.tiles = tiles
 
     def prepare_class_gdf(self, class_name) -> object:
         """
@@ -456,9 +455,11 @@ class PedNet():
         combined.reset_index(drop=True, inplace=True)
         # path = self.project.network.path
 
-        # path.mkdir(parents=True, exist_ok=True)
-        # path = path.joinpath(f'{self.project.name}-Network-{datetime.datetime.now().strftime("%d-%m-%Y_%H_%M")}')
         path = self.tiles.outdir.network.path
+        # path.mkdir(parents=True, exist_ok=True)
+        os.makedirs(path, exist_ok=True)
+        # path = path.joinpath(f'{self.project.name}-Network-{datetime.datetime.now().strftime("%d-%m-%Y_%H_%M")}')
+
         if os.path.exists(path):
             shutil.rmtree(path)
         combined.to_file(path)

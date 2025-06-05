@@ -19,6 +19,8 @@ import numpy as np
 from numpy import ndarray
 import numba as nb
 from functools import singledispatch
+import ast
+import textwrap
 
 if False:
     import folium
@@ -218,6 +220,127 @@ def name_from_location(location: str | list[float, str]):
         )
         return name
     raise TypeError(f"location must be str or list, not {type(location)}")
+
+
+
+def has_uncommented_return(func):
+    source_code = inspect.getsource(func)
+    source_code = textwrap.dedent(source_code)
+    tree = ast.parse(source_code)
+
+    class ReturnVisitor(ast.NodeVisitor):
+        def __init__(self):
+            self.found = False
+
+        def visit_Return(self, node):
+            if (
+                    not isinstance(node.value, ast.Constant)
+                    or node.value.value is not None
+            ):
+                self.found = True
+
+    visitor = ReturnVisitor()
+    visitor.visit(tree)
+    return visitor.found
+
+
+class LazyModuleLoader:
+    def __init__(self, module_name):
+        self.module_name = module_name
+        self.module = None
+
+    def _load_module(self):
+        if self.module is None:
+            self.module = __import__(self.module_name, fromlist=[''])
+
+    def __getattr__(self, item):
+        self._load_module()
+        return getattr(self.module, item)
+
+    def __setattr__(self, key, value):
+        if key in ('module_name', 'module'):
+            super().__setattr__(key, value)
+        else:
+            self._load_module()
+            setattr(self.module, key, value)
+
+
+def noreturn(func) -> bool:
+    tree = ast.parse(inspect.getsource(func))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Return):
+            return True
+    return False
+
+
+class ReturnVisitor(ast.NodeVisitor):
+    def __init__(self):
+        self.found = False
+
+    def visit_Return(self, node):
+        self.found = True
+        self.generic_visit(node)
+
+
+class CodeVisitor(ast.NodeVisitor):
+    def __init__(self):
+        self.has_code = False
+
+    def visit_Assign(self, node):
+        self.has_code = True
+        self.generic_visit(node)
+
+    def visit_AugAssign(self, node):
+        self.has_code = True
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node):
+        self.has_code = True
+        self.generic_visit(node)
+
+    def visit_Return(self, node):
+        self.has_code = True
+        self.generic_visit(node)
+
+def contains_functioning_code(code):
+    if inspect.isfunction(code):
+        code = inspect.getsource(code)
+    dedented_code = textwrap.dedent(code)
+    tree = ast.parse(dedented_code)
+    visitor = CodeVisitor()
+    visitor.visit(tree)
+    return visitor.has_code
+
+
+def returns_or_assigns(code) -> bool:
+    if not code:
+        return False
+    return (
+            returns(code)
+            or contains_functioning_code(code)
+    )
+
+def returns(code):
+    if inspect.isfunction(code):
+        code = inspect.getsource(code)
+    dedented_code = textwrap.dedent(code)
+    tree = ast.parse(dedented_code)
+    visitor = ReturnVisitor()
+    visitor.visit(tree)
+    return visitor.found
+
+
+def has_executable_code(func):
+    tree = ast.parse(inspect.getsource(func))
+    for node in ast.walk(tree):
+        clses = (
+            ast.Assign, ast.AugAssign, ast.AnnAssign, ast.For, ast.While,
+            ast.If, ast.With, ast.Call, ast.Expr, ast.AsyncFor,
+            ast.AsyncWith, ast.Try, ast.ExceptHandler, ast.FunctionDef, ast.ClassDef,
+        )
+        if isinstance(node, clses):
+            return True
+    return False
 
 
 if __name__ == '__main__':

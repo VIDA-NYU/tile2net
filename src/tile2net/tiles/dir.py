@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import functools
 from typing import Optional, Self
 import prometheus_client
 from typing import Self
@@ -20,52 +22,11 @@ from pathlib import Path
 from toolz import curried, curry as cur, pipe
 from typing import Iterator
 from typing import Union
+from .util import returns_or_assigns
 
 if False:
     from .tiles import Tiles
 
-
-# def __get__(
-#         self: Dir,
-#         instance: Union[Dir, Tiles],
-#         owner: Union[
-#             type[Dir],
-#             type[Tiles]
-#         ]
-# ):
-#     if instance is None:
-#         return self
-#     # key = self.__name__
-#     key = self._trace
-#     if isinstance(instance, pd.DataFrame):
-#         if key in instance.attrs:
-#             result = instance.attrs[key]
-#         else:
-#             raise AttributeError
-#     if isinstance(instance, Dir):
-#         if key in instance.__dict__:
-#             result = instance.__dict__[key]
-#         else:
-#             dir = os.path.join(
-#                 instance.dir,
-#                 key,
-#                 instance.suffix
-#             )
-#             result = self.__class__(dir)
-#             result.__name__ = self.__name__
-#             instance.__dict__[key] = result
-#
-#     from .tiles import Tiles
-#     result.instance = instance
-#     result.owner = owner
-#     if issubclass(owner, Tiles):
-#         result.tiles = instance
-#         result.Tiles = owner
-#     else:
-#         result.tiles = instance.tiles
-#         result.Tiles = instance.Tiles
-#
-#     return result
 
 
 def __get__(
@@ -88,7 +49,7 @@ def __get__(
         raise TypeError(f'instance must be Tiles or Dir, not {type(instance).__name__}')
 
     try:
-        return self.tiles.attrs[self._trace]
+        result = self.tiles.attrs[self._trace]
     except KeyError as e:
         try:
             dir = self.instance.dir
@@ -101,13 +62,17 @@ def __get__(
             )
             raise AttributeError(msg) from e
         else:
-            path = os.path.join(dir, self.__name__)
-            result = self.__class__.from_dir(path)
+            if self.__wrapped__:
+                result = self.__wrapped__(self.instance)
+            else:
+                path = os.path.join(dir, self.__name__)
+                result = self.__class__.from_dir(path)
             self.tiles.attrs[self._trace] = result
-            result.instance = self.instance
-            result.owner = self.owner
-            result.tiles = self.tiles
-            return result
+    result.__name__ = self.__name__
+    result.instance = self.instance
+    result.owner = self.owner
+    result.tiles = self.tiles
+    return result
 
 
 class Dir:
@@ -117,6 +82,7 @@ class Dir:
     locals().update(
         __get__=__get__
     )
+    __wrapped__ = None
 
     def __set_name__(self, owner, name):
         self.__name__ = name
@@ -341,11 +307,6 @@ class Dir:
             value = str(value)
         value = os.path.normpath(value)
 
-        # if re.search(r'[/_.\-\\](?:x|y|z)(?=[/_.\-\\])', value):
-        #     indir = self.from_format(value)
-        # else:
-        #     indir = self.from_dir(value)
-
         indir = self.from_format(value)
 
         indir.__name__ = self.__name__
@@ -390,8 +351,9 @@ class Dir:
                 f')'
             )
 
-    def __init__(self, *args, **kwargs):
-        ...
+    def __init__(self, func=None):
+        if returns_or_assigns(func):
+            functools.update_wrapper(self, func)
 
     @classmethod
     def is_valid(cls, indir: str):

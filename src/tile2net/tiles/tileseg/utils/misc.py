@@ -232,7 +232,8 @@ def metrics_per_image(
     return FP, FN
 
 
-class DumpDict(TypedDict, total=False):
+# class DumpDict(TypedDict, total=False):
+class DumpDict(TypedDict):
     gt_images: torch.Tensor
     input_images: torch.Tensor
     predictions: np.ndarray
@@ -241,6 +242,10 @@ class DumpDict(TypedDict, total=False):
     img_names: List[str]
     assets: dict[str, Any]
     attn_maps: Optional[np.ndarray]
+
+    error_files: np.ndarray
+    prob_files: np.ndarray
+    sidebyside_files: np.ndarray
 
 
 class AverageMeter:
@@ -363,10 +368,11 @@ class ThreadedDumper(
         colorize_mask_fn = cfg.dataset_inst.colorize_mask
 
         for idx in range(len(dump_dict['input_images'])):
-            input_image = dump_dict['input_images'][idx]
-            gt_image = dump_dict['gt_images'][idx]
-            prediction = dump_dict['assets']['predictions'][idx]
-            img_name = dump_dict['img_names'][idx]
+            # input_image = dump_dict['input_images'][idx]
+            # gt_image = dump_dict['gt_images'][idx]
+            # prediction = dump_dict['assets']['predictions'][idx]
+            # img_name = dump_dict['img_names'][idx]
+            input_image = dump_dict
 
             er_prob, err_pil = self.save_prob_and_err_mask(
                 dump_dict=dump_dict,
@@ -446,6 +452,7 @@ class ThreadedDumper(
             input_image,
             prediction_pil,
             img_name,
+            sidebyside: str,
     ):
         if not cfg.dump_percent:
             return
@@ -460,12 +467,12 @@ class ThreadedDumper(
         composited = Image.new('RGB', size)
         composited.paste(input_image, (0, 0))
         composited.paste(prediction_pil, (input_image.width, 0))
-        fn = os.path.join(
-            self.save_dir,
-            f'sidebside_{img_name}.png',
-        )
+        # fn = os.path.join(
+        #     self.save_dir,
+        #     f'sidebside_{img_name}.png',
+        # )
         self.futures.append(
-            self.threads.submit(composited.save, fn),
+            self.threads.submit(composited.save, sidebyside),
         )
 
     def get_dump_assets(

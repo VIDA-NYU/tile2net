@@ -21,6 +21,7 @@ class Probability(
             format = self.format
             zoom = tiles.zoom
             it = zip(tiles.ytile, tiles.xtile)
+            self.tiles.outdir
             data = [
                 format.format(z=zoom, y=ytile, x=xtile)
                 for ytile, xtile in it
@@ -116,17 +117,36 @@ class SideBySide(
 class SegResults(
     Dir
 ):
+
     @Probability
     def prob(self):
-        ...
+        format = os.path.join(
+            self.dir,
+            'prob',
+            self.suffix,
+        ).replace(self.extension, 'png')
+        result = Probability.from_format(format)
+        return result
 
     @Error
     def error(self):
-        ...
+        format = os.path.join(
+            self.dir,
+            'error',
+            self.suffix,
+        ).replace(self.extension, 'png')
+        result = Error.from_format(format)
+        return result
 
     @SideBySide
     def sidebyside(self):
-        ...
+        format = os.path.join(
+            self.dir,
+            'sidebyside',
+            self.suffix,
+        ).replace(self.extension, 'png')
+        result = SideBySide.from_format(format)
+        return result
 
     @property
     def topn_failures(self) -> str:
@@ -150,7 +170,13 @@ class Mask(
 ):
     @MaskRaw
     def raw(self):
-        ...
+        format = os.path.join(
+            self.dir,
+            'raw',
+            self.suffix,
+        )
+        result = MaskRaw.from_format(format)
+        return result
 
 
 class BestImages(
@@ -166,23 +192,53 @@ class Outdir(
 ):
     @SegResults
     def seg_results(self):
-        ...
+        format = os.path.join(
+            self.dir,
+            'seg_results',
+            self.suffix,
+        )
+        result = SegResults.from_format(format)
+        return result
 
     @Submit
     def submit(self):
-        ...
+        format = os.path.join(
+            self.dir,
+            'submit',
+            self.suffix,
+        )
+        result = Submit.from_format(format)
+        return result
 
     @Polygons
     def polygons(self):
-        ...
+        format = os.path.join(
+            self.dir,
+            'polygons',
+            self.suffix,
+        )
+        result = Polygons.from_format(format)
+        return result
 
     @Network
     def network(self):
-        ...
+        format = os.path.join(
+            self.dir,
+            'network',
+            self.suffix,
+        )
+        result = Network.from_format(format)
+        return result
 
     @BestImages
     def best_images(self):
-        ...
+        format = os.path.join(
+            self.dir,
+            'best_images',
+            self.suffix,
+        )
+        result = BestImages.from_format(format)
+        return result
 
     def preview(self) -> str:
         self.seg_results.error.format

@@ -273,14 +273,24 @@ class Inference(
             tiles=self.tiles,
         )
 
-        tiles = self.tiles
+        TILES = self.tiles
         net.eval()
         val_loss = AverageMeter()
         iou_acc = 0
-        pred = dict()
         _temp = dict.fromkeys([i for i in range(10)], None)
+        tiles = TILES
+        tiles.outdir.seg_results.dir
+        PROB = tiles.outdir.seg_results.prob.files.values
+        ERROR = tiles.outdir.seg_results.error.files.values
+        SIDEBYSIDE = tiles.outdir.seg_results.sidebyside.files.values
+        i = 0
         for val_idx, data in enumerate(val_loader):
             input_images, labels, img_names, _ = data
+            n = input_images.shape[0]
+            prob = PROB[i:i + n]
+            error = ERROR[i:i + n]
+            sidebyside = SIDEBYSIDE[i:i + n]
+            i += n
 
             # Run network
             assets, _iou_acc = eval_minibatch(
@@ -294,11 +304,14 @@ class Inference(
             iou_acc += _iou_acc
             input_images, labels, img_names, _ = data
 
+            # prob_path, err_path, sidebyside_path,
             dumpdict = DumpDict(
                 gt_images=labels,
                 input_images=input_images,
-                img_names=img_names,
                 assets=assets,
+                prob_files=prob,
+                error_files=error,
+                sidebyside_files=sidebyside,
             )
             if testing:
                 dump = dumper.dump(dumpdict, val_idx, testing=True, tiles=tiles)
@@ -327,7 +340,8 @@ class Inference(
 
             self.save_ntw_polygons(poly_network)
             polys = self.ntw_poly
-            net = PedNet(poly=polys)
+            # outpath = tiles.outdir.network.path
+            net = PedNet(poly=polys, tiles=tiles)
             net.convert_whole_poly2line()
 
     def save_ntw_polygons(
@@ -364,10 +378,11 @@ class Inference(
         simplified.to_crs(self.crs, inplace=True)
 
         self.ntw_poly = simplified
-        path = os.path.join(
-            poly_fold,
-            f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H_%M")}'
-        )
+        # path = os.path.join(
+        #     poly_fold,
+        #     f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H_%M")}'
+        # )
+        path = self.tiles.outdir.polygons.path
         if os.path.exists(path):
             shutil.rmtree(path)
         simplified.to_file(path)

@@ -31,7 +31,6 @@ from .fixed import GeoDataFrameFixed
 from .indir import Indir
 from .inference import Inference
 from .mosaic import Mosaic
-# from .static import static
 from .outdir import Outdir
 from .source import Source, SourceNotFound
 from .static import Static, static
