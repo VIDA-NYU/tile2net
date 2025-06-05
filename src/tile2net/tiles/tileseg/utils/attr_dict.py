@@ -31,11 +31,18 @@ class AttrDict(dict):
 
     IMMUTABLE = '__immutable__'
 
-    def __init__(self, *args, **kwargs):
+    def __init__(
+        self,
+        *args,
+        **kwargs
+    ) -> None:
         super(AttrDict, self).__init__(*args, **kwargs)
         self.__dict__[AttrDict.IMMUTABLE] = False
 
-    def __getattr__(self, name):
+    def __getattr__(
+        self,
+        name: str
+    ) -> any:
         if name in self.__dict__:
             return self.__dict__[name]
         elif name in self:
@@ -43,7 +50,11 @@ class AttrDict(dict):
         else:
             raise AttributeError(name)
 
-    def __setattr__(self, name, value):
+    def __setattr__(
+        self,
+        name: str,
+        value: any
+    ) -> None:
         if not self.__dict__[AttrDict.IMMUTABLE]:
             if name in self.__dict__:
                 self.__dict__[name] = value
@@ -51,11 +62,16 @@ class AttrDict(dict):
                 self[name] = value
         else:
             raise AttributeError(
-                'Attempted to set "{}" to "{}", but AttrDict is immutable'.
-                format(name, value)
+                'Attempted to set "{}" to "{}", but AttrDict is immutable'.format(
+                    name, 
+                    value
+                )
             )
 
-    def immutable(self, is_immutable):
+    def immutable(
+        self,
+        is_immutable: bool
+    ) -> None:
         """Set immutability to is_immutable and recursively apply the setting
         to all nested AttrDicts.
         """
@@ -68,5 +84,7 @@ class AttrDict(dict):
             if isinstance(v, AttrDict):
                 v.immutable(is_immutable)
 
-    def is_immutable(self):
+    def is_immutable(
+        self
+    ) -> bool:
         return self.__dict__[AttrDict.IMMUTABLE]

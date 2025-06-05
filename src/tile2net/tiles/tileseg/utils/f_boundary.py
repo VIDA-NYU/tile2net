@@ -58,7 +58,13 @@ from tile2net.tiles.cfg import cfg
 
 """ Utilities for computing, reading and saving benchmark evaluation."""
 
-def eval_mask_boundary(seg_mask,gt_mask,num_classes,num_proc=10,bound_th=0.008):
+def eval_mask_boundary(
+    seg_mask: np.ndarray,
+    gt_mask: np.ndarray,
+    num_classes: int,
+    num_proc: int = 10,
+    bound_th: float = 0.008
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Compute F score for a segmentation mask
 
@@ -73,7 +79,7 @@ def eval_mask_boundary(seg_mask,gt_mask,num_classes,num_proc=10,bound_th=0.008):
     """
     p = Pool(processes=num_proc)
     batch_size = seg_mask.shape[0]
-    
+
     Fpc = np.zeros(num_classes)
     Fc = np.zeros(num_classes)
     for class_id in tqdm(range(num_classes)):
@@ -103,11 +109,18 @@ def eval_mask_boundary(seg_mask,gt_mask,num_classes,num_proc=10,bound_th=0.008):
 #    Fpc[class_id] = sum(Fs)
 #    return
 
-def db_eval_boundary_wrapper(args):
+def db_eval_boundary_wrapper(
+    args: tuple
+) -> tuple[float, float]:
     foreground_mask, gt_mask, ignore, bound_th = args
-    return db_eval_boundary(foreground_mask, gt_mask,ignore, bound_th)
+    return db_eval_boundary(foreground_mask, gt_mask, ignore, bound_th)
 
-def db_eval_boundary(foreground_mask,gt_mask, ignore_mask,bound_th=0.008):
+def db_eval_boundary(
+	foreground_mask: np.ndarray,
+	gt_mask: np.ndarray,
+	ignore_mask: np.ndarray,
+	bound_th: float = 0.008
+) -> tuple[float, float]:
 	"""
 	Compute mean,recall and decay from per-frame evaluation.
 	Calculates precision/recall for boundaries between foreground_mask and
@@ -172,7 +185,11 @@ def db_eval_boundary(foreground_mask,gt_mask, ignore_mask,bound_th=0.008):
 
 	return F, precision
 
-def seg2bmap(seg,width=None,height=None):
+def seg2bmap(
+	seg: np.ndarray,
+	width: int = None,
+	height: int = None
+) -> np.ndarray:
 	"""
 	From a segmentation, compute a binary boundary map with 1 pixel wide
 	boundaries.  The boundary pixels are offset by 1/2 pixel towards the

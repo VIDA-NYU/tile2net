@@ -16,10 +16,20 @@ fillcolor = (0, 0, 0)
 
 def affine_transform(pair: Tuple[Image.Image, Image.Image], affine_params: Tuple[float, float, float, float, float, float]) -> Tuple[Image.Image, Image.Image]:
     img, mask = pair
-    img = img.transform(img.size, Image.AFFINE, affine_params,
-                        resample=Image.BILINEAR, fillcolor=fillcolor)
-    mask = mask.transform(mask.size, Image.AFFINE, affine_params,
-                          resample=Image.NEAREST, fillcolor=fillmask)
+    img = img.transform(
+        img.size, 
+        Image.AFFINE, 
+        affine_params,
+        resample=Image.BILINEAR, 
+        fillcolor=fillcolor
+    )
+    mask = mask.transform(
+        mask.size, 
+        Image.AFFINE, 
+        affine_params,
+        resample=Image.NEAREST, 
+        fillcolor=fillmask
+    )
     return img, mask
 
 

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import logging
 import datetime
 import shutil
@@ -16,6 +17,8 @@ from tile2net.raster.tile_utils.geodata_utils import set_gdf_crs, geo2geodf, buf
 from tile2net.raster.tile_utils.topology import morpho_atts
 from tile2net.raster.project import Project
 
+if False:
+    from ..tiles import Tiles
 
 class PedNet:
     """
@@ -27,7 +30,7 @@ class PedNet():
     def __init__(
             self,
             poly: gpd.GeoDataFrame,
-            project: Project
+            tiles: Tiles,
     ):
 
         self.polygons = poly
@@ -38,7 +41,7 @@ class PedNet():
         self.sidewalk = -1
         self.crosswalk = -1
         self.complete_net = -1
-        self.project = project
+        self.tiles = tiles
 
     def prepare_class_gdf(self, class_name) -> object:
         """
@@ -428,9 +431,11 @@ class PedNet():
                 island_lines = []
 
                 for k, v in indcwnear:
-                    island_lines.append(
-                        shapely.shortest_line(self.island.geometry.values[v],
-                                              pdfb.geometry.values[k]))
+                    append = shapely.shortest_line(
+                        self.island.geometry.values[v],
+                        pdfb.geometry.values[k]
+                    )
+                    island_lines.append(append)
 
                 island = gpd.GeoDataFrame(geometry=island_lines)
 
@@ -449,10 +454,11 @@ class PedNet():
         combined = combined[~combined.geometry.isna()]
         combined.drop_duplicates(subset='geometry', inplace=True)
         combined.reset_index(drop=True, inplace=True)
-        path = self.project.network.path
+        # path = self.project.network.path
 
-        path.mkdir(parents=True, exist_ok=True)
-        path = path.joinpath(f'{self.project.name}-Network-{datetime.datetime.now().strftime("%d-%m-%Y_%H_%M")}')
+        # path.mkdir(parents=True, exist_ok=True)
+        # path = path.joinpath(f'{self.project.name}-Network-{datetime.datetime.now().strftime("%d-%m-%Y_%H_%M")}')
+        path = self.tiles.outdir.network.path
         if os.path.exists(path):
             shutil.rmtree(path)
         combined.to_file(path)

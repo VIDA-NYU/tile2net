@@ -28,7 +28,7 @@ import torch
 import numpy as np
 import pandas as pd
 
-from tile2net.tileseg.config import cfg
+from tile2net.tiles.cfg import cfg
 from tile2net.tileseg.utils.misc import fast_hist, fmt_scale
 from tile2net.tileseg.utils.misc import AverageMeter, eval_metrics
 from tile2net.tileseg.utils.misc import metrics_per_image
@@ -36,24 +36,44 @@ from tile2net.tileseg.utils.misc import ImageDumper
 from tile2net.logger import logger
 
 
-def flip_tensor(x, dim):
+def flip_tensor(
+    x: torch.Tensor,
+    dim: int
+) -> torch.Tensor:
     """
     Flip Tensor along a dimension
     """
     dim = x.dim() + dim if dim < 0 else dim
-    return x[tuple(slice(None, None) if i != dim
-                   else torch.arange(x.size(i) - 1, -1, -1).long()
-                   for i in range(x.dim()))]
+    # return x[tuple(slice(None, None) if i != dim
+    #                else torch.arange(x.size(i) - 1, -1, -1).long()
+    #                for i in range(x.dim()))]
+    item = tuple(
+        slice(None, None) if i != dim
+        else torch.arange(x.size(i) - 1, -1, -1).long()
+        for i in range(x.dim())
+    )
+    return x[item]
 
 
-def resize_tensor(inputs, target_size):
+def resize_tensor(
+    inputs: torch.Tensor,
+    target_size: tuple[int, int]
+) -> torch.Tensor:
     inputs = torch.nn.functional.interpolate(
-        inputs, size=target_size, mode='bilinear',
-        align_corners=cfg.MODEL.ALIGN_CORNERS)
+        inputs,
+        size=target_size,
+        mode='bilinear',
+        align_corners=cfg.MODEL.ALIGN_CORNERS
+    )
     return inputs
 
 
-def calc_err_mask(pred, gtruth, num_classes, classid):
+def calc_err_mask(
+    pred: np.ndarray,
+    gtruth: np.ndarray,
+    num_classes: int,
+    classid: int
+) -> np.ndarray:
     """
     calculate class-specific error masks
     """
@@ -66,7 +86,11 @@ def calc_err_mask(pred, gtruth, num_classes, classid):
     return err_mask.astype(int)
 
 
-def calc_err_mask_all(pred, gtruth, num_classes):
+def calc_err_mask_all(
+    pred: np.ndarray,
+    gtruth: np.ndarray,
+    num_classes: int
+) -> np.ndarray:
     """
     calculate class-agnostic error masks
     """
@@ -77,7 +101,14 @@ def calc_err_mask_all(pred, gtruth, num_classes):
     return err_mask.astype(int)
 
 
-def eval_minibatch(data, net, criterion, val_loss, calc_metrics, args, val_idx):
+def eval_minibatch(
+    data: tuple,
+    net: torch.nn.Module,
+    criterion: torch.nn.Module,
+    val_loss: AverageMeter,
+    calc_metrics: bool,
+    val_idx: int
+) -> tuple:
     """
     Evaluate a single minibatch of images.
      * calculate metrics
@@ -89,9 +120,9 @@ def eval_minibatch(data, net, criterion, val_loss, calc_metrics, args, val_idx):
     """
     torch.cuda.empty_cache()
 
-    scales = [args.default_scale]
-    if args.multi_scale_inference:
-        scales.extend([float(x) for x in args.extra_scales.split(',')])
+    scales = [cfg.default_scale]
+    if cfg.multi_scale_inference:
+        scales.extend([float(x) for x in cfg.extra_scales.split(',')])
         if val_idx == 0:
             logger.debug(f'Using multi-scale inference (AVGPOOL) with scales {scales}')
 
@@ -103,7 +134,7 @@ def eval_minibatch(data, net, criterion, val_loss, calc_metrics, args, val_idx):
     batch_pixel_size = images.size(0) * images.size(2) * images.size(3)
     input_size = images.size(2), images.size(3)
 
-    if args.do_flip:
+    if cfg.do_flip:
         # By ending with flip=0, we insure that the images that are dumped
         # out correspond to the unflipped versions. A bit hacky.
         flips = [1, 0]
@@ -158,14 +189,18 @@ def eval_minibatch(data, net, criterion, val_loss, calc_metrics, args, val_idx):
     assert_msg = 'output_size {} gt_cuda size {}'
     gt_cuda = gt_image.cuda()
     assert_msg = assert_msg.format(
-        output.size()[2:], gt_cuda.size()[1:])
+        output.size()[2:],
+        gt_cuda.size()[1:]
+    )
     assert output.size()[2:] == gt_cuda.size()[1:], assert_msg
     assert output.size()[1] == cfg.DATASET.NUM_CLASSES, assert_msg
 
     # Update loss and scoring datastructure
     if calc_metrics:
-        val_loss.update(criterion(output, gt_image.cuda()).item(),
-                        batch_pixel_size)
+        val_loss.update(
+            criterion(output, gt_image.cuda()).item(),
+            batch_pixel_size
+        )
 
     output_data = torch.nn.functional.softmax(output, dim=1).cpu().data
     max_probs, predictions = output_data.max(1)
@@ -176,7 +211,7 @@ def eval_minibatch(data, net, criterion, val_loss, calc_metrics, args, val_idx):
         if 'attn_' in item:
             assets[item] = output_dict[item]
         if 'pred_' in item:
-            #computesoftmax for each class
+            # computesoftmax for each class
             smax = torch.nn.functional.softmax(output_dict[item], dim=1)
             _, pred = smax.detach().max(1)
             assets[item] = pred.cpu().numpy()
@@ -185,9 +220,11 @@ def eval_minibatch(data, net, criterion, val_loss, calc_metrics, args, val_idx):
     assets['predictions'] = predictions
     assets['prob_mask'] = max_probs
     if calc_metrics:
-        assets['err_mask'] = calc_err_mask_all(predictions,
-                                               gt_image.numpy(),
-                                               cfg.DATASET.NUM_CLASSES)
+        assets['err_mask'] = calc_err_mask_all(
+            predictions,
+            gt_image.numpy(),
+            cfg.DATASET.NUM_CLASSES
+        )
 
     _iou_acc = fast_hist(predictions.flatten(),
                          gt_image.numpy().flatten(),
@@ -196,8 +233,16 @@ def eval_minibatch(data, net, criterion, val_loss, calc_metrics, args, val_idx):
     return assets, _iou_acc
 
 
-def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=True,
-             dump_all_images=True):
+def validate_topn(
+    val_loader: torch.utils.data.DataLoader,
+    net: torch.nn.Module,
+    criterion: torch.nn.Module,
+    optim: torch.optim.Optimizer,
+    epoch: int,
+    cfg: object,
+    dump_assets: bool = True,
+    dump_all_images: bool = True
+) -> float:
     """
     Find worse case failures ...
     Only single GPU for now
@@ -205,7 +250,7 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=Tr
       Take these stats and determine the top20 images to dump per class
     Second pass = dump all those selected images
     """
-    assert args.bs_val == 1
+    assert cfg.bs_val == 1
 
     ######################################################################
     # First pass
@@ -215,8 +260,8 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=Tr
     dumper = ImageDumper(val_len=len(val_loader),
                          dump_all_images=dump_all_images,
                          dump_assets=dump_assets,
-                         dump_for_auto_labelling=args.dump_for_auto_labelling,
-                         dump_for_submission=args.dump_for_submission)
+                         dump_for_auto_labelling=cfg.dump_for_auto_labelling,
+                         dump_for_submission=cfg.dump_for_submission)
 
     net.eval()
     val_loss = AverageMeter()
@@ -226,7 +271,7 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=Tr
 
         # Run network
         assets, _iou_acc = \
-            eval_minibatch(data, net, criterion, val_loss, True, args, val_idx)
+            eval_minibatch(data, net, criterion, val_loss, True, cfg, val_idx)
 
         # per-class metrics
         input_images, labels, img_names, _ = data
@@ -240,10 +285,10 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=Tr
         if val_idx % 20 == 0:
             logger.debug(f'validating[Iter: {val_idx + 1} / {len(val_loader)}]')
 
-        if val_idx > 5 and args.test_mode:
+        if val_idx > 5 and cfg.test_mode:
             break
 
-    eval_metrics(iou_acc, args, net, optim, val_loss, epoch)
+    eval_metrics(iou_acc, cfg, net, optim, val_loss, epoch)
 
     ######################################################################
     # Find top 20 worst failures from a pixel count perspective
@@ -259,7 +304,7 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=Tr
             fn = fn[classid]
             tbl[img_name] = fp + fn
         worst = sorted(tbl, key=tbl.get, reverse=True)
-        for img_name in worst[:args.dump_topn]:
+        for img_name in worst[:cfg.dump_topn]:
             fail_pixels = tbl[img_name]
             worst_images[img_name][classid] = fail_pixels
             class_to_images[classid][img_name] = fail_pixels
@@ -280,7 +325,7 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=Tr
         in_image, gt_image, img_names, _ = data
 
         # Only process images that were identified in first pass
-        if not args.dump_topn_all and img_names[0] not in worst_images:
+        if not cfg.dump_topn_all and img_names[0] not in worst_images:
             continue
 
         with torch.no_grad():
@@ -288,7 +333,7 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=Tr
             inputs = {'images': inputs, 'gts': gt_image}
 
             if cfg.MODEL.MSCALE:
-                #output, attn_map = net(inputs)
+                # output, attn_map = net(inputs)
                 output_dict = net(inputs)
             else:
                 output_dict = net(inputs)
@@ -303,50 +348,54 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=Tr
         os.makedirs(cfg.RESULT_DIR, exist_ok=True)
         np.save(path, op)
         prob_mask, predictions = output_data.max(1)
-        #define assests based on the eval_minibatch function
+        # define assests based on the eval_minibatch function
         assets = {}
         for item in output_dict:
-            #compute softmax for each class
+            # compute softmax for each class
             smax = torch.nn.functional.softmax(output_dict[item], dim=1)
             _, pred = smax.detach().max(1)
             assets[item] = pred.cpu().numpy()
-            #print(assets)
+            # print(assets)
 
         # this has shape [bs, h, w]
         img_name = img_names[0]
         for classid in worst_images[img_name].keys():
 
-            err_mask = calc_err_mask(predictions.numpy(),
-                                     gt_image.numpy(),
-                                     cfg.DATASET.NUM_CLASSES,
-                                     classid)
+            err_mask = calc_err_mask(
+                predictions.numpy(),
+                gt_image.numpy(),
+                cfg.DATASET.NUM_CLASSES,
+                classid
+            )
 
             input_images, gt_image, img_names, _ = data
             class_name = cfg.DATASET_INST.trainid_to_name[classid]
             error_pixels = worst_images[img_name][classid]
             logger.debug(f'{img_name} {class_name}: {error_pixels}')
             img_names = [img_name + f'_{class_name}']
-            #add assests
+            # add assests
             assets['predictions'] = predictions.numpy()
             assets['prob_mask'] = prob_mask
             assets['err_mask'] = err_mask
 
-            to_dump = {'gt_images': gt_image,
-                       'input_images': input_images,
-                       'predictions': predictions.numpy(),
-                       'err_mask': err_mask,
-                       'prob_mask': prob_mask,
-                       'img_names': img_names,
-                       'assets': assets}
+            to_dump = dict(
+                gt_images=gt_image,
+                input_images=input_images,
+                predictions=predictions.numpy(),
+                err_mask=err_mask,
+                prob_mask=prob_mask,
+                img_names=img_names,
+                assets=assets
+            )
 
             if attn_map is not None:
                 to_dump['attn_maps'] = attn_map
 
             # FIXME!
             # do_dump_images([to_dump])
-            #fixed
-            dumper.dump(to_dump,val_idx)
-    # html_fn = os.path.join(args.result_dir, 'seg_results',
+            # fixed
+            dumper.dump(to_dump, val_idx)
+    # html_fn = os.path.join(cfg.result_dir, 'seg_results',
     #                        'topn_failures.html')
     from tile2net.tileseg.utils.results_page import ResultsPage
     ip = ResultsPage('topn failures', html_fn)
@@ -361,11 +410,13 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=Tr
             inp_fn = f'{img_cls}_input.png'
             err_fn = f'{img_cls}_err_mask.png'
             prob_fn = f'{img_cls}_prob_mask.png'
-            img_label_pairs = [(pred_fn, 'pred'),
-                               (gt_fn, 'gt'),
-                               (inp_fn, 'input'),
-                               (err_fn, 'errors'),
-                               (prob_fn, 'prob')]
+            img_label_pairs = [
+                (pred_fn, 'pred'),
+                (gt_fn, 'gt'),
+                (inp_fn, 'input'),
+                (err_fn, 'errors'),
+                (prob_fn, 'prob')
+            ]
             ip.add_table(img_label_pairs,
                          table_heading=f'{class_name}-{fail_pixels}')
     ip.write_page()

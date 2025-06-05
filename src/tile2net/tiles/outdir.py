@@ -156,8 +156,9 @@ class Mask(
 class BestImages(
     Dir
 ):
-    ...
-
+    @property
+    def webpage(self):
+        return os.path.join(self.dir, 'webpage.html')
 
 
 class Outdir(
@@ -182,7 +183,6 @@ class Outdir(
     @BestImages
     def best_images(self):
         ...
-
 
     def preview(self) -> str:
         self.seg_results.error.format

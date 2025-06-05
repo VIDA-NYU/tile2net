@@ -212,7 +212,8 @@ def setup_loaders(
             mode='train',
             joint_transform_list=train_joint_transform_list,
             img_transform=train_input_transform,
-            label_transform=target_train_transform
+            label_transform=target_train_transform,
+            tiles=tiles
         )
 
         if cfg.DISTRIBUTED:
@@ -221,7 +222,7 @@ def setup_loaders(
                 train_set,
                 pad=True,
                 permutation=True,
-                consecutive_sample=False
+                consecutive_sample=False,
             )
             train_batch_size = cfg.MODEL.BS_TRN
         else:
@@ -233,12 +234,11 @@ def setup_loaders(
             train_set,
             batch_size=train_batch_size,
             num_workers=cfg.NUM_WORKERS,
-            shuffle=(train_sampler is None),
+            shuffle=train_sampler is None,
             drop_last=True,
             sampler=train_sampler,
         )
 
-    # return train_loader, val_loader, train_set
     return LoaderBundle(
         train_loader=train_loader,
         val_loader=val_loader,

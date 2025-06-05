@@ -23,6 +23,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 Mapillary Dataset Loader
 """
+import itertools
 import os
 from tile2net.logger import logger
 import json
@@ -137,7 +138,12 @@ class Loader(BaseLoader):
         #         mask_ext
         #     )
 
-        self.all_imgs = tiles.indir.files
+        # self.all_imgs = tiles.indir.files.tolist()
+        imgs = list(zip(
+            tiles.indir.files.tolist(),
+            itertools.repeat('')
+        ))
+        self.all_imgs = imgs
         logger.debug('all imgs {}'.format(len(self.all_imgs)))
         self.fine_centroids = uniform.build_centroids(
             self.all_imgs,

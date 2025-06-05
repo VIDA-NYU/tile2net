@@ -289,7 +289,6 @@ class Inference(
                 criterion=criterion,
                 val_loss=val_loss,
                 calc_metrics=calc_metrics,
-                args=args,
                 val_idx=val_idx,
             )
             iou_acc += _iou_acc

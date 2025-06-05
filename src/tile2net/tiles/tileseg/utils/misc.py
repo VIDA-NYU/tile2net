@@ -46,23 +46,24 @@ import torchvision.transforms as standard_transforms
 from PIL import Image
 from geopandas import GeoDataFrame
 from tile2net.tiles.cfg import cfg
+from tile2net.logger import  logger
 
 if False:
     from ...tiles import Tiles
 
 
 def fmt_scale(
-        prefix,
-        scale,
-):
+        prefix: str,
+        scale: float,
+) -> str:
     return f'{prefix}_{str(float(scale)).replace(".", "")}x'
 
 
 def fast_hist(
-        pred,
-        gtruth,
-        num_classes,
-):
+        pred: np.ndarray,
+        gtruth: np.ndarray,
+        num_classes: int,
+) -> np.ndarray:
     mask = (gtruth >= 0) & (gtruth < num_classes)
     hist = np.bincount(
         num_classes * gtruth[mask].astype(int) + pred[mask],
@@ -72,8 +73,8 @@ def fast_hist(
 
 
 def calculate_iou(
-        hist_data,
-):
+        hist_data: np.ndarray,
+) -> tuple[np.ndarray, float, float]:
     if (
             not isinstance(hist_data, np.ndarray)
             or len(hist_data.shape) != 2
@@ -100,14 +101,14 @@ def calculate_iou(
 
 
 def prep_experiment(
-):
+) -> None:
     cfg.ngpu = torch.cuda.device_count()
     cfg.best_record = dict(mean_iu=-1, epoch=0)
 
 
 def tensor_to_pil(
-        img,
-):
+        img: torch.Tensor,
+) -> Image.Image:
     inv_mean = [-m / s for m, s in zip(cfg.dataset.mean, cfg.dataset.std)]
     inv_std = [1 / s for s in cfg.dataset.std]
     inv_norm = standard_transforms.Normalize(mean=inv_mean, std=inv_std)
@@ -116,13 +117,13 @@ def tensor_to_pil(
 
 
 def eval_metrics(
-        iou_acc,
-        net,
-        optim,
-        val_loss,
-        epoch,
-        mf_score=None,
-):
+        iou_acc: np.ndarray,
+        net: torch.nn.Module,
+        optim: torch.optim.Optimizer,
+        val_loss: AverageMeter,
+        epoch: int,
+        mf_score: Optional[float] = None,
+) -> None:
     was_best = False
 
     iou_per_scale = dict()
@@ -136,10 +137,10 @@ def eval_metrics(
         return
 
     hist = iou_per_scale[cfg.default_scale]
-    iu, acc, acc_cls = self.calculate_iou(hist)
+    iu, acc, acc_cls = calculate_iou(hist)
     iou_per_scale = dict({cfg.default_scale: iu})
 
-    self.print_evaluate_results(hist, iu, epoch, iou_per_scale)
+    print_evaluate_results(hist, iu, epoch, iou_per_scale)
 
     freq = hist.sum(axis=1) / hist.sum()
     mean_iu = np.nanmean(iu)
@@ -180,12 +181,12 @@ def eval_metrics(
 
 
 def print_evaluate_results(
-        hist,
-        iu,
-        epoch=0,
-        iou_per_scale=None,
-        eps=1e-8,
-):
+        hist: np.ndarray,
+        iu: np.ndarray,
+        epoch: int = 0,
+        iou_per_scale: Optional[dict[float, np.ndarray]] = None,
+        eps: float = 1e-8,
+) -> None:
     if iou_per_scale is None:
         iou_per_scale = dict({1.0: iu})
 
@@ -224,8 +225,8 @@ def print_evaluate_results(
 
 
 def metrics_per_image(
-        hist,
-):
+        hist: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
     FP = hist.sum(axis=1) - np.diag(hist)
     FN = hist.sum(axis=0) - np.diag(hist)
     return FP, FN
@@ -243,12 +244,12 @@ class DumpDict(TypedDict, total=False):
 
 
 class AverageMeter:
-    def __init__(self):
+    def __init__(self) -> None:
         self.reset()
 
     def reset(
             self,
-    ):
+    ) -> None:
         self.val = 0
         self.avg = 0
         self.sum = 0
@@ -289,11 +290,7 @@ class ImageDumper:
         self.val_len = val_len
         self.tensorboard = tensorboard
         self.write_webpage = write_webpage
-        self.webpage_fn = os.path.join(
-            cfg.result_dir,
-            'best_images',
-            webpage_fn,
-        )
+        self.webpage_fn = tiles.outdir.best_images.webpage
         self.dump_assets = dump_assets
         self.dump_for_auto_labelling = dump_for_auto_labelling
         self.dump_for_submission = dump_for_submission
@@ -307,11 +304,11 @@ class ImageDumper:
         )
 
         if self.dump_for_submission:
-            self.save_dir = os.path.join(cfg.result_dir, 'submit')
+            self.save_dir = tiles.outdir.submit.dir
         elif self.dump_for_auto_labelling:
-            self.save_dir = os.path.join(cfg.result_dir)
+            self.save_dir = tiles.outdir.dir
         else:
-            self.save_dir = os.path.join(cfg.result_dir, 'seg_results')
+            self.save_dir = tiles.outdir.seg_results.dir
 
         self.imgs_to_tensorboard: list = []
         self.imgs_to_webpage: list = []
@@ -323,15 +320,9 @@ class ImageDumper:
                 standard_transforms.ToTensor(),
             ],
         )
-        self.args = tiles.cfg
         self.dump_percent = 100
 
-    # ------------------------------------------------------------------ #
-    #                        dumping utilities                            #
-    # ------------------------------------------------------------------ #
-    def reset(
-            self,
-    ):
+    def reset(self):
         self.imgs_to_tensorboard.clear()
         self.imgs_to_webpage.clear()
 
@@ -367,7 +358,7 @@ class ThreadedDumper(
             dump_dict: DumpDict,
             val_idx,
             testing=None,
-            tiles: Tiles=None,
+            tiles: Tiles = None,
     ):
         colorize_mask_fn = cfg.dataset_inst.colorize_mask
 
@@ -455,9 +446,9 @@ class ThreadedDumper(
             prediction_pil,
             img_name,
     ):
-        if not self.args.dump_percent:
+        if not cfg.dump_percent:
             return
-        self.dump_percent += self.args.dump_percent
+        self.dump_percent += cfg.dump_percent
         if self.dump_percent < 100:
             return
         self.dump_percent -= 100

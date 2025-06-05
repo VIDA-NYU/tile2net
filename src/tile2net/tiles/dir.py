@@ -1,6 +1,6 @@
 from __future__ import annotations
-
-from prometheus_client import instance_ip_grouping_key
+from typing import Optional, Self
+import prometheus_client
 from typing import Self
 from functools import cached_property
 
@@ -25,47 +25,47 @@ if False:
     from .tiles import Tiles
 
 
-def __get__(
-        self: Dir,
-        instance: Union[Dir, Tiles],
-        owner: Union[
-            type[Dir],
-            type[Tiles]
-        ]
-):
-    if instance is None:
-        return self
-    # key = self.__name__
-    key = self._trace
-    if isinstance(instance, pd.DataFrame):
-        if key in instance.attrs:
-            result = instance.attrs[key]
-        else:
-            raise AttributeError
-    if isinstance(instance, Dir):
-        if key in instance.__dict__:
-            result = instance.__dict__[key]
-        else:
-            dir = os.path.join(
-                instance.dir,
-                key,
-                instance.suffix
-            )
-            result = self.__class__(dir)
-            result.__name__ = self.__name__
-            instance.__dict__[key] = result
-
-    from .tiles import Tiles
-    result.instance = instance
-    result.owner = owner
-    if issubclass(owner, Tiles):
-        result.tiles = instance
-        result.Tiles = owner
-    else:
-        result.tiles = instance.tiles
-        result.Tiles = instance.Tiles
-
-    return result
+# def __get__(
+#         self: Dir,
+#         instance: Union[Dir, Tiles],
+#         owner: Union[
+#             type[Dir],
+#             type[Tiles]
+#         ]
+# ):
+#     if instance is None:
+#         return self
+#     # key = self.__name__
+#     key = self._trace
+#     if isinstance(instance, pd.DataFrame):
+#         if key in instance.attrs:
+#             result = instance.attrs[key]
+#         else:
+#             raise AttributeError
+#     if isinstance(instance, Dir):
+#         if key in instance.__dict__:
+#             result = instance.__dict__[key]
+#         else:
+#             dir = os.path.join(
+#                 instance.dir,
+#                 key,
+#                 instance.suffix
+#             )
+#             result = self.__class__(dir)
+#             result.__name__ = self.__name__
+#             instance.__dict__[key] = result
+#
+#     from .tiles import Tiles
+#     result.instance = instance
+#     result.owner = owner
+#     if issubclass(owner, Tiles):
+#         result.tiles = instance
+#         result.Tiles = owner
+#     else:
+#         result.tiles = instance.tiles
+#         result.Tiles = instance.Tiles
+#
+#     return result
 
 
 def __get__(
@@ -77,33 +77,46 @@ def __get__(
 ):
     self.instance = instance
     self.owner = owner
-    self.tiles = instance
-    self.Tiles = owner
-    if instance is None:
-        return self
+    from .tiles import Tiles
+    if isinstance(instance, Tiles):
+        self.tiles = instance
+    elif isinstance(instance, Dir):
+        self.tiles = instance.tiles
+    elif instance is None:
+        self.tiles = None
+    else:
+        raise TypeError(f'instance must be Tiles or Dir, not {type(instance).__name__}')
+
     try:
-        result = instance.attrs[self._trace]
-        result.tiles = instance
-        result.Tiles = owner
-        return result
+        return self.tiles.attrs[self._trace]
     except KeyError as e:
-        msg = (
-            f'{self.__name__!r} is not set. '
-            f'See `Tiles.with_indir()` to actually set an '
-            f'input directory. See `Tiles.with_source()` to download '
-            f'tiles from a source into an input directory.'
-        )
-        raise AttributeError(msg) from e
+        try:
+            dir = self.instance.dir
+        except (KeyError, AttributeError) as e:
+            msg = (
+                f'{self.__name__!r} is not set. '
+                f'See `Tiles.with_indir()` to actually set an '
+                f'input directory. See `Tiles.with_source()` to download '
+                f'tiles from a source into an input directory.'
+            )
+            raise AttributeError(msg) from e
+        else:
+            path = os.path.join(dir, self.__name__)
+            result = self.__class__.from_dir(path)
+            self.tiles.attrs[self._trace] = result
+            result.instance = self.instance
+            result.owner = self.owner
+            result.tiles = self.tiles
+            return result
 
 
 class Dir:
-    tiles: Tiles
+    tiles: Optional[Tiles] = None
     instance: Tiles | Dir
     owner: type[Tiles] | type[Dir]
     locals().update(
         __get__=__get__
     )
-
 
     def __set_name__(self, owner, name):
         self.__name__ = name
@@ -136,7 +149,6 @@ class Dir:
     def root(self, value: str | None):
         self.__dict__['root'] = value
 
-    # original
     @property
     def original(self) -> str | None:
         try:
@@ -150,7 +162,6 @@ class Dir:
             value = fspath(value)
         self.__dict__['original'] = os.path.normpath(value) if value is not None else value
 
-    # extension
     @property
     def extension(self) -> str | None:
         try:
@@ -176,29 +187,110 @@ class Dir:
     def __bool__(self):
         return self.format is not None
 
-    def __set__(
-            self,
-            instance: Tiles,
-            value: str | PathLike
-    ):
+    # def __set__(
+    #         self,
+    #         instance: Tiles,
+    #         value: str | PathLike
+    # ):
+    #
+    #     if value is None:
+    #         raise NotImplementedError
+    #     if isinstance(value, Dir):
+    #         # result = type(value)(value)
+    #         # result.__name__ = self.__name__
+    #         # instance.attrs[self._trace] = result
+    #         raise NotImplementedError
+    #         return
+    #     if isinstance(value, Path):
+    #         value = str(value)
+    #     value = os.path.normpath(value)
+    #     indir = self.__class__()
+    #     instance.attrs[self._trace] = indir
+    #
+    #     indir.original = value
+    #     indir.__name__ = self.__name__
+    #
+    #     try:
+    #         indir.extension = value.rsplit('.', 1)[1]
+    #     except IndexError:
+    #         raise ValueError(f'No extension found in {value!r}')
+    #
+    #     CHARACTERS: dict[str, str] = pipe(
+    #         re.split(r'[/_. \-\\]', value),
+    #         curried.filter(lambda c: len(c) == 1),
+    #         curried.map(str.casefold),
+    #         set,
+    #         cur(set.__contains__),
+    #         curried.keyfilter(d=indir.characters),
+    #     )
+    #     characters = CHARACTERS.copy()
+    #
+    #     string = value
+    #     match = indir._match(string, characters)
+    #     indir.root = match[0]
+    #     result = deque([match])
+    #
+    #     while True:
+    #         c = match[1]
+    #         if not c:
+    #             break
+    #         del characters[match[1]]
+    #         if not characters:
+    #             break
+    #         match = indir._match(match[0], characters)
+    #         result.appendleft(match)
+    #
+    #     failed = [
+    #         c
+    #         for c in 'xy'
+    #         if c not in CHARACTERS
+    #     ]
+    #     if failed:
+    #         raise ValueError(
+    #             f'indir failed to parse {value!r} '
+    #         )
+    #
+    #     parts = []
+    #     r = result[0]
+    #     parts.append(r[0])
+    #     parts.append(f'{{{r[1]}}}')
+    #     parts.append(r[2])
+    #     for r in list(result)[1:]:
+    #         parts.append(f'{{{r[1]}}}')
+    #         parts.append(r[2])
+    #     format = ''.join(parts)
+    #     indir.format = format
+    #     indir.dir = parts[0].rsplit('/', 1)[0]
+    #     indir.suffix = os.path.relpath(indir.original, indir.dir)
+    #
+    #     from .tiles import Tiles
+    #     indir.instance = instance
+    #     owner = type(instance)
+    #     indir.owner = owner
+    #     if issubclass(owner, Tiles):
+    #         indir.tiles = instance
+    #         indir.Tiles = owner
+    #     else:
+    #         indir.tiles = instance.tiles
+    #         indir.Tiles = instance.Tiles
 
-        if value is None:
-            raise NotImplementedError
-        if isinstance(value, Dir):
-            # result = type(value)(value)
-            # result.__name__ = self.__name__
-            # instance.attrs[self._trace] = result
-            raise NotImplementedError
-            return
-        if isinstance(value, Path):
-            value = str(value)
-        value = os.path.normpath(value)
-        indir = self.__class__()
-        instance.attrs[self._trace] = indir
+    @classmethod
+    def from_dir(cls, dir: str) -> Self:  # noqa: N803
+        indir = cls()
+        dir = os.path.normpath(dir)
+        indir.original = dir
+        indir.root = dir
+        indir.dir = dir
+        indir.format = None
+        indir.extension = None
+        indir.suffix = ''
+        return indir
 
+    @classmethod
+    def from_format(cls, format: str) -> Self:  # noqa: A002
+        value = os.path.normpath(format)
+        indir = cls()
         indir.original = value
-        indir.__name__ = self.__name__
-
         try:
             indir.extension = value.rsplit('.', 1)[1]
         except IndexError:
@@ -220,8 +312,7 @@ class Dir:
         result = deque([match])
 
         while True:
-            c = match[1]
-            if not c:
+            if not match[1]:
                 break
             del characters[match[1]]
             if not characters:
@@ -229,39 +320,45 @@ class Dir:
             match = indir._match(match[0], characters)
             result.appendleft(match)
 
-        failed = [
-            c
-            for c in 'xy'
-            if c not in CHARACTERS
-        ]
+        failed = [c for c in 'xy' if c not in CHARACTERS]
         if failed:
-            raise ValueError(
-                f'indir failed to parse {value!r} '
-            )
+            raise ValueError(f'indir failed to parse {value!r}')
 
         parts = []
         r = result[0]
-        parts.append(r[0])
-        parts.append(f'{{{r[1]}}}')
-        parts.append(r[2])
+        parts.extend([r[0], f'{{{r[1]}}}', r[2]])
         for r in list(result)[1:]:
-            parts.append(f'{{{r[1]}}}')
-            parts.append(r[2])
-        format = ''.join(parts)
-        indir.format = format
+            parts.extend([f'{{{r[1]}}}', r[2]])
+        indir.format = ''.join(parts)
         indir.dir = parts[0].rsplit('/', 1)[0]
         indir.suffix = os.path.relpath(indir.original, indir.dir)
+        return indir
 
-        from .tiles import Tiles
+    def __set__(self, instance: 'Tiles', value: str | PathLike):
+        if value is None:
+            raise NotImplementedError
+        if isinstance(value, Path):
+            value = str(value)
+        value = os.path.normpath(value)
+
+        # if re.search(r'[/_.\-\\](?:x|y|z)(?=[/_.\-\\])', value):
+        #     indir = self.from_format(value)
+        # else:
+        #     indir = self.from_dir(value)
+
+        indir = self.from_format(value)
+
+        indir.__name__ = self.__name__
+        instance.attrs[self._trace] = indir
+
+        from .tiles import Tiles  # local import to avoid cyclic dependency
         indir.instance = instance
         owner = type(instance)
         indir.owner = owner
         if issubclass(owner, Tiles):
             indir.tiles = instance
-            indir.Tiles = owner
         else:
             indir.tiles = instance.tiles
-            indir.Tiles = instance.Tiles
 
     @cached_property
     def dir(self) -> str:
@@ -275,15 +372,23 @@ class Dir:
         return match.groups()
 
     def __repr__(self):
-        return (
-            f'{self.__class__.__name__}(\n'
-            f'    format={self.format!r},\n'
-            # f'    root={self.root!r},\n'
-            f'    extension={self.extension!r}\n'
-            f'    dir={self.dir!r}\n'
-            f'    original={self.original!r},\n'
-            f')'
-        )
+        try:
+            return (
+                f'{self.__class__.__name__}(\n'
+                f'    format={self.format!r},\n'
+                # f'    root={self.root!r},\n'
+                f'    extension={self.extension!r}\n'
+                f'    dir={self.dir!r}\n'
+                f'    original={self.original!r},\n'
+                f')'
+            )
+        except (AttributeError):
+            return (
+                f'{self.__class__.__name__}(\n'
+                f'    dir={self.dir!r}\n'
+                f'    original={self.original!r},\n'
+                f')'
+            )
 
     def __init__(self, *args, **kwargs):
         ...

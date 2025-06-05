@@ -44,6 +44,7 @@ from tile2net.tiles.cfg import cfg
 if False:
     from ...tiles import Tiles
 
+
 class BaseLoader(data.Dataset):
     def __init__(
             self,
@@ -90,6 +91,7 @@ class BaseLoader(data.Dataset):
         img_path = '{}/*.{}'.format(img_root, img_ext)
         imgs = glob.glob(img_path)
         items = []
+        raise NotImplementedError
         for full_img_fn in imgs:
             img_dir, img_fn = os.path.split(full_img_fn)
             img_name, _ = os.path.splitext(img_fn)
@@ -115,8 +117,10 @@ class BaseLoader(data.Dataset):
         outdir = 'new_dump_imgs_{}'.format(self.mode)
         os.makedirs(outdir, exist_ok=True)
         if centroid is not None:
-            dump_img_name = '{}_{}'.format(self.trainid_to_name[class_id],
-                                           img_name)
+            dump_img_name = '{}_{}'.format(
+                self.trainid_to_name[class_id],
+                img_name
+            )
         else:
             dump_img_name = img_name
         out_img_fn = os.path.join(outdir, dump_img_name + '.png')
@@ -128,8 +132,8 @@ class BaseLoader(data.Dataset):
         mask_img.save(out_msk_fn)
         raw_img.save(out_raw_fn)
 
-    def do_transforms(self, img: Image.Image, mask: Image.Image, centroid: Optional[Tuple[int, int]], 
-                  img_name: str, class_id: Optional[int]) -> Tuple[Any, Any, float]:
+    def do_transforms(self, img: Image.Image, mask: Image.Image, centroid: Optional[Tuple[int, int]],
+                      img_name: str, class_id: Optional[int]) -> Tuple[Any, Any, float]:
         """
         Do transformations to image and mask
 
@@ -180,7 +184,10 @@ class BaseLoader(data.Dataset):
         mask = Image.fromarray(mask.astype(np.uint8))
         return img, mask, img_name
 
-    def __getitem__(self, index: int) -> Tuple[Any, Any, str, float]:
+    def __getitem__(
+            self,
+            index: int
+    ) -> Tuple[Any, Any, str, float]:
         """
         Generate data:
 
@@ -190,12 +197,18 @@ class BaseLoader(data.Dataset):
         - image_name: basename of file, string
         """
         # Pick an image, fill in defaults if not using class uniform
-        if len(self.imgs[index]) == 2:
-            img_path, mask_path = self.imgs[index]
+        tup = self.imgs[index]
+        if len(tup) == 2:
+            img_path, mask_path = tup
             centroid = None
             class_id = None
+        elif len(tup) == 4:
+            img_path, mask_path, centroid, class_id = tup
         else:
-            img_path, mask_path, centroid, class_id = self.imgs[index]
+            msg = 'Unexpected number of items in self.imgs[{}]: {}'.format(
+                index, len(tup)
+            )
+            raise ValueError(msg)
 
         img, mask, img_name = self.read_images(img_path, mask_path)
 
@@ -204,7 +217,7 @@ class BaseLoader(data.Dataset):
             prob_mask_path = mask_path.replace('.png', '_prob.png')
             # put it in 0 to 1
             prob_map = np.array(Image.open(prob_mask_path)) / 255.0
-            prob_map_threshold = (prob_map < cfg.DATASET.CUSTOM_COARSE_PROB)
+            prob_map_threshold = prob_map < cfg.DATASET.CUSTOM_COARSE_PROB
             mask[prob_map_threshold] = cfg.DATASET.IGNORE_LABEL
             mask = Image.fromarray(mask.astype(np.uint8))
 
