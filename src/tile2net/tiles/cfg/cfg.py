@@ -742,6 +742,10 @@ class Cfg(
     def stitch(self):
         ...
 
+    @property
+    def _cfg(self) -> Optional[Cfg]:
+        return self
+
     def __setitem__(self, key, value):
         super(self.__class__, self).__setitem__(key, value)
 
@@ -1318,6 +1322,7 @@ class Cfg(
 
 
 cfg = Cfg()
+cfg.__name__ = ''
 cfg.update(cfg._trace2default)
 
 # -------------------------------------------------------------------------

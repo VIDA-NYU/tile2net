@@ -78,7 +78,7 @@ class property(
             self._Cfg = owner
         else:
             self._cfg = instance._cfg
-            self._Cfg = instance.Cfg
+            self._Cfg = instance._Cfg
 
         return self
         cfg = instance._cfg

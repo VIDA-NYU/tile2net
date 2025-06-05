@@ -81,3 +81,7 @@ ImportError: cannot import name 'Tiles' from partially initialized module 'tile2
 python-BaseException
 
 profile the inference
+
+1. if starts with _ just do object.get
+2. if hasattr(cls, item) then object.get/set/del
+3. try adding to trace

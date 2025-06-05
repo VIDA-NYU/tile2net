@@ -66,6 +66,7 @@ def setup_loaders(args):
     # Define transformations, augmentations
     ######################################################################
 
+    assert cfg
 
     crop_size = cfg.DATASET.CROP_SIZE
     if ',' in crop_size:

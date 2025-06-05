@@ -167,10 +167,10 @@ class Nested(
             return object.__setattr__(self, key, value)
 
         # 2. first attempt with original key
-        if self._cfg is not None:
-            trace_key = f"{self._trace}.{key}"
-            self._cfg[trace_key] = value
-            return
+        # if self._cfg is not None:
+        #     trace_key = f"{self._trace}.{key}"
+        #     self._cfg[trace_key] = value
+        #     return
 
         # 3. last-resort lowercase key
         low_key = key.lower()
@@ -199,3 +199,97 @@ class Nested(
 
         raise AttributeError(f"{type(self).__name__!r} object has no attribute {key!r}")
 
+    def __getattr__(self, key: str) -> Any:
+        KEY = key
+        key = KEY
+        if (
+                key.startswith('_')
+                or key == 'data'
+        ):
+            return object.__getattribute__(self, key)
+        key = key.lower()
+        if hasattr(self.__class__, key):
+            return object.__getattribute__(self, key)
+        if self._trace:
+            trace = f'{self._trace}.{key}'
+        else:
+            trace = key
+
+        try:
+            return self._cfg[trace]
+        except KeyError:
+            ...
+
+        try:
+            attrs = trace.split('.')
+            obj = self._cfg
+            for attr in attrs[:-1]:
+                obj = object.__getattribute__(obj, attr)
+            result = object.__getattribute__(obj, attrs[-1])
+            return result
+        except AttributeError as e:
+            msg = f'{self.__class__.__name__} has no attribute {key!r} (trace: {trace})'
+            raise AttributeError(msg) from e
+
+    def __setattr__(self, key: str, value: Any) -> None:
+        KEY = key
+        key = KEY
+        if (
+                key.startswith('_')
+                or key == 'data'
+        ):
+            return object.__setattr__(self, key, value)
+        key = key.lower()
+        if hasattr(self.__class__, key):
+            return object.__setattr__(self, key, value)
+        if self._trace:
+            trace = f'{self._trace}.{key}'
+        else:
+            trace = key
+
+        try:
+            self._cfg[trace] = value
+        except KeyError as e:
+            msg = f'{self.__class__.__name__} has no attribute {key!r} (trace: {trace})'
+            raise AttributeError(msg) from e
+
+        try:
+            attrs = trace.split('.')
+            obj = self._cfg
+            for attr in attrs[:-1]:
+                obj = object.__getattribute__(obj, attr)
+            object.__setattr__(obj, attrs[-1], value)
+        except AttributeError as e:
+            msg = f'{self.__class__.__name__} has no attribute {key!r} (trace: {trace})'
+            raise AttributeError(msg) from e
+
+    def __delattr__(self, key: str) -> None:
+        KEY = key
+        key = KEY
+        if (
+                key.startswith('_')
+                or key == 'data'
+        ):
+            return object.__delattr__(self, key)
+        key = key.lower()
+        if hasattr(self.__class__, key):
+            return object.__delattr__(self, key)
+        if self._trace:
+            trace = f'{self._trace}.{key}'
+        else:
+            trace = key
+
+        try:
+            del self._cfg[trace]
+        except KeyError as e:
+            ...
+
+        try:
+            attrs = trace.split('.')
+            obj = self._cfg
+            for attr in attrs[:-1]:
+                obj = object.__getattribute__(obj, attr)
+            object.__delattr__(obj, attrs[-1])
+        except AttributeError as e:
+            msg = f'{self.__class__.__name__} has no attribute {key!r} (trace: {trace})'
+            raise AttributeError(msg) from e

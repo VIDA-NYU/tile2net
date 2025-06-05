@@ -8,7 +8,6 @@ import torch.nn as nn
 from tile2net.tileseg.config import cfg
 
 
-
 def Norm2d(in_channels, **kwargs):
     """
     Custom Norm Function to allow flexible switching
@@ -39,7 +38,7 @@ def Upsample(x, size):
     Wrapper Around the Upsample Call
     """
     return nn.functional.interpolate(x, size=size, mode='bilinear',
-                                     align_corners=align_corners)
+                                     align_corners=cfg.MODEL.ALIGN_CORNERS)
 
 
 # @amp.float_function

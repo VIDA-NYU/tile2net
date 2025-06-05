@@ -44,6 +44,7 @@ class OCR_block(nn.Module):
     Some of the code in this class is borrowed from:
     https://github.com/HRNet/HRNet-Semantic-Segmentation/tree/HRNet-OCR
     """
+
     def __init__(self, high_level_ch):
         super(OCR_block, self).__init__()
 
@@ -95,6 +96,7 @@ class OCRNet(nn.Module):
     """
     OCR net
     """
+
     def __init__(self, num_classes, trunk='hrnetv2', criterion=None):
         super(OCRNet, self).__init__()
         self.criterion = criterion
@@ -126,6 +128,7 @@ class OCRNetASPP(nn.Module):
     """
     OCR net
     """
+
     def __init__(self, num_classes, trunk='hrnetv2', criterion=None):
         super(OCRNetASPP, self).__init__()
         self.criterion = criterion
@@ -148,7 +151,7 @@ class OCRNetASPP(nn.Module):
         if self.training:
             gts = inputs['gts']
             loss = cfg.LOSS.OCR_ALPHA * self.criterion(aux_out, gts) + \
-                self.criterion(cls_out, gts)
+                   self.criterion(cls_out, gts)
             return loss
         else:
             output_dict = {'pred': cls_out}
@@ -159,6 +162,7 @@ class MscaleOCR(nn.Module):
     """
     OCR net
     """
+
     def __init__(self, num_classes, trunk='hrnetv2', criterion=None):
         super(MscaleOCR, self).__init__()
         self.criterion = criterion
@@ -255,7 +259,7 @@ class MscaleOCR(nn.Module):
             assert 'gts' in inputs
             gts = inputs['gts']
             loss = cfg.LOSS.OCR_ALPHA * self.criterion(aux, gts) + \
-                self.criterion(pred, gts)
+                   self.criterion(pred, gts)
             return loss
         else:
             output_dict['pred'] = pred
@@ -327,7 +331,7 @@ class MscaleOCR(nn.Module):
             return output_dict
 
     def forward(self, inputs):
-        
+
         if cfg.MODEL.N_SCALES and not self.training:
             return self.nscale_forward(inputs, cfg.MODEL.N_SCALES)
 

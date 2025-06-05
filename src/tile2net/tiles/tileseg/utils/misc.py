@@ -402,8 +402,9 @@ class ThreadedDumper(
 
                 if tiles is not None:
                     idd_ = int(img_name.split('_')[-1])
-                    self.save_dir = os.path.join(cfg.result_dir, 'seg_results')
+                    self.save_dir = tiles.outdir.seg_results.dir
                     tile = tiles.tiles[tiles.pose_dict[idd_]]
+                    tiles.loc[idd_]
                     polygons = self.map_features(
                         tile=tile,
                         src_img=np.array(prediction_pil),
