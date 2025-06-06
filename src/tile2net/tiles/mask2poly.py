@@ -378,7 +378,7 @@ class Mask2Poly(
                 pd.Series(indices)
                 .groupby(indices)
                 .cumcount()
-                != 0
+                == 0
         )
         rings = RINGS[loc]
         indices = indices[loc]
