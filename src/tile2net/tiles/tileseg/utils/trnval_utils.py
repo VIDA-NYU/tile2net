@@ -37,8 +37,8 @@ from tile2net.logger import logger
 
 
 def flip_tensor(
-    x: torch.Tensor,
-    dim: int
+        x: torch.Tensor,
+        dim: int
 ) -> torch.Tensor:
     """
     Flip Tensor along a dimension
@@ -56,8 +56,8 @@ def flip_tensor(
 
 
 def resize_tensor(
-    inputs: torch.Tensor,
-    target_size: tuple[int, int]
+        inputs: torch.Tensor,
+        target_size: tuple[int, int]
 ) -> torch.Tensor:
     inputs = torch.nn.functional.interpolate(
         inputs,
@@ -69,10 +69,10 @@ def resize_tensor(
 
 
 def calc_err_mask(
-    pred: np.ndarray,
-    gtruth: np.ndarray,
-    num_classes: int,
-    classid: int
+        pred: np.ndarray,
+        gtruth: np.ndarray,
+        num_classes: int,
+        classid: int
 ) -> np.ndarray:
     """
     calculate class-specific error masks
@@ -87,9 +87,9 @@ def calc_err_mask(
 
 
 def calc_err_mask_all(
-    pred: np.ndarray,
-    gtruth: np.ndarray,
-    num_classes: int
+        pred: np.ndarray,
+        gtruth: np.ndarray,
+        num_classes: int
 ) -> np.ndarray:
     """
     calculate class-agnostic error masks
@@ -102,12 +102,12 @@ def calc_err_mask_all(
 
 
 def eval_minibatch(
-    data: tuple,
-    net: torch.nn.Module,
-    criterion: torch.nn.Module,
-    val_loss: AverageMeter,
-    calc_metrics: bool,
-    val_idx: int
+        data: tuple,
+        net: torch.nn.Module,
+        criterion: torch.nn.Module,
+        val_loss: AverageMeter,
+        calc_metrics: bool,
+        val_idx: int
 ) -> tuple:
     """
     Evaluate a single minibatch of images.
@@ -122,7 +122,11 @@ def eval_minibatch(
 
     scales = [cfg.default_scale]
     if cfg.multi_scale_inference:
-        scales.extend([float(x) for x in cfg.extra_scales.split(',')])
+        it = (
+            float(x)
+            for x in cfg.extra_scales.split(',')
+        )
+        scales.extend(it)
         if val_idx == 0:
             logger.debug(f'Using multi-scale inference (AVGPOOL) with scales {scales}')
 
@@ -226,22 +230,24 @@ def eval_minibatch(
             cfg.DATASET.NUM_CLASSES
         )
 
-    _iou_acc = fast_hist(predictions.flatten(),
-                         gt_image.numpy().flatten(),
-                         cfg.DATASET.NUM_CLASSES)
+    _iou_acc = fast_hist(
+        predictions.flatten(),
+        gt_image.numpy().flatten(),
+        cfg.DATASET.NUM_CLASSES
+    )
 
     return assets, _iou_acc
 
 
 def validate_topn(
-    val_loader: torch.utils.data.DataLoader,
-    net: torch.nn.Module,
-    criterion: torch.nn.Module,
-    optim: torch.optim.Optimizer,
-    epoch: int,
-    cfg: object,
-    dump_assets: bool = True,
-    dump_all_images: bool = True
+        val_loader: torch.utils.data.DataLoader,
+        net: torch.nn.Module,
+        criterion: torch.nn.Module,
+        optim: torch.optim.Optimizer,
+        epoch: int,
+        cfg: object,
+        dump_assets: bool = True,
+        dump_all_images: bool = True
 ) -> float:
     """
     Find worse case failures ...

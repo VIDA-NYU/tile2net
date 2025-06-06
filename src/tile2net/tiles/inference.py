@@ -45,6 +45,7 @@ from tile2net.tiles.tileseg.utils.misc import ThreadedDumper
 from tile2net.tiles.tileseg.utils.trnval_utils import eval_minibatch
 from tile2net.tiles.cfg import cfg
 from tile2net.tiles.tileseg.utils.misc import DumpData
+from tile2net.tiles.tileseg.utils.minibatch import MiniBatch
 
 args = cfg
 
@@ -301,14 +302,15 @@ class Inference(
             i += n
 
             # Run network
-            assets, _iou_acc = eval_minibatch(
+            batch = MiniBatch.from_data(
                 data=data,
                 net=net,
                 criterion=criterion,
                 val_loss=val_loss,
                 calc_metrics=calc_metrics,
-                val_idx=val_idx,
+                val_idx=val_idx
             )
+            _iou_acc = batch.iou_acc
             iou_acc += _iou_acc
             input_images, labels, img_names, _ = data
 

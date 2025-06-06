@@ -427,7 +427,6 @@ class ThreadedDumper(
                 self.create_composite_image(
                     input_image=input_image,
                     prediction_pil=prediction_pil,
-                    img_name=img_name
                 )
 
             gt_pil = colorize_mask_fn(gt_image.cpu().numpy())
@@ -455,7 +454,6 @@ class ThreadedDumper(
             self,
             input_image,
             prediction_pil,
-            # img_name,
             sidebyside: str,
     ):
         if not cfg.dump_percent:

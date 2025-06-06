@@ -91,3 +91,6 @@ pass postprocess=False to Mask2Poly, run it all later in a single vectorized ope
 if postprocess:
     self.postprocess.mask_to_poly_geojson
     self.postprocess.replace_convexhull
+
+
+sidebyside
