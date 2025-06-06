@@ -283,14 +283,14 @@ class Inference(
         prob = tiles.outdir.seg_results.prob
         error = tiles.outdir.seg_results.error
         sidebyside = tiles.outdir.seg_results.sidebyside
-        os.makedirs(prob.dir)
-        os.makedirs(error.dir)
-        os.makedirs(sidebyside.dir)
+        os.makedirs(prob.dir, exist_ok=True)
+        os.makedirs(error.dir, exist_ok=True)
+        os.makedirs(sidebyside.dir, exist_ok=True)
 
-        PROB = tiles.outdir.seg_results.prob.files.values
-        ERROR = tiles.outdir.seg_results.error.files.values
-        SIDEBYSIDE = tiles.outdir.seg_results.sidebyside.files.values
-        RESULT = tiles.outdir
+        # RESULT = tiles.outdir
+        PROB = prob.files.values
+        ERROR = error.files.values
+        SIDEBYSIDE = sidebyside.files.values
         i = 0
         for val_idx, data in enumerate(val_loader):
             input_images, labels, img_names, _ = data

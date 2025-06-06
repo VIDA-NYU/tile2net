@@ -48,7 +48,7 @@ import torchvision.transforms as standard_transforms
 from PIL import Image
 from geopandas import GeoDataFrame
 from tile2net.tiles.cfg import cfg
-from tile2net.logger import  logger
+from tile2net.logger import logger
 
 if False:
     from ...tiles import Tiles
@@ -205,18 +205,17 @@ def print_evaluate_results(
     total_pix = hist.sum()
 
     for cid in range(len(iu)):
-        rows.append(
-            [
-                cid,
-                id2cat.get(cid, ''),
-                *[iou_per_scale[s][cid] * 100 for s in iou_per_scale],
-                100 * iu_TP[cid] / total_pix,
-                100 * iu_FP[cid] / total_pix,
-                100 * iu_FN[cid] / total_pix,
-                iu_TP[cid] / (iu_TP[cid] + iu_FP[cid] + eps),
-                iu_TP[cid] / (iu_TP[cid] + iu_FN[cid] + eps),
-            ],
-        )
+        item = [
+            cid,
+            id2cat.get(cid, ''),
+            *[iou_per_scale[s][cid] * 100 for s in iou_per_scale],
+            100 * iu_TP[cid] / total_pix,
+            100 * iu_FP[cid] / total_pix,
+            100 * iu_FN[cid] / total_pix,
+            iu_TP[cid] / (iu_TP[cid] + iu_FP[cid] + eps),
+            iu_TP[cid] / (iu_TP[cid] + iu_FN[cid] + eps),
+        ]
+        rows.append(item)
 
     logger.debug(tabulate(rows, headers=header, floatfmt='1.2f'))
 
@@ -373,22 +372,24 @@ class ThreadedDumper(
             input_image = dump_data.input_images[idx]
             gt_image = dump_data.gt_images[idx]
             prediction = dump_data.assets['predictions'][idx]
-            # img_name = dump_data.img_names[idx]
             sidebyside = dump_data.sidebyside_files[idx]
             prob = dump_data.prob_files[idx]
             error = dump_data.error_files[idx]
 
             er_prob, err_pil = self.save_prob_and_err_mask(
                 dump_data=dump_data,
-                # img_name=img_name,
                 idx=idx,
                 prediction=prediction,
                 prob_file=prob,
                 err_file=error,
             )
 
-            input_image = self.inv_normalize(input_image).cpu()
-            input_image = standard_transforms.ToPILImage()(input_image).convert('RGB')
+            # input_image = standard_transforms.ToPILImage()(input_image).convert('RGB')
+            input_image = (
+                standard_transforms
+                .ToPILImage()(input_image)
+                .convert('RGB')
+            )
 
             if testing:
                 alpha = False
@@ -409,17 +410,13 @@ class ThreadedDumper(
                 self.create_composite_image(
                     input_image=input_image,
                     prediction_pil=prediction_pil,
-                    # img_name=img_name,
                     sidebyside=sidebyside
                 )
 
                 if tiles is not None:
-                    idd_ = int(img_name.split('_')[-1])
-                    self.save_dir = tiles.outdir.seg_results.dir
-                    tile = tiles.tiles[tiles.pose_dict[idd_]]
-                    tiles.loc[idd_]
+                    # idd_ = int(img_name.split('_')[-1])
+                    # self.save_dir = tiles.outdir.seg_results.dir
                     polygons = self.map_features(
-                        tile=tile,
                         src_img=np.array(prediction_pil),
                         img_array=True
                     )
@@ -533,20 +530,9 @@ class ThreadedDumper(
             prob = dump_data.assets['prob_mask'][idx]
             err_mask = dump_data.err_mask[idx]  # noqa: F841
             prob_arr = (prob.cpu().numpy() * 255).astype(np.uint8)
-            # self.futures.append(
-            #     self.threads.submit(
-            #         self.save_image,
-            #         prob_arr,
-            #         f'{img_name}_prob.png',
-            #     ),
-            # )
             future = self.threads.submit(self.save_image, prob_arr, prob_file)
             self.futures.append(future)
             err_pil = Image.fromarray(prediction.astype(np.uint8)).convert('RGB')
-            # path = os.path.join(self.save_dir, f'{img_name}_err_mask.png')
-            # self.futures.append(
-            #     self.threads.submit(err_pil.save, path),
-            # )
             future = self.threads.submit(err_pil.save, err_file)
             self.futures.append(future)
             return True, err_pil
@@ -555,7 +541,6 @@ class ThreadedDumper(
     @classmethod
     def map_features(
             cls,
-            tile,
             src_img: np.ndarray,
             img_array=True,
     ) -> GeoDataFrame | None:

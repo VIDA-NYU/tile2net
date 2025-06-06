@@ -81,8 +81,10 @@ class PedNet():
         """
 
         # query to find crosswalks intersecting with two or more sidewalks
-        inp, res = swp.geometry.values.sindex.query_bulk(cwp.geometry.values,
-                                                         predicate="intersects")
+        inp, res = swp.geometry.values.sindex.query_bulk(
+            cwp.geometry.values,
+            predicate="intersects"
+        )
         unique, counts = np.unique(inp, return_counts=True)
         meds = np.unique(res[np.isin(inp, unique[counts >= 2])])
 
@@ -153,8 +155,14 @@ class PedNet():
         if len(nt_cw) > 0:
             cw_lin_geom = []
             nt_cw.geometry = nt_cw.simplify(0.6)
-            cw_union = buffer_union_erode(nt_cw, 1, -0.95, 0.6, 0.8,
-                                          0.8)  # union, erode, simplify before union, simp
+            cw_union = buffer_union_erode(
+                nt_cw,
+                1,
+                -0.95,
+                0.6,
+                0.8,
+                0.8
+            )  # union, erode, simplify before union, simp
             # after union, simpl after erode
             cw_explode = cw_union.explode().reset_index(drop=True)
             cw_explode = cw_explode[cw_explode.geometry.notna()].reset_index(drop=True)
@@ -177,9 +185,12 @@ class PedNet():
                                     tr_line_ = trim_checkempty(cnl, 4.5, 2)
                                     if tr_line_.length < 8:
                                         extended = self.make_longer(tr_line_, 0.8)
-                                        extended_line = extend_lines(geo2geodf([extended]),
-                                                                     tolerance=8,
-                                                                     target=geo2geodf([geom.boundary]), extension=0)
+                                        extended_line = extend_lines(
+                                            geo2geodf([extended]),
+                                            tolerance=8,
+                                            target=geo2geodf([geom.boundary]),
+                                            extension=0
+                                        )
                                         for gi in extended_line.geometry:
                                             cw_lin_geom.append(gi)
                                     else:
@@ -192,9 +203,12 @@ class PedNet():
                                 tr_line_ = trim_checkempty(cnl, 4.5, 2)
                                 if tr_line_.length < 8:
                                     extended = self.make_longer(tr_line_, 0.8)
-                                    extended_line = extend_lines(geo2geodf([extended]),
-                                                                 target=geo2geodf([geom.boundary]), tolerance=8,
-                                                                 extension=0)
+                                    extended_line = extend_lines(
+                                        geo2geodf([extended]),
+                                        target=geo2geodf([geom.boundary]),
+                                        tolerance=8,
+                                        extension=0
+                                    )
                                     for g in extended_line.geometry:
                                         cw_lin_geom.append(g)
                                 else:
@@ -208,8 +222,12 @@ class PedNet():
                         line = get_crosswalk_cnl(geom)
                         if line.length < 8:
                             extended = self.make_longer(line, 0.8)
-                            extended_line = extend_lines(geo2geodf([extended]),
-                                                         target=geo2geodf([geom.boundary]), tolerance=8, extension=0)
+                            extended_line = extend_lines(
+                                geo2geodf([extended]),
+                                target=geo2geodf([geom.boundary]),
+                                tolerance=8,
+                                extension=0
+                            )
                             for g in extended_line.geometry:
                                 cw_lin_geom.append(g)
                         else:
@@ -222,9 +240,12 @@ class PedNet():
             self.crosswalk = smoothed
         else:
             warnings.warn('No crosswalks found')
-            self.crosswalk = gpd.GeoDataFrame({
-                'geometry': [],
-            },crs=3857)
+            self.crosswalk = gpd.GeoDataFrame(
+                {
+                    'geometry': [],
+                },
+                crs=3857
+            )
 
     def create_lines(self, gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         """
@@ -234,7 +255,7 @@ class PedNet():
         ----------
         gdf : :class:`GeoDataFrame`
             :class:`GeoDataFrame` of polygons
-        
+
         Returns
         -------
         :class:`GeoDataFrame` | None
@@ -285,8 +306,12 @@ class PedNet():
                 continue
             else:
                 line_tr = tr_line.simplify(1)
-                extended_line = extend_lines(geo2geodf([line_tr]),
-                                             target=geo2geodf([geom.boundary]), tolerance=6, extension=0)
+                extended_line = extend_lines(
+                    geo2geodf([line_tr]),
+                    target=geo2geodf([geom.boundary]),
+                    tolerance=6,
+                    extension=0
+                )
                 lin_geom.append(extended_line)
 
         if len(lin_geom) > 0:
@@ -310,7 +335,10 @@ class PedNet():
             #
             swntw.geometry = swntw.simplify(0.6)
             sw_modif_uni = gpd.GeoDataFrame(
-                geometry=gpd.GeoSeries([geom for geom in swntw.unary_union.geoms]))
+                geometry=gpd.GeoSeries(
+                    [geom for geom in swntw.unary_union.geoms]
+                )
+            )
             sw_modif_uni_met = set_gdf_crs(sw_modif_uni, 3857)
             sw_uni_lines = sw_modif_uni_met.explode()
             sw_uni_lines.reset_index(drop=True, inplace=True)
@@ -320,7 +348,11 @@ class PedNet():
 
             try:
                 sw_cl1 = clean_deadend_dangles(sw_uni_line2)
-                sw_extended = extend_lines(sw_cl1, 10, extension=0)
+                sw_extended = extend_lines(
+                    sw_cl1,
+                    10,
+                    extension=0
+                )
 
                 sw_cleaned = remove_false_nodes(sw_extended)
                 sw_cleaned.reset_index(drop=True, inplace=True)
@@ -332,9 +364,12 @@ class PedNet():
                 self.sidewalk = sw_uni_lines
         else:
             warnings.warn('No sidewalk polygons found')
-            self.sidewalk = gpd.GeoDataFrame({
-                'geometry': [],
-            }, crs=3857)
+            self.sidewalk = gpd.GeoDataFrame(
+                {
+                    'geometry': [],
+                },
+                crs=3857
+            )
 
         self.sidewalk['f_type'] = 'sidewalk'
 
@@ -353,9 +388,9 @@ class PedNet():
         # query LineString geometry to identify points intersecting 2 geometries
         # inp, res = self.crosswalk.sindex.query(geo2geodf(points).geometry,
         #                                        predicate="intersects")
-        inp, res = (
-            self.crosswalk.sindex
-                .query(geo2geodf(points).geometry, predicate="intersects")
+        inp, res = self.crosswalk.sindex.query(
+            geo2geodf(points).geometry,
+            predicate="intersects"
         )
         unique, counts = np.unique(inp, return_counts=True)
         ends = np.unique(res[np.isin(inp, unique[counts == 1])])

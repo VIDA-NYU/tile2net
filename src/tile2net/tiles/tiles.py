@@ -1,4 +1,5 @@
 from __future__ import annotations
+import rasterio.transform
 
 import os
 import tempfile
@@ -44,6 +45,10 @@ if False:
 class Tiles(
     GeoDataFrameFixed,
 ):
+    gw: pd.Series  # geographic west bound of the tile
+    gn: pd.Series  # geographic north bound of the tile
+    ge: pd.Series  # geographic east bound of the tile
+    gs: pd.Series  # geographic south bound of the tile
 
     # @Static
     # def static(self):
@@ -73,7 +78,7 @@ class Tiles(
     #     self.infer.__call__(...)
 
     def infer(self):
-        inference = Inference( self )
+        inference = Inference(self)
 
     @Source
     def source(self):
@@ -259,8 +264,15 @@ class Tiles(
         pe, ps = trans(ge, gs)
         geometry = shapely.box(pw, pn, pe, ps)
 
+        data = dict(
+            gw=gw,
+            gn=gn,
+            ge=ge,
+            gs=gs,
+        )
+
         result = cls(
-            # data=data,
+            data=data,
             geometry=geometry,
             index=index,
             # crs=4326,
@@ -845,6 +857,28 @@ class Tiles(
     def __deepcopy__(self, memo) -> Tiles:
         return self.copy()
 
+    @property
+    def tfm(self) -> pd.Series:
+        """
+        Calculate the affinity object of each tile from its bounding box
+
+        Returns
+        -------
+        affinity object
+        """
+        if 'tfm' in self:
+            return self['tfm']
+        it = zip(self.gw, self.gs, self.ge, self.gn)
+        dim = self.dimension
+        data = [
+            rasterio.transform.from_bounds(gw, gs, ge, gn, dim, dim)
+            for gw, gs, ge, gn in it
+        ]
+        result = pd.Series(data, index=self.index, name='tfm')
+        self['tfm'] = result
+        return self['tfm']
+
+
 if __name__ == '__main__':
     tiles = Tiles()
     tiles.indir
@@ -852,4 +886,3 @@ if __name__ == '__main__':
     tiles.name
     tiles.source
     tiles.cfg.model.snapshot
-    ...

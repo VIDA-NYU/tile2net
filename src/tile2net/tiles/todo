@@ -85,3 +85,9 @@ profile the inference
 1. if starts with _ just do object.get
 2. if hasattr(cls, item) then object.get/set/del
 3. try adding to trace
+
+pass postprocess=False to Mask2Poly, run it all later in a single vectorized operation
+
+if postprocess:
+    self.postprocess.mask_to_poly_geojson
+    self.postprocess.replace_convexhull

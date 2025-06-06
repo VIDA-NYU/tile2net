@@ -1,4 +1,6 @@
 import os
+import shapely.wkt
+from shapely.validation import make_valid
 import pathlib
 
 import numpy as np
@@ -89,7 +91,7 @@ class Tile:
             current projection
         dest_crs : int
             desired projection
-        
+
         Returns
         -------
         tuple(float, float, float, float)
@@ -110,8 +112,11 @@ class Tile:
         None
         """
         self.top, self.left = num2deg(self.xtile, self.ytile, self.zoom)
-        self.bottom, self.right = num2deg(self.xtile + self.tile_step,
-                                          self.ytile + self.tile_step, self.zoom)
+        self.bottom, self.right = num2deg(
+            self.xtile + self.tile_step,
+            self.ytile + self.tile_step,
+            self.zoom
+        )
 
     @property
     def bbox(self):
@@ -166,15 +171,19 @@ class Tile:
             poly = Polygon.from_bounds(left, bottom, right, top)
         else:
             # fix the rounding issues in plotting
-            poly = Polygon.from_bounds(self.left, self.bottom - 0.00001, self.right,
-                                       self.top - 0.00001)
+            poly = Polygon.from_bounds(
+                self.left,
+                self.bottom - 0.00001,
+                self.right,
+                self.top - 0.00001
+            )
         # poly.set_crs(epsg=crs)
         return poly
 
     def tile2gdf(self, *bounds):
         """
         Create a tile :class:`GeoDataFrame`
-        
+
         Returns
         -------
         :class:`GeoDataFrame`
@@ -192,7 +201,7 @@ class Tile:
         """
         Returns the neighbors of a tile
         given the tile is topleft one, returns d**2-1 neighbors (d on column and d on the row)
-        
+
         Parameters
         ----------
         d : int
@@ -203,8 +212,11 @@ class Tile:
         list.
             list of the neighboring tiles (x,y)
         """
-        return [[self.position[0] + r, self.position[1] + c] for r in range(0, d) for c in
-                range(0, d)]
+        return [
+            [self.position[0] + r, self.position[1] + c]
+            for r in range(0, d)
+            for c in range(0, d)
+        ]
 
     def get_metric(self, crs: int = 3857):
         """
@@ -243,8 +255,14 @@ class Tile:
         gdf_new = gdf.explode()
         return gdf_new
 
-
-    def mask2poly(self, src_img, class_name, class_id, class_hole_size=25, img_array=None):
+    def mask2poly(
+            self,
+            src_img,
+            class_name,
+            class_id,
+            class_hole_size=25,
+            img_array=None
+    ) -> gpd.GeoDataFrame:
         """
         Converts a raster mask to a :class:`GeoDataFrame` of polygons
 
@@ -270,32 +288,42 @@ class Tile:
             mask_image = src_img
         else:
             mask_image = skimage.io.imread(os.path.join(src_img, f'{self.im_name}'))
+            # raise NotImplementedError
         # using the masks defined here, the sidewalks are blue and hence index 2(3rd position in RGB)
         # sidewalks
         tfm_ = self.tfm
         f_class = mask_image[:, :, class_id]
         has_class: bool = np.any(f_class != 0)
+        self.crs
         if has_class is not False:
             geoms_class: gpd.GeoDataFrame = self.mask_to_poly_geojson(f_class)
-            if not geoms_class.empty:
-                geoms_class['geometry'] = geoms_class['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
-                geoms_class = geoms_class.set_crs(epsg=str(self.crs))
-                geoms_class['f_type'] = class_name
-                geoms_class = geoms_class[geoms_class['geometry'].notna()]
-                geoms_class = geoms_class[geoms_class['geometry'].apply(lambda x: x.is_valid)]
-
-                if class_hole_size is not None:
-                    goems_class_met = to_metric(geoms_class).explode().reset_index(drop=True)
-                    goems_class_filtered = goems_class_met[~goems_class_met["geometry"].isna()]
-                    goems_class_filtered["geometry"] = \
-                        goems_class_filtered.apply(fill_holes, args=(class_hole_size,), axis=1)
-                    simplified = replace_convexhull(goems_class_filtered)
-                    simplified.to_crs(self.crs, inplace=True)
-                    return simplified
-                else:
-                    return geoms_class
-            else:
+            if geoms_class.empty:
                 return False
+
+            geoms_class['geometry'] = geoms_class['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
+            geoms_class = geoms_class.set_crs(epsg=str(self.crs))
+            loc = geoms_class.geometry.notna()
+            loc &= geoms_class.is_valid
+            geoms_class = geoms_class[loc]
+
+            if class_hole_size is not None:
+                geoms_class_met = (
+                    to_metric(geoms_class, crs=self.crs)
+                    .explode()
+                    .reset_index(drop=True)
+                )
+                loc = geoms_class_met.notna()
+                geoms_class_filtered = geoms_class_met.loc[loc]
+                geoms_class_filtered["geometry"] = geoms_class_filtered.apply(
+                    fill_holes,
+                    args=(class_hole_size,),
+                    axis=1
+                )
+                simplified = replace_convexhull(geoms_class_filtered)
+                simplified.to_crs(self.crs, inplace=True)
+                return simplified
+            else:
+                return geoms_class
         else:
             return False
 
@@ -317,26 +345,32 @@ class Tile:
         """
         swcw = []
 
-        sidewalks = self.mask2poly(src_img,
-                                   class_name='sidewalk',
-                                   class_id=2,
-                                   img_array=img_array)
+        sidewalks = self.mask2poly(
+            src_img,
+            class_name='sidewalk',
+            class_id=2,
+            img_array=img_array
+        )
         if sidewalks is not False:
             swcw.append(sidewalks)
 
-        crosswalks = self.mask2poly(src_img,
-                                    class_name='crosswalk',
-                                    class_id=0,
-                                    class_hole_size=15,
-                                    img_array=img_array)
+        crosswalks = self.mask2poly(
+            src_img,
+            class_name='crosswalk',
+            class_id=0,
+            class_hole_size=15,
+            img_array=img_array
+        )
         if crosswalks is not False:
             swcw.append(crosswalks)
 
-        roads = self.mask2poly(src_img,
-                               class_name='road',
-                               class_id=1,
-                               class_hole_size=30,
-                               img_array=img_array)
+        roads = self.mask2poly(
+            src_img,
+            class_name='road',
+            class_id=1,
+            class_hole_size=30,
+            img_array=img_array
+        )
         if roads is not False:
             swcw.append(roads)
         if len(swcw) > 0:
@@ -422,14 +456,15 @@ class Tile:
             if pred_arr.shape[0] < pred_arr.shape[-1]:
                 pred_arr = np.moveaxis(pred_arr, 0, -1)
             if channel_scaling is None:  # if scale values weren't provided
-                channel_scaling = np.ones(shape=(pred_arr.shape[-1]),
-                                          dtype='float')
+                channel_scaling = np.ones(
+                    shape=(pred_arr.shape[-1]),
+                    dtype='float'
+                )
             pred_arr = np.sum(pred_arr * np.array(channel_scaling), axis=-1)
 
         mask_arr = (pred_arr > bg_threshold).astype('uint8')
 
         return mask_arr * 255
-
 
     @staticmethod
     def _check_crs(input_crs, return_rasterio=False):
@@ -466,11 +501,18 @@ class Tile:
             json.dump(empty_geojson_dict, f)
             f.close()
 
-
-    def mask_to_poly_geojson(self, pred_arr, channel_scaling=None, reference_im=None,
-                             min_area=20,
-                             bg_threshold=0, do_transform=None, simplify=True,
-                             tolerance=0.8, **kwargs):
+    def mask_to_poly_geojson(
+            self,
+            pred_arr,
+            channel_scaling=None,
+            reference_im=None,
+            min_area=20,
+            bg_threshold=0,
+            do_transform=None,
+            simplify=True,
+            tolerance=0.8,
+            **kwargs
+    ):
         """
         *Adopted from the Solaris library to overcome dependency issues*
 
@@ -524,12 +566,11 @@ class Tile:
             A :class:`GeoDataFrame` of polygons.
 
         """
-        from shapely.validation import make_valid
         mask_arr = self.preds_to_binary(pred_arr, channel_scaling, bg_threshold)
 
         if do_transform and reference_im is None:
-            raise ValueError(
-                'Coordinate transformation requires a reference image.')
+            msg = 'Coordinate transformation requires a reference image.'
+            raise ValueError(msg)
 
         if do_transform:
             with rasterio.open(reference_im) as ref:
@@ -543,9 +584,11 @@ class Tile:
         mask = mask_arr > bg_threshold
         mask = mask.astype('uint8')
 
-        polygon_generator = features.shapes(mask_arr,
-                                            transform=transform,
-                                            mask=mask)
+        polygon_generator = features.shapes(
+            mask_arr,
+            transform=transform,
+            mask=mask
+        )
         polygons = []
         values = []  # pixel values for the polygon in mask_arr
         for polygon, value in polygon_generator:
@@ -556,20 +599,23 @@ class Tile:
                 polygons.append(shape(polygon).buffer(0.0))
                 values.append(value)
 
-        polygon_gdf = gpd.GeoDataFrame({'geometry': polygons, 'value': values},
-                                       crs=crs.to_wkt())
+        data = dict(geometry=polygons, value=values)
+        polygon_gdf = gpd.GeoDataFrame(data, crs=crs, )
         if simplify:
-            polygon_gdf['geometry'] = polygon_gdf['geometry'].apply(
-                lambda x: x.simplify(tolerance=tolerance)
-            )
+            polygon_gdf['geometry'] = polygon.simplify(tolerance=tolerance)
 
         return polygon_gdf
 
-    def convert_poly_coords(self, geom, affine_obj=None, inverse=False,
-                            precision=None):
+    def convert_poly_coords(
+            self,
+            geom,
+            affine_obj=None,
+            inverse=False,
+            precision=None
+    ):
         """
         *Adopted from the Solaris library to overcome dependency issues*
-        
+
         Georegister geometry objects currently in pixel coords or vice versa.
 
         Parameters
@@ -615,16 +661,21 @@ class Tile:
         elif isinstance(geom, shapely.geometry.base.BaseGeometry):
             g = geom
         else:
-            raise TypeError('The provided geometry is not an accepted format. '
-                            'This function can only accept WKT strings and '
-                            'shapely geometries.')
+            raise TypeError(
+                'The provided geometry is not an accepted format. '
+                'This function can only accept WKT strings and '
+                'shapely geometries.'
+            )
 
-        xformed_g = shapely.affinity.affine_transform(g, [affine_xform.a,
-                                                          affine_xform.b,
-                                                          affine_xform.d,
-                                                          affine_xform.e,
-                                                          affine_xform.xoff,
-                                                          affine_xform.yoff])
+        matrix = [
+            affine_xform.a,
+            affine_xform.b,
+            affine_xform.d,
+            affine_xform.e,
+            affine_xform.xoff,
+            affine_xform.yoff
+        ]
+        xformed_g = shapely.affinity.affine_transform(g, matrix)
         if isinstance(geom, str):
             # restore to wkt string format
             xformed_g = shapely.wkt.dumps(xformed_g)
