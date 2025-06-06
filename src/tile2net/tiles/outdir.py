@@ -11,25 +11,6 @@ from .dir import Dir
 class Probability(
     Dir
 ):
-    @property
-    def files(self) -> pd.Series:
-        tiles = self.tiles.stitched
-        key = self._trace
-        if key in tiles:
-            return tiles[key]
-        else:
-            format = self.format
-            zoom = tiles.zoom
-            it = zip(tiles.ytile, tiles.xtile)
-            self.tiles.outdir
-            data = [
-                format.format(z=zoom, y=ytile, x=xtile)
-                for ytile, xtile in it
-            ]
-            result = pd.Series(data, index=tiles.index)
-            tiles[key] = result
-            return tiles[key]
-
     extension = 'npy'
 
 
@@ -37,23 +18,6 @@ class Error(
     Dir
 ):
 
-    @property
-    def files(self) -> pd.Series:
-        tiles = self.tiles.stitched
-        key = self._trace
-        if key in tiles:
-            return tiles[key]
-        else:
-            format = self.format
-            zoom = tiles.zoom
-            it = zip(tiles.ytile, tiles.xtile)
-            data = [
-                format.format(z=zoom, y=ytile, x=xtile)
-                for ytile, xtile in it
-            ]
-            result = pd.Series(data, index=tiles.index)
-            tiles[key] = result
-            return tiles[key]
 
     extension = 'npy'
 
@@ -95,23 +59,8 @@ class Network(
 class SideBySide(
     Dir
 ):
-    @property
-    def files(self) -> pd.Series:
-        tiles = self.tiles.stitched
-        key = self._trace
-        if key in tiles:
-            return tiles[key]
-        else:
-            format = self.format
-            zoom = tiles.zoom
-            it = zip(tiles.ytile, tiles.xtile)
-            data = [
-                format.format(z=zoom, y=ytile, x=xtile)
-                for ytile, xtile in it
-            ]
-            result = pd.Series(data, index=tiles.index)
-            tiles[key] = result
-            return tiles[key]
+    ...
+
 
 
 class SegResults(
@@ -228,7 +177,7 @@ class Outdir(
             self.dir,
             'polygons',
             self.suffix,
-        )
+        ).replace(self.extension, 'feather')
         result = Polygons.from_format(format)
         return result
 
@@ -238,7 +187,7 @@ class Outdir(
             self.dir,
             'network',
             self.suffix,
-        )
+        ).replace(self.extension, 'feather')
         result = Network.from_format(format)
         return result
 

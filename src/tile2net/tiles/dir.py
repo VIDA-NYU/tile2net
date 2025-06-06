@@ -28,7 +28,6 @@ if False:
     from .tiles import Tiles
 
 
-
 def __get__(
         self: Dir,
         instance: Union[
@@ -380,6 +379,24 @@ class Dir:
                 f'{self.owner} with {self.instance=}'
             )
             raise ValueError(msg)
+
+    @property
+    def files(self) -> pd.Series:
+        tiles = self.tiles.stitched
+        key = self._trace
+        if key in tiles:
+            return tiles[key]
+        else:
+            format = self.format
+            zoom = tiles.zoom
+            it = zip(tiles.ytile, tiles.xtile)
+            data = [
+                format.format(z=zoom, y=ytile, x=xtile)
+                for ytile, xtile in it
+            ]
+            result = pd.Series(data, index=tiles.index)
+            tiles[key] = result
+            return tiles[key]
 
 
 class TestIndir:

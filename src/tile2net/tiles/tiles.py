@@ -1,4 +1,7 @@
 from __future__ import annotations
+
+import itertools
+
 import rasterio.transform
 
 import os
@@ -858,25 +861,20 @@ class Tiles(
         return self.copy()
 
     @property
-    def tfm(self) -> pd.Series:
-        """
-        Calculate the affinity object of each tile from its bounding box
-
-        Returns
-        -------
-        affinity object
-        """
-        if 'tfm' in self:
-            return self['tfm']
+    def affine_params(self) -> pd.Series:
+        key = 'affine_params'
+        if key in self:
+            return self[key]
         it = zip(self.gw, self.gs, self.ge, self.gn)
         dim = self.dimension
         data = [
-            rasterio.transform.from_bounds(gw, gs, ge, gn, dim, dim)
+            rasterio.transform
+            .from_bounds(gw, gs, ge, gn, dim, dim)
             for gw, gs, ge, gn in it
         ]
-        result = pd.Series(data, index=self.index, name='tfm')
-        self['tfm'] = result
-        return self['tfm']
+        result = pd.Series(data, index=self.index, name=key)
+        self[key] = result
+        return self[key]
 
 
 if __name__ == '__main__':
