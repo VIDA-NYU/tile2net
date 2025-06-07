@@ -55,3 +55,15 @@ class Stitched(
         self['group'] = result
         return self['group']
 
+    @property
+    def outdir(self):
+        # return self.tiles.outdir
+        tiles = self.tiles
+        tiles._stitched = self
+        return tiles.outdir
+
+    # @property
+    # def indir(self):
+    #     tiles = self.tiles
+    #     tiles._stitched = self
+    #     return tiles.indir

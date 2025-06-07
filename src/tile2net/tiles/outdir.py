@@ -1,4 +1,6 @@
 from __future__ import annotations
+from typing import Iterator
+import os
 
 import datetime
 import os.path
@@ -17,8 +19,6 @@ class Probability(
 class Error(
     Dir
 ):
-
-
     extension = 'npy'
 
 
@@ -61,6 +61,46 @@ class SideBySide(
 ):
     ...
 
+
+class Outputs(
+    Dir
+):
+
+    def files(self, dirname: str) -> pd.Series:
+        tiles = self.tiles.stitched
+        key = f'{self._trace}.{dirname}'
+        if key in tiles:
+            return tiles[key]
+        suffix = (
+            self.format
+            .removeprefix(self.dir)
+            .lstrip(os.sep)
+        )
+        format = os.path.join(self.dir, dirname, suffix)
+        dir = os.path.dirname(format)
+        os.makedirs(dir, exist_ok=True)
+        zoom = tiles.zoom
+        it = zip(tiles.ytile, tiles.xtile)
+        data = [
+            format.format(z=zoom, y=ytile, x=xtile)
+            for ytile, xtile in it
+        ]
+        result = pd.Series(data, index=tiles.index)
+        tiles[key] = result
+        result = tiles[key]
+        return result
+
+    def iterator(self, dirname: str) -> Iterator[pd.Series]:
+        key = self._trace
+        cache = self.tiles.attrs
+        if key in cache:
+            it = cache[key]
+        else:
+            files = self.files(dirname)
+            it = iter(files)
+            cache[key] = it
+        yield from it
+        del cache[key]
 
 
 class SegResults(
@@ -131,6 +171,17 @@ class BestImages(
 class Outdir(
     Dir
 ):
+
+    @Outputs
+    def outputs(self):
+        format = os.path.join(
+            self.dir,
+            'outputs',
+            self.suffix,
+        )
+        result = Outputs.from_format(format)
+        return result
+
     @Mask
     def mask(self):
         format = os.path.join(

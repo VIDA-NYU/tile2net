@@ -39,6 +39,7 @@ from .outdir import Outdir
 from .source import Source, SourceNotFound
 from .static import Static, static
 from .stitch import Stitch
+from .colormap import ColorMap
 
 if False:
     import folium
@@ -79,6 +80,15 @@ class Tiles(
     #     # This code block is just semantic sugar and does not run.
     #     self.infer(...)
     #     self.infer.__call__(...)
+
+    @ColorMap
+    def colormap(self):
+        # This code block is just semantic sugar and does not run.
+        # This allows us to apply colormaps to tensors, ndarrays, and images.
+        # todo: allow setting custom colormaps
+        # See:
+        self.colormap.__call__(...)
+        self.colormap(...)
 
     def infer(self):
         inference = Inference(self)

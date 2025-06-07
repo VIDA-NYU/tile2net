@@ -1,31 +1,46 @@
-import os
+from __future__ import annotations
+
 from concurrent.futures import Future, ThreadPoolExecutor
-from typing import *
-import torch
+from dataclasses import dataclass
+from functools import cached_property
+from typing import Optional
+
+import cv2
 import numpy as np
 import pandas as pd
+import torch
+import torchvision.transforms as standard_transforms
+from PIL import Image
 
-from tile2net.tiles.cfg import cfg
-from tile2net.tileseg.utils.misc import fast_hist, fmt_scale
-from tile2net.tileseg.utils.misc import AverageMeter, eval_metrics
-from tile2net.tileseg.utils.misc import metrics_per_image
-from tile2net.tileseg.utils.misc import ImageDumper
+import tile2net.tileseg.utils.misc
 from tile2net.logger import logger
-from dataclasses import dataclass
-from typing import Self, Optional
+from tile2net.tiles.cfg import cfg
+from tile2net.tileseg.utils.misc import AverageMeter
+from tile2net.tileseg.utils.misc import fast_hist, fmt_scale
+from dataclasses import field
+
+if False:
+    from tile2net.tiles import Tiles
 
 
 @dataclass
 class MiniBatch(
 
 ):
+    input_images: torch.Tensor
     predictions: np.ndarray
-    prob_mask: torch.Tensor
     iou_acc: np.ndarray
-    pred_05x: Optional[np.ndarray] = None
-    pred_10x: Optional[np.ndarray] = None
-    attn_05x: Optional[np.ndarray] = None
-    attn_10x: Optional[np.ndarray] = None
+    gt_images: torch.Tensor
+    tiles: Tiles
+    iloc: slice
+    output: dict[str, torch.Tensor] = field(default_factory=dict)
+    prob_mask: Optional[torch.Tensor] = None
+    error_mask: Optional[np.ndarray] = None
+
+    # pred_05x: Optional[np.ndarray] = None
+    # pred_10x: Optional[np.ndarray] = None
+    # attn_05x: Optional[np.ndarray] = None
+    # attn_10x: Optional[np.ndarray] = None
 
     @classmethod
     def from_data(
@@ -35,7 +50,8 @@ class MiniBatch(
             criterion: torch.nn.Module,
             val_loss: AverageMeter,
             calc_metrics: bool,
-            val_idx: int
+            val_idx: int,
+            tiles: Tiles,
     ):
         """
         Evaluate a single minibatch of images.
@@ -167,10 +183,12 @@ class MiniBatch(
             predictions=predictions,
             prob_mask=max_probs,
             iou_acc=_iou_acc,
-            pred_05x=assets.get('pred_05x', None),
-            pred_10x=assets.get('pred_10x', None),
-            attn_05x=assets.get('attn_05x', None),
-            attn_10x=assets.get('attn_10x', None),
+            # pred_05x=assets.get('pred_05x', None),
+            # pred_10x=assets.get('pred_10x', None),
+            # attn_05x=assets.get('attn_05x', None),
+            # attn_10x=assets.get('attn_10x', None),
+            tiles=tiles,
+            iloc=iloc
         )
         return result
 
@@ -245,39 +263,131 @@ class MiniBatch(
 
         return err_mask.astype(int)
 
-    def to_error(
-            self,
-            files: pd.Series
-    ) -> Iterator[Future]:
-        ...
+    @cached_property
+    def threads(self) -> ThreadPoolExecutor:
+        return ThreadPoolExecutor(max_workers=cfg.num_threads)
 
-    def to_sidebyside(
+    @cached_property
+    def futures(self) -> list[Future]:
+        return []
+
+    @cached_property
+    def dump_percent(self) -> int:
+        return 100
+
+    def to_prediction(
             self,
             files: pd.Series
-    ) -> Iterator[Future]:
+    ):
         ...
 
     def to_probability(
             self,
-            files: pd.Series
-    ) -> Iterator[Future]:
-        ...
+    ):
+        if self.prob_mask is None:
+            return
+        PROB_MASK = (
+            self.prob_mask
+            .cpu()
+            .numpy()
+            .__mul__(255)
+            .astype(np.uint8)
+        )
+        files = (
+            self.tiles.outdir.seg_results.prob
+            .iterator()
+            .__next__()
+        )
+        for prob_mask, file in zip(PROB_MASK, files):
+            future = self.threads.submit(cv2.imwrite, file, prob_mask)
+            self.futures.append(future)
+
+    def to_error(
+            self,
+    ):
+        if self.error_mask is None:
+            return
+        # see this func. It doesn't seem to be saving err masks
+        _ = (
+            tile2net.tileseg.utils.misc
+            .ImageDumper.save_prob_and_err_mask
+        )
+        raise NotImplementedError
+
+    def to_sidebyside(
+            self,
+    ):
+        it = zip(cfg.DATASET.MEAN, cfg.DATASET.STD)
+        inv_mean = [-mean / std for mean, std in it]
+        inv_std = [1 / std for std in cfg.DATASET.STD]
+        if not cfg.dump_percent:
+            return
+        INPUT_IMAGE = (
+            standard_transforms
+            .Normalize(mean=inv_mean, std=inv_std)
+            (self.input_images)
+            .cpu()
+        )
+        files = (
+            self.tiles.outdir.seg_results.sidebyside
+            .iterator()
+            .__next__()
+        )
+        it = zip(INPUT_IMAGE, self.predictions, files)
+        for input_image, prediction, file in it:
+            self.dump_percent += cfg.dump_percent
+            if self.dump_percent < 100:
+                continue
+            input_image = (
+                standard_transforms.ToPILImage()
+                (input_image)
+                .convert('RGB')
+            )
+            prediction_pil = cfg.DATASET_INST.colorize_mask(prediction)
+            size = input_image.width * 2, input_image.height
+            composited = Image.new('RGB', size)
+            composited.paste(input_image, (0, 0))
+            composited.paste(prediction_pil, (prediction_pil.width, 0))
+            future = self.threads.submit(composited.save, file)
+            self.futures.append(future)
+
+    def to_output(
+            self,
+    ):
+        # todo: how to handle
+        colorize = self.tiles.colormap
+        for dirname, OUTPUT in self.output.items():
+            files = (
+                self.tiles.outdir.outputs
+                .iterator(dirname)
+                .__next__()
+            )
+            if isinstance(OUTPUT, torch.Tensor):
+                OUTPUT = OUTPUT.cpu().numpy()
+
+            if 'pred_' in dirname:
+                OUTPUT = colorize(OUTPUT)
+                it = zip(files, OUTPUT)
+                for file, output in it:
+                    image = Image.fromarray(output)
+
+                # PIL.Image(ou)
+                # OUTPUT = colorize(OUTPUT)
+
+
 
     def to_mask(
             self,
-            files: pd.Series
-    ) -> Iterator[Future]:
+    ):
         ...
 
     def to_mask_raw(
             self,
-            files: pd.Series
-    ) -> Iterator[Future]:
+    ):
         ...
 
     def to_polygons(
             self,
-            files: pd.Series,
             affile: pd.Series,
-    ) -> Iterator[Future]:
+    ):
         ...

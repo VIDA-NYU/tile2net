@@ -288,6 +288,7 @@ class Inference:
             iou_acc += _iou_acc
             input_images, labels, img_names, _ = data
 
+
             dumpdict = dict(
                     gt_images=labels,
                     input_images=input_images,
@@ -306,6 +307,9 @@ class Inference:
             else:
                 dump = dumper.dump(dumpdict, val_idx)
             gdfs.extend(dump)
+            assets['prob_mask'].shape
+            dumpdict['input_images'].shape
+            dumpdict['assets'].keys()
 
             if (
                     args.options.test_mode

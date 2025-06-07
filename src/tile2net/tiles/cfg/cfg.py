@@ -384,6 +384,7 @@ class Model(cmdline.Namespace):
         """
         Batch size for validation per GPU
         """
+        return 2
         return 1
 
     @cmdline.property

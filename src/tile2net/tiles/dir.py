@@ -1,4 +1,5 @@
 from __future__ import annotations
+from tile2net.tiles.cfg import cfg
 
 import functools
 from typing import Optional, Self
@@ -380,10 +381,10 @@ class Dir:
             )
             raise ValueError(msg)
 
-    @property
-    def files(self) -> pd.Series:
+    def files(self, *args, **kwargs) -> pd.Series:
         tiles = self.tiles.stitched
         key = self._trace
+        os.makedirs(self.dir, exist_ok=True)
         if key in tiles:
             return tiles[key]
         else:
@@ -397,6 +398,28 @@ class Dir:
             result = pd.Series(data, index=tiles.index)
             tiles[key] = result
             return tiles[key]
+
+    def iterator(self, *args, **kwargs) -> Iterator[pd.Series]:
+        """
+
+        """
+        key = self._trace
+        cache = self.tiles.attrs
+        if key in cache:
+            it = cache[key]
+        else:
+            files = self.files(*args, **kwargs)
+            def gen():
+                n = cfg.model.bs_val
+                a = files.to_numpy()
+                q, r = divmod(len(a), n)
+                yield from a[:q*n].reshape(q, n)
+                if r:
+                    yield a[-r:]
+            it = gen()
+            cache[key] = it
+        yield from it
+        del cache[key]
 
 
 class TestIndir:

@@ -92,5 +92,15 @@ if postprocess:
     self.postprocess.mask_to_poly_geojson
     self.postprocess.replace_convexhull
 
-
 sidebyside
+
+download north americans album
+add outdir/predictions for just the basic predictions
+
+make sure you undo this:
+__C.MODEL.BS_VAL = 2
+and bs_val = 2 should be 1
+
+best way to iterate across file columns for every batch?
+
+tiles.stitched.iterator

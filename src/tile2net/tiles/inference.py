@@ -45,7 +45,8 @@ from tile2net.tiles.tileseg.utils.misc import ThreadedDumper
 from tile2net.tiles.tileseg.utils.trnval_utils import eval_minibatch
 from tile2net.tiles.cfg import cfg
 from tile2net.tiles.tileseg.utils.misc import DumpData
-from tile2net.tiles.tileseg.utils.minibatch import MiniBatch
+from .minibatch import MiniBatch
+from .colormap import ColorMap
 
 args = cfg
 
@@ -280,26 +281,9 @@ class Inference(
         iou_acc = 0
         _temp = dict.fromkeys([i for i in range(10)], None)
         tiles = TILES
-        tiles.outdir.seg_results.dir
-        prob = tiles.outdir.seg_results.prob
-        error = tiles.outdir.seg_results.error
-        sidebyside = tiles.outdir.seg_results.sidebyside
-        os.makedirs(prob.dir, exist_ok=True)
-        os.makedirs(error.dir, exist_ok=True)
-        os.makedirs(sidebyside.dir, exist_ok=True)
 
-        # RESULT = tiles.outdir
-        PROB = prob.files.values
-        ERROR = error.files.values
-        SIDEBYSIDE = sidebyside.files.values
-        i = 0
         for val_idx, data in enumerate(val_loader):
             input_images, labels, img_names, _ = data
-            n = input_images.shape[0]
-            prob = PROB[i:i + n]
-            error = ERROR[i:i + n]
-            sidebyside = SIDEBYSIDE[i:i + n]
-            i += n
 
             # Run network
             batch = MiniBatch.from_data(
@@ -308,21 +292,13 @@ class Inference(
                 criterion=criterion,
                 val_loss=val_loss,
                 calc_metrics=calc_metrics,
-                val_idx=val_idx
+                val_idx=val_idx,
+                tiles=tiles
             )
             _iou_acc = batch.iou_acc
             iou_acc += _iou_acc
             input_images, labels, img_names, _ = data
 
-            # prob_path, err_path, sidebyside_path,
-            dumpdict = DumpData(
-                gt_images=labels,
-                input_images=input_images,
-                assets=assets,
-                prob_files=prob,
-                error_files=error,
-                sidebyside_files=sidebyside,
-            )
             if testing:
                 dump = dumper.dump(dumpdict, val_idx, testing=True, tiles=tiles)
             else:
