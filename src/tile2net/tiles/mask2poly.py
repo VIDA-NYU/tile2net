@@ -12,8 +12,13 @@ import skimage
 from affine import Affine
 from pandas import Series
 from rasterio import features
+import tile2net.tiles.stitched
 
+import tile2net.raster.tile
+import tile2net.raster.tile_utils.topology
+import tile2net.tileseg.utils.misc
 from tile2net.raster.tile_utils.geodata_utils import _check_skimage_im_load
+from tile2net.tiles.util import look_at
 from .fixed import GeoDataFrameFixed
 
 pd.options.mode.chained_assignment = None
@@ -37,6 +42,7 @@ class Mask2Poly(
         return cls.from_array(array, affine, crs=crs, **label2id)
 
     @classmethod
+    @look_at(tile2net.tiles.stitched.Stitched.affine_params)
     def from_array(
             cls,
             array: np.ndarray,
@@ -44,6 +50,17 @@ class Mask2Poly(
             crs: str | pyproj.CRS = "EPSG:3857",
             **label2id: dict[str, int]
     ) -> Self:
+        # todo: check over where the crs whould be what, and to support user input
+        """
+        array:
+            raw prediction array
+        affine:
+            affine transformation for tile
+        crs:
+            CRS of the output GeoDataFrame
+        label2id:
+            f_type label to channel id mapping e.g. {'road': 0, 'sidewalk': 1, ...}
+        """
         ARRAY = array
         concat: list[gpd.GeoDataFrame] = []
         for label, id in label2id.items():
@@ -68,6 +85,7 @@ class Mask2Poly(
         return result
 
     @classmethod
+    @look_at(tile2net.raster.tile.Tile.mask_to_poly_geojson)
     def mask_to_poly_geojson(
             cls,
             pred_arr,
@@ -92,6 +110,7 @@ class Mask2Poly(
         return result
 
     @classmethod
+    @look_at(tile2net.raster.tile.Tile.preds_to_binary)
     def preds_to_binary(
             cls,
             pred_arr: Union[np.ndarray, str],
@@ -154,24 +173,8 @@ class Mask2Poly(
         )
         return mask_arr
 
-    # def _sanitize(
-    #         self,
-    #         simplify: float = 0.8,
-    #         min_area: float = 20,
-    # ) -> Self:
-    #     result = (
-    #         self
-    #         .buffer(0.)
-    #         .make_valid()
-    #     )
-    #     if min_area:
-    #         loc = result.area >= min_area
-    #         result = result[loc]
-    #     if simplify:
-    #         result = result.simplify(tolerance=simplify)
-    #     result = self.__class__(result)
-    #     return result
 
+    @look_at(tile2net.raster.tile_utils.topology.replace_convexhull)
     def _replace_convexhull(
             self,
             convex=0.8
@@ -193,6 +196,7 @@ class Mask2Poly(
         result.update(hulls)
         return result
 
+    @look_at(tile2net.raster.tile_utils.topology.fill_holes)
     def _fill_holes(
             self,
             max_area: float,
@@ -216,6 +220,7 @@ class Mask2Poly(
         repeat = shapely.get_num_interior_rings(self) + 1
         indices = np.arange(len(repeat)).repeat(repeat)
         loc = area >= max_area
+        # always keep exteriors
         loc |= (
                 pd.Series(indices)
                 .groupby(indices, sort=False)
@@ -230,6 +235,7 @@ class Mask2Poly(
         result = self.set_geometry(geometry).pipe(self.__class__)
         return result
 
+    @look_at(tile2net.raster.tile.Tile.mask2poly)
     def postprocess(
             self,
             max_ring_area: Union[
@@ -250,6 +256,10 @@ class Mask2Poly(
                 Series
             ] = 0.8,
     ) -> gpd.GeoDataFrame:
+        # todo: use will be able to pass dict such as
+        # min_ring_area=dict(road=30, crosswalk=15, sidewalk=None)
+        # todo: plan is to concatenate all tile gdfs, then postprocess
+
         # todo: we need to map feature to max ring area
         cls = self.__class__
         result = self
@@ -259,9 +269,9 @@ class Mask2Poly(
         if simplify is not None:
             result = result.simplify(tolerance=simplify)
         if grid_size is not None:
-            # mary-h86 your code originally used np.round  but
+            # @maryam your code originally used np.round  but
             #   this is better because it avoids degenerate geoms?
-            # todo: precision is int but set_precision expects grid_size
+            # todo: precision  is int but set_precision expects grid_size
             result = result.set_precision(grid_size=grid_size)
         if max_ring_area is not None:
             result = cls._fill_holes(result, max_ring_area)

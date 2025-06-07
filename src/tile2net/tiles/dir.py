@@ -401,21 +401,31 @@ class Dir:
 
     def iterator(self, *args, **kwargs) -> Iterator[pd.Series]:
         """
+        Our magic is forbidden in this realm. In order to circumvent
+        such tyranny, we instead channel our powers into caching of an
+        iterator, which is then yielded from.
 
+        For each minibatch, we return to the iterator which maintains
+        its position in the column. We iterate across the rows associated
+        with the minibatch.
         """
-        key = self._trace
+        # todo: cleanup if batch ends early
+
+        key = f'{self._trace}.iterator'
         cache = self.tiles.attrs
         if key in cache:
             it = cache[key]
         else:
             files = self.files(*args, **kwargs)
+
             def gen():
                 n = cfg.model.bs_val
                 a = files.to_numpy()
                 q, r = divmod(len(a), n)
-                yield from a[:q*n].reshape(q, n)
+                yield from a[:q * n].reshape(q, n)
                 if r:
                     yield a[-r:]
+
             it = gen()
             cache[key] = it
         yield from it

@@ -109,12 +109,6 @@ class Outputs(
         del cache[key]
 
 
-class Prediction(
-    Dir
-):
-    ...
-
-
 class SegResults(
     Dir
 ):

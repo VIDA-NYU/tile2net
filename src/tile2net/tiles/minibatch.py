@@ -1,4 +1,8 @@
 from __future__ import annotations
+import tile2net.tileseg.inference.inference
+import tile2net.tileseg.datasets.base_loader
+import tile2net.tileseg.utils.trnval_utils
+from tile2net.tiles.util import look_at
 
 from concurrent.futures import Future, ThreadPoolExecutor
 from concurrent.futures import wait
@@ -20,6 +24,7 @@ from tile2net.logger import logger
 from tile2net.tiles.cfg import cfg
 from tile2net.tileseg.utils.misc import AverageMeter
 from tile2net.tileseg.utils.misc import fast_hist, fmt_scale
+from .dir import Dir
 from .mask2poly import Mask2Poly
 
 if False:
@@ -27,6 +32,7 @@ if False:
 
 
 def to_numpy(obj: Any):
+    """converts tensors to ndarrays; preserves lists, dicts, etc."""
     if isinstance(obj, torch.Tensor):
         return obj.detach().cpu().numpy()
     if isinstance(obj, dict):
@@ -52,6 +58,7 @@ class MiniBatch(
     error_mask: Optional[np.ndarray] = None
 
     @classmethod
+    @look_at(tile2net.tileseg.utils.trnval_utils.eval_minibatch)
     def from_data(
             cls,
             data: tuple,
@@ -207,6 +214,7 @@ class MiniBatch(
         return result
 
     @classmethod
+    @look_at(tile2net.tileseg.utils.trnval_utils.flip_tensor)
     def flip_tensor(
             cls,
             x: torch.Tensor,
@@ -225,6 +233,7 @@ class MiniBatch(
         return x[item]
 
     @classmethod
+    @look_at(tile2net.tileseg.utils.trnval_utils.resize_tensor)
     def resize_tensor(
             cls,
             inputs: torch.Tensor,
@@ -239,6 +248,7 @@ class MiniBatch(
         return inputs
 
     @classmethod
+    @look_at(tile2net.tileseg.utils.trnval_utils.calc_err_mask)
     def calc_err_mask(
             cls,
             pred: np.ndarray,
@@ -262,6 +272,7 @@ class MiniBatch(
         return err_mask.astype(int)
 
     @classmethod
+    @look_at(tile2net.tileseg.utils.trnval_utils.calc_err_mask_all)
     def calc_err_mask_all(
             cls,
             pred: np.ndarray,
@@ -293,16 +304,18 @@ class MiniBatch(
             fut.result()
         self.futures.clear()
 
-    def to_file(self):
-        self.to_probability()
-        self.to_error()
-        self.to_sidebyside()
-        self.to_output()
-        self.to_raw()
-        self.to_mask()
-        self.to_polygons()
+    def submit_file(self):
+        self.submit_probability()
+        self.submit_error()
+        self.submit_sidebyside()
+        self.submit_output()
+        self.submit_raw()
+        self.submit_mask()
+        self.submit_polygons()
 
-    def to_probability(
+    @look_at(tile2net.tileseg.utils.misc.ThreadedDumper.save_prob_and_err_mask)
+    @look_at(Dir.iterator)
+    def submit_probability(
             self,
     ):
         if self.prob_mask is None:
@@ -317,21 +330,17 @@ class MiniBatch(
             future = self.threads.submit(cv2.imwrite, file, array)
             self.futures.append(future)
 
-    def to_error(
-            self,
-    ):
+    @look_at(tile2net.tileseg.utils.misc.ThreadedDumper.save_prob_and_err_mask)
+    def submit_error(self, ):
         if self.error_mask is None:
             return
-        # see this func. It doesn't seem to be saving err masks
-        _ = (
-            tile2net.tileseg.utils.misc
-            .ImageDumper.save_prob_and_err_mask
-        )
+        # todo @mary-h86 see this func. It doesn't seem to be saving err masks
+        #   it just saves the prediction, will return to this later
+        look_at(tile2net.tileseg.utils.misc.ThreadedDumper.save_prob_and_err_mask)
         raise NotImplementedError
 
-    def to_sidebyside(
-            self,
-    ):
+    @look_at(tile2net.tileseg.utils.misc.ThreadedDumper.create_composite_image)
+    def submit_sidebyside(self, ):
         it = zip(cfg.DATASET.MEAN, cfg.DATASET.STD)
         inv_mean = [-mean / std for mean, std in it]
         inv_std = [1 / std for std in cfg.DATASET.STD]
@@ -362,10 +371,8 @@ class MiniBatch(
             future = self.threads.submit(composited.save, file)
             self.futures.append(future)
 
-    def to_output(
-            self,
-    ):
-        # todo: how to handle
+    @look_at(tile2net.tileseg.utils.misc.ThreadedDumper.get_dump_assets)
+    def submit_output(self, ):
         colorize = self.tiles.colormap
         it = to_numpy(self.output).items()
         for dirname, arrays in it:
@@ -376,7 +383,8 @@ class MiniBatch(
                 future = self.threads.submit(cv2.imwrite, file, array)
                 self.futures.append(future)
 
-    def to_raw(self):
+    @look_at(tile2net.tileseg.datasets.base_loader.BaseLoader.dump_images)
+    def submit_raw(self):
         """
         The raw segmentation mask without colorization, containing class IDs as pixel values.
         """
@@ -388,7 +396,8 @@ class MiniBatch(
             future = self.threads.submit(cv2.imwrite, file, array)
             self.futures.append(future)
 
-    def to_mask(self):
+    @look_at(tile2net.tileseg.datasets.base_loader.BaseLoader.dump_images)
+    def submit_mask(self):
         """
         A colorized segmentation mask where different classes (road, sidewalk, crosswalk) are represented by different colors according to a predefined color palette
         """
@@ -401,7 +410,8 @@ class MiniBatch(
             future = self.threads.submit(cv2.imwrite, file, array)
             self.futures.append(future)
 
-    def to_polygons(self, ):
+    @look_at(tile2net.tileseg.inference.inference.Inference.validate)
+    def submit_polygons(self):
         affines = next(self.tiles.stitched.affine_iterator())
         arrays = to_numpy(self.predictions)
         files = next(self.tiles.outdir.polygons.iterator())
@@ -416,4 +426,5 @@ class MiniBatch(
                 )
                 .pipe(gpd.GeoDataFrame)
             )
-            self.threads.submit(frame.to_parquet, file)
+            future = self.threads.submit(frame.to_parquet, file)
+            self.futures.append(future)

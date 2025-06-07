@@ -1,4 +1,5 @@
 import math
+from typing import *
 import inspect
 import functools
 import json
@@ -222,7 +223,6 @@ def name_from_location(location: str | list[float, str]):
     raise TypeError(f"location must be str or list, not {type(location)}")
 
 
-
 def has_uncommented_return(func):
     source_code = inspect.getsource(func)
     source_code = textwrap.dedent(source_code)
@@ -302,6 +302,7 @@ class CodeVisitor(ast.NodeVisitor):
         self.has_code = True
         self.generic_visit(node)
 
+
 def contains_functioning_code(code):
     if inspect.isfunction(code):
         code = inspect.getsource(code)
@@ -319,6 +320,7 @@ def returns_or_assigns(code) -> bool:
             returns(code)
             or contains_functioning_code(code)
     )
+
 
 def returns(code):
     if inspect.isfunction(code):
@@ -341,6 +343,17 @@ def has_executable_code(func):
         if isinstance(node, clses):
             return True
     return False
+
+
+T = TypeVar('T')
+
+
+def _look_at(func: T) -> T:
+    return func
+
+
+def look_at(file: object):
+    return _look_at
 
 
 if __name__ == '__main__':
