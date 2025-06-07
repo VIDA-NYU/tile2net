@@ -16,6 +16,12 @@ class Probability(
     extension = 'npy'
 
 
+class Prediction(
+    Dir
+):
+    extension = 'png'
+
+
 class Error(
     Dir
 ):
@@ -103,6 +109,12 @@ class Outputs(
         del cache[key]
 
 
+class Prediction(
+    Dir
+):
+    ...
+
+
 class SegResults(
     Dir
 ):
@@ -171,6 +183,16 @@ class BestImages(
 class Outdir(
     Dir
 ):
+
+    @Prediction
+    def prediction(self):
+        format = os.path.join(
+            self.dir,
+            'prediction',
+            self.suffix,
+        ).replace(self.extension, 'png')
+        result = Prediction.from_format(format)
+        return result
 
     @Outputs
     def outputs(self):

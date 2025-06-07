@@ -1,4 +1,6 @@
 from __future__ import annotations
+import numpy as np
+from numpy import ndarray
 
 import itertools
 
@@ -869,22 +871,6 @@ class Tiles(
 
     def __deepcopy__(self, memo) -> Tiles:
         return self.copy()
-
-    @property
-    def affine_params(self) -> pd.Series:
-        key = 'affine_params'
-        if key in self:
-            return self[key]
-        it = zip(self.gw, self.gs, self.ge, self.gn)
-        dim = self.dimension
-        data = [
-            rasterio.transform
-            .from_bounds(gw, gs, ge, gn, dim, dim)
-            for gw, gs, ge, gn in it
-        ]
-        result = pd.Series(data, index=self.index, name=key)
-        self[key] = result
-        return self[key]
 
 
 if __name__ == '__main__':

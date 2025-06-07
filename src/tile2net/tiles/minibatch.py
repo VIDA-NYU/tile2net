@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import wait
 from dataclasses import dataclass
+from dataclasses import field
 from functools import cached_property
+from typing import *
 from typing import Optional
 
 import cv2
+import geopandas as gpd
 import numpy as np
-import pandas as pd
 import torch
 import torchvision.transforms as standard_transforms
 from PIL import Image
@@ -17,10 +20,21 @@ from tile2net.logger import logger
 from tile2net.tiles.cfg import cfg
 from tile2net.tileseg.utils.misc import AverageMeter
 from tile2net.tileseg.utils.misc import fast_hist, fmt_scale
-from dataclasses import field
+from .mask2poly import Mask2Poly
 
 if False:
     from tile2net.tiles import Tiles
+
+
+def to_numpy(obj: Any):
+    if isinstance(obj, torch.Tensor):
+        return obj.detach().cpu().numpy()
+    if isinstance(obj, dict):
+        return {k: to_numpy(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        typ = type(obj)
+        return typ(to_numpy(v) for v in obj)
+    return obj
 
 
 @dataclass
@@ -32,15 +46,10 @@ class MiniBatch(
     iou_acc: np.ndarray
     gt_images: torch.Tensor
     tiles: Tiles
-    iloc: slice
+    label2id: dict[str, int]
     output: dict[str, torch.Tensor] = field(default_factory=dict)
     prob_mask: Optional[torch.Tensor] = None
     error_mask: Optional[np.ndarray] = None
-
-    # pred_05x: Optional[np.ndarray] = None
-    # pred_10x: Optional[np.ndarray] = None
-    # attn_05x: Optional[np.ndarray] = None
-    # attn_10x: Optional[np.ndarray] = None
 
     @classmethod
     def from_data(
@@ -52,6 +61,7 @@ class MiniBatch(
             calc_metrics: bool,
             val_idx: int,
             tiles: Tiles,
+            label2id: dict[str, int] = None,
     ):
         """
         Evaluate a single minibatch of images.
@@ -63,6 +73,13 @@ class MiniBatch(
           2. 'multi_scale_inference', where we use Averaging to combine scales
         """
         torch.cuda.empty_cache()
+
+        if label2id is None:
+            label2id = dict(
+                crosswalk=0,
+                road=1,
+                sidewalk=2,
+            )
 
         scales = [cfg.default_scale]
         if cfg.multi_scale_inference:
@@ -165,13 +182,11 @@ class MiniBatch(
                 assets[item] = pred.cpu().numpy()
 
         predictions = predictions.numpy()
-        assets['predictions'] = predictions
-        assets['prob_mask'] = max_probs
+        err_mask = None
         if calc_metrics:
-            assets['err_mask'] = cls.calc_err_mask_all(
+            err_mask = cls.calc_err_mask_all(
                 predictions,
                 gt_image.numpy(),
-                cfg.DATASET.NUM_CLASSES
             )
 
         _iou_acc = fast_hist(
@@ -183,16 +198,13 @@ class MiniBatch(
             predictions=predictions,
             prob_mask=max_probs,
             iou_acc=_iou_acc,
-            # pred_05x=assets.get('pred_05x', None),
-            # pred_10x=assets.get('pred_10x', None),
-            # attn_05x=assets.get('attn_05x', None),
-            # attn_10x=assets.get('attn_10x', None),
             tiles=tiles,
-            iloc=iloc
+            label2id=label2id,
+            error_mask=err_mask,
+            input_images=images,
+            gt_images=gt_image,
         )
         return result
-
-        # return assets, _iou_acc
 
     @classmethod
     def flip_tensor(
@@ -203,10 +215,8 @@ class MiniBatch(
         """
         Flip Tensor along a dimension
         """
-        dim = x.dim() + dim if dim < 0 else dim
-        # return x[tuple(slice(None, None) if i != dim
-        #                else torch.arange(x.size(i) - 1, -1, -1).long()
-        #                for i in range(x.dim()))]
+        if dim < 0:
+            dim += x.dim()
         item = tuple(
             slice(None, None) if i != dim
             else torch.arange(x.size(i) - 1, -1, -1).long()
@@ -240,9 +250,13 @@ class MiniBatch(
         calculate class-specific error masks
         """
         # Class-specific error mask
-        class_mask = (gtruth >= 0) & (gtruth == classid)
-        fp = (pred == classid) & ~class_mask & (gtruth != cfg.DATASET.IGNORE_LABEL)
-        fn = (pred != classid) & class_mask
+        class_mask = gtruth >= 0
+        class_mask &= gtruth == classid
+        fp = pred == classid
+        fp &= ~class_mask
+        fp &= gtruth != cfg.DATASET.IGNORE_LABEL
+        fn = pred != classid
+        fn &= class_mask
         err_mask = fp | fn
 
         return err_mask.astype(int)
@@ -252,16 +266,14 @@ class MiniBatch(
             cls,
             pred: np.ndarray,
             gtruth: np.ndarray,
-            num_classes: int
     ) -> np.ndarray:
         """
         calculate class-agnostic error masks
         """
-        # Class-specific error mask
-        mask = (gtruth >= 0) & (gtruth != cfg.DATASET.IGNORE_LABEL)
-        err_mask = mask & (pred != gtruth)
-
-        return err_mask.astype(int)
+        result = gtruth >= 0
+        result &= gtruth != cfg.DATASET.IGNORE_LABEL
+        result &= pred != gtruth
+        return result.astype(int)
 
     @cached_property
     def threads(self) -> ThreadPoolExecutor:
@@ -275,31 +287,34 @@ class MiniBatch(
     def dump_percent(self) -> int:
         return 100
 
-    def to_prediction(
-            self,
-            files: pd.Series
-    ):
-        ...
+    def await_all(self) -> None:
+        wait(self.futures)
+        for fut in self.futures:
+            fut.result()
+        self.futures.clear()
+
+    def to_file(self):
+        self.to_probability()
+        self.to_error()
+        self.to_sidebyside()
+        self.to_output()
+        self.to_raw()
+        self.to_mask()
+        self.to_polygons()
 
     def to_probability(
             self,
     ):
         if self.prob_mask is None:
             return
-        PROB_MASK = (
-            self.prob_mask
-            .cpu()
-            .numpy()
+        arrays = (
+            to_numpy(self.prob_mask)
             .__mul__(255)
             .astype(np.uint8)
         )
-        files = (
-            self.tiles.outdir.seg_results.prob
-            .iterator()
-            .__next__()
-        )
-        for prob_mask, file in zip(PROB_MASK, files):
-            future = self.threads.submit(cv2.imwrite, file, prob_mask)
+        files = next(self.tiles.outdir.seg_results.prob.iterator())
+        for array, file in zip(arrays, files):
+            future = self.threads.submit(cv2.imwrite, file, array)
             self.futures.append(future)
 
     def to_error(
@@ -322,17 +337,12 @@ class MiniBatch(
         inv_std = [1 / std for std in cfg.DATASET.STD]
         if not cfg.dump_percent:
             return
-        INPUT_IMAGE = (
+        INPUT_IMAGE = to_numpy(
             standard_transforms
             .Normalize(mean=inv_mean, std=inv_std)
             (self.input_images)
-            .cpu()
         )
-        files = (
-            self.tiles.outdir.seg_results.sidebyside
-            .iterator()
-            .__next__()
-        )
+        files = next(self.tiles.outdir.seg_results.sidebyside.iterator())
         it = zip(INPUT_IMAGE, self.predictions, files)
         for input_image, prediction, file in it:
             self.dump_percent += cfg.dump_percent
@@ -344,6 +354,7 @@ class MiniBatch(
                 .convert('RGB')
             )
             prediction_pil = cfg.DATASET_INST.colorize_mask(prediction)
+
             size = input_image.width * 2, input_image.height
             composited = Image.new('RGB', size)
             composited.paste(input_image, (0, 0))
@@ -356,38 +367,53 @@ class MiniBatch(
     ):
         # todo: how to handle
         colorize = self.tiles.colormap
-        for dirname, OUTPUT in self.output.items():
-            files = (
-                self.tiles.outdir.outputs
-                .iterator(dirname)
-                .__next__()
-            )
-            if isinstance(OUTPUT, torch.Tensor):
-                OUTPUT = OUTPUT.cpu().numpy()
-
+        it = to_numpy(self.output).items()
+        for dirname, arrays in it:
+            files = next(self.tiles.outdir.outputs.iterator(dirname))
             if 'pred_' in dirname:
-                OUTPUT = colorize(OUTPUT)
-                it = zip(files, OUTPUT)
-                for file, output in it:
-                    image = Image.fromarray(output)
+                arrays = colorize(arrays)
+            for array, file in zip(arrays, files):
+                future = self.threads.submit(cv2.imwrite, file, array)
+                self.futures.append(future)
 
-                # PIL.Image(ou)
-                # OUTPUT = colorize(OUTPUT)
+    def to_raw(self):
+        """
+        The raw segmentation mask without colorization, containing class IDs as pixel values.
+        """
+        if self.predictions is None:
+            return
+        arrays = to_numpy(self.predictions)
+        files = next(self.tiles.outdir.raw.iterator())
+        for array, file in zip(arrays, files):
+            future = self.threads.submit(cv2.imwrite, file, array)
+            self.futures.append(future)
 
+    def to_mask(self):
+        """
+        A colorized segmentation mask where different classes (road, sidewalk, crosswalk) are represented by different colors according to a predefined color palette
+        """
+        if self.predictions is None:
+            return
+        arrays = to_numpy(self.predictions)
+        arrays = self.tiles.colormap(arrays)
+        files = next(self.tiles.outdir.mask.iterator())
+        for array, file in zip(arrays, files):
+            future = self.threads.submit(cv2.imwrite, file, array)
+            self.futures.append(future)
 
-
-    def to_mask(
-            self,
-    ):
-        ...
-
-    def to_mask_raw(
-            self,
-    ):
-        ...
-
-    def to_polygons(
-            self,
-            affile: pd.Series,
-    ):
-        ...
+    def to_polygons(self, ):
+        affines = next(self.tiles.stitched.affine_iterator())
+        arrays = to_numpy(self.predictions)
+        files = next(self.tiles.outdir.polygons.iterator())
+        it = zip(arrays, affines, files)
+        for affine, array, file in it:
+            frame = (
+                Mask2Poly
+                .from_array(
+                    array,
+                    affine,
+                    label2id=self.label2id,
+                )
+                .pipe(gpd.GeoDataFrame)
+            )
+            self.threads.submit(frame.to_parquet, file)

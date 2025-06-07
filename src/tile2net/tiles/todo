@@ -104,3 +104,13 @@ and bs_val = 2 should be 1
 best way to iterate across file columns for every batch?
 
 tiles.stitched.iterator
+
+dump_dict['assets'].keys()
+Out[3]: dict_keys(['pred_05x', 'pred_10x', 'attn_05x', 'predictions', 'prob_mask'])
+
+affile_iterator
+
+MiniBatch(
+
+)
+
