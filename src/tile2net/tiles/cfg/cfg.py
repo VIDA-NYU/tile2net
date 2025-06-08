@@ -4,12 +4,19 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from collections.abc import Mapping
+from types import MappingProxyType
 from tile2net.tiles.static import static
 import argparse
 import re
 from collections import deque, UserDict
 from functools import cached_property
 from typing import *
+
+from typing import TypeVar, Callable
+
+from functools import *
+import functools
 
 import torch
 from toolz.curried import *
@@ -19,6 +26,39 @@ from .nested import Nested
 
 if False:
     from ..tiles import Tiles
+
+T = TypeVar('T')
+
+
+class metaclass(type, metaclass=type):
+    def __getitem__(self, item: T) -> T:
+        return self
+
+    def __call__(self, *args, **kwargs):
+        return args[0]
+
+
+class cached(metaclass=metaclass):
+    class classmethod:
+        __wrapped__: Callable[..., T]
+
+        def __init__(
+                self,
+                func: Callable[..., T]
+        ):
+            functools.update_wrapper(self, func)
+
+        def __set_name__(self, owner, name):
+            self.__name__ = name
+
+        def __get__(
+                self,
+                instance,
+                owner
+        ):
+            result = self.__wrapped__(owner)
+            setattr(owner, self.__name__, result)
+            return getattr(owner, self.__name__)
 
 
 class Options(cmdline.Namespace):
@@ -676,9 +716,10 @@ class Loss(cmdline.Namespace):
         """
         return 0.0
 
+
 class Polygon(cmdline.Namespace):
     @cmdline.property
-    def max_ring_area(self) -> float | dict[str, float]:
+    def max_hole_area(self) -> float | dict[str, float]:
         return dict(
             road=30,
             crosswalk=15
@@ -734,6 +775,7 @@ class Cfg(
         __get__=__get__,
     )
     _nested: dict[str, cmdline.Nested] = {}
+    __name__ = ''
 
     def __repr__(self) -> str:
         lines = (f'  "{k}": {v!r}' for k, v in self.items())
@@ -777,6 +819,17 @@ class Cfg(
 
     def __setitem__(self, key, value):
         super(self.__class__, self).__setitem__(key, value)
+
+    @cmdline.property
+    def label2id(self) -> dict[str, int]:
+        """
+        Mapping from label names to IDs
+        """
+        return dict(
+            crosswalk=0,
+            road=1,
+            sidewalk=2,
+        )
 
     @cmdline.property
     def output_dir(self) -> str:
@@ -1238,13 +1291,28 @@ class Cfg(
         """
         return 1.0
 
-    @cached_property
-    def _trace2property(self) -> dict[str, cmdline.property]:
-        active= self._active
-        self._active = False
+    @cmdline.property
+    def force(self) -> bool:
+        """
+        Force overwrite existing output files
+        """
+        return False
+
+    @classmethod
+    def from_defaults(cls):
+        result = cls()
+        result.update(result._trace2default)
+        return result
+
+    # @cached_property
+    @cached[dict[str, cmdline.property]]
+    @cached.classmethod
+    def _trace2property(cls) -> dict[str, cmdline.property]:
+        active = cls._active
+        cls._active = False
         nested = [
-            getattr(self, key)
-            for key in self._nested
+            getattr(cls, key)
+            for key in cls._nested
         ]
         result: dict[str, cmdline.property] = {
             value._trace: value
@@ -1268,11 +1336,13 @@ class Cfg(
                 else:
                     raise TypeError(f"Unexpected type {type(value)} in _trace2property")
 
-        self._active = active
+        cls._active = active
         return result
 
-    @cached_property
-    def _parser(self) -> argparse.ArgumentParser:
+    # @cached_property
+    @cached[argparse.ArgumentParser]
+    @cached.classmethod
+    def _parser(cls) -> argparse.ArgumentParser:
         """
         Lazily construct an `ArgumentParser` populated with every
         collected `cmdline.property`.
@@ -1285,8 +1355,8 @@ class Cfg(
 
         seen_opts: set[str] = set()
         # Iterate in deterministic order by each property's trace key
-        for trace in sorted(self._trace2property):
-            prop = self._trace2property[trace]
+        for trace in sorted(cls._trace2property):
+            prop = cls._trace2property[trace]
             if any(opt in seen_opts for opt in prop.posargs):
                 raise ValueError(f"Duplicate option detected in {prop.posargs}")
             seen_opts.update(prop.posargs)
@@ -1294,13 +1364,14 @@ class Cfg(
 
         return parser
 
-    @cached_property
-    def _trace2default(self) -> dict[str, cmdline.property]:
-        active = self._active
-        self._active = False
+    @cached[dict[str, cmdline.property]]
+    @cached.classmethod
+    def _trace2default(cls) -> Mapping[str, cmdline.property]:
+        active = cls._active
+        cls._active = False
         nested = [
-            getattr(self, key)
-            for key in self._nested
+            getattr(cls, key)
+            for key in cls._nested
         ]
         result: dict[str, cmdline.property] = {
             value._trace: value.default
@@ -1323,8 +1394,8 @@ class Cfg(
                 else:
                     raise TypeError(f"Unexpected type {type(value)} in _trace2property")
 
-        self._active = active
-        return dict(sorted(result.items()))
+        cls._active = active
+        return MappingProxyType(dict(sorted(result.items())))
 
     @cached_property
     def _active(self):
@@ -1348,34 +1419,39 @@ class Cfg(
     def __call__(self, *args, **kwargs) -> Cfg:
         return self
 
+    def __enter__(self):
+        cfg: Cfg = globals()['cfg']
+        self._cfg = cfg
 
-cfg = Cfg()
-cfg.__name__ = ''
-cfg.update(cfg._trace2default)
-args
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        globals()['cfg'] = self._cfg
+        return False
+
+
+cfg = Cfg.from_defaults()
 
 
 # -------------------------------------------------------------------------
 # Utility functions mirroring the legacy API
 # -------------------------------------------------------------------------
-def assert_and_infer_cfg(args, train_mode: bool = True) -> None:
+def assert_and_infer_cfg(cfg, train_mode: bool = True) -> None:
     """
     Port of detectron‐style assert_and_infer_cfg for the new `Cfg`.
-    Mutates the global `cfg` in-place based on parsed CLI `args`.
+    Mutates the global `cfg` in-place based on parsed CLI `cfg`.
     """
     # --- static assignments ------------------------------------------------
     cfg.model.bnfunc = torch.nn.BatchNorm2d
 
     # --- CLI-driven overrides ---------------------------------------------
-    if hasattr(args, "dataset") and hasattr(args.dataset, "name"):
-        cfg.dataset.name = args.dataset.name
-    if hasattr(args, "dump_augmentation_images"):
-        cfg.dump_augmentation_images = args.dump_augmentation_images
+    if hasattr(cfg, "dataset") and hasattr(cfg.dataset, "name"):
+        cfg.dataset.name = cfg.dataset.name
+    if hasattr(cfg, "dump_augmentation_images"):
+        cfg.dump_augmentation_images = cfg.dump_augmentation_images
 
-    arch = getattr(args, "arch", cfg.arch)
+    arch = getattr(cfg, "arch", cfg.arch)
     cfg.model.mscale = ("mscale" in arch.lower()) or ("attnscale" in arch.lower())
 
-    n_scales = getattr(args.model, "n_scales", None)
+    n_scales = getattr(cfg.model, "n_scales", None)
     if n_scales:
         cfg.model.n_scales = [float(x) for x in n_scales.split(",")]
 
@@ -1401,4 +1477,3 @@ def update_dataset_cfg(num_classes: int, ignore_label: int) -> None:
 def update_dataset_inst(dataset_inst) -> None:
     """Attach a dataset instance for downstream convenience."""
     cfg.dataset_inst = dataset_inst
-

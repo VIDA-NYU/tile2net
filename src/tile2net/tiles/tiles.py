@@ -43,6 +43,7 @@ from .source import Source, SourceNotFound
 from .static import Static, static
 from .stitch import Stitch
 from .colormap import ColorMap
+from .cfg import Cfg
 
 if False:
     import folium
@@ -81,15 +82,19 @@ class Tiles(
     @Infer
     def infer(self):
         # This code block is just semantic sugar and does not run.
-        self.infer(...)
-        self.infer.__call__(...)
-        self.infer.with_polygons(
-            max_ring_area=dict(
-                road=30,
-                crosswalk=15,
-            ),
-            grid_size=100,
-        )()
+        # Take a look at the following methods which do run:
+        result = (
+            self.infer
+            .with_polygons(
+                max_hole_area=dict(
+                    road=30,
+                    crosswalk=15,
+                ),
+                grid_size=.001,
+            )
+            .to_outdir()
+        )
+        result = self.infer.to_outdir()
 
     @ColorMap
     def colormap(self):
@@ -99,9 +104,6 @@ class Tiles(
         # See:
         self.colormap.__call__(...)
         self.colormap(...)
-
-    # def infer(self):
-    #     inference = Inference(self)
 
     @Source
     def source(self):
@@ -185,6 +187,13 @@ class Tiles(
             tiles = stitch.to_scale(cfg.stitch.scale, pad)
 
         tiles.infer(cfg.output_dir)
+
+    @Cfg.from_wrapper
+    def _cfg(self):
+        # This code block is just semantic sugar and does not run.
+        ...
+
+
 
     @classmethod
     def from_location(

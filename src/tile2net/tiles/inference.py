@@ -258,7 +258,6 @@ class Inference(
         pred: dict
         values: numpy.ndarray
         args = cfg
-        gdfs: list[GeoDataFrame] = []
 
         tiles = self.tiles
         net.eval()
@@ -343,10 +342,6 @@ class Inference(
         simplified.to_crs(self.crs, inplace=True)
 
         self.ntw_poly = simplified
-        # path = os.path.join(
-        #     poly_fold,
-        #     f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H_%M")}'
-        # )
         path = self.tiles.outdir.polygons.path
         if os.path.exists(path):
             shutil.rmtree(path)

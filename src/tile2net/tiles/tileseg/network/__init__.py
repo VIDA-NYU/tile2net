@@ -37,7 +37,10 @@ def is_gscnn_arch(cfg: Any) -> bool:
     return 'gscnn' in cfg.arch
 
 
-def wrap_network_in_dataparallel(net: torch.nn.Module) -> Union[DataParallel, DistributedDataParallel]:
+def wrap_network_in_dataparallel(net: torch.nn.Module) -> Union[
+    DataParallel,
+    DistributedDataParallel
+]:
     """
     Wrap the network in Dataparallel using PyTorch's native SyncBatchNorm
     """

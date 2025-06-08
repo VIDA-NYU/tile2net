@@ -1,4 +1,5 @@
 from __future__ import annotations
+from tile2net.logger import logger
 
 import os
 from pathlib import Path
@@ -26,10 +27,11 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 
-pd.options.mode.chained_assignment = None
-os.environ['USE_PYGEOS'] = '0'
 import geopandas as gpd
 import shapely
+from .cfg import cfg
+
+os.environ['USE_PYGEOS'] = '0'
 
 
 class Mask2Poly(
@@ -42,22 +44,23 @@ class Mask2Poly(
             path: str | Path,
             affine: Affine,
             crs: str | pyproj.CRS = "EPSG:3857",
-            **label2id: dict[str, int]
     ) -> Self:
         array = skimage.io.imread(str(path))
-        return cls.from_array(array, affine, crs=crs, **label2id)
+        return cls.from_array(array, affine, crs=crs)
 
     @classmethod
     def from_parquets(
-        cls,
-        files: Iterable[str | Path],
-        *,
-        threads: int | None = None,
-        **read_parquet_kwargs,
+            cls,
+            files: Iterable[str | Path],
+            *,
+            threads: int | None = None,
+            **read_parquet_kwargs,
     ) -> Self:
         paths = [str(Path(p)) for p in files]
         if not paths:
             return cls()
+        msg = f'Reading {len(paths)} parquet files into {cls.__name__}'
+        logger.debug(msg)
 
         def _load(fp: str):
             return gpd.read_parquet(fp, **read_parquet_kwargs)
@@ -72,28 +75,6 @@ class Mask2Poly(
         )
         return result
 
-    def to_parquet(
-        self,
-        path,
-        index=None,
-        compression="snappy",
-        geometry_encoding="WKB",
-        write_covering_bbox=False,
-        schema_version=None,
-        **kwargs,
-    ) -> Self:
-        super().to_parquet(
-            path,
-            index=index,
-            compression=compression,
-            geometry_encoding=geometry_encoding,
-            write_covering_bbox=write_covering_bbox,
-            schema_version=schema_version,
-            **kwargs,
-        )
-        return self
-
-
     @classmethod
     @look_at(tile2net.tiles.stitched.Stitched.affine_params)
     def from_array(
@@ -101,7 +82,6 @@ class Mask2Poly(
             array: np.ndarray,
             affine: Affine,
             crs: str | pyproj.CRS = "EPSG:3857",
-            **label2id: dict[str, int]
     ) -> Self:
         # todo: check over where the crs whould be what, and to support user input
         """
@@ -116,6 +96,7 @@ class Mask2Poly(
         """
         ARRAY = array
         concat: list[gpd.GeoDataFrame] = []
+        label2id = cfg.label2id
         for label, id in label2id.items():
             array = ARRAY[:, :, id]
             if not array.max() > 0:
@@ -226,24 +207,23 @@ class Mask2Poly(
         )
         return mask_arr
 
-
     @look_at(tile2net.raster.tile_utils.topology.replace_convexhull)
     def _replace_convexhull(
             self,
-            convex=0.8
+            threshold: float | Series
     ) -> Self:
         """
         replace the convex polygons with their envelopes
         Args:
             self: geopandas geodataframe
-            convex:: convexity threshold to filter lines
+            threshold: convexity threshold to filter lines
 
         Returns:
             geopandas geodataframe
         """
         hulls: gpd.GeoSeries = self.convex_hull
-        convexity = self.area / hulls.area
-        loc = convexity > convex
+        convexity = self.area / hulls.area  # [0, 1]
+        loc = convexity > threshold
         hulls = hulls.loc[loc]
         result: gpd.GeoDataFrame = self.copy()
         result.update(hulls)
@@ -252,7 +232,7 @@ class Mask2Poly(
     @look_at(tile2net.raster.tile_utils.topology.fill_holes)
     def _fill_holes(
             self,
-            max_area: float,
+            max_area: float | Series,
     ) -> Self:
         """
         finds holes in the polygons
@@ -291,43 +271,69 @@ class Mask2Poly(
     @look_at(tile2net.raster.tile.Tile.mask2poly)
     def postprocess(
             self,
-            max_ring_area: Union[
-                float,
-                Series
-            ] = None,
-            grid_size: int = None,
-            min_polygon_area: Union[
-                float,
-                Series
-            ] = 20,
-            convexity: Union[
-                float,
-                Series
-            ] = 0.8,
-            simplify: Union[
-                float,
-                Series
-            ] = 0.8,
+            min_poly_area: Union[float, Series, dict] = None,
+            simplify: Union[float, Series, dict] = None,
+            grid_size: Union[float, Series, dict] = None,
+            max_hole_area: Union[float, Series, dict] = None,
+            convexity: Union[float, Series, dict] = None,
     ) -> Self:
-        # todo: use will be able to pass dict such as
-        # min_ring_area=dict(road=30, crosswalk=15, sidewalk=None)
-        # todo: plan is to concatenate all tile gdfs, then postprocess
-
-        # todo: we need to map feature to max ring area
         cls = self.__class__
         result = self
-        if min_polygon_area is not None:
-            loc = result.area >= min_polygon_area
+
+        if min_poly_area is None:
+            min_poly_area = cfg.polygon.min_polygon_area
+        if simplify is None:
+            simplify = cfg.polygon.simplify
+        if grid_size is None:
+            grid_size = cfg.polygon.grid_size
+        if max_hole_area is None:
+            max_hole_area = cfg.polygon.max_hole_area
+        if convexity is None:
+            convexity = cfg.polygon.convexity
+
+        if isinstance(min_poly_area, dict):
+            min_poly_area = (
+                pd.Series(min_poly_area)
+                .reindex(result.f_type, fill_value=0.0)
+                .values
+            )
+
+        if isinstance(simplify, dict):
+            simplify = (
+                pd.Series(simplify)
+                .reindex(result.f_type, fill_value=0.0)
+                .values
+            )
+
+        if isinstance(max_hole_area, dict):
+            max_hole_area = (
+                pd.Series(max_hole_area)
+                .reindex(result.f_type, fill_value=0.)
+                .values
+            )
+
+        if isinstance(convexity, dict):
+            convexity = (
+                pd.Series(convexity)
+                .reindex(result.f_type, fill_value=1.)
+                .values
+            )
+
+        min_poly_area: Union[float, Series]
+        simplify: Union[float, Series]
+        max_hole_area: Union[float, Series]
+        convexity: Union[float, Series]
+
+        # todo: avoid unnecessarily computing area, etc for redundant parameters
+        if min_poly_area is not None:
+            loc = result.area >= min_poly_area
             result = result.loc[loc]
         if simplify is not None:
             result = result.simplify(tolerance=simplify)
         if grid_size is not None:
-            # @maryam your code originally used np.round  but
-            #   this is better because it avoids degenerate geoms?
-            # todo: precision  is int but set_precision expects grid_size
             result = result.set_precision(grid_size=grid_size)
-        if max_ring_area is not None:
-            result = cls._fill_holes(result, max_ring_area)
+        if max_hole_area is not None:
+            result = cls._fill_holes(result, max_area=max_hole_area)
         if convexity is not None:
             result = cls._replace_convexhull(result, convex=convexity)
 

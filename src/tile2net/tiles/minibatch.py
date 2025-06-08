@@ -52,7 +52,6 @@ class MiniBatch(
     iou_acc: np.ndarray
     gt_images: torch.Tensor
     tiles: Tiles
-    label2id: dict[str, int]
     output: dict[str, torch.Tensor] = field(default_factory=dict)
     prob_mask: Optional[torch.Tensor] = None
     error_mask: Optional[np.ndarray] = None
@@ -61,18 +60,12 @@ class MiniBatch(
     @look_at(tile2net.tileseg.utils.trnval_utils.eval_minibatch)
     def from_data(
             cls,
-            # data: tuple,
             images,
             gt_image,
-            img_names,
-            scale_float,
             net: torch.nn.Module,
             criterion: torch.nn.Module,
             val_loss: AverageMeter,
-            calc_metrics: bool,
-            val_idx: int,
             tiles: Tiles,
-            label2id: dict[str, int] = None,
     ):
         """
         Evaluate a single minibatch of images.
@@ -85,12 +78,7 @@ class MiniBatch(
         """
         torch.cuda.empty_cache()
 
-        if label2id is None:
-            label2id = dict(
-                crosswalk=0,
-                road=1,
-                sidewalk=2,
-            )
+        calc_metrics = cfg.calc_metrics
 
         scales = [cfg.default_scale]
         if cfg.multi_scale_inference:
@@ -99,8 +87,6 @@ class MiniBatch(
                 for x in cfg.extra_scales.split(',')
             )
             scales.extend(it)
-            if val_idx == 0:
-                logger.debug(f'Using multi-scale inference (AVGPOOL) with scales {scales}')
 
         assert len(images.size()) == 4 and len(gt_image.size()) == 3
         assert images.size()[2:] == gt_image.size()[1:]
@@ -207,7 +193,6 @@ class MiniBatch(
             prob_mask=max_probs,
             iou_acc=_iou_acc,
             tiles=tiles,
-            label2id=label2id,
             error_mask=err_mask,
             input_images=images,
             gt_images=gt_image,
@@ -254,7 +239,6 @@ class MiniBatch(
             cls,
             pred: np.ndarray,
             gtruth: np.ndarray,
-            num_classes: int,
             classid: int
     ) -> np.ndarray:
         """
@@ -299,13 +283,14 @@ class MiniBatch(
     def dump_percent(self) -> int:
         return 100
 
-    def await_all(self) -> None:
+    def await_all(self) -> Self:
         wait(self.futures)
         for fut in self.futures:
             fut.result()
         self.futures.clear()
+        return self
 
-    def submit_all(self):
+    def submit_all(self) -> Self:
         self.submit_probability()
         self.submit_error()
         self.submit_sidebyside()
@@ -313,6 +298,7 @@ class MiniBatch(
         self.submit_raw()
         self.submit_mask()
         self.submit_polygons()
+        return self
 
     @look_at(tile2net.tileseg.utils.misc.ThreadedDumper.save_prob_and_err_mask)
     @look_at(Dir.iterator)
@@ -423,7 +409,6 @@ class MiniBatch(
                 .from_array(
                     array,
                     affine,
-                    label2id=self.label2id,
                 )
                 .pipe(gpd.GeoDataFrame)
             )

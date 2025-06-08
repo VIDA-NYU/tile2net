@@ -3,4 +3,15 @@ profile the inference
 dump_dict['assets'].keys()
 Out[3]: dict_keys(['pred_05x', 'pred_10x', 'attn_05x', 'predictions', 'prob_mask'])
 
+how to determine whether or not to force
+
+todo: problem is we are keeping the config globally;
+    this can allow for unpredictable behavior if the user uses multiple instanes in the
+    same session
+
+use a _flush=True parameter in the constructors
+
+we need global cfg and local cfg
+during inference, we push local cfg to global cfg with a context manager
+if anything fails, we restore the global cfg
 

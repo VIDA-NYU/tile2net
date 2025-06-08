@@ -31,25 +31,20 @@ import functools
 import json
 import os
 import re
-import select
-
 import sys
 from functools import cached_property
 from typing import Any, Iterator, NamedTuple, Optional, Type
 
 import argh
 import argh.constants
-import itertools
+import toolz
 import torch
-from tile2net.logger import logger
 from toolz import pipe
 
-from tile2net.tileseg.config import cfg
-from tile2net.tileseg.utils.attr_dict import AttrDict
-import toolz
-# import logging
 from tile2net.logger import logger
 from tile2net.raster.project import Project
+from tile2net.tileseg.config import cfg
+from tile2net.tileseg.utils.attr_dict import AttrDict
 
 
 def torch_version_float():

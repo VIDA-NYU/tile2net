@@ -25,6 +25,9 @@ Mapillary Dataset Loader
 """
 import itertools
 import os
+
+import pandas as pd
+
 from tile2net.logger import logger
 import json
 
@@ -108,42 +111,19 @@ class Loader(BaseLoader):
             tiles=tiles
         )
 
-        root = cfg.DATASET.SATELLITE_DIR
         self.id_to_trainid = label2trainid
         self.trainid_to_name = trainId2name
         self.fill_colormap()
 
-        ######################################################################
-        # Assemble image lists
-        ######################################################################
-        # if mode == 'folder':
-        #     self.all_imgs = make_dataset_folder(eval_folder)
-        # elif mode == 'test':
-        #     self.all_imgs = make_dataset_folder(eval_folder, testing=True)
-        # else:
-        #     splits = dict(
-        #         train='train',
-        #         val='val',
-        #         test='tests',
-        #     )
-        #     split_name = splits[mode]
-        #     img_ext = '*'
-        #     mask_ext = '*'
-        #     img_root = os.path.join(root, split_name, 'images')
-        #     mask_root = os.path.join(root, split_name, 'annotations')
-        #     self.all_imgs = self.find_images(
-        #         img_root,
-        #         mask_root,
-        #         img_ext,
-        #         mask_ext
-        #     )
-
         # self.all_imgs = tiles.indir.files.tolist()
-        imgs = list(zip(
-            tiles.indir.files.tolist(),
-            itertools.repeat('')
-        ))
-        self.all_imgs = imgs
+        # imgs = list(zip(
+        #     # tiles.indir.files.tolist(),
+        #     tiles.stitched.indir.files
+        #     itertools.repeat('')
+        # ))
+        files: pd.Series = tiles.stitched.indir.files
+        # todo: support cfg.force
+
         logger.debug('all imgs {}'.format(len(self.all_imgs)))
         self.fine_centroids = uniform.build_centroids(
             self.all_imgs,
