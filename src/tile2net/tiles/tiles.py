@@ -1,4 +1,5 @@
 from __future__ import annotations
+from .infer import Infer
 import numpy as np
 from numpy import ndarray
 
@@ -77,11 +78,18 @@ class Tiles(
         # stitch to an XYZ scale e.g. 17
         self.stitch.to_scale(...)
 
-    # @Infer
-    # def infer(self):
-    #     # This code block is just semantic sugar and does not run.
-    #     self.infer(...)
-    #     self.infer.__call__(...)
+    @Infer
+    def infer(self):
+        # This code block is just semantic sugar and does not run.
+        self.infer(...)
+        self.infer.__call__(...)
+        self.infer.with_polygons(
+            max_ring_area=dict(
+                road=30,
+                crosswalk=15,
+            ),
+            grid_size=100,
+        )()
 
     @ColorMap
     def colormap(self):
@@ -92,8 +100,8 @@ class Tiles(
         self.colormap.__call__(...)
         self.colormap(...)
 
-    def infer(self):
-        inference = Inference(self)
+    # def infer(self):
+    #     inference = Inference(self)
 
     @Source
     def source(self):

@@ -6,6 +6,10 @@ from pathlib import Path
 from typing import Optional
 
 from .inference import Inference
+from typing import *
+import pandas as pd
+from pandas import Series
+from typing import Union, TypeVar
 
 if False:
     pass
@@ -43,14 +47,32 @@ class Infer:
             self,
     ):
         tiles = self.tiles
-        args = cfg
-        inference = Inference(
-            tiles,
-        )
 
     def __init__(
             self,
             *args,
             **kwargs,
     ):
+        ...
+
+    def with_polygons(
+            self,
+            max_ring_area: Union[
+                float,
+                dict[str, float],
+            ] = None,
+            grid_size: int = None,
+            min_polygon_area: Union[
+                float,
+                dict[str, float],
+            ] = 20,
+            convexity: Union[
+                float,
+                dict[str, float]
+            ] = 0.8,
+            simplify: Union[
+                float,
+                dict[str, float]
+            ] = 0.8,
+    ) -> Self:
         ...

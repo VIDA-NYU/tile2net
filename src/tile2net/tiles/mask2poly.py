@@ -21,6 +21,11 @@ from tile2net.raster.tile_utils.geodata_utils import _check_skimage_im_load
 from tile2net.tiles.util import look_at
 from .fixed import GeoDataFrameFixed
 
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+import geopandas as gpd
+import pandas as pd
+
 pd.options.mode.chained_assignment = None
 os.environ['USE_PYGEOS'] = '0'
 import geopandas as gpd
@@ -30,6 +35,7 @@ import shapely
 class Mask2Poly(
     GeoDataFrameFixed,
 ):
+
     @classmethod
     def from_path(
             cls,
@@ -40,6 +46,53 @@ class Mask2Poly(
     ) -> Self:
         array = skimage.io.imread(str(path))
         return cls.from_array(array, affine, crs=crs, **label2id)
+
+    @classmethod
+    def from_parquets(
+        cls,
+        files: Iterable[str | Path],
+        *,
+        threads: int | None = None,
+        **read_parquet_kwargs,
+    ) -> Self:
+        paths = [str(Path(p)) for p in files]
+        if not paths:
+            return cls()
+
+        def _load(fp: str):
+            return gpd.read_parquet(fp, **read_parquet_kwargs)
+
+        max_workers = threads or min(32, len(paths))
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            frames = list(pool.map(_load, paths))
+
+        result = (
+            pd.concat(frames, ignore_index=True)
+            .pipe(cls, geometry='geometry', crs=frames[0].crs)
+        )
+        return result
+
+    def to_parquet(
+        self,
+        path,
+        index=None,
+        compression="snappy",
+        geometry_encoding="WKB",
+        write_covering_bbox=False,
+        schema_version=None,
+        **kwargs,
+    ) -> Self:
+        super().to_parquet(
+            path,
+            index=index,
+            compression=compression,
+            geometry_encoding=geometry_encoding,
+            write_covering_bbox=write_covering_bbox,
+            schema_version=schema_version,
+            **kwargs,
+        )
+        return self
+
 
     @classmethod
     @look_at(tile2net.tiles.stitched.Stitched.affine_params)
@@ -255,7 +308,7 @@ class Mask2Poly(
                 float,
                 Series
             ] = 0.8,
-    ) -> gpd.GeoDataFrame:
+    ) -> Self:
         # todo: use will be able to pass dict such as
         # min_ring_area=dict(road=30, crosswalk=15, sidewalk=None)
         # todo: plan is to concatenate all tile gdfs, then postprocess

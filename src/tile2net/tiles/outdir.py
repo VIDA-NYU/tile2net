@@ -32,7 +32,7 @@ class Polygons(
     Dir
 ):
     @property
-    def path(self) -> str:
+    def file(self) -> str:
         key = self._trace
         cache = self.tiles.attrs
         if key in cache:
@@ -41,15 +41,15 @@ class Polygons(
             datetime.datetime.now()
             .strftime('%d-%m-%Y_%H_%M')
         )
-        path = os.path.join(self.dir, f'Network-{time}.shp')
-        return path
+        file = os.path.join(self.dir, f'Network-{time}.shp')
+        return file
 
 
 class Network(
     Dir
 ):
     @property
-    def path(self) -> str:
+    def file(self) -> str:
         key = self._trace
         cache = self.tiles.attrs
         if key in cache:
@@ -58,8 +58,8 @@ class Network(
             datetime.datetime.now()
             .strftime('%d-%m-%Y_%H_%M')
         )
-        path = os.path.join(self.dir, f'Polygons-{time}.shp')
-        return path
+        file = os.path.join(self.dir, f'Polygons-{time}.shp')
+        return file
 
 
 class SideBySide(

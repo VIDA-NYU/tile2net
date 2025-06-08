@@ -1,4 +1,5 @@
 from __future__ import annotations
+import types
 
 import builtins
 import functools
@@ -9,6 +10,7 @@ from typing import *
 
 from pandas.core.indexing import is_nested_tuple
 from .nested import Nested
+import argparse
 
 if False:
     from .cfg import Cfg
@@ -23,7 +25,51 @@ P = ParamSpec("P")  # parameters of the wrapped function
 R = TypeVar("R")  # return type of the wrapped function
 
 
-# todo: if Config is just the class, we should return self
+# ── helpers ────────────────────────────────────────────────────────────────────
+
+def _is_dict_like(ann) -> bool:
+    if ann is None:
+        return False
+    origin = get_origin(ann)
+    if origin is dict:
+        return True
+    if origin is Union:
+        return any(_is_dict_like(a) for a in get_args(ann))
+    return False
+
+def _is_dict_like(ann) -> bool:
+    """True if *ann* is (or contains) a Dict-style annotation."""
+    if ann is None:
+        return False
+    origin = get_origin(ann)
+    if origin is dict:                              # plain Dict[…]
+        return True
+    if origin in {Union, types.UnionType}:          # PEP484 / PEP604 unions
+        return any(_is_dict_like(a) for a in get_args(ann))
+    return False
+
+def _parse_dict_or_float(tok: str):
+    if ":" in tok:
+        k, v = tok.split(":", 1)
+        return k, float(v)
+    return float(tok)
+
+class _DictOrFloatAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        scalar: float | None = None
+        mapping: dict[str, float] = {}
+        for val in values:
+            if isinstance(val, tuple):                       # key:value
+                k, v = val
+                mapping[k] = v
+            else:                                           # bare float
+                scalar = val
+        if scalar is not None and mapping:
+            parser.error(f"{option_string} cannot mix scalar and key:value pairs")
+        setattr(namespace, self.dest, scalar if scalar is not None else mapping)
+
+# ── patched cmdline.property ───────────────────────────────────────────────────
+
 
 def __get__(
         self: property,
@@ -95,22 +141,6 @@ class property(
             msg = f"{type(self).__name__!r} object has no attribute {self._trace!r}"
             raise AttributeError(msg)
 
-    # @classmethod
-    # def with_options(
-    #         cls,
-    #         short: str | None = None,
-    #         long: str | None = None,
-    # ) -> Type[property]:
-    #     def wrapper(func: Callable[..., T]) -> "property":
-    #         inst = cls(func)
-    #         if short:
-    #             inst.short = short
-    #         if long:
-    #             inst.long = long
-    #         return inst  # <<< missing
-    #
-    #     return wrapper
-
     def add_options(
             self,
             short: str | None = None,
@@ -137,32 +167,8 @@ class property(
         """Return annotation of wrapped function (if any)."""
         return get_type_hints(self.__wrapped__).get("return")
 
-    # @cached_property
-    # def default(self) -> Any:
-    #     """Best-effort evaluation of the wrapped function to obtain a default."""
-    #     try:
-    #         sig = inspect.signature(self.__wrapped__)
-    #         if not sig.parameters:
-    #             return self.__wrapped__(self)  # type: ignore[arg-type]
-    #     except Exception:
-    #         pass
-    #     return None
-    #
-
     @cached_property
     def default(self) -> Any:
-        # try:
-        #     sig = inspect.signature(self.__wrapped__)
-        #     params = tuple(sig.parameters.values())
-        #     if not params:  # () -> T
-        #         return self.__wrapped__()                    # type: ignore[misc]
-        #     if (
-        #         len(params) == 1
-        #         and self.instance is not None
-        #     ):
-        #         return self.__wrapped__(self.instance)       # type: ignore[arg-type]
-        # except Exception:
-        #     pass
         sig = inspect.signature(self.__wrapped__)
         params = tuple(sig.parameters.values())
         if not params:  # () -> T
@@ -175,12 +181,20 @@ class property(
         return None
 
     @cached_property
+    def _dict_like(self) -> bool:
+        return _is_dict_like(self._annotation)
+
+    @cached_property
     def type(self):
+        if self._dict_like:
+            return _parse_dict_or_float
         ann = self._annotation
         return ann if ann in {int, float, str} else None
 
     @cached_property
-    def action(self) -> Optional[str]:
+    def action(self):
+        if self._dict_like:
+            return _DictOrFloatAction
         ann = self._annotation
         if ann is bool:
             return "store_false" if bool(self.default) else "store_true"
@@ -189,8 +203,8 @@ class property(
         return None
 
     @cached_property
-    def nargs(self) -> Optional[str]:
-        if self._annotation in {list, set, tuple}:
+    def nargs(self):
+        if self._dict_like or self._annotation in {list, set, tuple}:
             return "+"
         return None
 
@@ -204,7 +218,8 @@ class property(
 
     @cached_property
     def dest(self) -> str:
-        return self._trace.replace(".", "_")
+        return self._trace
+        # return self._trace.replace(".", "_")
 
     @cached_property
     def help(self) -> str:
@@ -220,7 +235,7 @@ class property(
 
     @cached_property
     def kwargs(self) -> dict[str, Any]:
-        kw: dict[str, Any] = {
+        kw = {
             "dest": self.dest,
             "help": self.help,
         }

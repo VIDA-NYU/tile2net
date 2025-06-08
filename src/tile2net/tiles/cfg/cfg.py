@@ -676,6 +676,30 @@ class Loss(cmdline.Namespace):
         """
         return 0.0
 
+class Polygon(cmdline.Namespace):
+    @cmdline.property
+    def max_ring_area(self) -> float | dict[str, float]:
+        return dict(
+            road=30,
+            crosswalk=15
+        )
+
+    @cmdline.property
+    def grid_size(self) -> float:
+        ...
+
+    @cmdline.property
+    def min_polygon_area(self) -> float | dict[str, float]:
+        return 20
+
+    @cmdline.property
+    def convexity(self) -> float | dict[str, float]:
+        return 0.8
+
+    @cmdline.property
+    def simplify(self) -> float | dict[str, float]:
+        return 0.8
+
 
 def __get__(
         self: Cfg,
@@ -743,6 +767,10 @@ class Cfg(
     def stitch(self):
         ...
 
+    @Polygon
+    def polygon(self):
+        ...
+
     @property
     def _cfg(self) -> Optional[Cfg]:
         return self
@@ -753,10 +781,6 @@ class Cfg(
     @cmdline.property
     def output_dir(self) -> str:
         """The path to the output directory; "~/tmp/tile2net" by default"""
-        # return os.path.join(
-        #     tempfile.gettempdir(),
-        #     'tile2net',
-        # )
 
     output_dir.add_options(
         short='-o',
@@ -1216,6 +1240,8 @@ class Cfg(
 
     @cached_property
     def _trace2property(self) -> dict[str, cmdline.property]:
+        active= self._active
+        self._active = False
         nested = [
             getattr(self, key)
             for key in self._nested
@@ -1235,13 +1261,14 @@ class Cfg(
             for key, value in namespace._nested.items():
                 if isinstance(value, cmdline.property):
                     value: cmdline.property = getattr(namespace, key)
-                    namespace.__class__.__get__
-                    result[value._trace] = value
+                    key = f'{namespace._trace}.{key}'
+                    result[key] = value
                 elif isinstance(value, cmdline.Namespace):
                     stack.append(getattr(namespace, key))
                 else:
                     raise TypeError(f"Unexpected type {type(value)} in _trace2property")
 
+        self._active = active
         return result
 
     @cached_property
@@ -1325,6 +1352,8 @@ class Cfg(
 cfg = Cfg()
 cfg.__name__ = ''
 cfg.update(cfg._trace2default)
+args
+
 
 # -------------------------------------------------------------------------
 # Utility functions mirroring the legacy API
@@ -1372,3 +1401,4 @@ def update_dataset_cfg(num_classes: int, ignore_label: int) -> None:
 def update_dataset_inst(dataset_inst) -> None:
     """Attach a dataset instance for downstream convenience."""
     cfg.dataset_inst = dataset_inst
+

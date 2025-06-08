@@ -61,7 +61,11 @@ class MiniBatch(
     @look_at(tile2net.tileseg.utils.trnval_utils.eval_minibatch)
     def from_data(
             cls,
-            data: tuple,
+            # data: tuple,
+            images,
+            gt_image,
+            img_names,
+            scale_float,
             net: torch.nn.Module,
             criterion: torch.nn.Module,
             val_loss: AverageMeter,
@@ -98,9 +102,6 @@ class MiniBatch(
             if val_idx == 0:
                 logger.debug(f'Using multi-scale inference (AVGPOOL) with scales {scales}')
 
-        # input    = torch.Size([1, 3, h, w])
-        # gt_image = torch.Size([1, h, w])
-        images, gt_image, img_names, scale_float = data
         assert len(images.size()) == 4 and len(gt_image.size()) == 3
         assert images.size()[2:] == gt_image.size()[1:]
         batch_pixel_size = images.size(0) * images.size(2) * images.size(3)
@@ -304,7 +305,7 @@ class MiniBatch(
             fut.result()
         self.futures.clear()
 
-    def submit_file(self):
+    def submit_all(self):
         self.submit_probability()
         self.submit_error()
         self.submit_sidebyside()

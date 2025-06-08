@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import datetime
 import os
 import shutil
 import warnings
 
-from more_itertools.more import time_limited
-
 from tile2net.raster.tile_utils.topology import fill_holes, replace_convexhull
+from .mask2poly import Mask2Poly
 
 os.environ['USE_PYGEOS'] = '0'
 from tile2net.raster.tile_utils.geodata_utils import (
@@ -24,7 +22,6 @@ import geopandas as gpd
 import logging
 import numpy
 import os
-import pandas as pd
 import sys
 import torch
 import torch.distributed as dist
@@ -42,17 +39,14 @@ from tile2net.tiles.tileseg.loss.optimizer import get_optimizer, restore_opt, re
 from tile2net.tiles.tileseg.loss.utils import get_loss
 from tile2net.tiles.tileseg.utils.misc import AverageMeter, prep_experiment
 from tile2net.tiles.tileseg.utils.misc import ThreadedDumper
-from tile2net.tiles.tileseg.utils.trnval_utils import eval_minibatch
 from tile2net.tiles.cfg import cfg
-from tile2net.tiles.tileseg.utils.misc import DumpData
 from .minibatch import MiniBatch
-from .colormap import ColorMap
-
-args = cfg
 
 if False:
     pass
 import hashlib
+
+args = cfg
 
 
 def sha256sum(path):
@@ -266,67 +260,52 @@ class Inference(
         args = cfg
         gdfs: list[GeoDataFrame] = []
 
-        # todo map_feature is how Tile generates poly
-        self.dumper = dumper = self.Dumper(
-            val_len=len(val_loader),
-            dump_all_images=dump_all_images,
-            dump_assets=dump_assets,
-            args=args,
-            tiles=self.tiles,
-        )
-
-        TILES = self.tiles
+        tiles = self.tiles
         net.eval()
         val_loss = AverageMeter()
         iou_acc = 0
-        _temp = dict.fromkeys([i for i in range(10)], None)
-        tiles = TILES
 
-        for val_idx, data in enumerate(val_loader):
-            input_images, labels, img_names, _ = data
+        for (
+            val_idx,
+            (input_images, labels, img_names, scale_float)
+        ) in enumerate(val_loader):
 
-            # Run network
             batch = MiniBatch.from_data(
-                data=data,
+                images=input_images,
+                labels=labels,
+                img_names=img_names,
+                scale_float=scale_float,
                 net=net,
                 criterion=criterion,
                 val_loss=val_loss,
                 calc_metrics=calc_metrics,
                 val_idx=val_idx,
-                tiles=tiles
+                tiles=tiles,
             )
             _iou_acc = batch.iou_acc
             iou_acc += _iou_acc
-            input_images, labels, img_names, _ = data
-
-            if testing:
-                dump = dumper.dump(dumpdict, val_idx, testing=True, tiles=tiles)
-            else:
-                dump = dumper.dump(dumpdict, val_idx)
-            gdfs.extend(dump)
-
-            if (
-                    args.options.test_mode
-                    and val_idx > 5
-            ):
-                break
-
             if val_idx % 20 == 0:
                 logger.debug(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
 
-        if testing:
-            # todo: for now we concate from a list of all the polygons generated during the session;
-            #   eventually we will serialize all the files and then use dask for batching
-            if not gdfs:
-                poly_network = gpd.GeoDataFrame()
-                logging.warning(f'No polygons were dumped')
-            else:
-                poly_network = pd.concat(gdfs)
-            del gdfs
+            batch.submit_all()
+            batch.await_all()
+            if (
+                    args.options.test_mode
+                    and val_idx >= 5
+            ):
+                break
 
-            self.save_ntw_polygons(poly_network)
-            polys = self.ntw_poly
-            # outpath = tiles.outdir.network.path
+        if testing:
+            polys = (
+                Mask2Poly
+                .from_parquets(tiles.outdir.polygons.files())
+                .postprocess(
+
+                )
+                .to_parquet(tiles.outdir.polygons.file)
+            )
+            if polys.empty:
+                logging.warning('No polygons were generated during the session.')
             net = PedNet(poly=polys, tiles=tiles)
             net.convert_whole_poly2line()
 
