@@ -409,14 +409,16 @@ class Dir:
         its position in the column. We iterate across the rows associated
         with the minibatch.
         """
-        # todo: cleanup if batch ends early
-
+        # todo: create a separate dict for iterator which is deleted if inference fails
         key = f'{self._trace}.iterator'
         cache = self.tiles.attrs
         if key in cache:
             it = cache[key]
         else:
             files = self.files(*args, **kwargs)
+            if not self.tiles.cfg.force:
+                loc = ~self.tiles.outdir.skip
+                files = files.loc[loc]
 
             def gen():
                 n = cfg.model.bs_val

@@ -1,7 +1,6 @@
 from __future__ import annotations, absolute_import, division
 import geopandas as gpd
 
-
 import os
 import warnings
 
@@ -9,6 +8,7 @@ from torch.nn.parallel.data_parallel import DataParallel
 
 from tile2net.tiles.tileseg.network.ocrnet import MscaleOCR
 from .mask2poly import Mask2Poly
+from .tileseg.datasets.satellite import labels
 
 os.environ['USE_PYGEOS'] = '0'
 
@@ -37,7 +37,6 @@ import sys
 
 from typing import *
 from typing import Union
-from .cfg import cfg
 
 import hashlib
 
@@ -96,6 +95,7 @@ class Infer:
                 dict[str, float]
             ] = None,
     ) -> Self:
+        cfg = self.tiles.cfg
         if max_hole_area is not None:
             cfg.polygon.max_hole_area = max_hole_area
         if grid_size is not None:
@@ -110,135 +110,139 @@ class Infer:
 
     def to_outdir(
             self,
-            outdir=None,
-            force=False,
+            # outdir=None,
+            force=None,
+            batch_size: int = None,
     ):
         tiles = self.tiles
-        if cfg.dump_percent:
-            logger.info(f'Inferencing. Segmentation results will be saved to {tiles.outdir.seg_results}')
-        else:
-            logger.info('Inferencing. Segmentation results will not be saved.')
+        cfg = tiles.cfg
 
-        if (
-                not os.path.exists(cfg.model.snapshot)
-                and cfg.model.snapshot == static.snapshot
-        ) or (
-                not os.path.exists(cfg.model.hrnet_checkpoint)
-                and cfg.model.hrnet_checkpoint == static.hrnet_checkpoint
-        ):
-            logger.info('Downloading weights for segmentation, this may take a while...')
-            tiles.static.download()
-            logger.info('Weights downloaded successfully.')
-            expected_checksum = '745f8c099e98f112a152aedba493f61fb6d80c1761e5866f936eb5f361c7ab4d'
-            actual_checksum = sha256sum(cfg.model.snapshot)
-            if actual_checksum != expected_checksum:
-                raise RuntimeError(f"Checksum mismatch: expected {expected_checksum}, got {actual_checksum}")
+        if force is not None:
+            cfg.force = force
+        if batch_size is not None:
+            cfg.model.bs_val = batch_size
 
-        if not os.path.exists(cfg.model.hrnet_checkpoint):
-            msg = f'HRNet checkpoint not found: {cfg.model.hrnet_checkpoint}. ' \
-                  f'You must have passed a custom path that does not exist.'
-            raise FileNotFoundError(msg)
-        if not os.path.exists(cfg.model.snapshot):
-            msg = f'Snapshot not found: {cfg.model.snapshot}. ' \
-                  f'You must have passed a custom path that does not exist.'
-            raise FileNotFoundError(msg)
+        with cfg:
+            if cfg.dump_percent:
+                logger.info(f'Inferencing. Segmentation results will be saved to {tiles.outdir.seg_results}')
+            else:
+                logger.info('Inferencing. Segmentation results will not be saved.')
 
-        cfg.best_record = self._best_record
+            if (
+                    not os.path.exists(cfg.model.snapshot)
+                    and cfg.model.snapshot == static.snapshot
+            ) or (
+                    not os.path.exists(cfg.model.hrnet_checkpoint)
+                    and cfg.model.hrnet_checkpoint == static.hrnet_checkpoint
+            ):
+                logger.info('Downloading weights for segmentation, this may take a while...')
+                tiles.static.download()
+                logger.info('Weights downloaded successfully.')
+                expected_checksum = '745f8c099e98f112a152aedba493f61fb6d80c1761e5866f936eb5f361c7ab4d'
+                actual_checksum = sha256sum(cfg.model.snapshot)
+                if actual_checksum != expected_checksum:
+                    raise RuntimeError(f"Checksum mismatch: expected {expected_checksum}, got {actual_checksum}")
 
-        # Enable CUDNN Benchmarking optimization
-        torch.backends.cudnn.benchmark = True
-        if cfg.deterministic:
-            torch.backends.cudnn.deterministic = True
-            torch.backends.cudnn.benchmark = False
+            if not os.path.exists(cfg.model.hrnet_checkpoint):
+                msg = f'HRNet checkpoint not found: {cfg.model.hrnet_checkpoint}. ' \
+                      f'You must have passed a custom path that does not exist.'
+                raise FileNotFoundError(msg)
+            if not os.path.exists(cfg.model.snapshot):
+                msg = f'Snapshot not found: {cfg.model.snapshot}. ' \
+                      f'You must have passed a custom path that does not exist.'
+                raise FileNotFoundError(msg)
 
-        cfg.world_size = 1
+            # Enable CUDNN Benchmarking optimization
+            torch.backends.cudnn.benchmark = True
+            if cfg.deterministic:
+                torch.backends.cudnn.deterministic = True
+                torch.backends.cudnn.benchmark = False
 
-        # Test Mode run two epochs with a few iterations of training and val
-        if cfg.options.test_mode:
-            cfg.max_epoch = 2
+            cfg.world_size = 1
 
-        num_gpus = torch.cuda.device_count()
-        if num_gpus > 1:
-            if cfg.model.eval == 'test':
+            # Test Mode run two epochs with a few iterations of training and val
+            if cfg.options.test_mode:
+                cfg.max_epoch = 2
+
+            num_gpus = torch.cuda.device_count()
+            if num_gpus > 1:
+                if cfg.model.eval == 'test':
+                    # Single GPU setup
+                    logger.info('Using a single GPU.')
+                    cfg.local_rank = 0
+                    torch.cuda.set_device(cfg.local_rank)
+                else:
+                    # Distributed training setup
+                    if "RANK" not in os.environ:
+                        raise ValueError("You need to launch the process with torch.distributed.launch to \
+                        set RANK environment variable")
+                    cfg.world_size = int(os.environ.get('WORLD_SIZE', num_gpus))
+                    dist.init_process_group(backend='nccl', init_method='env://')
+                    cfg.local_rank = dist.get_rank()
+                    torch.cuda.set_device(cfg.local_rank)
+                    cfg.distributed = True
+                    cfg.global_rank = int(os.environ['RANK'])
+                    logger.info(f'Using distributed training with {cfg.world_size} GPUs.')
+            elif num_gpus == 1:
                 # Single GPU setup
-                logger.info('Using a single GPU.')
                 cfg.local_rank = 0
                 torch.cuda.set_device(cfg.local_rank)
+                logger.info('Using a single GPU.')
             else:
-                # Distributed training setup
-                if "RANK" not in os.environ:
-                    raise ValueError("You need to launch the process with torch.distributed.launch to \
-                    set RANK environment variable")
-                cfg.world_size = int(os.environ.get('WORLD_SIZE', num_gpus))
-                dist.init_process_group(backend='nccl', init_method='env://')
-                cfg.local_rank = dist.get_rank()
-                torch.cuda.set_device(cfg.local_rank)
-                cfg.distributed = True
-                cfg.global_rank = int(os.environ['RANK'])
-                logger.info(f'Using distributed training with {cfg.world_size} GPUs.')
-        elif num_gpus == 1:
-            # Single GPU setup
-            cfg.local_rank = 0
-            torch.cuda.set_device(cfg.local_rank)
-            logger.info('Using a single GPU.')
-        else:
-            # CPU setup
-            logger.info('Using CPU. This is not recommended for inference.')
-            cfg.local_rank = -1  # Indicating CPU usage
+                # CPU setup
+                logger.info('Using CPU. This is not recommended for inference.')
+                cfg.local_rank = -1  # Indicating CPU usage
 
+            assert_and_infer_cfg(cfg)
+            prep_experiment()
+            struct = datasets.setup_loaders(tiles=tiles)
+            val_loader = struct.val_loader
+            criterion, criterion_val = get_loss(cfg)
 
-        assert_and_infer_cfg(cfg)
-        prep_experiment()
-        struct = datasets.setup_loaders(tiles=tiles)
-        val_loader = struct.val_loader
-        criterion, criterion_val = get_loss(cfg)
+            cfg.restore_net = True
+            msg = "Loading weights from: checkpoint={}".format(cfg.model.snapshot)
+            logger.info(msg)
+            if cfg.model.snapshot != static.snapshot:
+                msg = (
+                    f'Weights are being loaded using weights_only=False. '
+                    f'We assure the security of our weights by using a checksum, '
+                    f'but you are using a custom path: {cfg.model.snapshot}. '
+                )
+                logger.warning(msg)
 
-        cfg.restore_net = True
-        msg = "Loading weights from: checkpoint={}".format(cfg.model.snapshot)
-        logger.info(msg)
-        if cfg.model.snapshot != static.snapshot:
-            msg = (
-                f'Weights are being loaded using weights_only=False. '
-                f'We assure the security of our weights by using a checksum, '
-                f'but you are using a custom path: {cfg.model.snapshot}. '
+            checkpoint = torch.load(
+                cfg.model.snapshot,
+                map_location='cpu',
+                weights_only=False,
             )
-            logger.warning(msg)
 
-        checkpoint = torch.load(
-            cfg.model.snapshot,
-            map_location='cpu',
-            weights_only=False,
-        )
+            net: MscaleOCR = network.get_net(criterion)
+            optim, scheduler = get_optimizer(net)
 
-        net: MscaleOCR = network.get_net(criterion)
-        optim, scheduler = get_optimizer(net)
+            net: DataParallel = network.wrap_network_in_dataparallel(net)
+            if cfg.restore_optimizer:
+                restore_opt(optim, checkpoint)
+            if cfg.restore_net:
+                restore_net(net, checkpoint)
+            if cfg.options.init_decoder:
+                net.module.init_mods()
+            torch.cuda.empty_cache()
 
-        net: DataParallel = network.wrap_network_in_dataparallel(net)
-        if cfg.restore_optimizer:
-            restore_opt(optim, checkpoint)
-        if cfg.restore_net:
-            restore_net(net, checkpoint)
-        if cfg.options.init_decoder:
-            net.module.init_mods()
-        torch.cuda.empty_cache()
-
-
-
-        if cfg.model.eval == 'test':
-            self._validate(
-                loader=val_loader,
-                net=net,
-                force=force,
-            )
-        elif cfg.model.eval == 'folder':
-            self._validate(
-                loader=val_loader,
-                net=net,
-                criterion=criterion_val,
-                force=force,
-            )
-        else:
-            raise ValueError(f"Unknown evaluation mode: {cfg.model.eval}. ")
+            if cfg.model.eval == 'test':
+                self._validate(
+                    loader=val_loader,
+                    net=net,
+                    force=force,
+                )
+            elif cfg.model.eval == 'folder':
+                self._validate(
+                    loader=val_loader,
+                    net=net,
+                    criterion=criterion_val,
+                    force=force,
+                )
+            else:
+                raise ValueError(f"Unknown evaluation mode: {cfg.model.eval}. ")
 
     def _validate(
             self,
@@ -251,6 +255,7 @@ class Infer:
         Run validation for one epoch
         :val_loader: data loader for validation
         """
+        cfg = self.tiles.cfg
         testing = False
         if cfg.model.eval == 'test':
             testing = True
@@ -278,10 +283,8 @@ class Infer:
                 MiniBatch
                 .from_data(
                     images=input_images,
-                    labels=labels,
-                    img_names=img_names,
-                    scale_float=scale_float,
                     net=net,
+                    gt_image=labels,
                     criterion=criterion,
                     val_loss=val_loss,
                     tiles=tiles,
@@ -312,14 +315,3 @@ class Infer:
                 )
                 net.combined.to_parquet(tiles.outdir.network.file)
 
-    @property
-    def _best_record(self):
-        return dict(
-            epoch=-1,
-            iter=0,
-            val_loss=1e10,
-            acc=0,
-            acc_cls=0,
-            mean_iu=0,
-            fwavacc=0
-        )

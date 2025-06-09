@@ -1,42 +1,62 @@
 from __future__ import annotations
-from numpy import ndarray
-import rasterio
 
-import os
-import tempfile
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import partial
-from pathlib import Path
 from typing import *
 
-import PIL.Image
-import certifi
-import geopandas as gpd
-import imageio.v3
-import imageio.v3 as iio
 import numpy as np
 import pandas as pd
-import pyproj
-import requests
-import shapely
-from PIL import Image
-from requests.adapters import HTTPAdapter
-from tqdm.auto import tqdm
-
-from tile2net.logger import logger
-from tile2net.raster import util
-from tile2net.tiles.cfg import cfg
-
-import numpy as np
-import pandas as pd
+import rasterio
+from numpy import ndarray
 
 from .tiles import Tiles
-from .outdir import Outdir
+
+
+def __get__(
+        self: Stitched,
+        instance: Optional[Tiles],
+        owner: type[Tiles],
+) -> Stitched:
+    if instance is None:
+        return self
+    try:
+        result = instance.attrs[self.__name__]
+    except KeyError as e:
+        msg = (
+            f'Tiles must be stitched using `Tiles.stitch` for '
+            f'example `Tiles.stitch.to_resolution(2048)` or '
+            f'`Tiles.stitch.to_cluster(16)`'
+        )
+        raise ValueError(msg) from e
+    result.tiles = instance
+    return result
 
 
 class Stitched(
     Tiles
 ):
+    __name__ = 'stitched'
+    def __set_name__(self, owner, name):
+        self.__name__ = name
+
+    def __set__(
+            self,
+            instance: Tiles,
+            value: type[Tiles],
+    ):
+        value.__name__ = self.__name__
+        instance.attrs[self.__name__] = value
+
+    def __init__(
+            self,
+            *args,
+            **kwargs,
+    ):
+        if (
+                args
+                and callable(args[0])
+        ):
+            super().__init__(*args[1:], **kwargs)
+        else:
+            super().__init__(*args, **kwargs)
 
     @property
     def tiles(self) -> Tiles:
@@ -65,7 +85,7 @@ class Stitched(
         dscale = int(self.tscale - tiles.tscale)
         mlength = dscale ** 2
         result = tiles.dimension * mlength
-        self.attrs['dimension'] = result
+        self.cfg.stitch.dimension = result
         return result
 
     @property
@@ -94,27 +114,37 @@ class Stitched(
         key = 'affine_params'
         if key in self:
             return self[key]
-        it = zip(self.gw, self.gs, self.ge, self.gn)
+
+        self: pd.DataFrame
+        # # it = self['gw gs ge gn'.split()].itertuples(
+        #     index=False, name=None
+        # )
+        # data = [
+        #     rasterio.transform
+        #     .from_bounds(gw, gs, ge, gn, dim, dim)
+        #     for gw, gs, ge, gn in it
+        # ]
         dim = self.dimension
-        data = [
-            rasterio.transform
-            .from_bounds(gw, gs, ge, gn, dim, dim)
-            for gw, gs, ge, gn in it
-        ]
+        cols = self[['gw', 'gs', 'ge', 'gn']].to_numpy()  # (N, 4) array
+        data = [rasterio.transform.from_bounds(l, b, r, t, dim, dim)
+                for l, b, r, t in cols]
         result = pd.Series(data, index=self.index, name=key)
         self[key] = result
         return self[key]
 
     def affine_iterator(self, *args, **kwargs) -> Iterator[ndarray]:
-        key = self._trace
+        key = 'affine_iterator'
         cache = self.tiles.attrs
         if key in cache:
             it = cache[key]
         else:
             affine = self.affine_params
+            if not self.tiles.cfg.force:
+                loc = ~self.tiles.outdir.skip
+                affine = affine[loc]
 
             def gen():
-                n = cfg.model.bs_val
+                n = self.cfg.model.bs_val
                 a = affine.to_numpy()
                 q, r = divmod(len(a), n)
                 yield from a[:q * n].reshape(q, n)
@@ -125,3 +155,11 @@ class Stitched(
             cache[key] = it
         yield from it
         del cache[key]
+
+    @property
+    def cfg(self):
+        return self.tiles.cfg
+
+    @property
+    def static(self):
+        return self.tiles.static

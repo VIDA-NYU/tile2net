@@ -169,15 +169,16 @@ class property(
 
     @cached_property
     def default(self) -> Any:
-        sig = inspect.signature(self.__wrapped__)
-        params = tuple(sig.parameters.values())
-        if not params:  # () -> T
-            return self.__wrapped__()  # type: ignore[misc]
-        if (
-                len(params) == 1
-                and self.instance is not None
-        ):
-            return self.__wrapped__(self.instance)  # type: ignore[arg-type]
+        # sig = inspect.signature(self.__wrapped__)
+        # params = tuple(sig.parameters.values())
+        # if not params:  # () -> T
+        #     return self.__wrapped__(self.instance)  # type: ignore[misc]
+        # if (
+        #         len(params) == 1
+        #         and self.instance is not None
+        # ):
+        #     return self.__wrapped__(self.instance)  # type: ignore[arg-type]
+        return self.__wrapped__(self.instance)
         return None
 
     @cached_property

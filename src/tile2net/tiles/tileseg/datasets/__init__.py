@@ -40,7 +40,6 @@ from torch.utils.data import DataLoader
 import tile2net.tiles.tileseg.transforms.joint_transforms as joint_transforms
 import tile2net.tiles.tileseg.transforms.transforms as extended_transforms
 from tile2net.logger import logger
-# from tile2net.tiles.tileseg.config import update_dataset_cfg, update_dataset_inst
 from tile2net.tiles.cfg.cfg import update_dataset_cfg, update_dataset_inst
 from tile2net.tiles.tileseg.datasets.randaugment import RandAugment
 from .base_loader import BaseLoader
@@ -76,10 +75,8 @@ def setup_loaders(
 
     logger.debug(f'ignore_label = {dataset_cls.ignore_label}')
 
-    update_dataset_cfg(
-        num_classes=dataset_cls.num_classes,
-        ignore_label=dataset_cls.ignore_label
-    )
+    cfg.dataset.num_classes = dataset_cls.num_classes
+    cfg.dataset.ignore_label = dataset_cls.ignore_label
     assert cfg.dataset.num_classes != 0
 
     ######################################################################
@@ -100,6 +97,7 @@ def setup_loaders(
         ...
     else:
         crop_size = int(crop_size)
+
 
     train_joint_transform_list = [
         joint_transforms.RandomSizeAndCrop(
@@ -187,7 +185,7 @@ def setup_loaders(
         tiles=tiles,
     )
 
-    update_dataset_inst(dataset_inst=val_set)
+    cfg.dataset_inst = val_set
 
     if cfg.DISTRIBUTED:
         from tile2net.tiles.tileseg.datasets.sampler import DistributedSampler

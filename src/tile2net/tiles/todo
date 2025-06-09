@@ -15,3 +15,15 @@ we need global cfg and local cfg
 during inference, we push local cfg to global cfg with a context manager
 if anything fails, we restore the global cfg
 
+with self.cfg:
+    self.cfg is set to the global cfg
+    global cfg original values are stored elsewhere
+    self.cfg is literally the global cfg
+
+    self.infer()
+
+
+if we have Cfg inherit from dict, we cannot change the object that the global cfg is accessing
+but if we have a private dict internally, then we can swap them around
+
+todo: debug self.dimension

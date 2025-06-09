@@ -96,17 +96,22 @@ class Outputs(
         result = tiles[key]
         return result
 
-    def iterator(self, dirname: str) -> Iterator[pd.Series]:
-        key = self._trace
-        cache = self.tiles.attrs
-        if key in cache:
-            it = cache[key]
-        else:
-            files = self.files(dirname)
-            it = iter(files)
-            cache[key] = it
-        yield from it
-        del cache[key]
+    def iterator(self, dirname: str, *args, **kwargs) -> Iterator[pd.Series]:
+        return super(Outputs, self).iterator(dirname)
+    #     key = self._trace
+    #     cache = self.tiles.attrs
+    #     if key in cache:
+    #         it = cache[key]
+    #     else:
+    #         files = self.files(dirname)
+    #         if not self.tiles.cfg.force:
+    #             loc = ~self.tiles.outdir.skip
+    #             files = files.loc[loc]
+    #         it = iter(files)
+    #         cache[key] = it
+    #     yield from it
+    #     del cache[key]
+    #
 
 
 class SegResults(
@@ -247,6 +252,22 @@ class Outdir(
         ).replace(self.extension, 'feather')
         result = Polygons.from_format(format)
         return result
+
+    @property
+    def skip(self) -> pd.Series:
+        tiles = self.tiles.stitched
+        key = f'{self._trace}.skip'
+        if key in tiles:
+            return tiles[key]
+        else:
+            files: pd.Series = self.polygons.files()
+            if self.tiles.cfg.force:
+                data = False
+            else:
+                data = list(map(os.path.exists, files))
+            result = pd.Series(data, index=tiles.index)
+            tiles[key] = result
+            return tiles[key]
 
     @Network
     def network(self):

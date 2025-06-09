@@ -4,23 +4,18 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from collections.abc import Mapping
-from types import MappingProxyType
-from tile2net.tiles.static import static
 import argparse
+import functools
 import re
 from collections import deque, UserDict
-from functools import cached_property
+from types import MappingProxyType
 from typing import *
-
 from typing import TypeVar, Callable
-
-from functools import *
-import functools
 
 import torch
 from toolz.curried import *
 
+from tile2net.tiles.static import static
 from . import cmdline
 from .nested import Nested
 
@@ -424,7 +419,6 @@ class Model(cmdline.Namespace):
         """
         Batch size for validation per GPU
         """
-        return 2
         return 1
 
     @cmdline.property
@@ -764,8 +758,8 @@ def __get__(
 
 
 class Cfg(
-    UserDict,
     Nested,
+    UserDict,
 ):
     tiles = None
     tiles: Tiles
@@ -776,14 +770,27 @@ class Cfg(
     )
     _nested: dict[str, cmdline.Nested] = {}
     __name__ = ''
+    _active = True
+
+    def __init__(self, dict=None, /, **kwargs):
+        if callable(dict):
+            UserDict.__init__(self, **kwargs)
+        else:
+            UserDict.__init__(self, dict, **kwargs)
+
+        # if (
+        #         args
+        #         and callable(args[0])
+        # ):
+        #     # super().__init__(*args[1:], **kwargs)
+        #     self.update(self._trace2default)
+        # else:
+        #     UserDict.__init__(self)
+        #     # super().__init__(*args, **kwargs)
 
     def __repr__(self) -> str:
         lines = (f'  "{k}": {v!r}' for k, v in self.items())
         return "{\n" + ",\n".join(lines) + "\n}"
-
-    @classmethod
-    def from_wrapper(cls, func) -> Self:
-        return cls()
 
     @Options
     def options(self):
@@ -812,13 +819,6 @@ class Cfg(
     @Polygon
     def polygon(self):
         ...
-
-    @property
-    def _cfg(self) -> Optional[Cfg]:
-        return self
-
-    def __setitem__(self, key, value):
-        super(self.__class__, self).__setitem__(key, value)
 
     @cmdline.property
     def label2id(self) -> dict[str, int]:
@@ -1214,15 +1214,15 @@ class Cfg(
     def extension(self) -> str:
         return 'png'
 
-    @cmdline.property
-    def tile_step(self) -> int:
-        return 1
-
-    @cmdline.property
-    def stitch_step(self) -> int:
-        return 4
-
-    stitch_step.add_options(short='-st')
+    # @cmdline.property
+    # def tile_step(self) -> int:
+    #     return 1
+    #
+    # @cmdline.property
+    # def stitch_step(self) -> int:
+    #     return 4
+    #
+    # stitch_step.add_options(short='-st')
 
     @cmdline.property
     def source(self) -> Optional[str]:
@@ -1298,13 +1298,24 @@ class Cfg(
         """
         return False
 
+    @cmdline.property
+    def _best_record(self) -> dict[str, Union[int, float]]:
+        return dict(
+            epoch=-1,
+            iter=0,
+            val_loss=1e10,
+            acc=0,
+            acc_cls=0,
+            mean_iu=0,
+            fwavacc=0
+        )
+
     @classmethod
     def from_defaults(cls):
         result = cls()
         result.update(result._trace2default)
         return result
 
-    # @cached_property
     @cached[dict[str, cmdline.property]]
     @cached.classmethod
     def _trace2property(cls) -> dict[str, cmdline.property]:
@@ -1397,39 +1408,25 @@ class Cfg(
         cls._active = active
         return MappingProxyType(dict(sorted(result.items())))
 
-    @cached_property
-    def _active(self):
-        return True
-
-    def stack_cfg(self):  # push
-        import tile2net.tiles.tileseg.config as _conf
-        _stack = getattr(_conf, "_cfg_stack", [])
-        _stack.append(_conf.cfg)
-        _conf._cfg_stack = _stack
-        _conf.cfg = self._cfg  # assumes the instance carries the replacement
-
-    def unstack_cfg(self):  # pop
-        import tile2net.tiles.tileseg.config as _conf
-        _stack = getattr(_conf, "_cfg_stack", [])
-        if not _stack:
-            raise RuntimeError("CFG stack is empty")
-        _conf.cfg = _stack.pop()
-        _conf._cfg_stack = _stack
-
     def __call__(self, *args, **kwargs) -> Cfg:
         return self
 
     def __enter__(self):
-        cfg: Cfg = globals()['cfg']
-        self._cfg = cfg
+        g = globals()
+        cfg = g['cfg']
+        g['cfg'].data = self.data
+        self._backup = cfg
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        globals()['cfg'] = self._cfg
+        globals()['cfg'].data = self._backup
         return False
+
+    @property
+    def _cfg(self) -> Self:
+        return self
 
 
 cfg = Cfg.from_defaults()
-
 
 # -------------------------------------------------------------------------
 # Utility functions mirroring the legacy API
@@ -1477,3 +1474,4 @@ def update_dataset_cfg(num_classes: int, ignore_label: int) -> None:
 def update_dataset_inst(dataset_inst) -> None:
     """Attach a dataset instance for downstream convenience."""
     cfg.dataset_inst = dataset_inst
+

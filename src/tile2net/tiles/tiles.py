@@ -1,11 +1,5 @@
 from __future__ import annotations
-from .infer import Infer
-import numpy as np
-from numpy import ndarray
-
-import itertools
-
-import rasterio.transform
+import shutil
 
 import os
 import tempfile
@@ -32,18 +26,18 @@ from tile2net.logger import logger
 from tile2net.raster import util
 from tile2net.tiles.cfg import cfg
 from . import util
+from .cfg import Cfg
+from .colormap import ColorMap
 from .dir import Dir
 from .explore import explore
 from .fixed import GeoDataFrameFixed
 from .indir import Indir
-from .inference import Inference
+from .infer import Infer
 from .mosaic import Mosaic
 from .outdir import Outdir
 from .source import Source, SourceNotFound
-from .static import Static, static
+from .static import static
 from .stitch import Stitch
-from .colormap import ColorMap
-from .cfg import Cfg
 
 if False:
     import folium
@@ -188,18 +182,21 @@ class Tiles(
 
         tiles.infer(cfg.output_dir)
 
-    @Cfg.from_wrapper
-    def _cfg(self):
+    @Cfg
+    def cfg(self):
         # This code block is just semantic sugar and does not run.
-        ...
-
-
+        # You can access the various configuration options this way:
+        _ = self.cfg.zoom
+        _ = self.cfg.model.bs_val
+        _ = self.cfg.polygon.max_hole_area
+        # Please do not set the configuration options directly,
+        # you may introduce bugs.
 
     @classmethod
     def from_location(
             cls,
             location,
-            zoom: int = 19,
+            zoom: int = None,
     ) -> Self:
         latlon = util.geocode(location)
         result = cls.from_bounds(
@@ -215,12 +212,14 @@ class Tiles(
                 str,
                 list[float],
             ],
-            zoom: int = 19,
+            zoom: int = None,
     ) -> Self:
         """
         Create some base Tiles from bounds in lat, lon format and a
         slippy tile zoom level.
         """
+        if zoom is None:
+            zoom = cfg.zoom
         if isinstance(latlon, str):
             if ', ' in latlon:
                 split = ', '
@@ -456,9 +455,13 @@ class Tiles(
 
         result = self.copy()
         result.source = source
+        msg = (
+            f'Setting source to {source.__class__.__name__} '
+            f'({source.name})'
+        )
+        logger.info(msg)
         if name:
             result.name = name
-
         if indir:
             if Dir.is_valid(indir):
                 ...
@@ -496,7 +499,7 @@ class Tiles(
         )
 
         urls = result.source.urls
-        files = result.file
+        files = result.indir.files()
         result.download(files, urls, max_workers=max_workers)
 
         return result
@@ -528,22 +531,22 @@ class Tiles(
         for p in paths.unique():
             Path(p).parent.mkdir(parents=True, exist_ok=True)
 
-        paths_arr = paths.array
-        urls_arr = urls.array
+        PATHS = paths.array
+        URLS = urls.array
 
         if not force:
             exists_mask = np.fromiter(
-                (Path(p).exists() for p in paths_arr),
+                (Path(p).exists() for p in PATHS),
                 dtype=bool,
-                count=len(paths_arr),
+                count=len(PATHS),
             )
             if exists_mask.all():
                 logger.info('All tiles already on disk.')
                 return
-            paths_arr = paths_arr[~exists_mask]
-            urls_arr = urls_arr[~exists_mask]
+            PATHS = PATHS[~exists_mask]
+            URLS = URLS[~exists_mask]
 
-        max_workers = min(max_workers, len(urls_arr))  # or higher if your system/network allows
+        max_workers = min(max_workers, len(URLS))  # or higher if your system/network allows
         pool_size = max_workers  # keep-alive sockets you want
 
         with (
@@ -551,10 +554,8 @@ class Tiles(
             requests.Session() as session
         ):
 
-            session.mount(
-                'https://',
-                HTTPAdapter(pool_connections=pool_size, pool_maxsize=pool_size)
-            )
+            adapter = HTTPAdapter(pool_connections=pool_size, pool_maxsize=pool_size)
+            session.mount('https://', adapter)
             session.headers.update({'User-Agent': 'tiles'})
             session.verify = certifi.where()
 
@@ -565,30 +566,27 @@ class Tiles(
                     return -1
 
             # Only check URLs whose files do not already exist
-            exists = np.fromiter(
-                (os.path.exists(p) for p in paths_arr),
-                dtype=bool,
-                count=len(paths_arr)
-            )
+            it = map(os.path.exists, PATHS)
+            exists = np.fromiter(it, bool, count=len(PATHS))
             if exists.all():
                 return
 
-            paths_arr = paths_arr[~exists]
-            urls_arr = urls_arr[~exists]
+            PATHS = PATHS[~exists]
+            URLS = URLS[~exists]
 
-            if len(urls_arr):
-                msg = f'Checking {len(urls_arr):,} URLs...'
+            if len(URLS):
+                msg = f'Checking {len(URLS):,} URLs...'
                 logger.info(msg)
 
             it = tqdm(
-                pool.map(head, urls_arr),
-                total=len(urls_arr),
+                pool.map(head, URLS),
+                total=len(URLS),
                 desc='Checking status codes'
             )
             codes = np.fromiter(
                 it,
                 dtype=np.int16,
-                count=len(urls_arr)
+                count=len(URLS)
             )
 
             not_ok = (codes != 200) & (codes != 404)
@@ -596,23 +594,27 @@ class Tiles(
                 logger.warning(f'Unexpected status codes: {np.unique(codes[not_ok])}')
 
             not_found = codes == 404
-            if not_found.any():
-                logger.info(f'{not_found.sum():,} tiles returned 404.')
-                src = self.black.__fspath__()
-                for p in paths_arr[not_found]:
-                    os.symlink(src, p)
 
-            paths_arr = paths_arr[~not_found]
-            urls_arr = urls_arr[~not_found]
+            n = np.sum(not_found)
+            N = len(PATHS)
+            if np.any(not_found):
+                if n == N:
+                    msg = f'All {n:,} requested tiles returned 404.'
+                    raise FileNotFoundError(msg)
+                msg = f'{n:,} out of {N:,} tiles returned 404.'
+                logger.warning(msg)
 
-            if not len(paths_arr):
+            paths = PATHS[~not_found]
+            urls = URLS[~not_found]
+
+            if not len(paths):
                 return
 
             submit_get = partial(session.get, timeout=20)
-            desc = f"Downloading {len(paths_arr):,} tiles to {self.indir.format}"
+            desc = f"Downloading {len(paths):,} tiles to {self.indir.format}"
             it = tqdm(
-                zip(urls_arr, paths_arr),
-                total=len(paths_arr),
+                zip(urls, paths),
+                total=len(paths),
                 desc=desc
             )
 
@@ -641,11 +643,16 @@ class Tiles(
                 w = pool.submit(write, path, resp.content)
                 writes.append(w)
 
-            failed = [f.result() for f in as_completed(writes) if f.result()]
+            failed = [
+                f.result()
+                for f in as_completed(writes)
+                if f.result()
+            ]
 
             if failed:
                 if retry:
-                    logger.error(f'{len(failed):,} failed tiles; retrying once.')
+                    msg = f'{len(failed):,} failed tiles; retrying once.'
+                    logger.error(msg)
                     self.download(
                         paths=pd.Series(failed, dtype=object),
                         urls=pd.Series(
@@ -657,6 +664,26 @@ class Tiles(
                     )
                 else:
                     raise FileNotFoundError(f'{len(failed):,} tiles failed: {failed[:3]}')
+
+            def _link_or_copy(src, dst):
+                try:
+                    os.symlink(src, dst)
+                except (OSError, NotImplementedError):
+                    shutil.copy2(src, dst)
+
+            paths = PATHS[not_found]
+            black = self.static.black
+
+            if len(paths):
+                msg = f'Linking or copying {len(paths):,} tiles to {black}.'
+                logger.info(msg)
+
+            if len(paths) > 64:  # thread only when worthwhile
+                with ThreadPoolExecutor() as ex:
+                    ex.map(lambda p: _link_or_copy(black, p), paths)
+            else:
+                for path in paths:
+                    _link_or_copy(black, path)
 
             logger.info('All requested tiles are on disk.')
 
@@ -674,7 +701,8 @@ class Tiles(
     def zoom(self) -> int:
         """Tile zoom level"""
         try:
-            return self.attrs['zoom']
+            # return self.attrs['zoom']
+            return self.cfg.zoom
         except KeyError:
             raise NotImplementedError('write better warning')
 
@@ -682,7 +710,8 @@ class Tiles(
     def zoom(self, value: int):
         if not isinstance(value, int):
             raise TypeError('Zoom must be an integer')
-        self.attrs['zoom'] = value
+        self.cfg.zoom = value
+        # self.attrs['zoom'] = value
 
     @property
     def r(self) -> pd.Series:
@@ -720,6 +749,10 @@ class Tiles(
         self.attrs['dimension'] = iio.imread(sample).shape[1]  # width
         return self.attrs['dimension']
 
+    @property
+    def file(self):
+        return self.indir.files()
+
     @dimension.setter
     def dimension(self, value: int):
         self.attrs['dimension'] = value
@@ -739,16 +772,6 @@ class Tiles(
         self.attrs['tscale'] = value
 
     @property
-    def file(self) -> pd.Series:
-        if 'file' not in self:
-            self['file'] = self.indir.files
-        return self['file']
-
-    @file.setter
-    def file(self, value: pd.Series):
-        self['file'] = value
-
-    @property
     def stitched(self) -> Stitched:
         """If set, will return a Tiles DataFrame with stitched tiles."""
         if 'stitched' not in self.attrs:
@@ -760,6 +783,7 @@ class Tiles(
             raise ValueError(msg)
         result = self.attrs['stitched']
         result.tiles = self
+        # result.instance = self
         return result
 
     @stitched.setter
@@ -768,16 +792,19 @@ class Tiles(
             msg = """Tiles.stitched must be a Tiles object"""
             raise TypeError(msg)
         self.attrs['stitched'] = value
+        value.tiles = self
 
     @property
     def name(self) -> str:
-        return self.attrs.get('name')
+        return self.cfg.name
+        # return self.attrs.get('name')
 
     @name.setter
     def name(self, value: str):
         if not isinstance(value, str):
             raise TypeError('Tiles.name must be a string')
-        self.attrs['name'] = value
+        self.cfg.name = value
+        # self.attrs['name'] = value
 
     def explore(
             self,

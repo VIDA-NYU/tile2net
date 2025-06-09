@@ -49,11 +49,13 @@ class Nested(
     ):
         ...
 
+
     @cached_property
     def _trace(self):
         if (
                 self.instance is None
-                or self.instance.instance is None
+                # or self.instance.instance is None
+            or not isinstance(self.instance, Nested)
         ):
             return self.__name__
         elif isinstance(self.instance, Nested):

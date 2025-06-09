@@ -1,8 +1,4 @@
 from __future__ import annotations
-import tile2net.tileseg.inference.inference
-import tile2net.tileseg.datasets.base_loader
-import tile2net.tileseg.utils.trnval_utils
-from tile2net.tiles.util import look_at
 
 from concurrent.futures import Future, ThreadPoolExecutor
 from concurrent.futures import wait
@@ -19,9 +15,12 @@ import torch
 import torchvision.transforms as standard_transforms
 from PIL import Image
 
+import tile2net.tileseg.datasets.base_loader
+import tile2net.tileseg.inference.inference
 import tile2net.tileseg.utils.misc
-from tile2net.logger import logger
+import tile2net.tileseg.utils.trnval_utils
 from tile2net.tiles.cfg import cfg
+from tile2net.tiles.util import look_at
 from tile2net.tileseg.utils.misc import AverageMeter
 from tile2net.tileseg.utils.misc import fast_hist, fmt_scale
 from .dir import Dir
@@ -154,13 +153,6 @@ class MiniBatch(
         assert output.size()[2:] == gt_cuda.size()[1:], assert_msg
         assert output.size()[1] == cfg.DATASET.NUM_CLASSES, assert_msg
 
-        # Update loss and scoring datastructure
-        if calc_metrics:
-            val_loss.update(
-                criterion(output, gt_image.cuda()).item(),
-                batch_pixel_size
-            )
-
         output_data = torch.nn.functional.softmax(output, dim=1).cpu().data
         max_probs, predictions = output_data.max(1)
 
@@ -177,11 +169,6 @@ class MiniBatch(
 
         predictions = predictions.numpy()
         err_mask = None
-        if calc_metrics:
-            err_mask = cls.calc_err_mask_all(
-                predictions,
-                gt_image.numpy(),
-            )
 
         _iou_acc = fast_hist(
             predictions.flatten(),
@@ -273,7 +260,7 @@ class MiniBatch(
 
     @cached_property
     def threads(self) -> ThreadPoolExecutor:
-        return ThreadPoolExecutor(max_workers=cfg.num_threads)
+        return ThreadPoolExecutor()
 
     @cached_property
     def futures(self) -> list[Future]:

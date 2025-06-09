@@ -97,9 +97,9 @@ class Loader(BaseLoader):
             mode: str,
             tiles: 'Tiles',
             quality: str = 'semantic',
-            joint_transform_list = None,
-            img_transform = None,
-            label_transform = None,
+            joint_transform_list=None,
+            img_transform=None,
+            label_transform=None,
     ) -> None:
 
         super(Loader, self).__init__(
@@ -115,14 +115,12 @@ class Loader(BaseLoader):
         self.trainid_to_name = trainId2name
         self.fill_colormap()
 
-        # self.all_imgs = tiles.indir.files.tolist()
-        # imgs = list(zip(
-        #     # tiles.indir.files.tolist(),
-        #     tiles.stitched.indir.files
-        #     itertools.repeat('')
-        # ))
-        files: pd.Series = tiles.stitched.indir.files
-        # todo: support cfg.force
+        files: pd.Series = tiles.stitched.indir.files()
+        loc = ~tiles.stitched.outdir.skip
+        files = files.loc[loc]
+        it = zip(files.tolist(), itertools.repeat(''))
+        imgs = list(it)
+        self.all_imgs = imgs
 
         logger.debug('all imgs {}'.format(len(self.all_imgs)))
         self.fine_centroids = uniform.build_centroids(

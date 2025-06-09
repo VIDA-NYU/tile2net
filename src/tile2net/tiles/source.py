@@ -37,17 +37,6 @@ class SourceNotFound(Exception):
 T = TypeVar('T')
 
 
-# def not_found_none(func: T) -> T:
-#     @wraps(func)
-#     def wrapper(*args, **kwargs):
-#         try:
-#             return func(*args, **kwargs)
-#         except SourceNotFound as e:
-#             return None
-#
-#     return wrapper
-
-
 class Coverage:
     @cached_property
     def file(self) -> pathlib.Path:

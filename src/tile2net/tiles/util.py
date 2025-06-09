@@ -1,27 +1,21 @@
-import math
-from typing import *
+import ast
 import inspect
-import functools
 import json
 import os
-import time
+import textwrap
+from functools import singledispatch
+from typing import *
 from weakref import WeakKeyDictionary
 
 import geopy
+import math
 import numpy as np
 import toolz
-from geopy.exc import GeocoderTimedOut
 from geopy.geocoders import Nominatim
+from numpy import ndarray
 from toolz import curried, pipe
 
 from tile2net.logger import logger
-
-import numpy as np
-from numpy import ndarray
-import numba as nb
-from functools import singledispatch
-import ast
-import textwrap
 
 if False:
     import folium

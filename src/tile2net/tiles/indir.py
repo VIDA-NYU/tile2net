@@ -4,7 +4,6 @@ from .dir import Dir
 class Indir(
     Dir
 ):
-    @property
     def files(self) -> pd.Series:
         tiles = self.tiles
         key = f'dir.{self.__name__}'

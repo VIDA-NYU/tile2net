@@ -196,6 +196,7 @@ class Stitch:
         stitched.attrs.update(_stitched.attrs)
         setattr(stitched, 'indir', indir)
         tiles.stitched = stitched
+        stitched.tiles = tiles
 
         stitched.zoom = tiles.zoom
         stitched.tscale = scale
@@ -221,17 +222,17 @@ class Stitch:
         else:
 
             # todo: do not stitch if file exists
-            stitched.indir
             msg = (
                 f'Stitching tiles from {tiles.indir.original} '
-                f'to {stitched.indir}. '
+                f'to {stitched.indir.original}. '
             )
             logger.info(msg)
 
             # sort stitched by group so that outfiles come out in row–major mosaic order
             iloc = np.argsort(stitched.group.values)
-            stitched = stitched.iloc[iloc]
-            outfiles = stitched.file  # 1:1 with mosaics
+            stitched: Stitched = stitched.iloc[iloc]
+            # outfiles = stitched.file  # 1:1 with mosaics
+            outfiles = stitched.outdir.files()
 
             # ── determine which mosaics are still missing ────────────────────────────────
             missing_mask = ~outfiles.apply(os.path.exists)
@@ -244,18 +245,17 @@ class Stitch:
 
             # groups (integer IDs) whose stitched files are absent
             groups_needed = stitched.group[missing_mask].unique()
-            tiles.mosaic.r
-            tiles.mosaic.c
 
             # subset all per-tile Series to only tiles belonging to those groups
             sel = tiles.mosaic.group.isin(groups_needed).values
-            files_sub = tiles.file.loc[sel]
+            files_sub = tiles.indir.files().loc[sel]
+
             row_sub = tiles.mosaic.r.loc[sel]
             col_sub = tiles.mosaic.c.loc[sel]
             group_sub = tiles.mosaic.group.loc[sel]
 
-            tile_shape = (tiles.dimension, tiles.dimension, 3)
-            mosaic_shape = (stitched.dimension, stitched.dimension, 3)
+            tile_shape = tiles.dimension, tiles.dimension, 3
+            mosaic_shape = stitched.dimension, stitched.dimension, 3
 
             loader = Loader(
                 files=files_sub,
@@ -286,7 +286,6 @@ class Stitch:
                 w.result()
 
             executor.shutdown(wait=True)
-            # executor.shutdown(wait=True)
 
         return tiles
 

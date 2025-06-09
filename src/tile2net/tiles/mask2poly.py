@@ -1,35 +1,29 @@
 from __future__ import annotations
-from tile2net.logger import logger
 
 import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import *
 
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pyproj
+import shapely
 import shapely.wkt
 import skimage
 from affine import Affine
 from pandas import Series
 from rasterio import features
-import tile2net.tiles.stitched
 
 import tile2net.raster.tile
 import tile2net.raster.tile_utils.topology
 import tile2net.tileseg.utils.misc
+from tile2net.logger import logger
 from tile2net.raster.tile_utils.geodata_utils import _check_skimage_im_load
 from tile2net.tiles.util import look_at
-from .fixed import GeoDataFrameFixed
-
-from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
-import geopandas as gpd
-import pandas as pd
-
-import geopandas as gpd
-import shapely
 from .cfg import cfg
+from .fixed import GeoDataFrameFixed
 
 os.environ['USE_PYGEOS'] = '0'
 
@@ -76,7 +70,7 @@ class Mask2Poly(
         return result
 
     @classmethod
-    @look_at(tile2net.tiles.stitched.Stitched.affine_params)
+    # @look_at(tile2net.tiles.stitched.Stitched.affine_params)
     def from_array(
             cls,
             array: np.ndarray,

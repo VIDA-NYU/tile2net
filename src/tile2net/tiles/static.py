@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import *
 
 import gdown
+from PIL import Image
 
 if False:
     from .tiles import Tiles
@@ -72,6 +73,17 @@ class Static:
             .absolute().__fspath__()
         )
         return result
+
+    @cached_property
+    def black(self) -> Path:
+        dim: int = self.instance.dimension
+        path: Path = self.path.joinpath(str(dim), 'black.png')
+
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            Image.new('RGB', (dim, dim), (0, 0, 0)).save(path)
+
+        return path
 
 
 static = Static()
