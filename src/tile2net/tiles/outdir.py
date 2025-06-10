@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Iterator
+
 import os
 
 import datetime
@@ -7,6 +7,7 @@ import os.path
 
 import pandas as pd
 
+from .batchiterator import BatchIterator
 from .dir import Dir
 
 
@@ -41,7 +42,7 @@ class Polygons(
             datetime.datetime.now()
             .strftime('%d-%m-%Y_%H_%M')
         )
-        file = os.path.join(self.dir, f'Network-{time}.shp')
+        file = os.path.join(self.dir, f'Polygons-{time}.shp')
         return file
 
 
@@ -58,7 +59,7 @@ class Network(
             datetime.datetime.now()
             .strftime('%d-%m-%Y_%H_%M')
         )
-        file = os.path.join(self.dir, f'Polygons-{time}.shp')
+        file = os.path.join(self.dir, f'Network-{time}.shp')
         return file
 
 
@@ -96,8 +97,8 @@ class Outputs(
         result = tiles[key]
         return result
 
-    def iterator(self, dirname: str, *args, **kwargs) -> Iterator[pd.Series]:
-        return super(Outputs, self).iterator(dirname)
+    # def iterator(self, dirname: str, *args, **kwargs) -> Iterator[pd.Series]:
+    #     return super(Outputs, self).iterator(dirname)
     #     key = self._trace
     #     cache = self.tiles.attrs
     #     if key in cache:
@@ -112,6 +113,25 @@ class Outputs(
     #     yield from it
     #     del cache[key]
     #
+
+    # def iterator(self, dirname, *args, **kwargs):
+    #     key = f'{self._trace}.{dirname}.iterator'
+    #     cache = self.tiles.attrs
+    #
+    #     try:  # → already cached ↴
+    #         return cache[key]
+    #     except KeyError:
+    #         files = self.files(dirname, *args, **kwargs)
+    #         if not self.tiles.cfg.force:  # drop skipped tiles
+    #             files = files.loc[~self.tiles.outdir.skip]
+    #
+    #         return CachedIterator(self.tiles, files, cache, key)
+
+    @BatchIterator
+    def iterator(self, dirname: str):
+        files = self.files(dirname)
+        return files
+
 
 
 class SegResults(
@@ -249,7 +269,7 @@ class Outdir(
             self.dir,
             'polygons',
             self.suffix,
-        ).replace(self.extension, 'feather')
+        ).replace(self.extension, 'parquet')
         result = Polygons.from_format(format)
         return result
 
@@ -275,7 +295,7 @@ class Outdir(
             self.dir,
             'network',
             self.suffix,
-        ).replace(self.extension, 'feather')
+        ).replace(self.extension, 'parquet')
         result = Network.from_format(format)
         return result
 

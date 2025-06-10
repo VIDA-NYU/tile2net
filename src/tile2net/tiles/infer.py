@@ -266,6 +266,9 @@ class Infer:
         prediction: numpy.ndarray
         pred: dict
         values: numpy.ndarray
+        res = list(self.tiles.outdir.seg_results.iterator())
+        list(self.tiles.stitched.affine_iterator())
+        res
 
         tiles = self.tiles
         net.eval()

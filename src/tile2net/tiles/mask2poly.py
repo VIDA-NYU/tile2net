@@ -1,4 +1,8 @@
 from __future__ import annotations
+from shapely.geometry import shape
+import rasterio.features
+
+import rasterio.features
 
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -14,7 +18,7 @@ import shapely.wkt
 import skimage
 from affine import Affine
 from pandas import Series
-from rasterio import features
+from rasterio.features import shapes
 
 import tile2net.raster.tile
 import tile2net.raster.tile_utils.topology
@@ -75,7 +79,7 @@ class Mask2Poly(
             cls,
             array: np.ndarray,
             affine: Affine,
-            crs: str | pyproj.CRS = "EPSG:3857",
+            crs=3857,
     ) -> Self:
         # todo: check over where the crs whould be what, and to support user input
         """
@@ -92,9 +96,7 @@ class Mask2Poly(
         concat: list[gpd.GeoDataFrame] = []
         label2id = cfg.label2id
         for label, id in label2id.items():
-            array = ARRAY[:, :, id]
-            if not array.max() > 0:
-                continue
+            array = np.array(ARRAY == id, dtype='uint8')
             frame = (
                 cls
                 .mask_to_poly_geojson(array, affine)
@@ -116,24 +118,16 @@ class Mask2Poly(
     @look_at(tile2net.raster.tile.Tile.mask_to_poly_geojson)
     def mask_to_poly_geojson(
             cls,
-            pred_arr,
+            source,
             transform: Affine,
-            channel_scaling=None,
-            bg_threshold=0,
     ) -> Self:
-        source = cls.preds_to_binary(pred_arr, channel_scaling, bg_threshold)
-
-        mask = source > bg_threshold
-        mask = mask.astype('uint8')
-
-        polygon_generator = features.shapes(
-            source=source,
-            mask=mask,
-            transform=transform,
+        it = (
+            (shape(geom), val)
+            for geom, val in
+            rasterio.features.shapes(source, transform=transform)
         )
-        data = polygon_generator
         columns = 'geometry value'.split()
-        result = cls.from_records(data, columns=columns)
+        result = gpd.GeoDataFrame.from_records(it, columns=columns)
 
         return result
 
@@ -182,16 +176,6 @@ class Mask2Poly(
             ``False`` for background.
         """
         pred_arr = _check_skimage_im_load(pred_arr).copy()
-
-        if len(pred_arr.shape) == 3:
-            if pred_arr.shape[0] < pred_arr.shape[-1]:
-                pred_arr = np.moveaxis(pred_arr, 0, -1)
-            if channel_scaling is None:  # if scale values weren't provided
-                channel_scaling = np.ones(
-                    shape=(pred_arr.shape[-1]),
-                    dtype='float'
-                )
-            pred_arr = np.sum(pred_arr * np.array(channel_scaling), axis=-1)
 
         mask_arr = (
                 pred_arr

@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 from typing import *
 from .indir import Indir
-from .dir import  Loader
+from .dir import Loader
 from tile2net.logger import logger
 
 if False:
@@ -232,7 +232,7 @@ class Stitch:
             iloc = np.argsort(stitched.group.values)
             stitched: Stitched = stitched.iloc[iloc]
             # outfiles = stitched.file  # 1:1 with mosaics
-            outfiles = stitched.outdir.files()
+            outfiles = stitched.indir.files()
 
             # ── determine which mosaics are still missing ────────────────────────────────
             missing_mask = ~outfiles.apply(os.path.exists)
@@ -240,8 +240,11 @@ class Stitch:
             n_missing = int(missing_mask.sum())
 
             if n_missing == 0:  # nothing to do
+                msg = f'All {n_total:,} mosaics are already stitched.'
+                logger.info(msg)
                 return tiles
-            logger.info(f'Stitching {n_missing:,} of {n_total:,} mosaics (missing on disk).')
+            else:
+                logger.info(f'Stitching {n_missing:,} of {n_total:,} mosaics (missing on disk).')
 
             # groups (integer IDs) whose stitched files are absent
             groups_needed = stitched.group[missing_mask].unique()
@@ -270,12 +273,8 @@ class Stitch:
             executor = ThreadPoolExecutor()
             imwrite = imageio.v3.imwrite
 
-            it = tqdm(
-                zip(loader, outfiles[missing_mask]),
-                total=n_missing,
-                desc='stitching',
-                unit='mosaic'
-            )
+            it = zip(loader, outfiles[missing_mask])
+            it = tqdm(it, 'stitching', n_missing, unit='mosaic')
 
             writes = []
             for array, outfile in it:
@@ -286,6 +285,9 @@ class Stitch:
                 w.result()
 
             executor.shutdown(wait=True)
+
+            files: pd.Series[str] = stitched.file
+            assert all(map(os.path.exists, files))
 
         return tiles
 

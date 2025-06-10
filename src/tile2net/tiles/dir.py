@@ -1,4 +1,5 @@
 from __future__ import annotations
+from .batchiterator import BatchIterator
 from tile2net.tiles.cfg import cfg
 
 import functools
@@ -153,93 +154,6 @@ class Dir:
     def __bool__(self):
         return self.format is not None
 
-    # def __set__(
-    #         self,
-    #         instance: Tiles,
-    #         value: str | PathLike
-    # ):
-    #
-    #     if value is None:
-    #         raise NotImplementedError
-    #     if isinstance(value, Dir):
-    #         # result = type(value)(value)
-    #         # result.__name__ = self.__name__
-    #         # instance.attrs[self._trace] = result
-    #         raise NotImplementedError
-    #         return
-    #     if isinstance(value, Path):
-    #         value = str(value)
-    #     value = os.path.normpath(value)
-    #     indir = self.__class__()
-    #     instance.attrs[self._trace] = indir
-    #
-    #     indir.original = value
-    #     indir.__name__ = self.__name__
-    #
-    #     try:
-    #         indir.extension = value.rsplit('.', 1)[1]
-    #     except IndexError:
-    #         raise ValueError(f'No extension found in {value!r}')
-    #
-    #     CHARACTERS: dict[str, str] = pipe(
-    #         re.split(r'[/_. \-\\]', value),
-    #         curried.filter(lambda c: len(c) == 1),
-    #         curried.map(str.casefold),
-    #         set,
-    #         cur(set.__contains__),
-    #         curried.keyfilter(d=indir.characters),
-    #     )
-    #     characters = CHARACTERS.copy()
-    #
-    #     string = value
-    #     match = indir._match(string, characters)
-    #     indir.root = match[0]
-    #     result = deque([match])
-    #
-    #     while True:
-    #         c = match[1]
-    #         if not c:
-    #             break
-    #         del characters[match[1]]
-    #         if not characters:
-    #             break
-    #         match = indir._match(match[0], characters)
-    #         result.appendleft(match)
-    #
-    #     failed = [
-    #         c
-    #         for c in 'xy'
-    #         if c not in CHARACTERS
-    #     ]
-    #     if failed:
-    #         raise ValueError(
-    #             f'indir failed to parse {value!r} '
-    #         )
-    #
-    #     parts = []
-    #     r = result[0]
-    #     parts.append(r[0])
-    #     parts.append(f'{{{r[1]}}}')
-    #     parts.append(r[2])
-    #     for r in list(result)[1:]:
-    #         parts.append(f'{{{r[1]}}}')
-    #         parts.append(r[2])
-    #     format = ''.join(parts)
-    #     indir.format = format
-    #     indir.dir = parts[0].rsplit('/', 1)[0]
-    #     indir.suffix = os.path.relpath(indir.original, indir.dir)
-    #
-    #     from .tiles import Tiles
-    #     indir.instance = instance
-    #     owner = type(instance)
-    #     indir.owner = owner
-    #     if issubclass(owner, Tiles):
-    #         indir.tiles = instance
-    #         indir.Tiles = owner
-    #     else:
-    #         indir.tiles = instance.tiles
-    #         indir.Tiles = instance.Tiles
-
     @classmethod
     def from_dir(cls, dir: str) -> Self:  # noqa: N803
         indir = cls()
@@ -381,57 +295,97 @@ class Dir:
             )
             raise ValueError(msg)
 
+    # def files(self, *args, **kwargs) -> pd.Series:
+    #     tiles = self.tiles.stitched
+    #     key = self._trace
+    #     # os.makedirs(self.dir, exist_ok=True)
+    #     if key in tiles:
+    #         return tiles[key]
+    #     else:
+    #         format = self.format
+    #         zoom = tiles.zoom
+    #         it = zip(tiles.ytile, tiles.xtile)
+    #         data = [
+    #             format.format(z=zoom, y=ytile, x=xtile)
+    #             for ytile, xtile in it
+    #         ]
+    #         result = pd.Series(data, index=tiles.index)
+    #         tiles[key] = result
+    #         return tiles[key]
+
     def files(self, *args, **kwargs) -> pd.Series:
         tiles = self.tiles.stitched
         key = self._trace
-        os.makedirs(self.dir, exist_ok=True)
         if key in tiles:
             return tiles[key]
-        else:
-            format = self.format
-            zoom = tiles.zoom
-            it = zip(tiles.ytile, tiles.xtile)
-            data = [
-                format.format(z=zoom, y=ytile, x=xtile)
-                for ytile, xtile in it
-            ]
-            result = pd.Series(data, index=tiles.index)
-            tiles[key] = result
-            return tiles[key]
 
-    def iterator(self, *args, **kwargs) -> Iterator[pd.Series]:
-        """
-        Our magic is forbidden in this realm. In order to circumvent
-        such tyranny, we instead channel our powers into caching of an
-        iterator, which is then yielded from.
+        fmt = self.format
+        zoom = tiles.zoom
+        paths = [
+            fmt.format(z=zoom, y=ytile, x=xtile)
+            for ytile, xtile in zip(tiles.ytile, tiles.xtile)
+        ]
 
-        For each minibatch, we return to the iterator which maintains
-        its position in the column. We iterate across the rows associated
-        with the minibatch.
-        """
-        # todo: create a separate dict for iterator which is deleted if inference fails
-        key = f'{self._trace}.iterator'
-        cache = self.tiles.attrs
-        if key in cache:
-            it = cache[key]
-        else:
-            files = self.files(*args, **kwargs)
-            if not self.tiles.cfg.force:
-                loc = ~self.tiles.outdir.skip
-                files = files.loc[loc]
+        # ensure parent directories exist
+        for p in {Path(p).parent for p in paths}:
+            p.mkdir(parents=True, exist_ok=True)
 
-            def gen():
-                n = cfg.model.bs_val
-                a = files.to_numpy()
-                q, r = divmod(len(a), n)
-                yield from a[:q * n].reshape(q, n)
-                if r:
-                    yield a[-r:]
+        result = pd.Series(paths, index=tiles.index)
+        tiles[key] = result
+        return tiles[key]
 
-            it = gen()
-            cache[key] = it
-        yield from it
-        del cache[key]
+    # def iterator(self, *args, **kwargs) -> Iterator[pd.Series]:
+    #     """
+    #     Our magic is forbidden in this realm. In order to circumvent
+    #     such tyranny, we instead channel our powers into caching of an
+    #     iterator, which is then yielded from.
+    #
+    #     For each minibatch, we return to the iterator which maintains
+    #     its position in the column. We iterate across the rows associated
+    #     with the minibatch.
+    #     """
+    #     # todo: create a separate dict for iterator which is deleted if inference fails
+    #     key = f'{self._trace}.iterator'
+    #     cache = self.tiles.attrs
+    #     if key in cache:
+    #         it = cache[key]
+    #     else:
+    #         files = self.files(*args, **kwargs)
+    #         if not self.tiles.cfg.force:
+    #             loc = ~self.tiles.outdir.skip
+    #             files = files.loc[loc]
+    #
+    #         def gen():
+    #             n = cfg.model.bs_val
+    #             a = files.to_numpy()
+    #             q, r = divmod(len(a), n)
+    #             yield from a[:q * n].reshape(q, n)
+    #             if r:
+    #                 yield a[-r:]
+    #
+    #         it = gen()
+    #         cache[key] = it
+    #     print(key)
+    #     yield from it
+    #     del cache[key]
+    #
+    # def iterator(self, *args, **kwargs):
+    #     key = f'{self._trace}.iterator'
+    #     cache = self.tiles.attrs
+    #
+    #     try:  # → already cached ↴
+    #         return cache[key]
+    #     except KeyError:
+    #         files = self.files(*args, **kwargs)
+    #         if not self.tiles.cfg.force:  # drop skipped tiles
+    #             files = files.loc[~self.tiles.outdir.skip]
+    #
+    #         return CachedIterator(self.tiles, files, cache, key)
+
+    @BatchIterator
+    def iterator(self, *args, **kwargs):
+        return self.files(*args, **kwargs)
+
 
 
 class TestIndir:
