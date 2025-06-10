@@ -108,12 +108,7 @@ class Infer:
             cfg.polygon.simplify = simplify
         return self
 
-    def to_outdir(
-            self,
-            # outdir=None,
-            force=None,
-            batch_size: int = None,
-    ):
+    def to_outdir( self, force=None, batch_size: int = None):
         tiles = self.tiles
         cfg = tiles.cfg
 
@@ -266,9 +261,6 @@ class Infer:
         prediction: numpy.ndarray
         pred: dict
         values: numpy.ndarray
-        res = list(self.tiles.outdir.seg_results.iterator())
-        list(self.tiles.stitched.affine_iterator())
-        res
 
         tiles = self.tiles
         net.eval()
@@ -304,14 +296,25 @@ class Infer:
 
         else:
             if testing:
+                msg = (
+                    f'Postprocessing segmentation polygons to '
+                    f'{tiles.outdir.polygons.file}...'
+                )
+                logger.info(msg)
                 polys = (
                     Mask2Poly
                     .from_parquets(tiles.outdir.polygons.files())
                     .postprocess()
                 )
-                polys.pipe(gpd.GeoDataFrame).to_parquet(tiles.outdir.polygons.file)
+                polys.to_parquet(tiles.outdir.polygons.file)
                 if polys.empty:
                     logging.warning('No polygons were generated during the session.')
+
+                msg = (
+                    f'Generating network from polygons '
+                    f'to {tiles.outdir.network.file}...'
+                )
+                logger.info(msg)
                 net = (
                     PedNet(poly=polys, tiles=tiles)
                     .convert_whole_poly2line()

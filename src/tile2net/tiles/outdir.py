@@ -34,7 +34,7 @@ class Polygons(
 ):
     @property
     def file(self) -> str:
-        key = self._trace
+        key = f'{self._trace}.polygons'
         cache = self.tiles.attrs
         if key in cache:
             return cache[key]
@@ -42,7 +42,8 @@ class Polygons(
             datetime.datetime.now()
             .strftime('%d-%m-%Y_%H_%M')
         )
-        file = os.path.join(self.dir, f'Polygons-{time}.shp')
+        file = os.path.join(self.dir, f'Polygons-{time}.parquet')
+        cache[key] = file
         return file
 
 
@@ -51,7 +52,7 @@ class Network(
 ):
     @property
     def file(self) -> str:
-        key = self._trace
+        key = f'{self._trace}.polygons'
         cache = self.tiles.attrs
         if key in cache:
             return cache[key]
@@ -59,7 +60,7 @@ class Network(
             datetime.datetime.now()
             .strftime('%d-%m-%Y_%H_%M')
         )
-        file = os.path.join(self.dir, f'Network-{time}.shp')
+        file = os.path.join(self.dir, f'Network-{time}.parquet')
         return file
 
 

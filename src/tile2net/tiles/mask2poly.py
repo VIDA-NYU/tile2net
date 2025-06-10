@@ -1,4 +1,6 @@
 from __future__ import annotations
+import numpy as np
+from numpy import ndarray
 from shapely.geometry import shape
 import rasterio.features
 
@@ -41,10 +43,9 @@ class Mask2Poly(
             cls,
             path: str | Path,
             affine: Affine,
-            crs: str | pyproj.CRS = "EPSG:3857",
     ) -> Self:
         array = skimage.io.imread(str(path))
-        return cls.from_array(array, affine, crs=crs)
+        return cls.from_array(array, affine)
 
     @classmethod
     def from_parquets(
@@ -69,7 +70,7 @@ class Mask2Poly(
 
         result = (
             pd.concat(frames, ignore_index=True)
-            .pipe(cls, geometry='geometry', crs=frames[0].crs)
+            .pipe(cls, geometry='geometry', crs=4326)
         )
         return result
 
@@ -95,11 +96,17 @@ class Mask2Poly(
         ARRAY = array
         concat: list[gpd.GeoDataFrame] = []
         label2id = cfg.label2id
+        columns = 'geometry value'.split()
         for label, id in label2id.items():
             array = np.array(ARRAY == id, dtype='uint8')
+            it = (
+                (shape(geom), val)
+                for geom, val in
+                rasterio.features.shapes(array, transform=affine)
+            )
             frame = (
-                cls
-                .mask_to_poly_geojson(array, affine)
+                gpd.GeoDataFrame
+                .from_records(it, columns=columns)
                 .assign(f_type=label)
             )
             concat.append(frame)
@@ -208,30 +215,19 @@ class Mask2Poly(
         return result
 
     @look_at(tile2net.raster.tile_utils.topology.fill_holes)
-    def _fill_holes(
-            self,
-            max_area: float | Series,
-    ) -> Self:
-        """
-        finds holes in the polygons
-        Parameters
-        ----------
-        gs: gpd.GeoSeries
-            the GeoSeries of Shapely Polygons to be filled
-        max_area: int
-            maximum area of holes to be filled
-
-        Returns
-        -------
-        newgeom: list[shapely.geometry.Polygon]
-            list of polygons with holes filled
-        """
-        RINGS = shapely.get_rings(self)
+    def _fill_holes(self, max_area: ndarray) -> Self:
+        MAX_AREA = max_area
+        RINGS = shapely.get_rings(self.geometry)
         area = shapely.area(RINGS)
-        repeat = shapely.get_num_interior_rings(self) + 1
+        repeat = shapely.get_num_interior_rings(self.geometry) + 1
         indices = np.arange(len(repeat)).repeat(repeat)
+        max_area = max_area.repeat(repeat)
         loc = area >= max_area
-        # always keep exteriors
+        msg = (
+            f'Filling holes in {len(self)} polygons, '
+            f'dropping {np.sum(~loc)} holes out of {len(RINGS)} total holes.'
+        )
+        logger.debug(msg)
         loc |= (
                 pd.Series(indices)
                 .groupby(indices, sort=False)
@@ -241,9 +237,10 @@ class Mask2Poly(
         rings = RINGS[loc]
         indices = indices[loc]
         data = shapely.polygons(rings, indices=indices)
-        index = self.index[loc]
-        geometry = gpd.GeoSeries(data, index=index, crs=self.crs)
-        result = self.set_geometry(geometry).pipe(self.__class__)
+        result = (
+            gpd.GeoSeries(data, index=self.index, crs=self.crs)
+            .pipe(self.set_geometry)
+        )
         return result
 
     @look_at(tile2net.raster.tile.Tile.mask2poly)
@@ -254,9 +251,10 @@ class Mask2Poly(
             grid_size: Union[float, Series, dict] = None,
             max_hole_area: Union[float, Series, dict] = None,
             convexity: Union[float, Series, dict] = None,
+            crs: int = 3857,
     ) -> Self:
         cls = self.__class__
-        result = self
+        result = self.to_crs(crs)
 
         if min_poly_area is None:
             min_poly_area = cfg.polygon.min_polygon_area
@@ -269,50 +267,102 @@ class Mask2Poly(
         if convexity is None:
             convexity = cfg.polygon.convexity
 
-        if isinstance(min_poly_area, dict):
-            min_poly_area = (
-                pd.Series(min_poly_area)
-                .reindex(result.f_type, fill_value=0.0)
-                .values
-            )
-
-        if isinstance(simplify, dict):
-            simplify = (
-                pd.Series(simplify)
-                .reindex(result.f_type, fill_value=0.0)
-                .values
-            )
-
-        if isinstance(max_hole_area, dict):
-            max_hole_area = (
-                pd.Series(max_hole_area)
-                .reindex(result.f_type, fill_value=0.)
-                .values
-            )
-
-        if isinstance(convexity, dict):
-            convexity = (
-                pd.Series(convexity)
-                .reindex(result.f_type, fill_value=1.)
-                .values
-            )
-
         min_poly_area: Union[float, Series]
         simplify: Union[float, Series]
         max_hole_area: Union[float, Series]
         convexity: Union[float, Series]
 
         # todo: avoid unnecessarily computing area, etc for redundant parameters
+        # min_poly_area --------------------------------------------------------------
         if min_poly_area is not None:
+            if isinstance(min_poly_area, dict):
+                min_poly_area = (
+                    pd.Series(min_poly_area)
+                    .reindex(result.f_type, fill_value=0.0)
+                    .values
+                )
+            elif isinstance(min_poly_area, (float, int)):
+                min_poly_area = np.full(len(result), min_poly_area)
+            elif isinstance(min_poly_area, pd.Series):
+                min_poly_area = (
+                    min_poly_area
+                    .reindex(result.f_type, fill_value=0.0)
+                    .values
+                )
+            else:
+                raise TypeError(f'Unsupported type for min_poly_area: {type(min_poly_area)}')
+
             loc = result.area >= min_poly_area
             result = result.loc[loc]
+
+        # simplify -------------------------------------------------------------------
         if simplify is not None:
-            result = result.simplify(tolerance=simplify)
+            if isinstance(simplify, dict):
+                simplify = (
+                    pd.Series(simplify)
+                    .reindex(result.f_type, fill_value=0.0)
+                    .values
+                )
+            elif isinstance(simplify, float):
+                simplify = np.full(len(result), simplify)
+            elif isinstance(simplify, pd.Series):
+                simplify = (
+                    simplify
+                    .reindex(result.f_type, fill_value=0.0)
+                    .values
+                )
+            else:
+                raise TypeError(f'Unsupported type for simplify: {type(simplify)}')
+
+            result = (
+                result.simplify(tolerance=simplify)
+                .pipe(result.set_geometry)
+            )
+
         if grid_size is not None:
             result = result.set_precision(grid_size=grid_size)
-        if max_hole_area is not None:
-            result = cls._fill_holes(result, max_area=max_hole_area)
-        if convexity is not None:
-            result = cls._replace_convexhull(result, convex=convexity)
 
+        if max_hole_area is not None:
+            if isinstance(max_hole_area, dict):
+                max_hole_area =(
+                    pd.Series(max_hole_area)
+                    .reindex(result.f_type, fill_value=0.)
+                    .values
+                )
+            elif isinstance(max_hole_area, float):
+                max_hole_area = np.full(len(result), max_hole_area)
+            elif isinstance(max_hole_area, pd.Series):
+                max_hole_area = (
+                    max_hole_area
+                    .reindex(result.f_type, fill_value=0.)
+                    .values
+                )
+            else:
+                raise TypeError(
+                    f'Unsupported type for max_hole_area: {type(max_hole_area)}'
+                )
+
+            result = cls._fill_holes(result, max_area=max_hole_area)
+
+        if convexity is not None:
+            if isinstance(convexity, dict):
+                convexity = (
+                    pd.Series(convexity)
+                    .reindex(result.f_type, fill_value=1.0)
+                    .values
+                )
+            elif isinstance(convexity, float):
+                convexity = np.full(len(result), convexity)
+            elif isinstance(convexity, pd.Series):
+                convexity = (
+                    convexity
+                    .reindex(result.f_type, fill_value=1.0)
+                    .values
+                )
+            else:
+                raise TypeError(f'Unsupported type for convexity: {type(convexity)}')
+
+            result = cls._replace_convexhull(result, threshold=convexity)
+
+        result = result.to_crs(4326)
         return result

@@ -49,7 +49,7 @@ class BatchIterator:
             if r:
                 yield a[-r:]
 
-        cache = tiles.attrs[BatchIterator]
+        cache = tiles.__dict__['iterator']
         self.gen = gen()
         self.cache = cache
         self.key = key
@@ -82,7 +82,7 @@ class BatchIterator:
             instance: Dir,
     ):
         try:
-            del instance.tiles.attrs[BatchIterator]
+            del instance.tiles.__dict__['iterator']
         except KeyError:
             pass
 
@@ -92,7 +92,7 @@ class BatchIterator:
     ):
         key = self.trace, *args
         tiles = self.tiles
-        cache = tiles.attrs.setdefault(BatchIterator, {})
+        cache = tiles.__dict__.setdefault('iterator', {})
         if key in cache:
             return cache[key]
 

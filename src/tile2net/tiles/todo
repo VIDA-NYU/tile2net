@@ -22,8 +22,9 @@ with self.cfg:
 
     self.infer()
 
-
 if we have Cfg inherit from dict, we cannot change the object that the global cfg is accessing
 but if we have a private dict internally, then we can swap them around
 
 todo: debug self.dimension
+
+we choose a crs for to postpocess in
