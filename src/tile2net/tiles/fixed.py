@@ -163,3 +163,17 @@ class GeoDataFrameFixed(
 
         return self
 
+    # Allows using this class as a decorator
+    def __init__(
+            self,
+            *args,
+            **kwargs,
+    ):
+        if (
+                args
+                and callable(args[0])
+        ):
+            super().__init__(*args[1:], **kwargs)
+        else:
+            super().__init__(*args, **kwargs)
+

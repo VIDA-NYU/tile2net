@@ -1,21 +1,19 @@
 from __future__ import annotations
+
 import logging
-import datetime
-import shutil
+import os
 import warnings
 
 import pandas as pd
-import os
+import shapely.ops
 
 os.environ['USE_PYGEOS'] = '0'
-import geopandas as gpd
 
 pd.options.mode.chained_assignment = None
 
 from tile2net.raster.tile_utils.topology import *
 from tile2net.raster.tile_utils.geodata_utils import set_gdf_crs, geo2geodf, buffer_union_erode
 from tile2net.raster.tile_utils.topology import morpho_atts
-from tile2net.raster.project import Project
 
 if False:
     from ..tiles import Tiles

@@ -1,0 +1,236 @@
+from __future__ import annotations
+
+from functools import *
+
+import shapely.wkt
+
+from tile2net.logger import logger
+from tile2net.raster.tile_utils.geodata_utils import set_gdf_crs
+from tile2net.raster.tile_utils.topology import *
+from ..explore import explore
+from ..fixed import GeoDataFrameFixed
+
+if False:
+    from .pednet import PedNet
+    import folium
+
+
+def __get__(
+        self,
+        instance: PedNet,
+        owner: type[PedNet]
+) -> Center:
+    if instance is None:
+        result = self
+    elif self.__name__ in instance.attrs:
+        result = instance.attrs[self.__name__]
+    else:
+        logger.info('..... creating the processed sidewalk network')
+        swntw = instance.dissolved.centerlines
+        swntw.geometry = swntw.simplify(0.6)
+        geometry = swntw.union_all()
+        sw_modif_uni = gpd.GeoDataFrame(
+            geometry=gpd.GeoSeries(geometry, crs=swntw.crs),
+            index=swntw.index,
+        )
+        sw_modif_uni_met = set_gdf_crs(sw_modif_uni, 3857)
+        sw_uni_lines = sw_modif_uni_met.explode()
+        sw_uni_lines.reset_index(drop=True, inplace=True)
+        sw_uni_lines.geometry = sw_uni_lines.simplify(2)
+        sw_uni_lines.dropna(inplace=True)
+        sw_uni_line2 = sw_uni_lines.copy()
+
+        try:
+            sw_cl1 = clean_deadend_dangles(sw_uni_line2)
+            sw_extended = extend_lines(sw_cl1, 10, extension=0)
+
+            sw_cleaned = remove_false_nodes(sw_extended)
+            sw_cleaned.reset_index(drop=True, inplace=True)
+            sw_cleaned.geometry = sw_cleaned.geometry.set_crs(3857)
+        except:
+            result = sw_uni_lines
+        else:
+            result = sw_cleaned
+
+        instance.attrs[self.__name__] = result
+        return result
+    result._pednet = instance
+
+    return self
+
+
+class Center(
+    GeoDataFrameFixed,
+):
+    locals().update(
+        __get__=__get__,
+    )
+    instance: PedNet = None
+    __name__ = 'center'
+
+    def _setfeatures(self):
+        clipped = self.instance.features.clip(self)
+        loc = clipped.f_type == 'crosswalk'
+        crosswalk = clipped.loc[loc].copy()
+        loc = clipped.f_type == 'sidewalk'
+        sidewalk = clipped.loc[loc].copy()
+        self.crosswalk = crosswalk
+        self.sidewalk = sidewalk
+
+    @cached_property
+    def crosswalk(self) -> gpd.GeoDataFrame:
+        self._setfeatures()
+        return self.crosswalk
+
+    @cached_property
+    def sidewalk(self) -> gpd.GeoDataFrame:
+        self._setfeatures()
+        return self.sidewalk
+
+    @cached_property
+    def result(self):
+        """
+        Create network from the full polygon dataset
+        """
+        logger.info('Starting network creation...')
+
+        self.create_sidewalks()
+        self.create_crosswalk()
+
+        # connect the crosswalks to the nearest sidewalks
+        points = get_line_sepoints(self.crosswalk)
+
+        # query LineString geometry to identify points intersecting 2 geometries
+        # inp, res = self.crosswalk.sindex.query(geo2geodf(points).geometry,
+        #                                        predicate="intersects")
+        inp, res = (
+            self.crosswalk.sindex
+            .query(geo2geodf(points).geometry, predicate="intersects")
+        )
+        unique, counts = np.unique(inp, return_counts=True)
+        ends = np.unique(res[np.isin(inp, unique[counts == 1])])
+
+        new_geoms_s = []
+        new_geoms_e = []
+        new_geoms_both = []
+        all_connections = []
+        # iterate over crosswalk segments that are not connected to other crosswalk segments
+        # and add the start and end points to the new_geoms
+        pgeom = self.crosswalk.geometry.values
+        for line in ends:
+            l_coords = shapely.get_coordinates(pgeom[line])
+
+            start = Point(l_coords[0])
+            end = Point(l_coords[-1])
+
+            first = list(pgeom.sindex.query(start, predicate="intersects"))
+            second = list(pgeom.sindex.query(end, predicate="intersects"))
+            first.remove(line)
+            second.remove(line)
+
+            if first and not second:
+                new_geoms_s.append((line, end))
+
+            elif not first and second:
+                new_geoms_e.append((line, start))
+            if not first and not second:
+                new_geoms_both.append((line, start))
+                new_geoms_both.append((line, end))
+
+        # create a dataframe of points
+        if len(new_geoms_s) > 0:
+            ps = [g[1] for g in new_geoms_s]
+            # ls = [g[0] for g in new_geoms_s]
+            pdfs = gpd.GeoDataFrame(geometry=ps)
+            pdfs.set_crs(3857, inplace=True)
+
+            connect_s = get_shortest(self.sidewalk, pdfs, f_type='sidewalk_connection')
+            all_connections.append(connect_s)
+
+        if len(new_geoms_e) > 0:
+            pe = [g[1] for g in new_geoms_e]
+            # le = [g[0] for g in new_geoms_e]
+            pdfe = gpd.GeoDataFrame(geometry=pe)
+            pdfe.set_crs(3857, inplace=True)
+
+            connect_e = get_shortest(self.sidewalk, pdfe, f_type='sidewalk_connection')
+            all_connections.append(connect_e)
+
+        if len(new_geoms_both) > 0:
+            pb = [g[1] for g in new_geoms_both]
+            # lb = [g[0] for g in new_geoms_both]  # crosswalk lines where both ends do not intersect
+            pdfb = gpd.GeoDataFrame(geometry=pb)
+            pdfb.set_crs(3857, inplace=True)
+
+            connect_b = get_shortest(self.sidewalk, pdfb, f_type='sidewalk_connection')
+            all_connections.append(connect_b)
+        if len(all_connections) > 1:
+            connect = pd.concat(all_connections)
+        elif len(all_connections) == 1:
+            connect = all_connections[0]
+        else:
+            connect = []
+
+        if len(all_connections) > 0:
+            # manage median islands
+            combined = pd.concat([self.crosswalk, connect, self.sidewalk])
+        else:
+            combined = pd.concat([self.crosswalk, self.sidewalk])
+
+        combined.dropna(inplace=True)
+        combined.geometry = combined.geometry.set_crs(3857)
+        combined.geometry = combined.geometry.to_crs(4326)
+        combined = combined[~combined.geometry.isna()]
+        combined.drop_duplicates(subset='geometry', inplace=True)
+        combined.reset_index(drop=True, inplace=True)
+
+        return combined
+
+    def explore(
+            self,
+            *args,
+            tiles='cartodbdark_matter',
+            m=None,
+            line='grey',
+            node='red',
+            simplify: float = None,
+            dash='5, 20',
+            **kwargs,
+    ) -> folium.Map:
+        features = self.instance.features
+        feature2color = features.color.to_dict()
+        it = features.groupby(level='feature', observed=False)
+
+        for feature, frame in it:
+            color = feature2color[feature]
+            m = explore(
+                frame,
+                geometry='mutex',
+                *args,
+                color=color,
+                name=f'{feature} polygons',
+                tiles=tiles,
+                simplify=simplify,
+                m=m,
+                style_kwds=dict(
+                    fill=False,
+                    dashArray=dash,
+                ),
+                **kwargs,
+            )
+
+        it = self.result.groupby('feature', observed=False)
+        for feature, frame in it:
+            color = feature2color[feature]
+            m = explore(
+                frame,
+                *args,
+                color=color,
+                name=f'{feature} lines',
+                tiles=tiles,
+                simplify=simplify,
+                m=m,
+                **kwargs,
+            )
+        folium.LayerControl().add_to(m)
+        return m

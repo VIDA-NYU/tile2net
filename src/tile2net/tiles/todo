@@ -28,3 +28,19 @@ but if we have a private dict internally, then we can swap them around
 todo: debug self.dimension
 
 we choose a crs for to postpocess in
+
+dissolved polygons
+    overall network
+feature polygons (mutex)
+    feature network
+
+
+t       cl_arg      cl_arg/2        .1
+simpl   1           1               .5
+
+
+dissolved.polygons
+dissolved.network
+
+feature.polygons
+.feature.network
