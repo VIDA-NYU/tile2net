@@ -1,18 +1,14 @@
 import inspect
-import functools
 import json
 import os
-import time
 from weakref import WeakKeyDictionary
 
 import geopy
 import numpy as np
 import toolz
-from geopy.exc import GeocoderTimedOut
 from geopy.geocoders import Nominatim
 from toolz import curried, pipe
 
-# import logging
 from tile2net.logger import logger
 
 

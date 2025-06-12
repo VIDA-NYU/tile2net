@@ -1,4 +1,6 @@
 from __future__ import annotations
+from tile2net.logger import logger
+from ..cfg import cfg
 
 import itertools
 from typing import *
@@ -24,11 +26,15 @@ def __get__(
     elif self.__name__ in instance.attrs:
         result = instance.attrs[self.__name__]
     else:
-        result = instance.dissolve(by='f_type')
+        result = (
+            instance
+            .dissolve(by='feature')
+            .pipe(Features)
+        )
         instance.attrs[self.__name__] = result
     result._pednet = instance
 
-    return self
+    return result
 
 
 class Features(
@@ -36,6 +42,9 @@ class Features(
 ):
     __name__ = 'features'
     _pednet = None
+    locals().update(
+        __get__=__get__,
+    )
 
     def __set__(
             self,
@@ -66,20 +75,19 @@ class Features(
     @property
     def mutex(self) -> GeoSeries[GeometryCollection]:
         """Mutually exclusive geometries based on z_order"""
-        key = f'{self.__name__}.mutex'
+        key = 'mutex'
         if key in self:
             return self[key]
+        msg = f'Computing {key} for {self.__name__}'
+        logger.debug(msg)
         result = self.geometry.difference(self.above)
         self[key] = result
         result = self[key]
         return result
 
-    def clip(
-            self,
-            lines: gpd.GeoDataFrame,
-    ):
-        """Use the feature polygons to clip the centerlines."""
-        return NotImplementedError
+    @property
+    def feature(self) -> pd.Index:
+        return self.index.get_level_values('feature')
 
     @property
     def color(self) -> pd.Series:
@@ -95,5 +103,16 @@ class Features(
         it = itertools.cycle(colors)
         result = list(itertools.islice(it, n))
         self[key] = pd.Series(result, index=self.index, dtype='string')
+        result = self[key]
+        return result
+
+    @property
+    def z_order(self) -> pd.Series:
+        """Z-order of the features."""
+        key = f'{self.__name__}.z_order'
+        if key in self:
+            return self[key]
+        result = pd.Series(cfg.polygon.z_order)
+        self[key] = result
         result = self[key]
         return result

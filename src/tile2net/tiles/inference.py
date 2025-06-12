@@ -338,7 +338,7 @@ class Inference(
         unioned['geometry'] = unioned.apply(fill_holes, args=(25,), axis=1)
         simplified = replace_convexhull(unioned)
         simplified = simplified[simplified.geometry.notna()]
-        simplified = simplified[['geometry', 'f_type']]
+        simplified = simplified[['geometry', 'feature']]
         simplified.to_crs(self.crs, inplace=True)
 
         self.ntw_poly = simplified

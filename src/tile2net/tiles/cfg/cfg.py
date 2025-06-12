@@ -125,7 +125,7 @@ class Dataset(cmdline.Namespace):
         """
         Training crop size: either scalar or h,w
         """
-        return 640, 640
+        return 1024, 1024
 
     @cmdline.property
     def centroid_root(self) -> str:
@@ -537,9 +537,9 @@ class Model(cmdline.Namespace):
     @cmdline.property
     def extra_scales(self) -> str:
         """
-        Extra scales for multi-scale inference, e.g. '0.5,1.5,2.0'
+        Extra scales for multi-scale inference, e.g.
         """
-        return '0.5,1.5,2.0'
+        return '0.5,1.5'
 
     @cmdline.property
     def n_scales(self) -> str:
@@ -734,6 +734,23 @@ class Polygon(cmdline.Namespace):
     @cmdline.property
     def simplify(self) -> float | dict[str, float]:
         return 0.8
+
+    @cmdline.property
+    def z_order(self) -> dict[str, int]:
+        """Map label names to z-order values."""
+        return dict(
+            sidewalk=0,
+            crosswalk=1,
+        )
+
+    @cmdline.property
+    def borders(self) -> list[str]:
+        """
+        Feature which are included not as pedestrian networks
+        but as borders to them.
+        """
+        return ['road']
+
 
 
 def __get__(
@@ -1310,6 +1327,14 @@ class Cfg(
             fwavacc=0
         )
 
+    @cmdline.property
+    def log_level(self) -> str:
+        """
+        Logging level for the application
+        """
+        return 'DEBUG'
+        # return 'INFO'
+
     @classmethod
     def from_defaults(cls):
         result = cls()
@@ -1428,6 +1453,7 @@ class Cfg(
 
 cfg = Cfg.from_defaults()
 
+
 # -------------------------------------------------------------------------
 # Utility functions mirroring the legacy API
 # -------------------------------------------------------------------------
@@ -1475,3 +1501,5 @@ def update_dataset_inst(dataset_inst) -> None:
     """Attach a dataset instance for downstream convenience."""
     cfg.dataset_inst = dataset_inst
 
+
+Cfg.__setattr__

@@ -295,3 +295,4 @@ class Nested(
         except AttributeError as e:
             msg = f'{self.__class__.__name__} has no attribute {key!r} (trace: {trace})'
             raise AttributeError(msg) from e
+

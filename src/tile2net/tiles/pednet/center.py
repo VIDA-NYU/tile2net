@@ -1,4 +1,19 @@
 from __future__ import annotations
+from tqdm import tqdm
+import pandas as pd
+import sys
+from shapely.geometry import LineString
+from ..cfg import cfg
+from ..explore import explore
+from tile2net.logger import logger
+
+from typing import *
+
+import geopandas as gpd
+import numpy as np
+import shapely
+from centerline.geometry import Centerline
+from ..fixed import GeoDataFrameFixed
 
 from functools import *
 
@@ -25,9 +40,62 @@ def __get__(
     elif self.__name__ in instance.attrs:
         result = instance.attrs[self.__name__]
     else:
-        logger.info('..... creating the processed sidewalk network')
-        swntw = instance.dissolved.centerlines
-        swntw.geometry = swntw.simplify(0.6)
+        union = instance.union
+        geometry = union.geometry
+
+        warn = (
+            f'High variance in polygon areas may cause progress-rate '
+            f'fluctuations for centerline computation. '
+        )
+        logger.debug(warn)
+
+        centers = []
+        for i, poly in tqdm(
+                enumerate(geometry),
+                total=len(geometry),
+                desc='Centerlines',
+                leave=False
+        ):
+            try:
+                centers.append(Centerline(poly).geometry)
+            except Exception as e:
+                err = f'Centerline computation failed for index {i}: {e}'
+                tqdm.write(err)
+
+        multilines = np.asarray(centers, dtype=object)
+        repeat = shapely.get_num_geometries(multilines)
+        lines = shapely.get_parts(multilines)
+        iloc = np.arange(len(repeat)).repeat(repeat)
+        lines = shapely.simplify(lines, 0.01)
+
+        result = (
+            union
+            .iloc[iloc]
+            .set_geometry(lines)
+            .reset_index(drop=True)
+            .pipe(Center)
+        )
+        result.index.name = 'icent'
+        instance.attrs[self.__name__] = result
+
+    result.instance = instance
+
+    return result
+
+
+class Center(
+    GeoDataFrameFixed,
+):
+    locals().update(
+        __get__=__get__,
+    )
+
+    instance: PedNet = None
+    __name__ = 'center'
+
+    @cached_property
+    def cleaned(self) -> gpd.GeoDataFrame:
+        swntw = self
         geometry = swntw.union_all()
         sw_modif_uni = gpd.GeoDataFrame(
             geometry=gpd.GeoSeries(geometry, crs=swntw.crs),
@@ -51,41 +119,43 @@ def __get__(
             result = sw_uni_lines
         else:
             result = sw_cleaned
-
-        instance.attrs[self.__name__] = result
         return result
-    result._pednet = instance
 
-    return self
-
-
-class Center(
-    GeoDataFrameFixed,
-):
-    locals().update(
-        __get__=__get__,
-    )
-    instance: PedNet = None
-    __name__ = 'center'
-
-    def _setfeatures(self):
-        clipped = self.instance.features.clip(self)
-        loc = clipped.f_type == 'crosswalk'
-        crosswalk = clipped.loc[loc].copy()
-        loc = clipped.f_type == 'sidewalk'
-        sidewalk = clipped.loc[loc].copy()
-        self.crosswalk = crosswalk
-        self.sidewalk = sidewalk
+    @cached_property
+    def clipped(self) -> gpd.GeoDataFrame:
+        msg = 'Clipping centerlines to the features'
+        logger.debug(msg)
+        lines = self
+        features = self.instance.features
+        geometry = features.mutex
+        predicate = "intersects"
+        ifeat, iline = lines.sindex.query(geometry, predicate)
+        features = features.iloc[ifeat]
+        lines = lines.iloc[iline]
+        geometry = (
+            lines
+            .intersection(features.mutex, align=False)
+            .reset_index(drop=True)
+            .geometry
+        )
+        result = Center({
+            'feature': features.feature.values,
+            'geometry': geometry,
+        })
+        result.index.name = 'iclip'
+        return result
 
     @cached_property
     def crosswalk(self) -> gpd.GeoDataFrame:
-        self._setfeatures()
-        return self.crosswalk
+        loc = self.clipped.feature == 'crosswalk'
+        crosswalk = self.clipped.loc[loc].copy()
+        return crosswalk
 
     @cached_property
     def sidewalk(self) -> gpd.GeoDataFrame:
-        self._setfeatures()
-        return self.sidewalk
+        loc = self.clipped.feature == 'sidewalk'
+        sidewalk = self.clipped.loc[loc].copy()
+        return sidewalk
 
     @cached_property
     def result(self):
@@ -101,12 +171,11 @@ class Center(
         points = get_line_sepoints(self.crosswalk)
 
         # query LineString geometry to identify points intersecting 2 geometries
-        # inp, res = self.crosswalk.sindex.query(geo2geodf(points).geometry,
-        #                                        predicate="intersects")
         inp, res = (
             self.crosswalk.sindex
             .query(geo2geodf(points).geometry, predicate="intersects")
         )
+        gpd.GeoDataFrame().sindex
         unique, counts = np.unique(inp, return_counts=True)
         ends = np.unique(res[np.isin(inp, unique[counts == 1])])
 
@@ -144,7 +213,7 @@ class Center(
             pdfs = gpd.GeoDataFrame(geometry=ps)
             pdfs.set_crs(3857, inplace=True)
 
-            connect_s = get_shortest(self.sidewalk, pdfs, f_type='sidewalk_connection')
+            connect_s = get_shortest(self.sidewalk, pdfs, feature='sidewalk_connection')
             all_connections.append(connect_s)
 
         if len(new_geoms_e) > 0:
@@ -153,7 +222,7 @@ class Center(
             pdfe = gpd.GeoDataFrame(geometry=pe)
             pdfe.set_crs(3857, inplace=True)
 
-            connect_e = get_shortest(self.sidewalk, pdfe, f_type='sidewalk_connection')
+            connect_e = get_shortest(self.sidewalk, pdfe, feature='sidewalk_connection')
             all_connections.append(connect_e)
 
         if len(new_geoms_both) > 0:
@@ -162,7 +231,7 @@ class Center(
             pdfb = gpd.GeoDataFrame(geometry=pb)
             pdfb.set_crs(3857, inplace=True)
 
-            connect_b = get_shortest(self.sidewalk, pdfb, f_type='sidewalk_connection')
+            connect_b = get_shortest(self.sidewalk, pdfb, feature='sidewalk_connection')
             all_connections.append(connect_b)
         if len(all_connections) > 1:
             connect = pd.concat(all_connections)
@@ -195,12 +264,18 @@ class Center(
             node='red',
             simplify: float = None,
             dash='5, 20',
+            attr: str = None,
             **kwargs,
     ) -> folium.Map:
+        import folium
         features = self.instance.features
         feature2color = features.color.to_dict()
+        _ = features.mutex
         it = features.groupby(level='feature', observed=False)
 
+        lines = self
+        if attr:
+            lines = getattr(self, attr)
         for feature, frame in it:
             color = feature2color[feature]
             m = explore(
@@ -219,18 +294,35 @@ class Center(
                 **kwargs,
             )
 
-        it = self.result.groupby('feature', observed=False)
-        for feature, frame in it:
-            color = feature2color[feature]
+        if 'feature' in lines.columns:
+            it = lines.groupby('feature', observed=False)
+            for feature, frame in it:
+                color = feature2color[feature]
+                m = explore(
+                    frame,
+                    *args,
+                    color=color,
+                    name=f'{feature} lines',
+                    tiles=tiles,
+                    simplify=simplify,
+                    m=m,
+                    **kwargs,
+                )
+        else:
             m = explore(
-                frame,
+                lines,
                 *args,
-                color=color,
-                name=f'{feature} lines',
+                color=line,
+                name='centerlines',
                 tiles=tiles,
                 simplify=simplify,
                 m=m,
+                style_kwds=dict(
+                    dashArray=dash,
+                    color=line,
+                ),
                 **kwargs,
             )
+
         folium.LayerControl().add_to(m)
         return m

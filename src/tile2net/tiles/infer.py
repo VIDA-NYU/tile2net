@@ -23,7 +23,7 @@ from torch.utils.data import DataLoader
 
 import tile2net.tiles.tileseg.network.ocrnet
 from tile2net.logger import logger
-from tile2net.raster.pednet import PedNet
+# from tile2net.raster.pednet import PedNet
 from tile2net.tiles.tileseg import datasets
 from tile2net.tiles.tileseg import network
 from tile2net.tiles.cfg.cfg import assert_and_infer_cfg
@@ -31,6 +31,7 @@ from tile2net.tiles.tileseg.loss.optimizer import get_optimizer, restore_opt, re
 from tile2net.tiles.tileseg.loss.utils import get_loss
 from tile2net.tiles.tileseg.utils.misc import AverageMeter, prep_experiment
 from .minibatch import MiniBatch
+from tile2net.tiles.pednet import PedNet
 
 import os
 import sys
@@ -297,8 +298,8 @@ class Infer:
         else:
             if testing:
                 msg = (
-                    f'Postprocessing segmentation polygons to '
-                    f'{tiles.outdir.polygons.file}...'
+                    f'Postprocessing segmentation polygons to\n\t'
+                    f'{tiles.outdir.polygons.file}'
                 )
                 logger.info(msg)
                 polys = (
@@ -306,18 +307,34 @@ class Infer:
                     .from_parquets(tiles.outdir.polygons.files())
                     .postprocess()
                 )
-                polys.to_parquet(tiles.outdir.polygons.file)
+                _ = (
+                    polys
+                    .to_crs(4326)
+                    .to_parquet(tiles.outdir.polygons.file)
+                )
+                os.path.exists(tiles.outdir.polygons.file)
                 if polys.empty:
                     logging.warning('No polygons were generated during the session.')
 
                 msg = (
-                    f'Generating network from polygons '
-                    f'to {tiles.outdir.network.file}...'
+                    f'Generating network from polygons to\n\t'
+                    f'{tiles.outdir.network.file}'
                 )
                 logger.info(msg)
-                net = (
-                    PedNet(poly=polys, tiles=tiles)
-                    .convert_whole_poly2line()
-                )
-                net.combined.to_parquet(tiles.outdir.network.file)
+
+                # net = (
+                #     PedNet
+                #     .from_polygons(polys)
+                #
+                # )
+                # net = (
+                #     PedNet(poly=polys, tiles=tiles)
+                #     .convert_whole_poly2line()
+                # )
+                # _ = (
+                #     net.combined
+                #     .to_crs(4326)
+                #     .to_parquet(tiles.outdir.network.file, driver='GeoJSON')
+                # )
+
 

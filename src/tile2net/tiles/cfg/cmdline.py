@@ -126,7 +126,6 @@ class property(
             self._cfg = instance._cfg
             self._Cfg = instance._Cfg
 
-        return self
         cfg = instance._cfg
         cfg[self._trace] = value
 

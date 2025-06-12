@@ -55,7 +55,7 @@ class PedNet():
         :class:`GeoDataFrame`
             class specific :class:`GeoDataFrame` in metric projection
         """
-        nt = self.polygons[self.polygons.f_type == f'{class_name}'].copy()
+        nt = self.polygons[self.polygons.feature == f'{class_name}'].copy()
 
         nt.geometry = nt.geometry.to_crs(3857)
         return nt
@@ -215,7 +215,7 @@ class PedNet():
                             cw_lin_geom.append(line)
 
             cw_ntw = geo2geodf(cw_lin_geom)
-            cw_ntw['f_type'] = 'crosswalk'
+            cw_ntw['feature'] = 'crosswalk'
             cw_ntw.geometry = cw_ntw.geometry.set_crs(3857)
             smoothed = wrinkle_remover(cw_ntw, 1.3)
             self.crosswalk = smoothed
@@ -335,7 +335,7 @@ class PedNet():
                 'geometry': [],
             }, crs=3857)
 
-        self.sidewalk['f_type'] = 'sidewalk'
+        self.sidewalk['feature'] = 'sidewalk'
 
     def convert_whole_poly2line(self):
         """
@@ -392,7 +392,7 @@ class PedNet():
             pdfs = gpd.GeoDataFrame(geometry=ps)
             pdfs.set_crs(3857, inplace=True)
 
-            connect_s = get_shortest(self.sidewalk, pdfs, f_type='sidewalk_connection')
+            connect_s = get_shortest(self.sidewalk, pdfs, feature='sidewalk_connection')
             all_connections.append(connect_s)
 
         if len(new_geoms_e) > 0:
@@ -401,7 +401,7 @@ class PedNet():
             pdfe = gpd.GeoDataFrame(geometry=pe)
             pdfe.set_crs(3857, inplace=True)
 
-            connect_e = get_shortest(self.sidewalk, pdfe, f_type='sidewalk_connection')
+            connect_e = get_shortest(self.sidewalk, pdfe, feature='sidewalk_connection')
             all_connections.append(connect_e)
 
         if len(new_geoms_both) > 0:
@@ -410,7 +410,7 @@ class PedNet():
             pdfb = gpd.GeoDataFrame(geometry=pb)
             pdfb.set_crs(3857, inplace=True)
 
-            connect_b = get_shortest(self.sidewalk, pdfb, f_type='sidewalk_connection')
+            connect_b = get_shortest(self.sidewalk, pdfb, feature='sidewalk_connection')
             all_connections.append(connect_b)
         if len(all_connections) > 1:
             connect = pd.concat(all_connections)
@@ -436,7 +436,7 @@ class PedNet():
                 island = gpd.GeoDataFrame(geometry=island_lines)
 
                 island.geometry = island.geometry.set_crs(3857)
-                island['f_type'] = 'medians'
+                island['feature'] = 'medians'
                 combined = pd.concat([self.crosswalk, connect, self.sidewalk, island])
             else:
                 combined = pd.concat([self.crosswalk, connect, self.sidewalk])

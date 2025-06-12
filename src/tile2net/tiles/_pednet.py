@@ -59,17 +59,17 @@ class  PedPoly:
 
     @cached_property
     def crosswalk_polygons(self):
-        return self.polygon_shapeinfo[(self.polygon_shapeinfo.f_type == 'crosswalk')
+        return self.polygon_shapeinfo[(self.polygon_shapeinfo.feature == 'crosswalk')
                                       & (self.polygon_shapeinfo.area > 10)]
 
     @cached_property
     def sidewalk_polygons(self):
-        return self.polygon_shapeinfo[(self.polygon_shapeinfo.f_type == 'sidewalk')
+        return self.polygon_shapeinfo[(self.polygon_shapeinfo.feature == 'sidewalk')
                                       & (self.polygon_shapeinfo.area > 15)]
 
     @cached_property
     def road_polygons(self):
-        return self.polygon_shapeinfo[(self.polygon_shapeinfo.f_type == 'road')
+        return self.polygon_shapeinfo[(self.polygon_shapeinfo.feature == 'road')
                                       & (self.polygon_shapeinfo.area > 20)]
 
     def get_compact_shapes(self, class_name, metric_crs=METRIC_CRS):
@@ -219,7 +219,7 @@ class PedNet():
             class specific GeoDataFrame in metric projection
         """
 
-        return self.polygons.polygon_shapeinfo[self.polygons.polygon_shapeinfo.f_type == f'{class_name}'].copy()
+        return self.polygons.polygon_shapeinfo[self.polygons.polygon_shapeinfo.feature == f'{class_name}'].copy()
 
     @property
     def sidewlk_polygons(self):
@@ -594,7 +594,7 @@ class PedNet():
             lines, polys = self.process_crosswalk_geometry()
 
             cw_ntw = geo2geodf(lines)
-            cw_ntw['f_type'] = 'crosswalk'
+            cw_ntw['feature'] = 'crosswalk'
             cw_ntw.geometry = cw_ntw.geometry.set_crs(METRIC_CRS)
             smoothed = wrinkle_remover(cw_ntw, 1.2)
             self.crosswalk = smoothed
@@ -638,7 +638,7 @@ class PedNet():
                 # logging.info('cannot save modified')
                 self.sidewalk = sw_uni_lines
 
-        self.sidewalk['f_type'] = 'sidewalk'
+        self.sidewalk['feature'] = 'sidewalk'
 
     def convert_whole_poly2line(self):
         """
@@ -691,7 +691,7 @@ class PedNet():
             pdfs = gpd.GeoDataFrame(geometry=ps)
             pdfs.set_crs(METRIC_CRS, inplace=True)
 
-            connect_s = get_shortest(self.sidewalk, pdfs, f_type='sidewalk_connection')
+            connect_s = get_shortest(self.sidewalk, pdfs, feature='sidewalk_connection')
             all_connections.append(connect_s)
 
         if len(new_geoms_e) > 0:
@@ -700,7 +700,7 @@ class PedNet():
             pdfe = gpd.GeoDataFrame(geometry=pe)
             pdfe.set_crs(METRIC_CRS, inplace=True)
 
-            connect_e = get_shortest(self.sidewalk, pdfe, f_type='sidewalk_connection')
+            connect_e = get_shortest(self.sidewalk, pdfe, feature='sidewalk_connection')
             all_connections.append(connect_e)
 
         if len(new_geoms_both) > 0:
@@ -709,7 +709,7 @@ class PedNet():
             pdfb = gpd.GeoDataFrame(geometry=pb)
             pdfb.set_crs(METRIC_CRS, inplace=True)
 
-            connect_b = get_shortest(self.sidewalk, pdfb, f_type='sidewalk_connection')
+            connect_b = get_shortest(self.sidewalk, pdfb, feature='sidewalk_connection')
             all_connections.append(connect_b)
 
         combined = pd.concat([self.crosswalk, self.sidewalk])

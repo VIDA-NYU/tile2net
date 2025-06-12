@@ -1,10 +1,5 @@
 from __future__ import annotations
-import numpy as np
-from numpy import ndarray
-from shapely.geometry import shape
-import rasterio.features
-
-import rasterio.features
+from geopandas import GeoDataFrame
 
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -14,13 +9,15 @@ from typing import *
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-import pyproj
+import rasterio.features
+import rasterio.features
 import shapely
 import shapely.wkt
 import skimage
 from affine import Affine
+from numpy import ndarray
 from pandas import Series
-from rasterio.features import shapes
+from shapely.geometry import shape
 
 import tile2net.raster.tile
 import tile2net.raster.tile_utils.topology
@@ -70,9 +67,24 @@ class Mask2Poly(
 
         result = (
             pd.concat(frames, ignore_index=True)
-            .pipe(cls, geometry='geometry', crs=4326)
+            .pipe(GeoDataFrame, geometry='geometry', crs=4326)
+            .pipe(cls)
         )
         return result
+
+    @classmethod
+    def from_dir(
+            cls,
+            directory: str | Path,
+            *,
+            recursive: bool = True,
+            threads: int | None = None,
+            **read_parquet_kwargs,
+    ) -> Self:
+        base = Path(directory)
+        pattern = '**/*.parquet' if recursive else '*.parquet'
+        files = list(base.glob(pattern))
+        return cls.from_parquets(files, threads=threads, **read_parquet_kwargs)
 
     @classmethod
     # @look_at(tile2net.tiles.stitched.Stitched.affine_params)
@@ -91,33 +103,29 @@ class Mask2Poly(
         crs:
             CRS of the output GeoDataFrame
         label2id:
-            f_type label to channel id mapping e.g. {'road': 0, 'sidewalk': 1, ...}
+            feature label to channel id mapping e.g. {'road': 0, 'sidewalk': 1, ...}
         """
         ARRAY = array
         concat: list[gpd.GeoDataFrame] = []
         label2id = cfg.label2id
-        columns = 'geometry value'.split()
         for label, id in label2id.items():
-            array = np.array(ARRAY == id, dtype='uint8')
-            it = (
-                (shape(geom), val)
-                for geom, val in
-                rasterio.features.shapes(array, transform=affine)
-            )
-            frame = (
-                gpd.GeoDataFrame
-                .from_records(it, columns=columns)
-                .assign(f_type=label)
-            )
-            concat.append(frame)
+            mask = np.array(ARRAY == id, dtype=np.uint8)
+            it = rasterio.features.shapes(array, mask, transform=affine)
+            geometry = [
+                shape(geom)
+                for geom, _ in it
+            ]
+            append = gpd.GeoDataFrame(dict(
+                geometry=geometry,
+                feature=label,
+            ), crs=crs)
+            concat.append(append)
 
         result = (
             pd.concat(concat)
             .pipe(cls)
             .set_crs(crs, allow_override=True)
         )
-        if result.empty:
-            result.columns = 'geometry value f_type'.split()
 
         return result
 
@@ -217,8 +225,10 @@ class Mask2Poly(
     @look_at(tile2net.raster.tile_utils.topology.fill_holes)
     def _fill_holes(self, max_area: ndarray) -> Self:
         MAX_AREA = max_area
+        max_area = MAX_AREA
         RINGS = shapely.get_rings(self.geometry)
-        area = shapely.area(RINGS)
+        polygons = shapely.polygons(RINGS)
+        area = shapely.area(polygons)
         repeat = shapely.get_num_interior_rings(self.geometry) + 1
         indices = np.arange(len(repeat)).repeat(repeat)
         max_area = max_area.repeat(repeat)
@@ -254,7 +264,12 @@ class Mask2Poly(
             crs: int = 3857,
     ) -> Self:
         cls = self.__class__
-        result = self.to_crs(crs)
+        result = (
+            self
+            .to_crs(crs)
+            .dissolve('feature', as_index=False)
+            .explode(ignore_index=True)
+        )
 
         if min_poly_area is None:
             min_poly_area = cfg.polygon.min_polygon_area
@@ -273,12 +288,11 @@ class Mask2Poly(
         convexity: Union[float, Series]
 
         # todo: avoid unnecessarily computing area, etc for redundant parameters
-        # min_poly_area --------------------------------------------------------------
-        if min_poly_area is not None:
+        if None is not min_poly_area is not False:
             if isinstance(min_poly_area, dict):
                 min_poly_area = (
                     pd.Series(min_poly_area)
-                    .reindex(result.f_type, fill_value=0.0)
+                    .reindex(result.feature, fill_value=0.0)
                     .values
                 )
             elif isinstance(min_poly_area, (float, int)):
@@ -286,7 +300,7 @@ class Mask2Poly(
             elif isinstance(min_poly_area, pd.Series):
                 min_poly_area = (
                     min_poly_area
-                    .reindex(result.f_type, fill_value=0.0)
+                    .reindex(result.feature, fill_value=0.0)
                     .values
                 )
             else:
@@ -295,12 +309,11 @@ class Mask2Poly(
             loc = result.area >= min_poly_area
             result = result.loc[loc]
 
-        # simplify -------------------------------------------------------------------
-        if simplify is not None:
+        if None is not simplify is not False:
             if isinstance(simplify, dict):
                 simplify = (
                     pd.Series(simplify)
-                    .reindex(result.f_type, fill_value=0.0)
+                    .reindex(result.feature, fill_value=0.0)
                     .values
                 )
             elif isinstance(simplify, float):
@@ -308,25 +321,26 @@ class Mask2Poly(
             elif isinstance(simplify, pd.Series):
                 simplify = (
                     simplify
-                    .reindex(result.f_type, fill_value=0.0)
+                    .reindex(result.feature, fill_value=0.0)
                     .values
                 )
             else:
                 raise TypeError(f'Unsupported type for simplify: {type(simplify)}')
 
             result = (
-                result.simplify(tolerance=simplify)
+                result
+                .simplify(tolerance=simplify)
                 .pipe(result.set_geometry)
             )
 
-        if grid_size is not None:
+        if None is not grid_size is not False:
             result = result.set_precision(grid_size=grid_size)
 
-        if max_hole_area is not None:
+        if None is not max_hole_area is not False:
             if isinstance(max_hole_area, dict):
-                max_hole_area =(
+                max_hole_area = (
                     pd.Series(max_hole_area)
-                    .reindex(result.f_type, fill_value=0.)
+                    .reindex(result.feature, fill_value=0.)
                     .values
                 )
             elif isinstance(max_hole_area, float):
@@ -334,21 +348,21 @@ class Mask2Poly(
             elif isinstance(max_hole_area, pd.Series):
                 max_hole_area = (
                     max_hole_area
-                    .reindex(result.f_type, fill_value=0.)
+                    .reindex(result.feature, fill_value=0.)
                     .values
                 )
-            else:
+            if not isinstance(max_hole_area, np.ndarray):
                 raise TypeError(
                     f'Unsupported type for max_hole_area: {type(max_hole_area)}'
                 )
 
             result = cls._fill_holes(result, max_area=max_hole_area)
 
-        if convexity is not None:
+        if None is not convexity is not False:
             if isinstance(convexity, dict):
                 convexity = (
                     pd.Series(convexity)
-                    .reindex(result.f_type, fill_value=1.0)
+                    .reindex(result.feature, fill_value=1.0)
                     .values
                 )
             elif isinstance(convexity, float):
@@ -356,7 +370,7 @@ class Mask2Poly(
             elif isinstance(convexity, pd.Series):
                 convexity = (
                     convexity
-                    .reindex(result.f_type, fill_value=1.0)
+                    .reindex(result.feature, fill_value=1.0)
                     .values
                 )
             else:
@@ -364,5 +378,5 @@ class Mask2Poly(
 
             result = cls._replace_convexhull(result, threshold=convexity)
 
-        result = result.to_crs(4326)
+        result = cls(result)
         return result

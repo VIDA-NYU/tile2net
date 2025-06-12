@@ -28,6 +28,8 @@ from typing import *
 from typing import (
     final,
 )
+from functools import cached_property
+import pandas
 
 
 class GeoDataFrameFixed(
@@ -77,6 +79,10 @@ class GeoDataFrameFixed(
                 stacklevel=find_stack_level(),
             )
         object.__setattr__(self, name, value)
+
+    @cached_property
+    def _constructor(self):
+        return type(self)
 
     def _constructor_from_mgr(self, mgr, axes):
         # In original geopandas it's hard-coded to return a GeoDataFrame
@@ -176,4 +182,26 @@ class GeoDataFrameFixed(
             super().__init__(*args[1:], **kwargs)
         else:
             super().__init__(*args, **kwargs)
+
+_getattr = pandas.core.generic.NDFrame.__getattr__
+
+
+def _getattribute(self: pandas.core.generic.NDFrame, name: str):
+    """
+    After regular attribute access, try looking up the name
+    This allows simpler access to columns for interactive use.
+    """
+    # Note: obj.x will always call obj.__getattribute__('x') prior to
+    # calling obj.__getattr__('x').
+    try:
+        result = object.__getattribute__(self, name)
+    except AttributeError:
+        result = _getattr(self, name)
+    return result
+
+
+# NDFrame.__getattribute__ = __getattribute__
+# pandas.core.generic.NDFrame.__getattribute__ = _getattribute
+del pandas.core.generic.NDFrame.__getattr__
+pandas.core.generic.NDFrame.__getattribute__ = _getattribute
 

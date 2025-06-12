@@ -29,18 +29,19 @@ todo: debug self.dimension
 
 we choose a crs for to postpocess in
 
-dissolved polygons
+union polygons
     overall network
 feature polygons (mutex)
     feature network
-
 
 t       cl_arg      cl_arg/2        .1
 simpl   1           1               .5
 
 
-dissolved.polygons
-dissolved.network
+union.polygons
+union.network
 
 feature.polygons
 .feature.network
+
+exclude road in the centerline computation

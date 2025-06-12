@@ -116,8 +116,9 @@ class Loader(BaseLoader):
         self.fill_colormap()
 
         files: pd.Series = tiles.stitched.indir.files()
-        loc = ~tiles.stitched.outdir.skip
-        files = files.loc[loc]
+        if not cfg.force:
+            loc = ~tiles.stitched.outdir.skip
+            files = files.loc[loc]
         it = zip(files.tolist(), itertools.repeat(''))
         imgs = list(it)
         self.all_imgs = imgs

@@ -42,6 +42,7 @@ class Polygons(
             datetime.datetime.now()
             .strftime('%d-%m-%Y_%H_%M')
         )
+        os.makedirs(self.dir, exist_ok=True)
         file = os.path.join(self.dir, f'Polygons-{time}.parquet')
         cache[key] = file
         return file
@@ -60,6 +61,7 @@ class Network(
             datetime.datetime.now()
             .strftime('%d-%m-%Y_%H_%M')
         )
+        os.makedirs(self.dir, exist_ok=True)
         file = os.path.join(self.dir, f'Network-{time}.parquet')
         return file
 
