@@ -1,25 +1,14 @@
 from __future__ import annotations
-from tqdm import tqdm
-import pandas as pd
-import sys
-from shapely.geometry import LineString
-from ..cfg import cfg
-from ..explore import explore
-from tile2net.logger import logger
-
-from typing import *
-
-import geopandas as gpd
-import numpy as np
-import shapely
-from centerline.geometry import Centerline
-from ..fixed import GeoDataFrameFixed
 
 from functools import *
 
 import shapely.wkt
+from centerline.geometry import Centerline
+from tqdm import tqdm
 
 from tile2net.logger import logger
+# from ..standalone import Lines
+from .standalone import  Lines
 from tile2net.raster.tile_utils.geodata_utils import set_gdf_crs
 from tile2net.raster.tile_utils.topology import *
 from ..explore import explore
@@ -37,8 +26,8 @@ def __get__(
 ) -> Center:
     if instance is None:
         result = self
-    elif self.__name__ in instance.attrs:
-        result = instance.attrs[self.__name__]
+    elif self.__name__ in instance.__dict__:
+        result = instance.__dict__[self.__name__]
     else:
         union = instance.union
         geometry = union.geometry
@@ -66,20 +55,21 @@ def __get__(
         repeat = shapely.get_num_geometries(multilines)
         lines = shapely.get_parts(multilines)
         iloc = np.arange(len(repeat)).repeat(repeat)
-        lines = shapely.simplify(lines, 0.01)
 
         result = (
             union
             .iloc[iloc]
             .set_geometry(lines)
-            .reset_index(drop=True)
+            .pipe(Lines.from_frame)
+            .drop2nodes
             .pipe(Center)
         )
+        lines = shapely.simplify(result.geometry, .01)
+        result = result.set_geometry(lines)
         result.index.name = 'icent'
-        instance.attrs[self.__name__] = result
+        instance.__dict__[self.__name__] = result
 
     result.instance = instance
-
     return result
 
 
@@ -144,6 +134,14 @@ class Center(
         })
         result.index.name = 'iclip'
         return result
+
+    @cached_property
+    def lines(self) -> Lines:
+        center = self
+        lines = Lines.from_frame(center)
+        lines.pednet = self.instance
+        return lines
+
 
     @cached_property
     def crosswalk(self) -> gpd.GeoDataFrame:
@@ -317,10 +315,6 @@ class Center(
                 tiles=tiles,
                 simplify=simplify,
                 m=m,
-                style_kwds=dict(
-                    dashArray=dash,
-                    color=line,
-                ),
                 **kwargs,
             )
 
