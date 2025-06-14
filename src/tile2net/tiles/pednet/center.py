@@ -7,8 +7,9 @@ from centerline.geometry import Centerline
 from tqdm import tqdm
 
 from tile2net.logger import logger
-# from ..standalone import Lines
 from .standalone import  Lines
+from . import mintrees, stubs
+_ = mintrees, stubs
 from tile2net.raster.tile_utils.geodata_utils import set_gdf_crs
 from tile2net.raster.tile_utils.topology import *
 from ..explore import explore
@@ -64,6 +65,7 @@ def __get__(
             .drop2nodes
             .pipe(Center)
         )
+
         lines = shapely.simplify(result.geometry, .01)
         result = result.set_geometry(lines)
         result.index.name = 'icent'

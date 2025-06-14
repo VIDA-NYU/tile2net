@@ -1,8 +1,4 @@
 from __future__ import annotations
-import geopandas as gpd
-from pandas.core.dtypes.inference import is_named_tuple
-
-from sklearn.neighbors import NearestNeighbors
 
 from functools import *
 from typing import *
@@ -13,11 +9,14 @@ import pandas as pd
 import shapely.ops
 from geopandas import GeoDataFrame
 from pandas import Series
+
 from ..fixed import GeoDataFrameFixed
 
 if False:
     from .pednet import PedNet
     import folium
+    from .stubs import Stubs
+    from .mintrees import Mintrees
 
 """
 without magicpandas,
@@ -26,7 +25,6 @@ output: nodes, aggregated
 
 one to drop degree=2 noeds
 one to extract node information
-
 """
 
 
@@ -116,6 +114,58 @@ def explore(
     return m
 
 
+def __get__(
+        self: Nodes,
+        instance: Lines,
+        owner
+) -> Nodes:
+    if instance is None:
+        result = self
+    elif self.__name__ in instance.__dict__:
+        result = instance.__dict__[self.__name__]
+    else:
+        lines = shapely.get_parts(instance.geometry)
+        coords = shapely.get_coordinates(lines, include_z=False)
+        npoints = shapely.get_num_points(lines)
+        iline = np.arange(len(npoints)).repeat(npoints)
+        unique, ifirst, repeat = np.unique(
+            iline,
+            return_counts=True,
+            return_index=True
+        )
+        istop = ifirst + repeat
+        ilast = istop - 1
+        iloc = np.c_[ifirst, ilast].ravel()
+        ends = coords[iloc]
+
+        haystack = pd.MultiIndex.from_arrays(ends.T)
+        needles = haystack.drop_duplicates()
+        x = needles.get_level_values(0).values
+        y = needles.get_level_values(1).values
+        degree = (
+            pd.Series(1, haystack)
+            .groupby(level=[0, 1], sort=False)
+            .sum()
+            .loc[needles]
+            .values
+        )
+        geometry = shapely.points(x, y)
+        crs = instance.crs
+        data = dict(
+            degree=degree,
+            x=x,
+            y=y,
+        )
+        result = self.__class__(data, geometry=geometry, crs=crs)
+        result.index.name = 'inode'
+
+        instance.__dict__[self.__name__] = result
+
+    result.lines = instance
+
+    return result
+
+
 class Nodes(
     GeoDataFrameFixed
 ):
@@ -123,20 +173,32 @@ class Nodes(
     y: Series
     degree: Series
     lines: Lines
+    locals().update(
+        __get__=__get__,
+    )
+    __name__ = 'nodes'
 
-    def __get__(self, instance: Lines, owner) -> Self:
-        if instance is None:
-            raise ValueError
-        if 'nodes' not in instance.attrs:
-            instance._nodes()
+    @property
+    def lines(self):
+        try:
+            return self.attrs['lines']
+        except KeyError as e:
+            raise AttributeError(
+                'Lines not set. Please set lines attribute before accessing Nodes.'
+            ) from e
 
-        result = instance.attrs['nodes']
-        result.lines = instance
-        return result
+    @lines.setter
+    def lines(self, value: Lines):
+        if not isinstance(value, Lines):
+            raise TypeError('lines must be an instance of Lines')
+        self.attrs['lines'] = value
 
     @property
     def inode(self) -> pd.Index:
-        return self.index
+        if 'inode' in self.index.names:
+            return self.index.get_level_values('inode')
+        else:
+            return self['inode']
 
     @property
     def tuple(self) -> pd.Series:
@@ -150,100 +212,15 @@ class Nodes(
             .groupby('start_inode', sort=False)
             ['start_end']
             .apply(tuple)
-            .loc[self.inode]
-            .values
-        )
-        self[key] = result
-        result = self[key]
-        return result
-
-
-def __get__(
-        self: Edges,
-        instance: Lines,
-        owner
-) -> Edges:
-    if instance is None:
-        result = self
-    elif self.__name__ in instance.__dict__:
-        result = instance.__dict__[self.__name__]
-    else:
-        cols = 'iline geometry start_inode stop_inode start_end stop_end'.split()
-        lines = (
-            instance
-            .reset_index()
-            [cols]
-        )
-        reverse = (
-            instance
-            .set_geometry(instance.reverse())
-            .assign(
-                stop_node=instance.start_inode.values,
-                start_inode=instance.stop_node.values,
-                stop_end=instance.start_end.values,
-            )
-            .set_axis(instance.start_end)
-        )
-        concat = lines, reverse
-        result = (
-            pd.concat(concat)
-            .pipe(Edges)
-        )
-        instance.__dict__[self.__name__] = result
-    return result
-
-
-class Edges(
-    GeoDataFrameFixed,
-):
-    stop_end: pd.Series
-    lines: Lines = None
-    locals().update(
-        __get__=__get__,
-    )
-
-    def __set_name__(self, owner, name):
-        self.__name__ = name
-
-    @property
-    def start_icoord(self) -> pd.Index:
-        return self.index
-
-    @property
-    def start_degree(self) -> pd.Series:
-        key = 'start_degree'
-        if key in self:
-            return self[key]
-        result = (
-            self.lines.nodes.degree
-            .loc[self.start_inode]
-            .values
+            .loc[self.inode.values]
         )
         self[key] = result
         result = self[key]
         return result
 
     @property
-    def stop_degree(self) -> pd.Series:
-        key = 'stop_degree'
-        if key in self:
-            return self[key]
-        result = (
-            self.lines.nodes.degree
-            .loc[self.stop_inode]
-            .values
-        )
-        self[key] = result
-        result = self[key]
-        return result
-
-    @property
-    def start_inode(self):
-        ...
-
-    @property
-    def stop_node(self):
-        ...
+    def edges(self):
+        return self.lines.edges
 
     @property
     def iunion(self) -> pd.Series:
@@ -272,20 +249,281 @@ class Edges(
         key = 'threshold'
         if key in self:
             return self[key]
+
+        scalar = (2 ** 0.5)
         result = (
-                self.lines.pednet.union
-                .reindex(self.iunion)
-                .distance(self.geometry, align=False)
-                .values
-                * (2 ** 0.5)
+            self.lines.pednet.union.exterior
+            .reindex(self.iunion)
+            .distance(self.geometry, align=False)
+            .mul(scalar)
+            .values
+        )
+
+        self[key] = result
+        result = self[key]
+        return result
+
+
+def __get__(
+        self: Edges,
+        instance: Lines,
+        owner
+) -> Edges:
+    if instance is None:
+        result = self
+    elif self.__name__ in instance.__dict__:
+        result = instance.__dict__[self.__name__]
+    else:
+        cols = 'iline geometry start_inode stop_inode start_end stop_end'.split()
+        _ = (
+            instance.start_inode, instance.stop_inode,
+            instance.start_end, instance.stop_end,
+        )
+        lines = (
+            instance
+            .reset_index()
+            [cols]
+        )
+        reverse = (
+            lines
+            .set_geometry(lines.reverse())
+            .assign(
+                stop_inode=instance.start_inode.values,
+                start_inode=instance.stop_inode.values,
+                stop_end=instance.start_end.values,
+                start_end=instance.stop_end.values,
+                start_x=instance.stop_x.values,
+                start_y=instance.stop_y.values,
+                stop_x=instance.start_x.values,
+                stop_y=instance.start_y.values,
+            )
+        )
+        concat = lines, reverse
+        result = (
+            pd.concat(concat,)
+            .set_index('start_end')
+            .pipe(self.__class__)
+        )
+        instance.__dict__[self.__name__] = result
+
+    result.lines = instance
+
+    return result
+
+
+class Edges(
+    GeoDataFrameFixed,
+):
+    stop_end: pd.Series
+    iline: pd.Series
+    start_x: pd.Series
+    start_y: pd.Series
+    stop_x: pd.Series
+    stop_y: pd.Series
+
+    locals().update(
+        __get__=__get__,
+    )
+    __name__ = 'edges'
+
+    @property
+    def lines(self) -> Lines:
+        try:
+            return self.attrs['lines']
+        except KeyError as e:
+            raise AttributeError(
+                'Lines not set. Please set lines attribute before accessing Nodes.'
+            ) from e
+
+    @lines.setter
+    def lines(self, value: Lines):
+        if not isinstance(value, Lines):
+            raise TypeError('lines must be an instance of Lines')
+        self.attrs['lines'] = value
+
+    @property
+    def nodes(self):
+        return self.lines.nodes
+
+    @property
+    def start_end(self) -> pd.Index:
+        # return self.index
+        key = 'start_end'
+        if key in self.index.names:
+            return self.index.get_level_values(key)
+        else:
+            return self[key]
+
+    @property
+    def start_degree(self) -> pd.Series:
+        key = 'start_degree'
+        if key in self:
+            return self[key]
+        result = (
+            self.lines.nodes.degree
+            .loc[self.start_inode]
+            .values
+        )
+        self[key] = result
+        result = self[key]
+        return result
+
+    def __set_name__(self, owner, name):
+        self.__name__ = name
+
+    @property
+    def stop_degree(self) -> pd.Series:
+        key = 'stop_degree'
+        if key in self:
+            return self[key]
+        result = (
+            self.lines.nodes.degree
+            .loc[self.stop_inode]
+            .values
         )
         self[key] = result
         result = self[key]
         return result
 
     @property
-    def tuple(self):
-        ...
+    def start_tuple(self) -> pd.Series:
+        key = 'start_tuple'
+        if key in self:
+            return self[key]
+        result = self.nodes.tuple.loc[self.start_inode]
+        self[key] = result
+        result = self[key]
+        return result
+
+    @property
+    def stop_tuple(self) -> pd.Series:
+        key = 'stop_tuple'
+        if key in self:
+            return self[key]
+        result = self.nodes.tuple.loc[self.stop_inode]
+        self[key] = result
+        result = self[key]
+        return result
+
+    # @property
+    # def start_inode(self) -> pd.Series:
+    #     if 'start_inode' not in self:
+    #         nodes = self.nodes
+    #         lines = shapely.get_parts(self.geometry)
+    #         coords = shapely.get_coordinates(lines, include_z=False)
+    #         npoints = shapely.get_num_points(lines)
+    #         iline = np.arange(len(npoints)).repeat(npoints)
+    #         unique, ifirst, repeat = np.unique(
+    #             iline,
+    #             return_counts=True,
+    #             return_index=True
+    #         )
+    #         iloc = ifirst
+    #         ends = coords[iloc]
+    #         haystack = pd.MultiIndex.from_arrays(ends.T)
+    #         inode = (
+    #             nodes
+    #             .reset_index()
+    #             .set_index('x y'.split())
+    #             .loc[haystack, 'inode']
+    #             .values
+    #         )
+    #         self['start_inode'] = inode
+    #
+    #     return self['start_inode']
+    #
+    # @property
+    # def stop_inode(self) -> pd.Series:
+    #     if 'stop_inode' not in self:
+    #         nodes = self.nodes
+    #         lines = shapely.get_parts(self.geometry)
+    #         coords = shapely.get_coordinates(lines, include_z=False)
+    #         npoints = shapely.get_num_points(lines)
+    #         iline = np.arange(len(npoints)).repeat(npoints)
+    #         unique, ifirst, repeat = np.unique(
+    #             iline,
+    #             return_counts=True,
+    #             return_index=True
+    #         )
+    #         istop = ifirst + repeat
+    #         ilast = istop - 1
+    #         iloc = ilast
+    #         ends = coords[iloc]
+    #         haystack = pd.MultiIndex.from_arrays(ends.T)
+    #         inode = (
+    #             nodes
+    #             .reset_index()
+    #             .set_index('x y'.split())
+    #             .loc[haystack, 'inode']
+    #             .values
+    #         )
+    #         self['stop_inode'] = inode
+    #
+    #     return self['stop_inode']
+    #
+
+    @property
+    def iunion(self) -> pd.Series:
+        key = 'iunion'
+        if key in self:
+            return self[key]
+        polygons = self.lines.pednet.union
+        geometry = self.geometry
+        iloc, idissolved = polygons.sindex.nearest(geometry, return_distance=False)
+        labels: pd.Index = geometry.index[iloc]
+        assert not labels.has_duplicates
+
+        result = (
+            polygons
+            .reset_index()
+            .iunion
+            .iloc[idissolved]
+            .set_axis(labels)
+        )
+        self[key] = result
+        result = self[key]
+        return result
+
+    @property
+    def threshold(self) -> pd.Series:
+        key = 'threshold'
+        if key in self:
+            return self[key]
+        nodes = self.lines.nodes
+        x1 = nodes.threshold.loc[self.start_inode].values
+        x2 = nodes.threshold.loc[self.stop_inode].values
+        result = np.maximum(x1, x2)
+        self[key] = result
+        result = self[key]
+        return result
+
+    @property
+    def start_tuple(self) -> pd.Series:
+        key = 'start_tuple'
+        if key in self:
+            return self[key]
+        result = (
+            self.nodes.tuple
+            .loc[self.start_inode]
+            .values
+        )
+        self[key] = result
+        result = self[key]
+        return result
+
+    @property
+    def stop_tuple(self) -> pd.Series:
+        key = 'stop_tuple'
+        if key in self:
+            return self[key]
+        result = (
+            self.nodes.tuple
+            .loc[self.stop_inode]
+            .values
+        )
+        self[key] = result
+        result = self[key]
+        return result
 
 
 class Lines(
@@ -294,9 +532,23 @@ class Lines(
     start_end: pd.Series
     stop_end: pd.Series
     pednet: PedNet = None
+    stubs: Stubs
+    mintrees: Mintrees
+    start_x: pd.Series
+    start_y: pd.Series
+    stop_x: pd.Series
+    stop_y: pd.Series
+    stop_end: pd.Series
+    start_end: pd.Series
+
+    __keep__ = 'geometry start_x start_y stop_x stop_y start_end stop_end'.split()
 
     @Edges
     def edges(self):
+        ...
+
+    @Nodes
+    def nodes(self):
         ...
 
     @property
@@ -304,76 +556,41 @@ class Lines(
         if self.pednet is None:
             raise ValueError('PedNet not set')
 
-    def _nodes(self) -> Series:
-        lines = shapely.get_parts(self.geometry)
-        coords = shapely.get_coordinates(lines, include_z=False)
-        npoints = shapely.get_num_points(lines)
-        iline = np.arange(len(npoints)).repeat(npoints)
-        unique, ifirst, repeat = np.unique(
-            iline,
-            return_counts=True,
-            return_index=True
-        )
-        istop = ifirst + repeat
-        ilast = istop - 1
-        iloc = np.c_[ifirst, ilast].ravel()
-        ends = coords[iloc]
-
-        haystack = pd.MultiIndex.from_arrays(ends.T)
-        needles = haystack.drop_duplicates()
-        x = needles.get_level_values(0).values
-        y = needles.get_level_values(1).values
-        degree = (
-            pd.Series(1, haystack)
-            .groupby(level=[0, 1], sort=False)
-            .sum()
-            .loc[needles]
-            .values
-        )
-        geometry = shapely.points(x, y)
-        crs = self.crs
-        data = dict(degree=degree, x=x, y=y)
-        nodes = Nodes(data, geometry=geometry, crs=crs)
-        nodes.index.name = 'inode'
-        self.attrs['nodes'] = nodes
-
-        inode = (
-            nodes
-            .reset_index()
-            .set_index('x y'.split())
-            .inode
-            .loc[haystack]
-        )
-        start_inode = inode.iloc[::2].values
-        stop_inode = inode.iloc[1::2].values
-        self['start_inode'] = start_inode
-        self['stop_inode'] = stop_inode
-
     @property
     def start_inode(self) -> pd.Series:
         if 'start_inode' not in self:
-            self._nodes()
+            cols = 'start_x start_y'.split()
+            loc = pd.MultiIndex.from_frame(self[cols])
+            result = (
+                self.nodes
+                .reset_index()
+                .set_index('x y'.split())
+                ['inode']
+                .loc[loc]
+                .values
+            )
+            self['start_inode'] = result
+            assert self.start_inode.isin(self.nodes.inode.values).all()
+
         return self['start_inode']
 
     @property
     def stop_inode(self) -> pd.Series:
         if 'stop_inode' not in self:
-            self._nodes()
+            cols = 'stop_x stop_y'.split()
+            loc = pd.MultiIndex.from_frame(self[cols])
+            result = (
+                self.nodes
+                .reset_index()
+                .set_index('x y'.split())
+                ['inode']
+                .loc[loc]
+                .values
+            )
+            self['stop_inode'] = result
+            assert self.stop_inoe.isin(self.nodes.inode.values).all()
+
         return self['stop_inode']
-
-    # @cached_property
-    # def start_inode(self) -> Nodes:
-    #     return self.nodes.loc[self.start_inode]
-    #
-    # @cached_property
-    # def stop_node(self) -> Nodes:
-    #     return self.nodes.loc[self.start_inode]
-
-    @property
-    def nodes(self) -> Nodes:
-        if 'nodes' not in self.attrs:
-            self._nodes()
-        return self.attrs['nodes']
 
     @classmethod
     def from_frame(
@@ -395,17 +612,37 @@ class Lines(
         concat.append(geometry.loc[loc])
         geometry = np.concatenate(concat)
         stop = len(geometry) * 2
-        index = pd.RangeIndex(0, stop, 2, name='start_end')
+        start_end = np.arange(0, stop, step=2)
         stop_end = np.arange(1, len(geometry) * 2, step=2)
+
+        lines = shapely.get_parts(frame.geometry)
+        coords = shapely.get_coordinates(lines, include_z=False)
+        npoints = shapely.get_num_points(lines)
+        iline = np.arange(len(npoints)).repeat(npoints)
+        unique, ifirst, repeat = np.unique(
+            iline,
+            return_counts=True,
+            return_index=True
+        )
+        istop = ifirst + repeat
+        ilast = istop - 1
+        iloc = ilast
+
+        start_x = coords[ifirst, 0]
+        start_y = coords[ifirst, 1]
+        stop_x = coords[ilast, 0]
+        stop_y = coords[ilast, 1]
+
         data = dict(
             stop_end=stop_end,
+            start_end=start_end,
+            start_x=start_x,
+            start_y=start_y,
+            stop_x=stop_x,
+            stop_y=stop_y,
         )
-        result = cls(
-            geometry=geometry,
-            data=data,
-            crs=crs,
-            index=index,
-        )
+        result = cls(geometry=geometry, data=data, crs=crs, )
+        result.index.name = 'iline'
 
         return result
 
@@ -420,7 +657,7 @@ class Lines(
         )
         return result
 
-    def explore(
+    def visualize(
             self,
             *args,
             tiles='cartodbdark_matter',
@@ -454,6 +691,14 @@ class Lines(
         )
         folium.LayerControl().add_to(m)
         return m
+
+    @property
+    def iline(self) -> pd.Index:
+        key = 'iline'
+        if key in self.index.names:
+            return self.index.get_level_values(key)
+        else:
+            return self[key]
 
 
 if __name__ == '__main__':

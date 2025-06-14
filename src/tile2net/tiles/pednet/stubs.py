@@ -1,44 +1,37 @@
 from __future__ import annotations
+
 import heapq
 
-
-from functools import *
-
-import shapely.wkt
-from centerline.geometry import Centerline
-from tqdm import tqdm
-
-from tile2net.logger import logger
-from tile2net.raster.tile_utils.geodata_utils import set_gdf_crs
 from tile2net.raster.tile_utils.topology import *
 from ..explore import explore
-from ..fixed import GeoDataFrameFixed
+
 INF = float('inf')
+from .standalone import Lines
 
 if False:
     from .pednet import PedNet
     from .center import Center
+    from .standalone import Edges, Nodes
     import folium
 
-
 def __get__(
-        self,
-        instance: Center,
+        self: Stubs,
+        instance: Lines,
         owner: type[PedNet]
 ) -> Stubs:
     if instance is None:
         result = self
-    elif self.__name__ in instance.attrs:
-        result = instance.attrs[self.__name__]
+    elif self.__name__ in instance.__dict__:
+        result = instance.__dict__[self.__name__]
     else:
-        lines = instance.lines
+        lines = instance
         edges = lines.edges
         nodes = lines.nodes
         _ = edges.threshold, edges.start_degree, edges.stop_degree
 
         icoord2cost: dict[int, float] = edges.length.to_dict()
         icoord2icoord = edges.stop_end.to_dict()
-        icoord2node = edges.tuple.to_dict()
+        icoord2node = edges.start_tuple.to_dict()
 
         loc = edges.length.values <= edges.threshold.values
         loc &= edges.start_degree.values == 1
@@ -48,7 +41,7 @@ def __get__(
 
         icoord2iline = pd.Series(edges.iline.values, index=edges.start_end).to_dict()
         icoord2inode = pd.Series(edges.stop_inode.values, index=edges.stop_end).to_dict()
-        inode2cost = dict.fromkeys(edges.inode.values, INF)
+        inode2cost = dict.fromkeys(edges.start_inode.values, INF)
 
         it = zip(
             ends.start_end.values,  # ifirst
@@ -61,7 +54,10 @@ def __get__(
 
         for ifirst, ilast, cost, iline, inode, stub_length in it:
             node = icoord2node[ilast]
-            queue = [(cost + icoord2cost[ifirst], ifirst) for ifirst in node]
+            queue = [
+                (cost + icoord2cost[ifirst], ifirst)
+                for ifirst in node
+            ]
             heapq.heapify(queue)
             visited = {iline}
 
@@ -83,16 +79,179 @@ def __get__(
                     iline = icoord2iline[ifirst]
                     if iline in visited:
                         continue
-                    heapq.heappush(queue, (icoord2cost[ifirst] + cost, ifirst))
+                    item = icoord2cost[ifirst] + cost, ifirst
+                    heapq.heappush(queue, item)
+
+        loc = edges.iline.isin(stubs)
+        stub_edges = edges.loc[loc]
+        keep_edges = edges.loc[~loc]
+
+        loc = nodes.inode.isin(stub_edges.start_inode)
+        loc &= nodes.inode.isin(keep_edges.start_inode)
+        connections = nodes.loc[loc]
+
+        loc = nodes.inode.isin(stub_edges.start_inode)
+        loc &= nodes.degree.values > 1
+        legal_inodes = set(nodes.inode[loc])
+        legal_icoords = set(stub_edges.start_end)
+
+        inode2stub_length = (
+            stub_edges
+            .groupby("stop_inode")
+            ["threshold"]
+            .min()
+            .to_dict()
+        )
+
+        KEEP_ILINES: set[int] = set()
+
+        for node, inode in zip(connections.tuple, connections.inode):
+            stub_length = inode2stub_length.get(inode, INF)
+            inode2cost: dict[int, float] = {inode: 0.0}
+            inode2ifirst: dict[int, int] = {}
+            keep_ilines: set[int] = set()
+
+            queue = [
+                (icoord2cost[ifirst], ifirst, icoord2icoord[ifirst], inode)
+                for ifirst in node
+                if ifirst in legal_icoords
+                if (inode := icoord2inode[icoord2icoord[ifirst]]) in legal_inodes
+            ]
+            heapq.heapify(queue)
+
+            while queue:
+                cost, ifirst, ilast, inode = heapq.heappop(queue)
+                if inode2cost.get(inode, INF) <= cost:
+                    continue
+                inode2ifirst[inode] = ifirst
+                inode2cost[inode] = cost
+
+                for ifirst in icoord2node[ilast]:
+                    ilast = icoord2icoord[ifirst]
+                    inode = icoord2inode[ilast]
+                    if (
+                            ifirst not in legal_icoords
+                            or inode not in legal_inodes
+                    ):
+                        continue
+                    item = icoord2cost[ifirst] + cost, ifirst, ilast, inode
+                    heapq.heappush(queue, item)
+
+            for inode, cost in inode2cost.items():
+                if cost < stub_length:
+                    continue
+                while inode in inode2ifirst:
+                    ifirst = inode2ifirst[inode]
+                    iline = icoord2iline[ifirst]
+                    if iline in keep_ilines:
+                        break
+                    keep_ilines.add(iline)
+                    inode = icoord2inode[ifirst]
+
+            KEEP_ILINES.update(keep_ilines)
+
+        loc = lines.iline.isin(stubs)
+        loc &= ~lines.iline.isin(KEEP_ILINES)
+        # cols = 'geometry start_x start_y stop_x stop_y'.split()
+        cols = lines.__keep__
+        result = (
+            lines
+            .loc[loc, cols]
+            .pipe(Stubs)
+        )
+        instance.__dict__[self.__name__] = result
+
+    result.instance = instance
+    return result
+
 
 
 class Stubs(
-    GeoDataFrameFixed,
+    Lines,
 ):
     locals().update(
         __get__=__get__,
     )
 
-    instance: PedNet = None
-    __name__ = 'center'
+    instance: Lines = None
+    __name__ = 'stubs'
 
+    # @property
+    # def nodes(self) -> Nodes:
+    #     nodes = self.instance.nodes
+    #     loc = nodes.inode.isin(self.start_inode)
+    #     loc |= nodes.inode.isin(self.stop_inode)
+    #     result = nodes.loc[loc].copy()
+    #     result.lines = self
+    #
+    #     try:
+    #         del result['start_tuple']
+    #     except KeyError:
+    #         pass
+    #
+    #     return result
+    #
+    # @property
+    # def edges(self) -> Edges:
+    #     edges = self.instance.edges
+    #     loc = edges.iline.isin(self.iline)
+    #     result = edges.loc[loc].copy()
+    #     result.lines = self
+    #     try:
+    #         del result['start_tuple']
+    #     except KeyError:
+    #         pass
+    #
+    #     return result
+
+    def visualize(
+            self,
+            *args,
+            tiles='cartodbdark_matter',
+            m=None,
+            line_color='grey',
+            stub_color='yellow',
+            node_color='red',
+            **kwargs,
+    ) -> folium.Map:
+        import folium
+        lines = self.instance
+        loc = ~lines.iline.isin(self.iline)
+        lines = lines.loc[loc]
+
+        m = explore(
+            lines,
+            color=line_color,
+            name='lines',
+            *args,
+            **kwargs,
+            tiles=tiles,
+            m=m,
+        )
+        m = explore(
+            self,
+            color=stub_color,
+            name='stubs',
+            *args,
+            **kwargs,
+            tiles=tiles,
+            m=m,
+        )
+        nodes = self.nodes
+        loc = nodes.index.isin(self.start_inode.values)
+        loc |= nodes.index.isin(self.stop_inode.values)
+        nodes = nodes.loc[loc]
+        m = explore(
+            nodes,
+            color=node_color,
+            name='node',
+            *args,
+            **kwargs,
+            tiles=tiles,
+            m=m,
+        )
+        folium.LayerControl().add_to(m)
+        return m
+
+
+Lines.stubs = Stubs()

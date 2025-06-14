@@ -117,6 +117,10 @@ class GeoDataFrameFixed(
     def __bool__(self):
         return False
 
+    def __eq__(self, other):
+        return False
+
+
     @final
     def __finalize__(self, other, method: str | None = None, **kwargs) -> Self:
         # Checking for the attr equality during concat is rarely useful
@@ -205,3 +209,52 @@ def _getattribute(self: pandas.core.generic.NDFrame, name: str):
 del pandas.core.generic.NDFrame.__getattr__
 pandas.core.generic.NDFrame.__getattribute__ = _getattribute
 
+def __finalize__(self, other, method: str | None = None, **kwargs) -> Self:
+    """
+    Propagate metadata from other to self.
+
+    Parameters
+    ----------
+    other : the object from which to get the attributes that we are going
+        to propagate
+    method : str, optional
+        A passed method name providing context on where ``__finalize__``
+        was called.
+
+        .. warning::
+
+           The value passed as `method` are not currently considered
+           stable across pandas releases.
+    """
+    if isinstance(other, NDFrame):
+        # if other.attrs:
+        #     # We want attrs propagation to have minimal performance
+        #     # impact if attrs are not used; i.e. attrs is an empty dict.
+        #     # One could make the deepcopy unconditionally, but a deepcopy
+        #     # of an empty dict is 50x more expensive than the empty check.
+        #     self.attrs = deepcopy(other.attrs)
+
+        self.flags.allows_duplicate_labels = other.flags.allows_duplicate_labels
+        # For subclasses using _metadata.
+        for name in set(self._metadata) & set(other._metadata):
+            assert isinstance(name, str)
+            object.__setattr__(self, name, getattr(other, name, None))
+
+    if method == "concat":
+        # propagate attrs only if all concat arguments have the same attrs
+        # if all(bool(obj.attrs) for obj in other.objs):
+        #     # all concatenate arguments have non-empty attrs
+        #     attrs = other.objs[0].attrs
+        #     have_same_attrs = all(obj.attrs == attrs for obj in other.objs[1:])
+        #     if have_same_attrs:
+        #         self.attrs = deepcopy(attrs)
+
+        allows_duplicate_labels = all(
+            x.flags.allows_duplicate_labels for x in other.objs
+        )
+        self.flags.allows_duplicate_labels = allows_duplicate_labels
+
+    return self
+
+
+pandas.core.generic.NDFrame.__finalize__ = __finalize__

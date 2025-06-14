@@ -23,15 +23,15 @@ def __get__(
 ) -> Self:
     if instance is None:
         result = self
-    elif self.__name__ in instance.attrs:
-        result = instance.attrs[self.__name__]
+    elif self.__name__ in instance.__dict__:
+        result = instance.__dict__[self.__name__]
     else:
         result = (
             instance
             .dissolve(by='feature')
             .pipe(Features)
         )
-        instance.attrs[self.__name__] = result
+        instance.__dict__[self.__name__] = result
     result._pednet = instance
 
     return result
@@ -52,7 +52,7 @@ class Features(
             value: type[PedNet],
     ):
         value.__name__ = self.__name__
-        instance.attrs[self.__name__] = value
+        instance.__dict__[self.__name__] = value
 
     @property
     def above(self) -> GeoSeries[GeometryCollection]:

@@ -28,14 +28,14 @@ def __get__(
 
 
 def __get__(
-        self,
+        self: Union,
         instance: PedNet,
         owner: type[PedNet]
 ) -> Union:
     if instance is None:
         result = self
-    elif self.__name__ in instance.attrs:
-        result = instance.attrs[self.__name__]
+    elif self.__name__ in instance.__dict__:
+        result = instance.__dict__[self.__name__]
     else:
         msg = 'Computing the geometric union of all pedestrian features.'
         logger.debug(msg)
@@ -51,10 +51,10 @@ def __get__(
         geometry = gpd.GeoSeries(data, crs=crs)
         result = Union(geometry=geometry)
         result.index.name = 'iunion'
-        instance.attrs[self.__name__] = result
+        instance.__dict__[self.__name__] = result
         return result
 
-    result._pednet = instance
+    result.instance = instance
     return result
 
 
