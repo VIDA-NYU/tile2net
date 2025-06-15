@@ -36,6 +36,8 @@ def __get__(
         loc = edges.length.values <= edges.threshold.values
         loc &= edges.start_degree.values == 1
         ends = edges.loc[loc]
+        edges.loc[edges.iline == 542, 'threshold']
+        edges.length.loc[edges.iline == 542]
 
         stubs = set(ends.iline.values)
 
@@ -176,33 +178,6 @@ class Stubs(
     instance: Lines = None
     __name__ = 'stubs'
 
-    # @property
-    # def nodes(self) -> Nodes:
-    #     nodes = self.instance.nodes
-    #     loc = nodes.inode.isin(self.start_inode)
-    #     loc |= nodes.inode.isin(self.stop_inode)
-    #     result = nodes.loc[loc].copy()
-    #     result.lines = self
-    #
-    #     try:
-    #         del result['start_tuple']
-    #     except KeyError:
-    #         pass
-    #
-    #     return result
-    #
-    # @property
-    # def edges(self) -> Edges:
-    #     edges = self.instance.edges
-    #     loc = edges.iline.isin(self.iline)
-    #     result = edges.loc[loc].copy()
-    #     result.lines = self
-    #     try:
-    #         del result['start_tuple']
-    #     except KeyError:
-    #         pass
-    #
-    #     return result
 
     def visualize(
             self,
@@ -212,12 +187,31 @@ class Stubs(
             line_color='grey',
             stub_color='yellow',
             node_color='red',
+            polygon_color='grey',
+            simplify=None,
             **kwargs,
     ) -> folium.Map:
         import folium
         lines = self.instance
         loc = ~lines.iline.isin(self.iline)
         lines = lines.loc[loc]
+
+        if polygon_color:
+            m = explore(
+                # self.instance.pednet.union,
+                self.instance.pednet.union,
+                *args,
+                color=polygon_color,
+                name=f'polygons',
+                tiles=tiles,
+                simplify=simplify,
+                m=m,
+                style_kwds=dict(
+                    dashArray='5, 15',
+                    fill=False,
+                ),
+                **kwargs,
+            )
 
         m = explore(
             lines,

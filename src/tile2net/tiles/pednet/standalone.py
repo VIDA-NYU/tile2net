@@ -229,7 +229,9 @@ class Nodes(
             return self[key]
         polygons = self.lines.pednet.union
         geometry = self.geometry
-        iloc, idissolved = polygons.sindex.nearest(geometry, return_distance=False)
+        iloc, idissolved = polygons.sindex.nearest(
+            geometry, return_distance=False
+        )
         labels: pd.Index = geometry.index[iloc]
         assert not labels.has_duplicates
 
@@ -252,13 +254,12 @@ class Nodes(
 
         scalar = (2 ** 0.5)
         result = (
-            self.lines.pednet.union.exterior
+            self.lines.pednet.union.boundary
             .reindex(self.iunion)
             .distance(self.geometry, align=False)
             .mul(scalar)
             .values
         )
-
         self[key] = result
         result = self[key]
         return result
@@ -300,7 +301,7 @@ def __get__(
         )
         concat = lines, reverse
         result = (
-            pd.concat(concat,)
+            pd.concat(concat, )
             .set_index('start_end')
             .pipe(self.__class__)
         )
@@ -320,6 +321,8 @@ class Edges(
     start_y: pd.Series
     stop_x: pd.Series
     stop_y: pd.Series
+    start_inode: pd.Series
+    stop_inode: pd.Series
 
     locals().update(
         __get__=__get__,
@@ -404,63 +407,6 @@ class Edges(
         self[key] = result
         result = self[key]
         return result
-
-    # @property
-    # def start_inode(self) -> pd.Series:
-    #     if 'start_inode' not in self:
-    #         nodes = self.nodes
-    #         lines = shapely.get_parts(self.geometry)
-    #         coords = shapely.get_coordinates(lines, include_z=False)
-    #         npoints = shapely.get_num_points(lines)
-    #         iline = np.arange(len(npoints)).repeat(npoints)
-    #         unique, ifirst, repeat = np.unique(
-    #             iline,
-    #             return_counts=True,
-    #             return_index=True
-    #         )
-    #         iloc = ifirst
-    #         ends = coords[iloc]
-    #         haystack = pd.MultiIndex.from_arrays(ends.T)
-    #         inode = (
-    #             nodes
-    #             .reset_index()
-    #             .set_index('x y'.split())
-    #             .loc[haystack, 'inode']
-    #             .values
-    #         )
-    #         self['start_inode'] = inode
-    #
-    #     return self['start_inode']
-    #
-    # @property
-    # def stop_inode(self) -> pd.Series:
-    #     if 'stop_inode' not in self:
-    #         nodes = self.nodes
-    #         lines = shapely.get_parts(self.geometry)
-    #         coords = shapely.get_coordinates(lines, include_z=False)
-    #         npoints = shapely.get_num_points(lines)
-    #         iline = np.arange(len(npoints)).repeat(npoints)
-    #         unique, ifirst, repeat = np.unique(
-    #             iline,
-    #             return_counts=True,
-    #             return_index=True
-    #         )
-    #         istop = ifirst + repeat
-    #         ilast = istop - 1
-    #         iloc = ilast
-    #         ends = coords[iloc]
-    #         haystack = pd.MultiIndex.from_arrays(ends.T)
-    #         inode = (
-    #             nodes
-    #             .reset_index()
-    #             .set_index('x y'.split())
-    #             .loc[haystack, 'inode']
-    #             .values
-    #         )
-    #         self['stop_inode'] = inode
-    #
-    #     return self['stop_inode']
-    #
 
     @property
     def iunion(self) -> pd.Series:
@@ -662,14 +608,33 @@ class Lines(
             *args,
             tiles='cartodbdark_matter',
             m=None,
-            line='grey',
-            node='red',
+            line_color='grey',
+            node_color='red',
+            polygon_color='grey',
+            simplify=None,
             **kwargs,
     ) -> folium.Map:
         import folium
+        if polygon_color:
+            m = explore(
+                # self.instance.pednet.union,
+                self.pednet.union,
+                *args,
+                color=polygon_color,
+                name=f'polygons',
+                tiles=tiles,
+                simplify=simplify,
+                m=m,
+                style_kwds=dict(
+                    dashArray='5, 15',
+                    fill=False,
+                ),
+                **kwargs,
+            )
+
         m = explore(
             self.geometry,
-            color=line,
+            color=line_color,
             name='lines',
             *args,
             **kwargs,
@@ -682,8 +647,8 @@ class Lines(
         nodes = nodes.loc[loc]
         m = explore(
             nodes,
-            color=node,
-            name='node',
+            color=node_color,
+            name='nodes',
             *args,
             **kwargs,
             tiles=tiles,

@@ -255,13 +255,13 @@ class Center(
 
         return combined
 
-    def explore(
+    def visualize(
             self,
             *args,
             tiles='cartodbdark_matter',
             m=None,
-            line='grey',
-            node='red',
+            line_color='grey',
+            node_color='red',
             simplify: float = None,
             dash='5, 20',
             attr: str = None,
@@ -312,11 +312,31 @@ class Center(
             m = explore(
                 lines,
                 *args,
-                color=line,
+                color=line_color,
                 name='centerlines',
                 tiles=tiles,
                 simplify=simplify,
                 m=m,
+                **kwargs,
+            )
+
+        if node_color:
+            # nodes = lines.nodes
+            # nodes = self.node
+            m = explore(
+                nodes,
+                *args,
+                color=node_color,
+                name='nodes',
+                tiles=tiles,
+                m=m,
+                # style_kwds=dict(
+                #     radius=3,
+                #     fill=True,
+                #     fill_opacity=1.0,
+                #     weight=1.0,
+                #     dashArray=dash,
+                # ),
                 **kwargs,
             )
 
