@@ -37,19 +37,19 @@ feature polygons (mutex)
 t       cl_arg      cl_arg/2        .1
 simpl   1           1               .5
 
-
 union.polygons
 union.network
 
 feature.polygons
 .feature.network
 
-exclude road in the centerline computation
+exclude roads in buffer union erode
+buffer union erode should be blocked by roads
 
-pednet.lines -> gets union polygon
+how do we prevent sidewalks from crossing roads during BUE?
 
-pednet.center.stubs
 
-todo: why come iline=542 is a stub
+crosswalk can cross road
+sidewalk cannot cross road
+crosswalk cannot cross sidewalk
 
-810 is not a terminal?

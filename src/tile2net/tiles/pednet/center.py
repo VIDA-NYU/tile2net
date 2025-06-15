@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Self
 
 from functools import *
 
@@ -158,102 +159,28 @@ class Center(
         return sidewalk
 
     @cached_property
-    def result(self):
+    def result(self) -> Self:
         """
         Create network from the full polygon dataset
         """
-        logger.info('Starting network creation...')
-
-        self.create_sidewalks()
-        self.create_crosswalk()
-
-        # connect the crosswalks to the nearest sidewalks
-        points = get_line_sepoints(self.crosswalk)
-
-        # query LineString geometry to identify points intersecting 2 geometries
-        inp, res = (
-            self.crosswalk.sindex
-            .query(geo2geodf(points).geometry, predicate="intersects")
-        )
-        gpd.GeoDataFrame().sindex
-        unique, counts = np.unique(inp, return_counts=True)
-        ends = np.unique(res[np.isin(inp, unique[counts == 1])])
-
-        new_geoms_s = []
-        new_geoms_e = []
-        new_geoms_both = []
-        all_connections = []
-        # iterate over crosswalk segments that are not connected to other crosswalk segments
-        # and add the start and end points to the new_geoms
-        pgeom = self.crosswalk.geometry.values
-        for line in ends:
-            l_coords = shapely.get_coordinates(pgeom[line])
-
-            start = Point(l_coords[0])
-            end = Point(l_coords[-1])
-
-            first = list(pgeom.sindex.query(start, predicate="intersects"))
-            second = list(pgeom.sindex.query(end, predicate="intersects"))
-            first.remove(line)
-            second.remove(line)
-
-            if first and not second:
-                new_geoms_s.append((line, end))
-
-            elif not first and second:
-                new_geoms_e.append((line, start))
-            if not first and not second:
-                new_geoms_both.append((line, start))
-                new_geoms_both.append((line, end))
-
-        # create a dataframe of points
-        if len(new_geoms_s) > 0:
-            ps = [g[1] for g in new_geoms_s]
-            # ls = [g[0] for g in new_geoms_s]
-            pdfs = gpd.GeoDataFrame(geometry=ps)
-            pdfs.set_crs(3857, inplace=True)
-
-            connect_s = get_shortest(self.sidewalk, pdfs, feature='sidewalk_connection')
-            all_connections.append(connect_s)
-
-        if len(new_geoms_e) > 0:
-            pe = [g[1] for g in new_geoms_e]
-            # le = [g[0] for g in new_geoms_e]
-            pdfe = gpd.GeoDataFrame(geometry=pe)
-            pdfe.set_crs(3857, inplace=True)
-
-            connect_e = get_shortest(self.sidewalk, pdfe, feature='sidewalk_connection')
-            all_connections.append(connect_e)
-
-        if len(new_geoms_both) > 0:
-            pb = [g[1] for g in new_geoms_both]
-            # lb = [g[0] for g in new_geoms_both]  # crosswalk lines where both ends do not intersect
-            pdfb = gpd.GeoDataFrame(geometry=pb)
-            pdfb.set_crs(3857, inplace=True)
-
-            connect_b = get_shortest(self.sidewalk, pdfb, feature='sidewalk_connection')
-            all_connections.append(connect_b)
-        if len(all_connections) > 1:
-            connect = pd.concat(all_connections)
-        elif len(all_connections) == 1:
-            connect = all_connections[0]
-        else:
-            connect = []
-
-        if len(all_connections) > 0:
-            # manage median islands
-            combined = pd.concat([self.crosswalk, connect, self.sidewalk])
-        else:
-            combined = pd.concat([self.crosswalk, self.sidewalk])
-
-        combined.dropna(inplace=True)
-        combined.geometry = combined.geometry.set_crs(3857)
-        combined.geometry = combined.geometry.to_crs(4326)
-        combined = combined[~combined.geometry.isna()]
-        combined.drop_duplicates(subset='geometry', inplace=True)
-        combined.reset_index(drop=True, inplace=True)
-
-        return combined
+        lines = self.lines
+        center = self
+        while True:
+            loc = ~lines.iline.isin(lines.stubs.iline)
+            loc |= lines.iline.isin(lines.mintrees.iline)
+            if np.all(loc):
+                break
+            center: Center = (
+                lines
+                .loc[loc]
+                .pipe(Lines)
+                .drop2nodes
+                .pipe(Center)
+            )
+            lines = center.lines
+            center.instance = self.instance
+            lines.pednet = self.instance
+        return center
 
     def visualize(
             self,
@@ -317,26 +244,6 @@ class Center(
                 tiles=tiles,
                 simplify=simplify,
                 m=m,
-                **kwargs,
-            )
-
-        if node_color:
-            # nodes = lines.nodes
-            # nodes = self.node
-            m = explore(
-                nodes,
-                *args,
-                color=node_color,
-                name='nodes',
-                tiles=tiles,
-                m=m,
-                # style_kwds=dict(
-                #     radius=3,
-                #     fill=True,
-                #     fill_opacity=1.0,
-                #     weight=1.0,
-                #     dashArray=dash,
-                # ),
                 **kwargs,
             )
 

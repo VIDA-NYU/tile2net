@@ -322,11 +322,11 @@ class Infer:
                 )
                 logger.info(msg)
 
-                # net = (
-                #     PedNet
-                #     .from_polygons(polys)
-                #
-                # )
+                net = (
+                    PedNet
+                    .from_polygons(polys)
+                    .center
+                )
                 # net = (
                 #     PedNet(poly=polys, tiles=tiles)
                 #     .convert_whole_poly2line()

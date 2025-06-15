@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ..explore import explore
 from tile2net.logger import logger
 from ..cfg import cfg
 
@@ -13,6 +14,7 @@ from shapely import *
 from ..fixed import GeoDataFrameFixed
 
 if False:
+    import folium
     from .pednet import PedNet
 
 
@@ -94,15 +96,16 @@ class Features(
         key = f'{self.__name__}.color'
         if key in self:
             return self[key]
-        n = len(self)
-        colors = (
-            'red green blue orange purple brown gray cyan magenta '
-            'yellow pink lime gold navy olive teal maroon coral '
-            'turquoise violet indigo tan tomato silver'
-        ).split()
-        it = itertools.cycle(colors)
-        result = list(itertools.islice(it, n))
-        self[key] = pd.Series(result, index=self.index, dtype='string')
+        # n = len(self)
+        # colors = (
+        #     'red green yellow orange purple brown cyan magenta '
+        #     'pink lime gold navy olive teal maroon coral '
+        #     'turquoise violet indigo tan tomato silver blue '
+        # ).split()
+        # it = itertools.cycle(colors)
+        # result = list(itertools.islice(it, n))
+        # self[key] = pd.Series(result, index=self.index, dtype='string')
+        self[key] = pd.Series(cfg.label2color, dtype='string')
         result = self[key]
         return result
 
@@ -116,3 +119,39 @@ class Features(
         self[key] = result
         result = self[key]
         return result
+
+    def visualize(
+            self,
+            *args,
+            tiles='cartodbdark_matter',
+            m=None,
+            simplify: float = None,
+            dash='5, 20',
+            **kwargs,
+    ) -> folium.Map:
+        import folium
+        features = self
+        feature2color = features.color.to_dict()
+        _ = features.mutex
+        it = features.groupby(level='feature', observed=False)
+
+        for feature, frame in it:
+            color = feature2color[feature]
+            m = explore(
+                frame,
+                geometry='mutex',
+                *args,
+                color=color,
+                name=f'{feature} polygons',
+                tiles=tiles,
+                simplify=simplify,
+                m=m,
+                style_kwds=dict(
+                    fill=False,
+                    dashArray=dash,
+                ),
+                **kwargs,
+            )
+
+        folium.LayerControl().add_to(m)
+        return m

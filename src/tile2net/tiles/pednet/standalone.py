@@ -251,13 +251,11 @@ class Nodes(
         key = 'threshold'
         if key in self:
             return self[key]
-
-        scalar = (2 ** 0.5)
         result = (
             self.lines.pednet.union.boundary
             .reindex(self.iunion)
             .distance(self.geometry, align=False)
-            .mul(scalar)
+            .mul(2)
             .values
         )
         self[key] = result
@@ -593,7 +591,7 @@ class Lines(
         return result
 
     @cached_property
-    def drop2nodes(self, ) -> Self:
+    def drop2nodes(self) -> Self:
         union = self.geometry.unary_union
         multiline = shapely.ops.linemerge(union)
         lines = shapely.get_parts(multiline)
@@ -617,7 +615,6 @@ class Lines(
         import folium
         if polygon_color:
             m = explore(
-                # self.instance.pednet.union,
                 self.pednet.union,
                 *args,
                 color=polygon_color,

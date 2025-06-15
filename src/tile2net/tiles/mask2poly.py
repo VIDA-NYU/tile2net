@@ -66,7 +66,7 @@ class Mask2Poly(
             frames = list(pool.map(_load, paths))
 
         result = (
-            pd.concat(frames, ignore_index=True)
+            pd.concat(frames)
             .pipe(GeoDataFrame, geometry='geometry', crs=4326)
             .pipe(cls)
         )
@@ -125,6 +125,7 @@ class Mask2Poly(
             pd.concat(concat)
             .pipe(cls)
             .set_crs(crs, allow_override=True)
+            .set_index('feature')
         )
 
         return result
@@ -219,7 +220,8 @@ class Mask2Poly(
         loc = convexity > threshold
         hulls = hulls.loc[loc]
         result: gpd.GeoDataFrame = self.copy()
-        result.update(hulls)
+        result.loc[loc, 'geometry'] = hulls
+
         return result
 
     @look_at(tile2net.raster.tile_utils.topology.fill_holes)
@@ -267,8 +269,8 @@ class Mask2Poly(
         result = (
             self
             .to_crs(crs)
-            .dissolve('feature', as_index=False)
-            .explode(ignore_index=True)
+            .dissolve(level='feature')
+            .explode()
         )
 
         if min_poly_area is None:
@@ -292,7 +294,8 @@ class Mask2Poly(
             if isinstance(min_poly_area, dict):
                 min_poly_area = (
                     pd.Series(min_poly_area)
-                    .reindex(result.feature, fill_value=0.0)
+                    # .reindex(result.feature, fill_value=0.0)
+                    .reindex(result.index, fill_value=0.0)
                     .values
                 )
             elif isinstance(min_poly_area, (float, int)):
@@ -300,7 +303,8 @@ class Mask2Poly(
             elif isinstance(min_poly_area, pd.Series):
                 min_poly_area = (
                     min_poly_area
-                    .reindex(result.feature, fill_value=0.0)
+                    # .reindex(result.feature, fill_value=0.0)
+                    .reindex(result.index, fill_value=0.0)
                     .values
                 )
             else:
@@ -313,7 +317,8 @@ class Mask2Poly(
             if isinstance(simplify, dict):
                 simplify = (
                     pd.Series(simplify)
-                    .reindex(result.feature, fill_value=0.0)
+                    # .reindex(result.feature, fill_value=0.0)
+                    .reindex(result.index, fill_value=0.0)
                     .values
                 )
             elif isinstance(simplify, float):
@@ -321,7 +326,8 @@ class Mask2Poly(
             elif isinstance(simplify, pd.Series):
                 simplify = (
                     simplify
-                    .reindex(result.feature, fill_value=0.0)
+                    # .reindex(result.feature, fill_value=0.0)
+                    .reindex(result.index, fill_value=0.0)
                     .values
                 )
             else:
@@ -340,7 +346,8 @@ class Mask2Poly(
             if isinstance(max_hole_area, dict):
                 max_hole_area = (
                     pd.Series(max_hole_area)
-                    .reindex(result.feature, fill_value=0.)
+                    # .reindex(result.feature, fill_value=0.)
+                    .reindex(result.index, fill_value=0.)
                     .values
                 )
             elif isinstance(max_hole_area, float):
@@ -348,7 +355,8 @@ class Mask2Poly(
             elif isinstance(max_hole_area, pd.Series):
                 max_hole_area = (
                     max_hole_area
-                    .reindex(result.feature, fill_value=0.)
+                    # .reindex(result.feature, fill_value=0.)
+                    .reindex(result.index, fill_value=0.)
                     .values
                 )
             if not isinstance(max_hole_area, np.ndarray):
@@ -362,7 +370,8 @@ class Mask2Poly(
             if isinstance(convexity, dict):
                 convexity = (
                     pd.Series(convexity)
-                    .reindex(result.feature, fill_value=1.0)
+                    # .reindex(result.feature, fill_value=1.0)
+                    .reindex(result.index, fill_value=1.0)
                     .values
                 )
             elif isinstance(convexity, float):
@@ -370,7 +379,8 @@ class Mask2Poly(
             elif isinstance(convexity, pd.Series):
                 convexity = (
                     convexity
-                    .reindex(result.feature, fill_value=1.0)
+                    # .reindex(result.feature, fill_value=1.0)
+                    .reindex(result.index, fill_value=1.0)
                     .values
                 )
             else:

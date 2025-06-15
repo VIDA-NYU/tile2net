@@ -740,7 +740,8 @@ class Polygon(cmdline.Namespace):
         """Map label names to z-order values."""
         return dict(
             sidewalk=0,
-            crosswalk=1,
+            road=1,
+            crosswalk=2,
         )
 
     @cmdline.property
@@ -843,9 +844,23 @@ class Cfg(
         Mapping from label names to IDs
         """
         return dict(
-            crosswalk=0,
+            # crosswalk=0,
+            # road=1,
+            # sidewalk=2,
+            crosswalk=2,
             road=1,
-            sidewalk=2,
+            sidewalk=0,
+        )
+
+    @cmdline.property
+    def label2color(self) -> dict[str, str]:
+        """
+        Mapping from label names to colors
+        """
+        return dict(
+            sidewalk='red',
+            road='green',
+            crosswalk='yellow',
         )
 
     @cmdline.property

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ..cfg import cfg
 
 import pandas as pd
 
@@ -12,15 +13,20 @@ from .center import Center
 from .union import Union
 from .features import Features
 from ..fixed import GeoDataFrameFixed
+from ...raster.geocode import cached
 
 if False:
     import folium
+
 
 class PedNet(
     GeoDataFrameFixed,
 ):
     __name__ = 'pednet'
-    feature: pd.Series
+
+    @property
+    def feature(self) -> pd.Index:
+        return self.index.get_level_values('feature')
 
     @classmethod
     def from_polygons(
@@ -36,9 +42,58 @@ class PedNet(
         return result
 
     @classmethod
+    def from_polygons(
+            cls,
+            gdf: gpd.GeoDataFrame,
+            *,
+            distance: float = 5.,
+            crs: int = 3857,
+    ) -> Self:
+        result = (
+            gdf
+            .to_crs(crs)
+            .pipe(cls)
+        )
+
+        if distance:
+            # difference(above), meaning cannot cross features above;
+            # sidewalk < road < crosswalk;
+            # sidewalk cannot cross road, but crosswalk can
+            loc = result.feature.isin(cfg.polygon.borders)
+            border = result.loc[loc]
+            # todo: drop any buffer that intersects with a different feature
+            #   we want roads and sidewalks to have a touching edge
+            buffer = (
+                result
+                .loc[~loc]
+                .buffer(distance=distance)
+            )
+            union = buffer.union_all()
+            erode = union.buffer(-distance)
+            intersection: gpd.GeoSeries = (
+                buffer
+                .intersection(erode)
+                # can't cross features above
+                # .difference(result.features.above, align=True)
+                # unpack any resulting multipolygons from the border splitting BUE results
+                .explode()
+            )
+            # tod: can't cross any already existing features
+            # necessary to drop any islands that created from crossing the border
+            features = result.features.loc[intersection.index]
+            loc = intersection.intersects(features, align=False)
+            intersection = intersection.loc[loc]
+            concat = intersection.geometry, border.geometry
+            geometry: gpd.GeoSeries = pd.concat(concat)
+            result = cls(geometry=geometry)
+
+        return result
+
+    @classmethod
     def from_parquet(
             cls,
             path: Union[str, Path],
+            distance: float = 5.,
             crs=3857,
     ) -> Self:
         """
@@ -46,7 +101,11 @@ class PedNet(
         """
         result = (
             gpd.read_parquet(path)
-            .pipe(cls.from_polygons, crs=crs)
+            .pipe(
+                cls.from_polygons,
+                crs=crs,
+                distance=distance,
+            )
         )
         return result
 
@@ -69,13 +128,11 @@ class PedNet(
         _ = self.center.sidewalk
         _ = self.center.crosswalk
 
-    def explore(
+    def visualize(
             self,
             *args,
             tiles='cartodbdark_matter',
             m=None,
-            line='grey',
-            node='red',
             simplify: float = None,
             dash='5, 20',
             **kwargs,
