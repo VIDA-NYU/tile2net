@@ -1,4 +1,5 @@
 from __future__ import annotations
+import geopy
 from functools import cached_property
 
 import functools
@@ -193,26 +194,45 @@ class GeoCode:
         result.geometry = frame
         return result
 
+    # @cached_property
+    # def nwse(self) -> tuple[float, ...]:
+    #     logger.info(
+    #         f"Geocoding {self.address}, this may take a while..."
+    #     )
+    #     # noinspection PyTypeChecker
+    #     nom = (
+    #         Nominatim(user_agent='tile2net')
+    #         .geocode(self.address, timeout=None)
+    #     )
+    #     if nom is None:
+    #         raise ValueError(f"Could not geocode '{self.address}'")
+    #     logger.info(
+    #         f"Geocoded '{self.address}' to\n\t"
+    #         f"'{nom.raw['display_name']}'"
+    #     )
+    #     raw = map(float, nom.raw['boundingbox'])
+    #     s, n, w, e = map(self._round, raw)
+    #     value = n, w, s, e
+    #     return value
+
     @cached_property
     def nwse(self) -> tuple[float, ...]:
-        logger.info(
-            f"Geocoding {self.address}, this may take a while..."
-        )
-        # noinspection PyTypeChecker
-        nom = (
+        msg = f'Geocoding the following, please wait:\n \t{self.address}'
+        logger.info(msg)
+
+        nom: geopy.Location = (
             Nominatim(user_agent='tile2net')
             .geocode(self.address, timeout=None)
         )
         if nom is None:
             raise ValueError(f"Could not geocode '{self.address}'")
-        logger.info(
-            f"Geocoded '{self.address}' to\n\t"
-            f"'{nom.raw['display_name']}'"
-        )
+
+        logger.info(f"Geocoded to\n\t{nom.raw['display_name']}")
+
         raw = map(float, nom.raw['boundingbox'])
         s, n, w, e = map(self._round, raw)
-        value = n, w, s, e
-        return value
+        return n, w, s, e
+
 
     @cached_property
     def wsen(self):

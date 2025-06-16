@@ -1,4 +1,6 @@
 from __future__ import annotations
+import tqdm.auto
+import tqdm
 
 import heapq
 
@@ -6,6 +8,7 @@ import pandas as pd
 
 from tile2net.raster.tile_utils.topology import *
 from ..explore import explore
+from tile2net.logger import logger
 
 INF = float('inf')
 from .standalone import Lines
@@ -27,10 +30,13 @@ def __get__(
     elif self.__name__ in instance.__dict__:
         result = instance.__dict__[self.__name__]
     else:
+        # note: can't checkpoint mintrees because it's iterative
         stubs = instance.stubs
         edges = stubs.edges
         nodes = stubs.nodes
         INF = float('inf')
+        msg = f'Computing mintrees to preserve connectivity during pruning'
+        logger.debug(msg)
 
         assert edges.iline.isin(stubs.iline).all()
         assert edges.start_end.isin(edges.stop_end.values).all()
@@ -75,9 +81,11 @@ def __get__(
         result_icoords: set[int] = set()
         result_inodes: set[int] = set()
 
-        it = zip(
-            terminals.tuple,
-            terminals.inode
+        it = tqdm.auto.tqdm(
+            zip(terminals.tuple, terminals.inode),
+            total=len(terminals),
+            desc='Iterating across terminal nodes',
+            disable=not logger.isEnabledFor(logger.DEBUG),
         )
 
         for node, inode in it:

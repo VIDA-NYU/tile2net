@@ -161,7 +161,10 @@ class Stitch:
             tiles = Tiles.from_integers(tx, ty, zoom=tiles.zoom)
             tiles.attrs.update(TILES.attrs)
             if 'source' in TILES.attrs:
-                tiles = tiles.with_source(source=TILES.source)
+                tiles = tiles.with_source(
+                    source=TILES.source,
+                    indir=TILES.indir.original,
+                )
             # we need to download from source if appropriate
         else:
             # drop mosaics not containing all tiles
@@ -223,8 +226,8 @@ class Stitch:
 
             # todo: do not stitch if file exists
             msg = (
-                f'Stitching tiles from {tiles.indir.original} '
-                f'to {stitched.indir.original}. '
+                f'Stitching tiles from \n\t{tiles.indir.original} '
+                f'to\n\t{stitched.indir.original}. '
             )
             logger.info(msg)
 
@@ -244,7 +247,7 @@ class Stitch:
                 logger.info(msg)
                 return tiles
             else:
-                logger.info(f'Stitching {n_missing:,} of {n_total:,} mosaics (missing on disk).')
+                logger.info(f'Stitching {n_missing:,} of {n_total:,} mosaics missing on disk.')
 
             # groups (integer IDs) whose stitched files are absent
             groups_needed = stitched.group[missing_mask].unique()
@@ -274,7 +277,7 @@ class Stitch:
             imwrite = imageio.v3.imwrite
 
             it = zip(loader, outfiles[missing_mask])
-            it = tqdm(it, 'stitching', n_missing, unit='mosaic')
+            it = tqdm(it, 'stitching', n_missing, unit=' mosaic')
 
             writes = []
             for array, outfile in it:

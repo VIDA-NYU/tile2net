@@ -43,7 +43,7 @@ class Features(
     GeoDataFrameFixed
 ):
     __name__ = 'features'
-    _pednet = None
+    _pednet: PedNet = None
     locals().update(
         __get__=__get__,
     )
@@ -88,23 +88,52 @@ class Features(
         return result
 
     @property
+    def original(self) -> GeoSeries[GeometryCollection]:
+        """Original geometries of the features."""
+        key = 'original'
+        try:
+            return self[key]
+        except KeyError as e:
+            msg = (
+                f'features.original has not been set; it should have '
+                f'been set during PedNet instantiation'
+            )
+            raise AttributeError(msg) from e
+
+    @original.setter
+    def original(self, value: GeoSeries[GeometryCollection]):
+        """Set the original geometries of the features."""
+        if not isinstance(value, GeoSeries):
+            raise TypeError('original must be a GeoSeries')
+        self['original'] = value
+
+    @property
+    def other(self) -> GeoSeries[GeometryCollection]:
+        """Geometry union of every feature excluding the feature itself."""
+        key = 'other'
+        if key in self:
+            return self[key]
+
+        logger.debug('Computing %s for %s', key, self.__name__)
+        data = (
+            self._pednet
+            .union_all()
+            .difference(self.geometry)
+        )
+        result = GeoSeries(data, self.index, self.crs)
+
+        self[key] = result
+        return self[key]
+
+    @property
     def feature(self) -> pd.Index:
         return self.index.get_level_values('feature')
 
     @property
     def color(self) -> pd.Series:
-        key = f'{self.__name__}.color'
+        key = f'color'
         if key in self:
             return self[key]
-        # n = len(self)
-        # colors = (
-        #     'red green yellow orange purple brown cyan magenta '
-        #     'pink lime gold navy olive teal maroon coral '
-        #     'turquoise violet indigo tan tomato silver blue '
-        # ).split()
-        # it = itertools.cycle(colors)
-        # result = list(itertools.islice(it, n))
-        # self[key] = pd.Series(result, index=self.index, dtype='string')
         self[key] = pd.Series(cfg.label2color, dtype='string')
         result = self[key]
         return result
@@ -112,7 +141,7 @@ class Features(
     @property
     def z_order(self) -> pd.Series:
         """Z-order of the features."""
-        key = f'{self.__name__}.z_order'
+        key = f'z_order'
         if key in self:
             return self[key]
         result = pd.Series(cfg.polygon.z_order)
@@ -127,19 +156,52 @@ class Features(
             m=None,
             simplify: float = None,
             dash='5, 20',
+            attr: str = None,
             **kwargs,
     ) -> folium.Map:
         import folium
         features = self
         feature2color = features.color.to_dict()
         _ = features.mutex
+
+        if 'original' in features:
+            it = features.groupby(
+                level='feature',
+                observed=False,
+            )
+            for feature, frame in it:
+                color = feature2color[feature]
+                m = explore(
+                    frame,
+                    geometry='original',
+                    *args,
+                    color=color,
+                    name=f'{feature} (original)',
+                    tiles=tiles,
+                    simplify=simplify,
+                    m=m,
+                    style_kwds=dict(
+                        fill=True,
+                        fillColor=color,
+                        fillOpacity=0.05,
+                        weight=0,  # no stroke
+                    ),
+                    highlight=False,
+                    **kwargs,
+                )
+
         it = features.groupby(level='feature', observed=False)
+        if attr:
+            getattr(self, attr)
+            geometry = attr
+        else:
+            geometry = 'mutex'
 
         for feature, frame in it:
             color = feature2color[feature]
             m = explore(
                 frame,
-                geometry='mutex',
+                geometry=geometry,
                 *args,
                 color=color,
                 name=f'{feature} polygons',

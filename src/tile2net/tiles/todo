@@ -48,8 +48,19 @@ buffer union erode should be blocked by roads
 
 how do we prevent sidewalks from crossing roads during BUE?
 
-
 crosswalk can cross road
 sidewalk cannot cross road
 crosswalk cannot cross sidewalk
 
+todo: weakly.cached property for the instances
+
+
+print('⚠️AI GENERATED🤖')
+from tqdm.contrib.logging import logging_redirect_tqdm
+
+with logging_redirect_tqdm():
+    for i, (input_images, labels, img_names, scale_float) in enumerate(tqdm(loader)):
+        if i % 20 == 0:
+            logger.debug(f'Inference [Iter: {i + 1} / {len(loader)}]')
+
+todo: checkpoint

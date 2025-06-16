@@ -78,7 +78,7 @@ def __get__(
 
 class Dir:
     tiles: Optional[Tiles] = None
-    instance: Tiles | Dir
+    instance: Tiles | Dir = None
     owner: type[Tiles] | type[Dir]
     locals().update(
         __get__=__get__
@@ -230,10 +230,14 @@ class Dir:
         indir.instance = instance
         owner = type(instance)
         indir.owner = owner
-        if issubclass(owner, Tiles):
-            indir.tiles = instance
-        else:
-            indir.tiles = instance.tiles
+        try:
+            if issubclass(owner, Tiles):
+                indir.tiles = instance
+            else:
+                indir.tiles = instance.tiles
+        except AttributeError:
+            indir.tiles = None
+
 
     @cached_property
     def dir(self) -> str:
@@ -449,8 +453,37 @@ class Loader:
             pass
         return None
 
-    def __iter__(self) -> Iterator[ndarray]:
+    # def __iter__(self) -> Iterator[ndarray]:
+    #
+    #     with ThreadPoolExecutor() as pool:
+    #         for g in self.unique_groups:
+    #             mask = self.group == g
+    #             f_group = self.files[mask]
+    #             r_group = self.row[mask].to_numpy()
+    #             c_group = self.col[mask].to_numpy()
+    #
+    #             out = np.zeros((self.mos_h, self.mos_w, self.mos_c), dtype=self.dtype)
+    #
+    #             fut2idx = {
+    #                 pool.submit(self._read, p): idx
+    #                 for idx, p in enumerate(f_group)
+    #             }
+    #
+    #             for fut in as_completed(fut2idx):
+    #                 img = fut.result()
+    #                 if img is None:
+    #                     continue
+    #                 idx = fut2idx[fut]
+    #                 r = r_group[idx]
+    #                 c = c_group[idx]
+    #
+    #                 y0 = r * self.tile_h
+    #                 x0 = c * self.tile_w
+    #                 out[y0:y0 + self.tile_h, x0:x0 + self.tile_w, :img.shape[2] if img.ndim == 3 else ...] = img
+    #
+    #             yield out
 
+    def __iter__(self) -> Iterator[np.ndarray]:
         with ThreadPoolExecutor() as pool:
             for g in self.unique_groups:
                 mask = self.group == g
@@ -458,7 +491,10 @@ class Loader:
                 r_group = self.row[mask].to_numpy()
                 c_group = self.col[mask].to_numpy()
 
-                out = np.zeros((self.mos_h, self.mos_w, self.mos_c), dtype=self.dtype)
+                out = np.zeros(
+                    (self.mos_h, self.mos_w, self.mos_c),
+                    dtype=self.dtype,
+                )
 
                 fut2idx = {
                     pool.submit(self._read, p): idx
@@ -473,9 +509,25 @@ class Loader:
                     r = r_group[idx]
                     c = c_group[idx]
 
+                    # harmonise channel count
+                    if img.ndim == 2:                                  # grayscale → RGB
+                        img = np.repeat(img[:, :, None], self.mos_c, 2)
+                    elif img.shape[2] > self.mos_c:                     # drop extras (e.g. alpha)
+                        img = img[:, :, : self.mos_c]
+                    elif img.shape[2] < self.mos_c:                     # pad missing channels
+                        pad = np.zeros(
+                            (*img.shape[:2], self.mos_c - img.shape[2]),
+                            dtype=img.dtype,
+                        )
+                        img = np.concatenate((img, pad), 2)
+
                     y0 = r * self.tile_h
                     x0 = c * self.tile_w
-                    out[y0:y0 + self.tile_h, x0:x0 + self.tile_w, :img.shape[2] if img.ndim == 3 else ...] = img
+                    out[
+                        y0 : y0 + self.tile_h,
+                        x0 : x0 + self.tile_w,
+                        :
+                    ] = img
 
                 yield out
 

@@ -348,7 +348,8 @@ class Tiles(
         try:
             result.indir = indir
             indir: Indir = result.indir
-            msg = f'Setting input directory to {indir.original}. '
+            msg = f'Setting input directory to \n\t{indir.original}. '
+
             logger.info(msg)
 
         except ValueError as e:
@@ -414,9 +415,9 @@ class Tiles(
         except ValueError:
             retry = os.path.join(outdir, 'z', 'x_y.png')
             result.outdir = retry
-            logger.info(f'Setting output directory to {retry}')
+            logger.info(f'Setting output directory to \n\t{retry}')
         else:
-            logger.info(f'Setting output directory to {outdir}')
+            logger.info(f'Setting output directory to \n\t{outdir}')
 
         return result
 
@@ -492,7 +493,6 @@ class Tiles(
                 .resolve()
                 .__str__()
             )
-
         result = result.with_indir(
             indir,
             name=name,
@@ -641,8 +641,6 @@ class Tiles(
                 except requests.exceptions.HTTPError:
                     continue
                 w = pool.submit(write, path, resp.content)
-                writes.append(w)
-
             failed = [
                 f.result()
                 for f in as_completed(writes)

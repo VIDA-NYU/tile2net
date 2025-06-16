@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+
+import os
+import hashlib
+import numpy as np
+import pandas as pd
+from pathlib import Path
 import os
 
 import datetime
@@ -32,38 +38,77 @@ class Error(
 class Polygons(
     Dir
 ):
+    # @property
+    # def file(self) -> str:
+    #     key = f'{self._trace}.polygons'
+    #     cache = self.tiles.attrs
+    #     if key in cache:
+    #         return cache[key]
+    #     time = (
+    #         datetime.datetime.now()
+    #         .strftime('%d-%m-%Y_%H_%M')
+    #     )
+    #     os.makedirs(self.dir, exist_ok=True)
+    #     file = os.path.join(self.dir, f'Polygons-{time}.parquet')
+    #     cache[key] = file
+    #     return file
+
     @property
     def file(self) -> str:
         key = f'{self._trace}.polygons'
         cache = self.tiles.attrs
+
         if key in cache:
             return cache[key]
-        time = (
-            datetime.datetime.now()
-            .strftime('%d-%m-%Y_%H_%M')
+
+        # ───── deterministic UUID from tile indices ───── #
+        # unique (x, y) pairs ensure ordering does not alter digest
+        pairs = np.unique(
+            np.column_stack([self.tiles.xtile.to_numpy(), self.tiles.ytile.to_numpy()]),
+            axis=0,
         )
-        os.makedirs(self.dir, exist_ok=True)
-        file = os.path.join(self.dir, f'Polygons-{time}.parquet')
-        cache[key] = file
-        return file
+        digest = hashlib.blake2b(pairs.tobytes(), digest_size=8).hexdigest()  # 16 hex
+
+        Path(self.dir).mkdir(parents=True, exist_ok=True)
+        filename = os.path.join(self.dir, f'Polygons-{digest}.parquet')
+        cache[key] = filename
+        return filename
 
 
 class Network(
     Dir
 ):
+    # @property
+    # def file(self) -> str:
+    #     key = f'{self._trace}.polygons'
+    #     cache = self.tiles.attrs
+    #     if key in cache:
+    #         return cache[key]
+    #     time = (
+    #         datetime.datetime.now()
+    #         .strftime('%d-%m-%Y_%H_%M')
+    #     )
+    #     os.makedirs(self.dir, exist_ok=True)
+    #     file = os.path.join(self.dir, f'Network-{time}.parquet')
+    #     return file
+
     @property
     def file(self) -> str:
-        key = f'{self._trace}.polygons'
+        key = f'{self._trace}.network'
         cache = self.tiles.attrs
         if key in cache:
             return cache[key]
-        time = (
-            datetime.datetime.now()
-            .strftime('%d-%m-%Y_%H_%M')
+
+        pairs = np.unique(
+            np.column_stack([self.tiles.xtile.to_numpy(), self.tiles.ytile.to_numpy()]),
+            axis=0,
         )
-        os.makedirs(self.dir, exist_ok=True)
-        file = os.path.join(self.dir, f'Network-{time}.parquet')
-        return file
+        digest = hashlib.blake2b(pairs.tobytes(), digest_size=8).hexdigest()  # 16-hex UUID
+
+        Path(self.dir).mkdir(parents=True, exist_ok=True)
+        filename = os.path.join(self.dir, f'Network-{digest}.parquet')
+        cache[key] = filename
+        return filename
 
 
 class SideBySide(

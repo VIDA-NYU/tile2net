@@ -1,5 +1,4 @@
 from __future__ import annotations
-from geopandas import GeoDataFrame
 
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -9,12 +8,14 @@ from typing import *
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import pyarrow.dataset as ds
 import rasterio.features
 import rasterio.features
 import shapely
 import shapely.wkt
 import skimage
 from affine import Affine
+from geopandas import GeoDataFrame
 from numpy import ndarray
 from pandas import Series
 from shapely.geometry import shape
@@ -25,6 +26,7 @@ import tile2net.tileseg.utils.misc
 from tile2net.logger import logger
 from tile2net.raster.tile_utils.geodata_utils import _check_skimage_im_load
 from tile2net.tiles.util import look_at
+from .benchmark import benchmark
 from .cfg import cfg
 from .fixed import GeoDataFrameFixed
 
@@ -50,27 +52,43 @@ class Mask2Poly(
             files: Iterable[str | Path],
             *,
             threads: int | None = None,
-            **read_parquet_kwargs,
     ) -> Self:
         paths = [str(Path(p)) for p in files]
         if not paths:
             return cls()
-        msg = f'Reading {len(paths)} parquet files into {cls.__name__}'
+        max_workers = threads or min(32, len(paths))
+        msg = (
+            f'Reading {len(paths)} parquet files into '
+            f'{cls.__name__} using {max_workers} thread(s)'
+        )
         logger.debug(msg)
 
-        def _load(fp: str):
-            return gpd.read_parquet(fp, **read_parquet_kwargs)
-
-        max_workers = threads or min(32, len(paths))
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
-            frames = list(pool.map(_load, paths))
-
+            frames = list(pool.map(gpd.read_parquet, paths))
+        logger.debug(f"Concatenating {len(frames)} frame(s)")
         result = (
             pd.concat(frames)
             .pipe(GeoDataFrame, geometry='geometry', crs=4326)
             .pipe(cls)
         )
         return result
+
+    @classmethod
+    def from_parquets(cls, files: Iterable[str | Path], ) -> Self:
+        paths = [str(Path(p)) for p in files]
+        if not paths:
+            return cls()
+
+        logger.debug(f"Reading {len(paths)} parquet files into {cls.__name__} via pyarrow.dataset")
+        table = ds.dataset(paths, format="parquet").to_table(use_threads=True)
+        logger.debug(f"Arrow table rows={table.num_rows}, cols={table.num_columns}")
+
+        df = table.to_pandas(split_blocks=True, self_destruct=True)
+        geometry = gpd.GeoSeries.from_wkb(df.pop("geometry"), crs=4326)
+        gdf = gpd.GeoDataFrame(df, geometry=geometry, crs=4326).pipe(cls)
+
+        logger.debug(f"GeoDataFrame assembled with {len(gdf)} row(s)")
+        return gdf
 
     @classmethod
     def from_dir(
@@ -84,10 +102,12 @@ class Mask2Poly(
         base = Path(directory)
         pattern = '**/*.parquet' if recursive else '*.parquet'
         files = list(base.glob(pattern))
+        if not files:
+            msg = f"No parquet files found in {directory} with pattern {pattern}"
+            raise FileNotFoundError(msg)
         return cls.from_parquets(files, threads=threads, **read_parquet_kwargs)
 
     @classmethod
-    # @look_at(tile2net.tiles.stitched.Stitched.affine_params)
     def from_array(
             cls,
             array: np.ndarray,
@@ -217,15 +237,18 @@ class Mask2Poly(
         """
         hulls: gpd.GeoSeries = self.convex_hull
         convexity = self.area / hulls.area  # [0, 1]
+        logger.debug(f"Applying convexity filter")
         loc = convexity > threshold
         hulls = hulls.loc[loc]
         result: gpd.GeoDataFrame = self.copy()
         result.loc[loc, 'geometry'] = hulls
+        logger.debug(f"Replaced {loc.sum()} geometry(ies) with convex hulls")
 
         return result
 
     @look_at(tile2net.raster.tile_utils.topology.fill_holes)
     def _fill_holes(self, max_area: ndarray) -> Self:
+        logger.debug(f"Starting hole‐filling")
         MAX_AREA = max_area
         max_area = MAX_AREA
         RINGS = shapely.get_rings(self.geometry)
@@ -266,12 +289,16 @@ class Mask2Poly(
             crs: int = 3857,
     ) -> Self:
         cls = self.__class__
-        result = (
-            self
-            .to_crs(crs)
-            .dissolve(level='feature')
-            .explode()
-        )
+        logger.debug("Starting postprocessing")
+        msg = f'Dissolving & exploding {len(self)} polygon(s)'
+        with benchmark(msg):
+            result = (
+                self
+                .to_crs(crs)
+                .dissolve(level='feature')
+                .explode()
+            )
+        logger.debug(f"Dissolved & exploded: {len(result)} polygon(s)")
 
         if min_poly_area is None:
             min_poly_area = cfg.polygon.min_polygon_area
@@ -294,7 +321,6 @@ class Mask2Poly(
             if isinstance(min_poly_area, dict):
                 min_poly_area = (
                     pd.Series(min_poly_area)
-                    # .reindex(result.feature, fill_value=0.0)
                     .reindex(result.index, fill_value=0.0)
                     .values
                 )
@@ -303,21 +329,23 @@ class Mask2Poly(
             elif isinstance(min_poly_area, pd.Series):
                 min_poly_area = (
                     min_poly_area
-                    # .reindex(result.feature, fill_value=0.0)
                     .reindex(result.index, fill_value=0.0)
                     .values
                 )
             else:
                 raise TypeError(f'Unsupported type for min_poly_area: {type(min_poly_area)}')
 
+            msg = f'Applying area filter'
+            logger.debug(msg)
             loc = result.area >= min_poly_area
             result = result.loc[loc]
+            msg = f'{len(result)} out of {len(loc)} polygons remaining after area filter'
+            logger.debug(msg)
 
         if None is not simplify is not False:
             if isinstance(simplify, dict):
                 simplify = (
                     pd.Series(simplify)
-                    # .reindex(result.feature, fill_value=0.0)
                     .reindex(result.index, fill_value=0.0)
                     .values
                 )
@@ -326,18 +354,20 @@ class Mask2Poly(
             elif isinstance(simplify, pd.Series):
                 simplify = (
                     simplify
-                    # .reindex(result.feature, fill_value=0.0)
                     .reindex(result.index, fill_value=0.0)
                     .values
                 )
             else:
                 raise TypeError(f'Unsupported type for simplify: {type(simplify)}')
 
+            msg = f'Simplifying polygons'
+            logger.debug(msg)
             result = (
                 result
                 .simplify(tolerance=simplify)
                 .pipe(result.set_geometry)
             )
+            logger.debug(f"Simplified {len(result)} polygon(s)")
 
         if None is not grid_size is not False:
             result = result.set_precision(grid_size=grid_size)
@@ -346,7 +376,6 @@ class Mask2Poly(
             if isinstance(max_hole_area, dict):
                 max_hole_area = (
                     pd.Series(max_hole_area)
-                    # .reindex(result.feature, fill_value=0.)
                     .reindex(result.index, fill_value=0.)
                     .values
                 )
@@ -355,7 +384,6 @@ class Mask2Poly(
             elif isinstance(max_hole_area, pd.Series):
                 max_hole_area = (
                     max_hole_area
-                    # .reindex(result.feature, fill_value=0.)
                     .reindex(result.index, fill_value=0.)
                     .values
                 )
@@ -370,7 +398,6 @@ class Mask2Poly(
             if isinstance(convexity, dict):
                 convexity = (
                     pd.Series(convexity)
-                    # .reindex(result.feature, fill_value=1.0)
                     .reindex(result.index, fill_value=1.0)
                     .values
                 )
@@ -379,7 +406,6 @@ class Mask2Poly(
             elif isinstance(convexity, pd.Series):
                 convexity = (
                     convexity
-                    # .reindex(result.feature, fill_value=1.0)
                     .reindex(result.index, fill_value=1.0)
                     .values
                 )

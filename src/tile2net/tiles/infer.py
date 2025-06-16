@@ -23,7 +23,6 @@ from torch.utils.data import DataLoader
 
 import tile2net.tiles.tileseg.network.ocrnet
 from tile2net.logger import logger
-# from tile2net.raster.pednet import PedNet
 from tile2net.tiles.tileseg import datasets
 from tile2net.tiles.tileseg import network
 from tile2net.tiles.cfg.cfg import assert_and_infer_cfg
@@ -109,7 +108,11 @@ class Infer:
             cfg.polygon.simplify = simplify
         return self
 
-    def to_outdir( self, force=None, batch_size: int = None):
+    def to_outdir(
+            self,
+            force=None,
+            batch_size: int = None
+    ):
         tiles = self.tiles
         cfg = tiles.cfg
 
@@ -196,13 +199,13 @@ class Infer:
             criterion, criterion_val = get_loss(cfg)
 
             cfg.restore_net = True
-            msg = "Loading weights from: checkpoint={}".format(cfg.model.snapshot)
+            msg = "Loading weights \n\t{}".format(cfg.model.snapshot)
             logger.info(msg)
             if cfg.model.snapshot != static.snapshot:
                 msg = (
                     f'Weights are being loaded using weights_only=False. '
                     f'We assure the security of our weights by using a checksum, '
-                    f'but you are using a custom path: {cfg.model.snapshot}. '
+                    f'but you are using a custom path: \n\t{cfg.model.snapshot}. '
                 )
                 logger.warning(msg)
 
@@ -297,44 +300,51 @@ class Infer:
 
         else:
             if testing:
-                msg = (
-                    f'Postprocessing segmentation polygons to\n\t'
-                    f'{tiles.outdir.polygons.file}'
-                )
+                file = tiles.outdir.polygons.file
+                if os.path.exists(file):
+                    logger.debug(f'Loading existing polygons: \n\t{file}')
+                    net = PedNet.from_parquet(
+                        file,
+                        checkpoint='./checkpoint'
+                    )
+                else:
+                    msg = f'Polygons file not found: {file}. '
+                    logger.debug(msg)
+                    msg = f'Postprocessing segmentation polygons'
+                    logger.info(msg)
+                    polys = (
+                        tiles.outdir.polygons.files()
+                        .pipe(Mask2Poly.from_parquets)
+                        .postprocess()
+                    )
+                    msg = (
+                        f'Done. Writing polygons to '
+                        f'\n\t{tiles.outdir.polygons.file}'
+                    )
+                    logger.info(msg)
+                    _ = (
+                        polys
+                        .to_crs(4326)
+                        .to_parquet(tiles.outdir.polygons.file)
+                    )
+
+                    msg = f'Polygons file not written! {file}'
+                    assert os.path.exists(file), msg
+                    if polys.empty:
+                        logging.warning('No polygons were generated during the session.')
+                    net = PedNet.from_polygons(
+                        polys,
+                        checkpoint='./checkpoint'
+                    )
+
+                msg = f'Generating network from polygons'
                 logger.info(msg)
-                polys = (
-                    Mask2Poly
-                    .from_parquets(tiles.outdir.polygons.files())
-                    .postprocess()
-                )
+                clipped = net.center.clipped
+
+                msg = f'Writing network to\n\t{tiles.outdir.network.file}'
+                logger.info(msg)
                 _ = (
-                    polys
+                    clipped
                     .to_crs(4326)
-                    .to_parquet(tiles.outdir.polygons.file)
+                    .to_parquet(tiles.outdir.network.file)
                 )
-                os.path.exists(tiles.outdir.polygons.file)
-                if polys.empty:
-                    logging.warning('No polygons were generated during the session.')
-
-                msg = (
-                    f'Generating network from polygons to\n\t'
-                    f'{tiles.outdir.network.file}'
-                )
-                logger.info(msg)
-
-                net = (
-                    PedNet
-                    .from_polygons(polys)
-                    .center
-                )
-                # net = (
-                #     PedNet(poly=polys, tiles=tiles)
-                #     .convert_whole_poly2line()
-                # )
-                # _ = (
-                #     net.combined
-                #     .to_crs(4326)
-                #     .to_parquet(tiles.outdir.network.file, driver='GeoJSON')
-                # )
-
-

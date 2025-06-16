@@ -739,8 +739,10 @@ class Polygon(cmdline.Namespace):
     def z_order(self) -> dict[str, int]:
         """Map label names to z-order values."""
         return dict(
-            sidewalk=0,
-            road=1,
+            # sidewalk=0,
+            # road=1,
+            road=0,
+            sidewalk=1,
             crosswalk=2,
         )
 

@@ -1,15 +1,18 @@
 from __future__ import annotations
-from typing import Self
+from pathlib import Path
 
 from functools import *
+from typing import Self
 
 import shapely.wkt
 from centerline.geometry import Centerline
 from tqdm import tqdm
 
 from tile2net.logger import logger
-from .standalone import  Lines
 from . import mintrees, stubs
+from .standalone import Lines
+from ..benchmark import benchmark
+
 _ = mintrees, stubs
 from tile2net.raster.tile_utils.geodata_utils import set_gdf_crs
 from tile2net.raster.tile_utils.topology import *
@@ -22,7 +25,7 @@ if False:
 
 
 def __get__(
-        self,
+        self: Center,
         instance: PedNet,
         owner: type[PedNet]
 ) -> Center:
@@ -31,45 +34,69 @@ def __get__(
     elif self.__name__ in instance.__dict__:
         result = instance.__dict__[self.__name__]
     else:
-        union = instance.union
-        geometry = union.geometry
+        checkpoint = None
+        if instance.checkpoint:
+            checkpoint = instance.checkpoint / 'center.parquet'
+        if checkpoint and checkpoint.exists():
+                result = (
+                    gpd.read_parquet(checkpoint)
+                    .pipe(self.__class__)
+                )
+        else:
+            union = instance.union
+            geometry = union.geometry
 
-        warn = (
-            f'High variance in polygon areas may cause progress-rate '
-            f'fluctuations for centerline computation. '
-        )
-        logger.debug(warn)
+            warn = (
+                f'High variance in polygon areas may cause progress-rate '
+                f'fluctuations for centerline computation. '
+            )
+            logger.debug(warn)
 
-        centers = []
-        for i, poly in tqdm(
-                enumerate(geometry),
-                total=len(geometry),
-                desc='Centerlines',
-                leave=False
-        ):
-            try:
-                centers.append(Centerline(poly).geometry)
-            except Exception as e:
-                err = f'Centerline computation failed for index {i}: {e}'
-                tqdm.write(err)
+            msg = 'Computing centerlines'
+            with benchmark(msg):
+                centers = []
+                it = tqdm(
+                    enumerate(geometry),
+                    total=len(geometry),
+                    desc='Centerlines',
+                    leave=False
+                )
+                for i, poly in it:
+                    try:
+                        item = Centerline(poly).geometry
+                        centers.append(item)
+                    except Exception as e:
+                        err = f'Centerline computation failed for index {i}: {e}'
+                        tqdm.write(err)
 
-        multilines = np.asarray(centers, dtype=object)
-        repeat = shapely.get_num_geometries(multilines)
-        lines = shapely.get_parts(multilines)
-        iloc = np.arange(len(repeat)).repeat(repeat)
+            multilines = np.asarray(centers, dtype=object)
+            repeat = shapely.get_num_geometries(multilines)
+            lines = shapely.get_parts(multilines)
+            iloc = np.arange(len(repeat)).repeat(repeat)
 
-        result = (
-            union
-            .iloc[iloc]
-            .set_geometry(lines)
-            .pipe(Lines.from_frame)
-            .drop2nodes
-            .pipe(Center)
-        )
+            msg = f'Resolving interstitial centerlines'
+            with benchmark(msg):
+                result = (
+                    union
+                    .iloc[iloc]
+                    .set_geometry(lines)
+                    .pipe(Lines.from_frame)
+                    .drop2nodes
+                    .pipe(Center)
+                )
 
-        lines = shapely.simplify(result.geometry, .01)
-        result = result.set_geometry(lines)
-        result.index.name = 'icent'
+            msg = f'Simplifying centerlines with tolerance 0.01'
+            with benchmark(msg):
+                lines = shapely.simplify(result.geometry, .01)
+            result = result.set_geometry(lines)
+            result.index.name = 'icent'
+
+            if checkpoint:
+                msg = f'Saving centerlines to {checkpoint}'
+                logger.debug(msg)
+                result.to_parquet(checkpoint)
+
+
         instance.__dict__[self.__name__] = result
 
     result.instance = instance
@@ -87,39 +114,11 @@ class Center(
     __name__ = 'center'
 
     @cached_property
-    def cleaned(self) -> gpd.GeoDataFrame:
-        swntw = self
-        geometry = swntw.union_all()
-        sw_modif_uni = gpd.GeoDataFrame(
-            geometry=gpd.GeoSeries(geometry, crs=swntw.crs),
-            index=swntw.index,
-        )
-        sw_modif_uni_met = set_gdf_crs(sw_modif_uni, 3857)
-        sw_uni_lines = sw_modif_uni_met.explode()
-        sw_uni_lines.reset_index(drop=True, inplace=True)
-        sw_uni_lines.geometry = sw_uni_lines.simplify(2)
-        sw_uni_lines.dropna(inplace=True)
-        sw_uni_line2 = sw_uni_lines.copy()
-
-        try:
-            sw_cl1 = clean_deadend_dangles(sw_uni_line2)
-            sw_extended = extend_lines(sw_cl1, 10, extension=0)
-
-            sw_cleaned = remove_false_nodes(sw_extended)
-            sw_cleaned.reset_index(drop=True, inplace=True)
-            sw_cleaned.geometry = sw_cleaned.geometry.set_crs(3857)
-        except:
-            result = sw_uni_lines
-        else:
-            result = sw_cleaned
-        return result
-
-    @cached_property
-    def clipped(self) -> gpd.GeoDataFrame:
+    def clipped(self) -> Self:
+        lines = self.pruned
+        features = self.instance.features
         msg = 'Clipping centerlines to the features'
         logger.debug(msg)
-        lines = self
-        features = self.instance.features
         geometry = features.mutex
         predicate = "intersects"
         ifeat, iline = lines.sindex.query(geometry, predicate)
@@ -128,14 +127,11 @@ class Center(
         geometry = (
             lines
             .intersection(features.mutex, align=False)
-            .reset_index(drop=True)
-            .geometry
+            .set_axis(features.index)
         )
-        result = Center({
-            'feature': features.feature.values,
-            'geometry': geometry,
-        })
-        result.index.name = 'iclip'
+        result = Center(geometry=geometry)
+        result.instance = self.instance
+
         return result
 
     @cached_property
@@ -159,27 +155,88 @@ class Center(
         return sidewalk
 
     @cached_property
-    def result(self) -> Self:
+    def pruned(self) -> Self:
         """
         Create network from the full polygon dataset
         """
         lines = self.lines
         center = self
-        while True:
-            loc = ~lines.iline.isin(lines.stubs.iline)
-            loc |= lines.iline.isin(lines.mintrees.iline)
-            if np.all(loc):
-                break
-            center: Center = (
-                lines
-                .loc[loc]
-                .pipe(Lines)
-                .drop2nodes
-                .pipe(Center)
+        msg = f'Pruning centerlines to remove stubs and mintrees'
+        # logger.debug(msg)
+        with benchmark(msg):
+            i = -1
+            while True:
+                i+= 1
+                msg = f'Iteration {i} of pruning centerlines'
+                logger.debug(msg)
+                loc = ~lines.iline.isin(lines.stubs.iline)
+                loc |= lines.iline.isin(lines.mintrees.iline)
+                if np.all(loc):
+                    break
+                msg = f'Resolving interstitial lines'
+                logger.debug(msg)
+                center: Center = (
+                    lines
+                    .loc[loc]
+                    .pipe(Lines)
+                    .drop2nodes
+                    .pipe(Center)
+                )
+                lines = center.lines
+                center.instance = self.instance
+                lines.pednet = self.instance
+            msg = f'Pruning centerlines completed after {i} iterations'
+            logger.debug(msg)
+        return center
+
+    @cached_property
+    def pruned(
+            self,
+    ) -> Self:
+        checkpoint = (
+            self.instance.checkpoint / 'pruned.parquet'
+            if self.instance.checkpoint
+            else None
+        )
+        if checkpoint and checkpoint.exists():
+            center = (
+                gpd.read_parquet(checkpoint)
+                .pipe(self.__class__)
             )
-            lines = center.lines
             center.instance = self.instance
-            lines.pednet = self.instance
+            center.lines.pednet = self.instance
+            return center
+
+        lines = self.lines
+        center = self
+        msg = 'Pruning centerlines to remove stubs and mintrees'
+        with benchmark(msg):
+            i = -1
+            while True:
+                i += 1
+                logger.debug(f'Iteration {i} of pruning centerlines')
+                loc = ~lines.iline.isin(lines.stubs.iline)
+                loc |= lines.iline.isin(lines.mintrees.iline)
+                if np.all(loc):
+                    break
+                logger.debug('Resolving interstitial lines')
+                center = (
+                    lines
+                    .loc[loc]
+                    .pipe(Lines)
+                    .drop2nodes
+                    .pipe(Center)
+                )
+                lines = center.lines
+                center.instance = self.instance
+                lines.pednet = self.instance
+            logger.debug(f'Pruning centerlines completed after {i} iterations')
+
+        if checkpoint:
+            checkpoint.parent.mkdir(parents=True, exist_ok=True)
+            with benchmark(f'Saving pruned centerlines to {checkpoint}'):
+                center.to_parquet(checkpoint)
+
         return center
 
     def visualize(
@@ -198,11 +255,36 @@ class Center(
         features = self.instance.features
         feature2color = features.color.to_dict()
         _ = features.mutex
+
+        if 'original' in features:
+            it = features.groupby(
+                level='feature',
+                observed=False,
+            )
+            for feature, frame in it:
+                color = feature2color[feature]
+                m = explore(
+                    frame,
+                    geometry='original',
+                    *args,
+                    color=color,
+                    name=f'{feature} (original)',
+                    tiles=tiles,
+                    simplify=simplify,
+                    m=m,
+                    style_kwds=dict(
+                        fill=True,
+                        fillColor=color,
+                        fillOpacity=0.05,
+                        weight=0,  # no stroke
+                    ),
+                    highlight=False,
+                    **kwargs,
+                )
+
+
         it = features.groupby(level='feature', observed=False)
 
-        lines = self
-        if attr:
-            lines = getattr(self, attr)
         for feature, frame in it:
             color = feature2color[feature]
             m = explore(
@@ -221,6 +303,10 @@ class Center(
                 **kwargs,
             )
 
+        lines = self
+        if attr:
+            lines = getattr(lines, attr)
+        lines = lines.reset_index()
         if 'feature' in lines.columns:
             it = lines.groupby('feature', observed=False)
             for feature, frame in it:

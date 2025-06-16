@@ -175,7 +175,7 @@ class Inference(
         criterion, criterion_val = get_loss(args)
 
         args.restore_net = True
-        msg = "Loading weights from: checkpoint={}".format(args.model.snapshot)
+        msg = "Loading weights from \n\t{}".format(args.model.snapshot)
         logger.info(msg)
         if args.model.snapshot != static.snapshot:
             msg = (

@@ -1,4 +1,7 @@
 from __future__ import annotations
+from ..benchmark import benchmark
+from tqdm.auto import tqdm
+from tile2net.logger import logger
 
 import heapq
 
@@ -14,6 +17,7 @@ if False:
     from .standalone import Edges, Nodes
     import folium
 
+
 def __get__(
         self: Stubs,
         instance: Lines,
@@ -24,6 +28,7 @@ def __get__(
     elif self.__name__ in instance.__dict__:
         result = instance.__dict__[self.__name__]
     else:
+        # note: can't checkpoint stubs because it's iterative
         lines = instance
         edges = lines.edges
         nodes = lines.nodes
@@ -33,11 +38,12 @@ def __get__(
         icoord2icoord = edges.stop_end.to_dict()
         icoord2node = edges.start_tuple.to_dict()
 
+        msg = f'Computing stubs'
+        logger.debug(msg)
+
         loc = edges.length.values <= edges.threshold.values
         loc &= edges.start_degree.values == 1
         ends = edges.loc[loc]
-        edges.loc[edges.iline == 542, 'threshold']
-        edges.length.loc[edges.iline == 542]
 
         stubs = set(ends.iline.values)
 
@@ -53,36 +59,42 @@ def __get__(
             ends.stop_inode.values,  # inode
             ends.threshold.values,  # stub_length
         )
-
-        for ifirst, ilast, cost, iline, inode, stub_length in it:
-            node = icoord2node[ilast]
-            queue = [
-                (cost + icoord2cost[ifirst], ifirst)
-                for ifirst in node
-            ]
-            heapq.heapify(queue)
-            visited = {iline}
-
-            while queue:
-                cost, ifirst = heapq.heappop(queue)
-                iline = icoord2iline[ifirst]
-                ilast = icoord2icoord[ifirst]
-                inode = icoord2inode[ilast]
-                if iline in visited:
-                    continue
-                visited.add(iline)
-
-                if cost > stub_length or cost >= inode2cost[inode]:
-                    continue
-                stubs.add(iline)
-                inode2cost[inode] = cost
+        it = tqdm(
+            it,
+            total=len(ends),
+            disable=not logger.isEnabledFor(logger.DEBUG),
+        )
+        msg = 'Performing depth first search to find stubs'
+        with benchmark(msg):
+            for ifirst, ilast, cost, iline, inode, stub_length in it:
                 node = icoord2node[ilast]
-                for ifirst in node:
+                queue = [
+                    (cost + icoord2cost[ifirst], ifirst)
+                    for ifirst in node
+                ]
+                heapq.heapify(queue)
+                visited = {iline}
+
+                while queue:
+                    cost, ifirst = heapq.heappop(queue)
                     iline = icoord2iline[ifirst]
+                    ilast = icoord2icoord[ifirst]
+                    inode = icoord2inode[ilast]
                     if iline in visited:
                         continue
-                    item = icoord2cost[ifirst] + cost, ifirst
-                    heapq.heappush(queue, item)
+                    visited.add(iline)
+
+                    if cost > stub_length or cost >= inode2cost[inode]:
+                        continue
+                    stubs.add(iline)
+                    inode2cost[inode] = cost
+                    node = icoord2node[ilast]
+                    for ifirst in node:
+                        iline = icoord2iline[ifirst]
+                        if iline in visited:
+                            continue
+                        item = icoord2cost[ifirst] + cost, ifirst
+                        heapq.heappush(queue, item)
 
         loc = edges.iline.isin(stubs)
         stub_edges = edges.loc[loc]
@@ -106,55 +118,63 @@ def __get__(
         )
 
         KEEP_ILINES: set[int] = set()
+        it = zip(connections.tuple, connections.inode)
+        it = tqdm(
+            it,
+            total=len(connections),
+            disable=not logger.isEnabledFor(logger.DEBUG),
+        )
 
-        for node, inode in zip(connections.tuple, connections.inode):
-            stub_length = inode2stub_length.get(inode, INF)
-            inode2cost: dict[int, float] = {inode: 0.0}
-            inode2ifirst: dict[int, int] = {}
-            keep_ilines: set[int] = set()
+        desc = 'Traversing from stub terminals to protect lines from excessive pruning'
+        with benchmark(desc):
 
-            queue = [
-                (icoord2cost[ifirst], ifirst, icoord2icoord[ifirst], inode)
-                for ifirst in node
-                if ifirst in legal_icoords
-                if (inode := icoord2inode[icoord2icoord[ifirst]]) in legal_inodes
-            ]
-            heapq.heapify(queue)
+            for node, inode in it:
+                stub_length = inode2stub_length.get(inode, INF)
+                inode2cost: dict[int, float] = {inode: 0.0}
+                inode2ifirst: dict[int, int] = {}
+                keep_ilines: set[int] = set()
 
-            while queue:
-                cost, ifirst, ilast, inode = heapq.heappop(queue)
-                if inode2cost.get(inode, INF) <= cost:
-                    continue
-                inode2ifirst[inode] = ifirst
-                inode2cost[inode] = cost
+                queue = [
+                    (icoord2cost[ifirst], ifirst, icoord2icoord[ifirst], inode)
+                    for ifirst in node
+                    if ifirst in legal_icoords
+                    if (inode := icoord2inode[icoord2icoord[ifirst]]) in legal_inodes
+                ]
+                heapq.heapify(queue)
 
-                for ifirst in icoord2node[ilast]:
-                    ilast = icoord2icoord[ifirst]
-                    inode = icoord2inode[ilast]
-                    if (
-                            ifirst not in legal_icoords
-                            or inode not in legal_inodes
-                    ):
+                while queue:
+                    cost, ifirst, ilast, inode = heapq.heappop(queue)
+                    if inode2cost.get(inode, INF) <= cost:
                         continue
-                    item = icoord2cost[ifirst] + cost, ifirst, ilast, inode
-                    heapq.heappush(queue, item)
+                    inode2ifirst[inode] = ifirst
+                    inode2cost[inode] = cost
 
-            for inode, cost in inode2cost.items():
-                if cost < stub_length:
-                    continue
-                while inode in inode2ifirst:
-                    ifirst = inode2ifirst[inode]
-                    iline = icoord2iline[ifirst]
-                    if iline in keep_ilines:
-                        break
-                    keep_ilines.add(iline)
-                    inode = icoord2inode[ifirst]
+                    for ifirst in icoord2node[ilast]:
+                        ilast = icoord2icoord[ifirst]
+                        inode = icoord2inode[ilast]
+                        if (
+                                ifirst not in legal_icoords
+                                or inode not in legal_inodes
+                        ):
+                            continue
+                        item = icoord2cost[ifirst] + cost, ifirst, ilast, inode
+                        heapq.heappush(queue, item)
 
-            KEEP_ILINES.update(keep_ilines)
+                for inode, cost in inode2cost.items():
+                    if cost < stub_length:
+                        continue
+                    while inode in inode2ifirst:
+                        ifirst = inode2ifirst[inode]
+                        iline = icoord2iline[ifirst]
+                        if iline in keep_ilines:
+                            break
+                        keep_ilines.add(iline)
+                        inode = icoord2inode[ifirst]
+
+                KEEP_ILINES.update(keep_ilines)
 
         loc = lines.iline.isin(stubs)
         loc &= ~lines.iline.isin(KEEP_ILINES)
-        # cols = 'geometry start_x start_y stop_x stop_y'.split()
         cols = lines.__keep__
         result = (
             lines
@@ -167,7 +187,6 @@ def __get__(
     return result
 
 
-
 class Stubs(
     Lines,
 ):
@@ -177,7 +196,6 @@ class Stubs(
 
     instance: Lines = None
     __name__ = 'stubs'
-
 
     def visualize(
             self,
@@ -195,6 +213,36 @@ class Stubs(
         lines = self.instance
         loc = ~lines.iline.isin(self.iline)
         lines = lines.loc[loc]
+
+        features = self.instance.pednet.features
+        feature2color = features.color.to_dict()
+        _ = features.mutex
+
+        if 'original' in features:
+            it = features.groupby(
+                level='feature',
+                observed=False,
+            )
+            for feature, frame in it:
+                color = feature2color[feature]
+                m = explore(
+                    frame,
+                    geometry='original',
+                    *args,
+                    color=color,
+                    name=f'{feature} (original)',
+                    tiles=tiles,
+                    simplify=simplify,
+                    m=m,
+                    style_kwds=dict(
+                        fill=True,
+                        fillColor=color,
+                        fillOpacity=0.05,
+                        weight=0,  # no stroke
+                    ),
+                    highlight=False,
+                    **kwargs,
+                )
 
         if polygon_color:
             m = explore(

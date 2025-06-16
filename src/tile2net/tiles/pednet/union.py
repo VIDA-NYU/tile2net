@@ -1,4 +1,5 @@
 from __future__ import annotations
+from functools import cached_property
 from ..cfg import cfg
 from ..explore import explore
 from tile2net.logger import logger
@@ -37,21 +38,22 @@ def __get__(
     elif self.__name__ in instance.__dict__:
         result = instance.__dict__[self.__name__]
     else:
-        msg = 'Computing the geometric union of all pedestrian features.'
-        logger.debug(msg)
         loc = ~instance.feature.isin(cfg.polygon.borders)
-        geometry = (
+        msg = f'Computing the geometric union of all {loc.sum()} pedestrian features.'
+        logger.debug(msg)
+        collection = (
             instance
             .loc[loc]
             .geometry
             .union_all()
         )
-        data = shapely.get_parts(geometry)
+        data = shapely.get_parts(collection)
         crs = instance.crs
         geometry = gpd.GeoSeries(data, crs=crs)
         result = Union(geometry=geometry)
         result.index.name = 'iunion'
         instance.__dict__[self.__name__] = result
+        # result.collection = collection
         return result
 
     result.instance = instance
@@ -61,11 +63,15 @@ def __get__(
 class Union(
     GeoDataFrameFixed
 ):
+    """
+    Union of all pedestrian features
+    """
     locals().update(
         __get__=__get__,
     )
     instance: PedNet = None
     __name__ = 'union'
+
 
     def explore(
             self,
