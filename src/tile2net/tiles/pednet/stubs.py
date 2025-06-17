@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 from ..benchmark import benchmark
 from tqdm.auto import tqdm
 from tile2net.logger import logger
@@ -62,7 +63,7 @@ def __get__(
         it = tqdm(
             it,
             total=len(ends),
-            disable=not logger.isEnabledFor(logger.DEBUG),
+            disable=not logger.isEnabledFor(logging.DEBUG),
         )
         msg = 'Performing depth first search to find stubs'
         with benchmark(msg):
@@ -122,7 +123,7 @@ def __get__(
         it = tqdm(
             it,
             total=len(connections),
-            disable=not logger.isEnabledFor(logger.DEBUG),
+            disable=not logger.isEnabledFor(logging.DEBUG),
         )
 
         desc = 'Traversing from stub terminals to protect lines from excessive pruning'

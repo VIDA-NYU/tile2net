@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ..benchmark import benchmark
 from functools import cached_property
 from ..cfg import cfg
 from ..explore import explore
@@ -40,13 +41,14 @@ def __get__(
     else:
         loc = ~instance.feature.isin(cfg.polygon.borders)
         msg = f'Computing the geometric union of all {loc.sum()} pedestrian features.'
-        logger.debug(msg)
-        collection = (
-            instance
-            .loc[loc]
-            .geometry
-            .union_all()
-        )
+        # logger.debug(msg)
+        with benchmark(msg):
+            collection = (
+                instance
+                .loc[loc]
+                .geometry
+                .union_all()
+            )
         data = shapely.get_parts(collection)
         crs = instance.crs
         geometry = gpd.GeoSeries(data, crs=crs)

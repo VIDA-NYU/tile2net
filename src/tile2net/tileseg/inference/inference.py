@@ -23,38 +23,28 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 """
 from __future__ import annotations, absolute_import, division
+
+import concurrent.futures
+import logging
 import os
-import numpy
-from geopandas import GeoDataFrame, GeoSeries
-
-import pandas as pd
-import geopandas as gpd
-
 import sys
+from typing import Optional
 
 import argh
-import concurrent.futures
-import copy
 import geopandas as gpd
-import logging
 import numpy
 import numpy as np
-import os
 import pandas as pd
-import sys
 import torch
 import torch.distributed as dist
 from geopandas import GeoDataFrame
 from torch.utils.data import DataLoader
-from typing import Optional
-import numpy as np
-from numpy.dtypes import Float16DType, Float32DType, Float64DType
-from torch.serialization import add_safe_globals, safe_globals
 
 import tile2net.tileseg.network.ocrnet
 from tile2net.logger import logger
 from tile2net.namespace import Namespace
 from tile2net.raster.pednet import PedNet
+from tile2net.raster.project import Project
 from tile2net.tileseg import datasets
 from tile2net.tileseg import network
 from tile2net.tileseg.config import assert_and_infer_cfg, cfg
@@ -62,9 +52,9 @@ from tile2net.tileseg.inference.commandline import commandline
 from tile2net.tileseg.loss.optimizer import get_optimizer, restore_opt, restore_net
 from tile2net.tileseg.loss.utils import get_loss
 from tile2net.tileseg.utils.misc import AverageMeter, prep_experiment
-from tile2net.tileseg.utils.misc import ImageDumper, ThreadedDumper
+from tile2net.tileseg.utils.misc import ThreadedDumper
 from tile2net.tileseg.utils.trnval_utils import eval_minibatch
-from tile2net.raster.project import Project
+
 if False:
     from tile2net.raster.raster import Raster
 import hashlib

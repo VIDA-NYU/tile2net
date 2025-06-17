@@ -300,6 +300,14 @@ class Mask2Poly(
             )
         logger.debug(f"Dissolved & exploded: {len(result)} polygon(s)")
 
+        msg = f'Validating {len(result)} polygon(s)'
+        with benchmark(msg):
+            result = (
+                result
+                .make_valid()
+                .pipe(result.set_geometry)
+            )
+
         if min_poly_area is None:
             min_poly_area = cfg.polygon.min_polygon_area
         if simplify is None:

@@ -1,66 +1,24 @@
-profile the inference
-
-dump_dict['assets'].keys()
-Out[3]: dict_keys(['pred_05x', 'pred_10x', 'attn_05x', 'predictions', 'prob_mask'])
-
-how to determine whether or not to force
-
-todo: problem is we are keeping the config globally;
-    this can allow for unpredictable behavior if the user uses multiple instanes in the
-    same session
-
-use a _flush=True parameter in the constructors
-
-we need global cfg and local cfg
-during inference, we push local cfg to global cfg with a context manager
-if anything fails, we restore the global cfg
-
-with self.cfg:
-    self.cfg is set to the global cfg
-    global cfg original values are stored elsewhere
-    self.cfg is literally the global cfg
-
-    self.infer()
-
-if we have Cfg inherit from dict, we cannot change the object that the global cfg is accessing
-but if we have a private dict internally, then we can swap them around
-
-todo: debug self.dimension
-
-we choose a crs for to postpocess in
-
-union polygons
-    overall network
-feature polygons (mutex)
-    feature network
-
-t       cl_arg      cl_arg/2        .1
-simpl   1           1               .5
-
-union.polygons
-union.network
-
-feature.polygons
-.feature.network
-
-exclude roads in buffer union erode
-buffer union erode should be blocked by roads
-
-how do we prevent sidewalks from crossing roads during BUE?
-
-crosswalk can cross road
-sidewalk cannot cross road
-crosswalk cannot cross sidewalk
-
-todo: weakly.cached property for the instances
-
-
-print('⚠️AI GENERATED🤖')
-from tqdm.contrib.logging import logging_redirect_tqdm
-
 with logging_redirect_tqdm():
     for i, (input_images, labels, img_names, scale_float) in enumerate(tqdm(loader)):
         if i % 20 == 0:
             logger.debug(f'Inference [Iter: {i + 1} / {len(loader)}]')
 
-todo: checkpoint
+Tiles
+
+SourceTiles
+    - stitch to inference tiles aggregates source tiles
+InferenceTiles
+    - stitch to network tiles aggregates inference tiles
+    - does not write polygons
+NetworkTiles
+    - generates polygons for each network tile
+    - from polygons creates network tiles
+    - each tile is a separate multiprocessing worker
+
+source -> inference -> network
+
+SourceTiles.stitch() -> InferenceTiles
+InferenceTiles.stitch() -> NetworkTiles
+
+
+pad.

@@ -1,11 +1,4 @@
 from __future__ import annotations
-import geopandas as gpd
-import dask_geopandas as dgpd
-from dask import delayed
-from pathlib import Path
-import pandas as pd
-import shapely
-from typing import Self
 
 from pathlib import Path
 from typing import *
@@ -56,6 +49,8 @@ class PedNet(
         if result.checkpoint:
             checkpoint = result.checkpoint / 'pednet.parquet'
             if checkpoint.exists():
+                msg = f'Loading preprocessed PedNet polygons from {checkpoint}'
+                logger.debug(msg)
                 result = (
                     gpd.read_parquet(checkpoint)
                     .pipe(cls)
@@ -63,58 +58,64 @@ class PedNet(
                 return result
 
         if distance:
+
             loc = result.feature.isin(cfg.polygon.borders)
-            border = result.loc[loc, 'geometry']
-            ped = result.loc[~loc, 'geometry']
+            border = result.loc[loc]
+            ped = result.loc[~loc]
 
-            msg = f"Buffering {len(ped)} polygon(s) by {distance}"
-            logger.debug(msg)
-            buffer = (
-                result
-                .loc[~loc]
-                .buffer(distance=distance, cap_style='flat')
-            )
+            msg = f"Dissolving and buffering {len(ped)} polygon(s) by {distance}"
+            with benchmark(msg):
+                buffer = (
+                    ped
+                    .dissolve(level='feature')
+                    .buffer(distance, cap_style='flat')
+                )
 
-            n = len(buffer) + len(border)
+            n = len(ped) + len(border)
             msg = f'Computing the union of {n} geometries'
-            # logger.debug(msg)
             with benchmark(msg):
                 union = (
-                    pd.concat([buffer, border], axis=0)
+                    pd.concat([buffer.geometry, border.geometry], axis=0)
                     .pipe(gpd.GeoSeries)
                     .union_all()
                 )
+
             n = shapely.get_num_geometries(union)
             msg = f'Eroding the union of {n} geometries by {distance}'
-            # logger.debug(msg)
             with benchmark(msg):
                 erode = union.buffer(-distance, cap_style='flat')
 
-            loc = ~buffer.index.isin(cfg.polygon.borders)
-            msg = f"Intersecting {len(buffer)} buffered polygon(s) with eroded union"
-            # logger.debug(msg)
+            n = shapely.get_num_geometries(buffer).sum()
+            m = shapely.get_num_geometries(erode)
+            msg = (
+                f'Intersecting {n} buffered polygon(s) with {m} unioned '
+                f'and eroded polygon(s), preventing crossing features, '
+                f'and unpacking multipolygons'
+            )
             with benchmark(msg):
-                intersection: gpd.GeoSeries = (
+                intersection: gpd.GeoDataFrame = (
                     buffer
-                    # only expand non-borders
-                    .loc[loc]
+                    # Intersecting buffered polygons with eroded union
                     .intersection(erode)
-                    # can't cross other features
+                    # Prevent crossing features
                     .difference(result.features.other, align=True)
-                    # unpack any resulting multipolygons from the border splitting BUE results
+                    # Unpack multipolygons
                     .explode()
                 )
 
             # drop any islands that created from crossing the border
             msg = f'Dropping buffered geometries which crossed the border'
-            # logger.debug(msg)
             with benchmark(msg):
-                features = result.features.loc[intersection.index]
-                loc = intersection.intersects(features, align=False)
-                intersection = intersection.loc[loc]
+                iped, iint = (
+                    intersection.sindex
+                    .query(ped.geometry, predicate='intersects')
+                )
+                loc = intersection.index[iint] == ped.index[iped]
+                iloc = np.unique(iint[loc])
+                intersection = intersection.iloc[iloc]
 
             geometry = (
-                pd.concat([intersection, border])
+                pd.concat([intersection.geometry, border.geometry])
                 .pipe(gpd.GeoSeries)
             )
             result = cls(geometry=geometry)
@@ -129,8 +130,8 @@ class PedNet(
             checkpoint = result.checkpoint / 'pednet.parquet'
             checkpoint.parent.mkdir(parents=True, exist_ok=True)
             msg = f'Saving {len(result)} polygons to {checkpoint}'
-            with benchmark(msg):
-                result.to_parquet(checkpoint, index=False)
+            logger.debug(msg)
+            result.to_parquet(checkpoint)
 
         return result
 
@@ -141,6 +142,7 @@ class PedNet(
             distance: float = .5,
             crs=3857,
             checkpoint: str = None,
+            save_original: bool = False,
     ) -> Self:
         """
         Load a PedNet from a parquet file.
@@ -152,6 +154,7 @@ class PedNet(
                 crs=crs,
                 distance=distance,
                 checkpoint=checkpoint,
+                save_original=save_original,
             )
         )
         return result

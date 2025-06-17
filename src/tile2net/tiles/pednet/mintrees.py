@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 import tqdm.auto
 import tqdm
 
@@ -85,7 +86,7 @@ def __get__(
             zip(terminals.tuple, terminals.inode),
             total=len(terminals),
             desc='Iterating across terminal nodes',
-            disable=not logger.isEnabledFor(logger.DEBUG),
+            disable=not logger.isEnabledFor(logging.DEBUG),
         )
 
         for node, inode in it:

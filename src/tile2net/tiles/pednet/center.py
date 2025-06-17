@@ -1,5 +1,4 @@
 from __future__ import annotations
-from pathlib import Path
 
 from functools import *
 from typing import Self
@@ -14,7 +13,6 @@ from .standalone import Lines
 from ..benchmark import benchmark
 
 _ = mintrees, stubs
-from tile2net.raster.tile_utils.geodata_utils import set_gdf_crs
 from tile2net.raster.tile_utils.topology import *
 from ..explore import explore
 from ..fixed import GeoDataFrameFixed
@@ -135,6 +133,21 @@ class Center(
         return result
 
     @cached_property
+    def clipped(self) -> Self:
+        msg = 'Clipping centerlines to the features'
+        with benchmark(msg):
+            result = (
+                self.pruned
+                .dissolve(level='feature')
+                .intersection(self.instance.features.mutex, align=True)
+                .explode()
+                .pipe(Center)
+            )
+        result.instance = self.instance
+        return result
+
+
+    @cached_property
     def lines(self) -> Lines:
         center = self
         lines = Lines.from_frame(center)
@@ -162,7 +175,6 @@ class Center(
         lines = self.lines
         center = self
         msg = f'Pruning centerlines to remove stubs and mintrees'
-        # logger.debug(msg)
         with benchmark(msg):
             i = -1
             while True:
