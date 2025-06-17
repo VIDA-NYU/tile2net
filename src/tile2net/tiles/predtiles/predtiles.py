@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from typing import *
@@ -8,21 +9,24 @@ import rasterio
 from numpy import ndarray
 
 from .batchiterator import BatchIterator
-from .tiles import Tiles
+from ..tiles import Tiles
+
+if False:
+    from ..intiles import InTiles
 
 
 def __get__(
-        self: Stitched,
+        self: PredTiles,
         instance: Optional[Tiles],
         owner: type[Tiles],
-) -> Stitched:
+) -> PredTiles:
     if instance is None:
         return self
     try:
         result = instance.attrs[self.__name__]
     except KeyError as e:
         msg = (
-            f'Tiles must be stitched using `Tiles.stitch` for '
+            f'Tiles must be predtiles using `Tiles.stitch` for '
             f'example `Tiles.stitch.to_resolution(2048)` or '
             f'`Tiles.stitch.to_cluster(16)`'
         )
@@ -31,10 +35,11 @@ def __get__(
     return result
 
 
-class Stitched(
-    Tiles
+from ..tiles import Tiles
+class PredTiles(
+    Tiles,
 ):
-    __name__ = 'stitched'
+    __name__ = 'predtiles'
 
     def __set_name__(self, owner, name):
         self.__name__ = name
@@ -62,7 +67,7 @@ class Stitched(
 
     @property
     def tiles(self) -> Tiles:
-        """Tiles object that this Stitched object is based on"""
+        """Tiles object that this PredTiles object is based on"""
         try:
             return self.attrs['tiles']
         except KeyError as e:
@@ -72,7 +77,7 @@ class Stitched(
 
     @tiles.setter
     def tiles(self, value: Tiles):
-        """Set the Tiles object that this Stitched object is based on"""
+        """Set the Tiles object that this PredTiles object is based on"""
         if not isinstance(value, Tiles):
             raise TypeError(f"Expected Tiles object, got {type(value)}")
         self.attrs['tiles'] = value
@@ -108,7 +113,7 @@ class Stitched(
     def outdir(self):
         # return self.tiles.outdir
         tiles = self.tiles
-        tiles._stitched = self
+        tiles._predtiles = self
         return tiles.outdir
 
     @property

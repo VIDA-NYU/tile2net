@@ -22,3 +22,8 @@ InferenceTiles.stitch() -> NetworkTiles
 
 
 pad.
+
+InTiles.stitch() -> PredTiles
+PredTiles.stitch() -> OutTiles
+
+

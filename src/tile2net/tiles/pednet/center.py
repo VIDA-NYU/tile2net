@@ -114,6 +114,7 @@ class Center(
     @cached_property
     def clipped(self) -> Self:
         lines = self.pruned
+        uredTiles.stitch() -> OutTiles
         features = self.instance.features
         msg = 'Clipping centerlines to the features'
         logger.debug(msg)
