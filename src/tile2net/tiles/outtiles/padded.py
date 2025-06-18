@@ -91,26 +91,37 @@ def __get__(
         boundary = boundary_tiles(shape)
         repeat = len(boundary)
 
-        xorigin = instance.xorigin.repeat(repeat)
-        yorigin = instance.yorigin.repeat(repeat)
-        pred_xtile = xorigin + boundary[:, 1]
-        pred_ytile = yorigin + boundary[:, 0]
+        dx: np.ndarray
+        dy: np.ndarray
+        dx, dy = boundary.T
+        xo = instance.xorigin.values[:, None]
+        yo = instance.yorigin.values[:, None]
+
+        pred_xtile = (xo + dx).ravel()
+        pred_ytile = (yo + dy).ravel()
+
+        r = np.broadcast_to(dx + 1, xo.shape).ravel()
+        c = np.broadcast_to(dy + 1, xo.shape).ravel()
+
+        out_xtile = instance.xtile.repeat(repeat)
+        out_ytile = instance.ytile.repeat(repeat)
+
         arrays = pred_xtile, pred_ytile
         names = 'xtile ytile'.split()
         loc = pd.MultiIndex.from_arrays(arrays, names=names)
-        out_xtile = instance.xtile.repeat(repeat)
-        out_ytile = instance.ytile.repeat(repeat)
-        # todo: also assign mosaic.r and mosaic.c
         result = (
             predtiles
             .loc[loc]
             .assign({
                 'out.xtile': out_xtile,
                 'out.ytile': out_ytile,
+                'mosaic.r': r,
+                'mosaic.c': c,
             })
             .pipe(Padded)
         )
         result.attrs.update(predtiles.attrs)
+        instance.attrs[self.__name__] = result
 
     result.outtiles = instance
     return result

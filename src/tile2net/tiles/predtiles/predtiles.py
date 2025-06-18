@@ -1,4 +1,6 @@
 from __future__ import annotations
+from .stitch import Stitch
+from .predict import Predict
 
 from typing import *
 
@@ -10,6 +12,7 @@ from .batchiterator import BatchIterator
 from .mosaic import Mosaic
 from .. import tile
 from ..tiles import Tiles
+from ..outtiles import OutTiles
 
 if False:
     from ..intiles import InTiles
@@ -36,7 +39,7 @@ class Tile(
 
 def __get__(
         self: PredTiles,
-        instance: Optional[Tiles],
+        instance: Tiles,
         owner: type[Tiles],
 ) -> PredTiles:
     if instance is None:
@@ -45,12 +48,12 @@ def __get__(
         result = instance.attrs[self.__name__]
     except KeyError as e:
         msg = (
-            f'Tiles must be predtiles using `Tiles.stitch` for '
-            f'example `Tiles.stitch.to_resolution(2048)` or '
-            f'`Tiles.stitch.to_cluster(16)`'
+            f'InTiles must be predtiles using `InTiles.stitch` for '
+            f'example `InTiles.stitch.to_resolution(2048)` or '
+            f'`InTiles.stitch.to_cluster(16)`'
         )
         raise ValueError(msg) from e
-    result.intiles = instance
+    result.tiles = instance
     return result
 
 
@@ -58,6 +61,46 @@ class PredTiles(
     Tiles,
 ):
     __name__ = 'predtiles'
+
+    @tile.cached_property
+    def intiles(self) -> InTiles:
+        ...
+
+    @OutTiles
+    def outtiles(self):
+        """
+        After performing PredTiles.stitch, PredTiles.outtiles is
+        available for performing inference on the stitched tiles.
+        """
+
+    @Predict
+    def predict(self):
+        # This code block is just semantic sugar and does not run.
+        # Take a look at the following methods which do run:
+        result = (
+            self.predict
+            .with_polygons(
+                max_hole_area=dict(
+                    road=30,
+                    crosswalk=15,
+                ),
+                grid_size=.001,
+            )
+            .to_outdir()
+        )
+        result = self.predict.to_outdir()
+
+    @Stitch
+    def stitch(self):
+        # This code block is just semantic sugar and does not run.
+        # Take a look at the following methods which do run:
+
+        # stitch to a target resolution e.g. 2048 ptxels
+        self.stitch.to_dimension(...)
+        # stitch to a cluster size e.g. 16 tiles
+        self.stitch.to_mosaic(...)
+        # stitch to an XYZ scale e.g. 17
+        self.stitch.to_scale(...)
 
     @tile.cached_property
     def intiles(self) -> InTiles:
@@ -140,10 +183,6 @@ class PredTiles(
             self.mosaic.xtile,
             # ytile of the larger mosaic
             self.mosaic.ytile,
-            # row of the tile within the larger mosaic
-            self.mosaic.r,
-            # column of the tile within the larger mosaic
-            self.mosaic.c,
         )
 
     @Tile

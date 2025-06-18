@@ -1,4 +1,5 @@
 import pandas as pd
+from .source import Source
 from .dir import Dir
 
 class Indir(

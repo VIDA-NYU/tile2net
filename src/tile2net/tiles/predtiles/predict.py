@@ -1,4 +1,8 @@
 from __future__ import annotations, absolute_import, division
+import logging
+from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
+
 from tqdm.auto import tqdm
 import geopandas as gpd
 
@@ -56,18 +60,18 @@ AutoResume = None
 if False:
     from .tiles import Tiles
 
+def __get__(
+        self: Predict,
+        instance: Tiles,
+        owner: type[Tiles],
+) -> Predict:
+    self.tiles = instance
+    self.Tiles = owner
+    return self
 
-class Infer:
+
+class Predict:
     tiles: Tiles
-
-    def __get__(
-            self,
-            instance: Tiles,
-            owner: type[Tiles],
-    ):
-        self.tiles = instance
-        self.Tiles = owner
-        return self
 
     def __init__(
             self,

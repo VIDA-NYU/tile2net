@@ -41,14 +41,6 @@ if False:
     from .tiles import Tiles
 
 
-def __get__(
-        self: Tile,
-        instance: Tiles,
-        owner: type[Tiles],
-) -> Tile:
-    self.tiles = instance
-    return self
-
 
 class cached_property:
     __wrapped__ = None
@@ -110,6 +102,14 @@ class cached_property:
     ):
         pass
 
+
+def __get__(
+        self: Tile,
+        instance: Tiles,
+        owner: type[Tiles],
+) -> Tile:
+    self.tiles = instance
+    return self
 
 class Tile(
 

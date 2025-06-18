@@ -22,10 +22,8 @@ from . import util
 from .colormap import ColorMap
 from .explore import explore
 from .fixed import GeoDataFrameFixed
-from .indir import Indir
-from .outdir import Outdir
-from .source import Source
 from .tile import Tile
+from .static import Static
 
 if False:
     import folium
@@ -49,28 +47,6 @@ class Tiles(
         """Tile integer Y"""
         return self.index.get_level_values('ytile')
 
-    @Source
-    def source(self):
-        """
-        Returns the Source class, which wraps a tile server.
-        See `Tiles.with_source()` to actually set a source.
-        """
-        # This code block is just semantic sugar and does not run.
-        # These methods are how to set the source:
-        self.with_source(...)  # automatically sets the source
-        self.with_source('nyc')
-
-    @Indir
-    def indir(self):
-        """
-        Returns the Indir class, which wraps an input directory, for
-        example `input/dir/x_y_z.png` or `input/dir/x/y/z.png`.
-        See `Tiles.with_indir()` to actually set an input directory.
-        """
-        # This code block is just semantic sugar and does not run.
-        # This method is how to set the input directory:
-        self.with_indir(...)
-
     @Tile
     def tile(self):
         """ Wrapper for tile attributes, such as tile scale. """
@@ -79,10 +55,6 @@ class Tiles(
         self.tile.scale = ...
         self.tile.zoom = ...
         self.tile.dimension = ...
-
-    @Outdir
-    def outdir(self):
-        ...
 
     @classmethod
     def from_integers(
@@ -428,3 +400,6 @@ class Tiles(
         value.__name__ = self.__name__
         instance.attrs[self.__name__] = value
 
+    @Static
+    def static(self):
+        ...

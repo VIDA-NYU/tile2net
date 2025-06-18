@@ -16,6 +16,8 @@ if False:
     from ..predtiles import PredTiles
 
 from ..tiles import Tiles
+from . import delayed
+
 
 
 def __get__(
@@ -26,15 +28,15 @@ def __get__(
     if instance is None:
         return self
     try:
-        result = instance.attrs[self.__name__]
+        result: OutTiles = instance.attrs[self.__name__]
     except KeyError as e:
         msg = (
-            f'Tiles must be predtiles using `Tiles.stitch` for '
-            f'example `Tiles.stitch.to_resolution(2048)` or '
-            f'`Tiles.stitch.to_cluster(16)`'
+            f'OutTiles must be stitched using `PredTiles.stitch` for '
+            f'example `PredTiles.stitch.to_dimension(2048)` or '
+            f'`PredTiles.stitch.to_cluster(16)`'
         )
         raise ValueError(msg) from e
-    result.intiles = instance
+    result.predtiles = instance
     return result
 
 
@@ -43,12 +45,9 @@ class OutTiles(
 ):
     __name__ = 'outtiles'
 
-    @property
+    @delayed.Padded
     def padded(self) -> Padded:
-        from .padded import Padded
-        setattr(self.__class__, 'padded', Padded())
-        return self.padded
-
+        ...
 
     @tile.cached_property
     def predtiles(self) -> PredTiles:

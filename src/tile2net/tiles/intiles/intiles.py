@@ -1,4 +1,7 @@
 from __future__ import annotations
+from .dir import Dir
+from .indir import Indir
+from .outdir import Outdir
 
 import os
 import shutil
@@ -21,17 +24,16 @@ from tqdm.auto import tqdm
 from tile2net.logger import logger
 from tile2net.raster import util
 from tile2net.tiles.cfg import cfg
-from .infer import Infer
 from .mosaic import Mosaic
 from .static import static
 from .stitch import Stitch
 from .. import util
 from ..cfg import Cfg
-from ..dir import Dir
+from .dir import Dir
 from ..predtiles import PredTiles
-from ..source import Source, SourceNotFound
+from .source import Source, SourceNotFound
 from ..tiles import Tiles
-
+from .. import tile
 
 class InTiles(
     Tiles
@@ -42,6 +44,10 @@ class InTiles(
     #     # This is a namespace container for static files:
     #     _ = self.static.hrnet_checkpoint
     #     _ = self.static.snapshot
+
+    @property
+    def outtiles(self):
+        return self.predtiles.outtiles
 
     static = static
 
@@ -57,26 +63,40 @@ class InTiles(
         # stitch to an XYZ scale e.g. 17
         self.stitch.to_scale(...)
 
-    @property
-    def predtiles(self) -> PredTiles:
-        """If set, will return a Tiles DataFrame with stitched tiles."""
+    @PredTiles
+    def predtiles(self):
+        """
+        After performing InTiles.stitch, InTiles.predtiles is
+        available for performing inference on the stitched tiles.
+        """
 
-    @Infer
-    def infer(self):
+
+    @Source
+    def source(self):
+        """
+        Returns the Source class, which wraps a tile server.
+        See `Tiles.with_source()` to actually set a source.
+        """
         # This code block is just semantic sugar and does not run.
-        # Take a look at the following methods which do run:
-        result = (
-            self.infer
-            .with_polygons(
-                max_hole_area=dict(
-                    road=30,
-                    crosswalk=15,
-                ),
-                grid_size=.001,
-            )
-            .to_outdir()
-        )
-        result = self.infer.to_outdir()
+        # These methods are how to set the source:
+        self.with_source(...)  # automatically sets the source
+        self.with_source('nyc')
+
+    @Indir
+    def indir(self):
+        """
+        Returns the Indir class, which wraps an input directory, for
+        example `input/dir/x_y_z.png` or `input/dir/x/y/z.png`.
+        See `Tiles.with_indir()` to actually set an input directory.
+        """
+        # This code block is just semantic sugar and does not run.
+        # This method is how to set the input directory:
+        self.with_indir(...)
+
+    @Outdir
+    def outdir(self):
+        ...
+
 
     @classmethod
     def from_location(
@@ -179,7 +199,7 @@ class InTiles(
         elif cfg.stitch.scale:
             tiles = stitch.to_scale(cfg.stitch.scale, pad)
 
-        tiles.infer(cfg.output_dir)
+        tiles.predict(cfg.output_dir)
         raise NotImplemented
 
     @Cfg

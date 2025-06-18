@@ -2,44 +2,42 @@ from __future__ import annotations
 
 from functools import *
 from pathlib import Path
-from typing import *
 
 import gdown
 from PIL import Image
 
 if False:
-    from .intiles import InTiles
+    from .tiles import Tiles
+
+
+def __get__(
+        self,
+        instance: Tiles,
+        owner: type[Tiles]
+):
+    self.tiles = instance
+    return self
 
 
 class Static:
-    intiles: InTiles
+    tiles: Tiles
+    locals().update(__get__=__get__)
 
     def __init__(
             self,
             *args,
-            **kwargs,
     ):
         ...
 
-    def __get__(
-            self,
-            intiles: InTiles,
-            owner: type[InTiles]
-    ):
-        self.intiles = intiles
-        return self
+    """Static directory into which weights are saved."""
+    path = Path(__file__).parent
+    while path.name != 'tile2net':
+        path = path.parent
+        if not path.name:
+            raise FileNotFoundError('Could not find tile2net directory')
+    path = path / 'static'
 
-    @cached_property
-    def path(self) -> Path:
-        """Static directory into which weights are saved."""
-        path = Path(__file__).parent
-        while path.name != 'tile2net':
-            path = path.parent
-            if not path.name:
-                raise FileNotFoundError('Could not find tile2net directory')
-        path = path / 'static'
-        return path
-
+    @classmethod
     def download(self):
         url = 'https://drive.google.com/drive/folders/1cu-MATHgekWUYqj9TFr12utl6VB-XKSu'
         gdown.download_folder(
@@ -48,27 +46,21 @@ class Static:
             output=self.path.__str__(),
         )
 
-    @cached_property
-    def hrnet_checkpoint(self) -> str:
-        result = (
-            self.path
-            .joinpath('hrnetv2_w48_imagenet_pretrained.pth')
-            .absolute().__fspath__()
-        )
-        return result
+    hrnet_checkpoint = (
+        path
+        .joinpath('hrnetv2_w48_imagenet_pretrained.pth')
+        .absolute().__fspath__()
+    )
 
-    @cached_property
-    def snapshot(self) -> str:
-        result = (
-            self.path
-            .joinpath('satellite_2021.pth')
-            .absolute().__fspath__()
-        )
-        return result
+    snapshot = (
+        path
+        .joinpath('satellite_2021.pth')
+        .absolute().__fspath__()
+    )
 
     @cached_property
     def black(self) -> Path:
-        dim: int = self.intiles.tile.dimension
+        dim: int = self.tiles.tile.dimension
         path: Path = self.path.joinpath(str(dim), 'black.png')
 
         if not path.exists():
@@ -77,5 +69,3 @@ class Static:
 
         return path
 
-
-static = Static()

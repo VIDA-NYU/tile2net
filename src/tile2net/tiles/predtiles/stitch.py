@@ -18,7 +18,6 @@ import math
 import numpy as np
 import pandas as pd
 from typing import *
-from .indir import Indir
 from .dir import Loader
 from tile2net.logger import logger
 

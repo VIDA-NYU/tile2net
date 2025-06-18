@@ -36,3 +36,9 @@ out.xtile
 
 
 padded inherits from
+
+each tile subclass should get its own self.static so it can get self.static.black
+
+predict.py
+mask2poly.py
+minibatch.py
