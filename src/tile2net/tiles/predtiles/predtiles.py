@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from typing import *
@@ -6,14 +5,32 @@ from typing import *
 import numpy as np
 import pandas as pd
 import rasterio
-from numpy import ndarray
 
 from .batchiterator import BatchIterator
+from .mosaic import Mosaic
+from .. import tile
 from ..tiles import Tiles
 
 if False:
     from ..intiles import InTiles
 
+
+
+class Tile(tile.Tile):
+    tiles: PredTiles
+
+    @property
+    def dimension(self) -> int:
+        """Tile dimension; inferred from input files"""
+        intiles = self.tiles.intiles
+        key = 'tile.dimension'
+        cache = intiles.attrs
+        if key in cache:
+            return cache[key]
+        result = intiles.tile.dimension * intiles.mosaic.length
+        cache[key] = result
+        self.tiles.intiles.cfg.stitch.dimension = result
+        return result
 
 def __get__(
         self: PredTiles,
@@ -31,11 +48,10 @@ def __get__(
             f'`Tiles.stitch.to_cluster(16)`'
         )
         raise ValueError(msg) from e
-    result.tiles = instance
+    result.intiles = instance
     return result
 
 
-from ..tiles import Tiles
 class PredTiles(
     Tiles,
 ):
@@ -52,54 +68,11 @@ class PredTiles(
         value.__name__ = self.__name__
         instance.attrs[self.__name__] = value
 
-    def __init__(
-            self,
-            *args,
-            **kwargs,
-    ):
-        if (
-                args
-                and callable(args[0])
-        ):
-            super().__init__(*args[1:], **kwargs)
-        else:
-            super().__init__(*args, **kwargs)
 
-    @property
-    def tiles(self) -> Tiles:
-        """Tiles object that this PredTiles object is based on"""
-        try:
-            return self.attrs['tiles']
-        except KeyError as e:
-            raise AttributeError(
 
-            ) from e
-
-    @tiles.setter
-    def tiles(self, value: Tiles):
-        """Set the Tiles object that this PredTiles object is based on"""
-        if not isinstance(value, Tiles):
-            raise TypeError(f"Expected Tiles object, got {type(value)}")
-        self.attrs['tiles'] = value
-
-    @property
-    def dimension(self) -> int:
-        """Tile dimension; inferred from input files"""
-        if 'dimension' in self.attrs:
-            return self.attrs['dimension']
-
-        tiles = self.tiles
-        dscale = int(self.tscale - tiles.tscale)
-        mlength = dscale ** 2
-        result = tiles.dimension * mlength
-        self.cfg.stitch.dimension = result
-        return result
-
-    @property
-    def mlength(self):
-        tiles = self.tiles
-        dscale = int(self.tscale - tiles.tscale)
-        return dscale ** 2
+    @tile.cached_property
+    def intiles(self) -> InTiles:
+        """InTiles object that this PredTiles object is based on"""
 
     @property
     def group(self) -> pd.Series:
@@ -111,10 +84,7 @@ class PredTiles(
 
     @property
     def outdir(self):
-        # return self.tiles.outdir
-        tiles = self.tiles
-        tiles._predtiles = self
-        return tiles.outdir
+        return self.intiles.outdir
 
     @property
     def affine_params(self) -> pd.Series:
@@ -122,7 +92,7 @@ class PredTiles(
         if key in self:
             return self[key]
 
-        dim = self.dimension
+        dim = self.tile.dimension
         self: pd.DataFrame
         col = 'gw gs ge gn'.split()
         it = self[col].itertuples(index=False)
@@ -137,13 +107,13 @@ class PredTiles(
 
     # def affine_iterator(self, *args, **kwargs) -> Iterator[ndarray]:
     #     key = 'affine_iterator'
-    #     cache = self.tiles.attrs
+    #     cache = self.intiles.attrs
     #     if key in cache:
     #         it = cache[key]
     #     else:
     #         affine = self.affine_params
-    #         if not self.tiles.cfg.force:
-    #             loc = ~self.tiles.outdir.skip
+    #         if not self.intiles.cfg.force:
+    #             loc = ~self.intiles.outdir.skip
     #             affine = affine[loc]
     #
     #         def gen():
@@ -161,13 +131,33 @@ class PredTiles(
 
     @BatchIterator
     def affine_iterator(self):
+        raise NotImplementedError('need to implement skip')
         return self.affine_params
-
 
     @property
     def cfg(self):
-        return self.tiles.cfg
+        return self.intiles.cfg
 
     @property
     def static(self):
-        return self.tiles.static
+        return self.intiles.static
+
+
+    @Mosaic
+    def mosaic(self):
+        # This code block is just semantic sugar and does not run.
+        # These columns are available once the tiles have been stitched:
+        _ = (
+            # xtile of the larger mosaic
+            self.mosaic.xtile,
+            # ytile of the larger mosaic
+            self.mosaic.ytile,
+            # row of the tile within the larger mosaic
+            self.mosaic.r,
+            # column of the tile within the larger mosaic
+            self.mosaic.c,
+        )
+
+    @Tile
+    def tile(self):
+        ...

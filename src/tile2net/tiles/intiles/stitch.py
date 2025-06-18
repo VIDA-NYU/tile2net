@@ -198,7 +198,7 @@ class Stitch:
         stitched = Stitched(_stitched)
         stitched.attrs.update(_stitched.attrs)
         setattr(stitched, 'indir', indir)
-        tiles.stitched = stitched
+        tiles.predtiles = stitched
         stitched.tiles = tiles
 
         stitched.zoom = tiles.zoom
@@ -206,7 +206,7 @@ class Stitch:
         mlength = dscale ** 2
 
         msg = f'Tile count is not {marea}x the mosaic count.'
-        assert len(tiles) == len(tiles.stitched) * marea, msg
+        assert len(tiles) == len(tiles.predtiles) * marea, msg
         msg = f'Not all mosaics are complete'
         assert (
             tiles

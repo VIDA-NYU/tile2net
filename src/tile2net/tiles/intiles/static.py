@@ -8,12 +8,11 @@ import gdown
 from PIL import Image
 
 if False:
-    from .tiles import Tiles
+    from .intiles import InTiles
 
 
 class Static:
-    instance: Tiles
-    owner: type[Tiles]
+    intiles: InTiles
 
     def __init__(
             self,
@@ -24,18 +23,11 @@ class Static:
 
     def __get__(
             self,
-            instance: Tiles,
-            owner: type[Tiles]
+            intiles: InTiles,
+            owner: type[InTiles]
     ):
-        self.instance = instance
-        self.owner = owner
+        self.intiles = intiles
         return self
-
-    def __call__(
-            self,
-            *args
-    ) -> Static:
-        ...
 
     @cached_property
     def path(self) -> Path:
@@ -76,7 +68,7 @@ class Static:
 
     @cached_property
     def black(self) -> Path:
-        dim: int = self.instance.dimension
+        dim: int = self.intiles.tile.dimension
         path: Path = self.path.joinpath(str(dim), 'black.png')
 
         if not path.exists():

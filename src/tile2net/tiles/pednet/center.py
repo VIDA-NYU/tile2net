@@ -36,10 +36,10 @@ def __get__(
         if instance.checkpoint:
             checkpoint = instance.checkpoint / 'center.parquet'
         if checkpoint and checkpoint.exists():
-                result = (
-                    gpd.read_parquet(checkpoint)
-                    .pipe(self.__class__)
-                )
+            result = (
+                gpd.read_parquet(checkpoint)
+                .pipe(self.__class__)
+            )
         else:
             union = instance.union
             geometry = union.geometry
@@ -94,7 +94,6 @@ def __get__(
                 logger.debug(msg)
                 result.to_parquet(checkpoint)
 
-
         instance.__dict__[self.__name__] = result
 
     result.instance = instance
@@ -113,28 +112,6 @@ class Center(
 
     @cached_property
     def clipped(self) -> Self:
-        lines = self.pruned
-        uredTiles.stitch() -> OutTiles
-        features = self.instance.features
-        msg = 'Clipping centerlines to the features'
-        logger.debug(msg)
-        geometry = features.mutex
-        predicate = "intersects"
-        ifeat, iline = lines.sindex.query(geometry, predicate)
-        features = features.iloc[ifeat]
-        lines = lines.iloc[iline]
-        geometry = (
-            lines
-            .intersection(features.mutex, align=False)
-            .set_axis(features.index)
-        )
-        result = Center(geometry=geometry)
-        result.instance = self.instance
-
-        return result
-
-    @cached_property
-    def clipped(self) -> Self:
         msg = 'Clipping centerlines to the features'
         with benchmark(msg):
             result = (
@@ -147,14 +124,12 @@ class Center(
         result.instance = self.instance
         return result
 
-
     @cached_property
     def lines(self) -> Lines:
         center = self
         lines = Lines.from_frame(center)
         lines.pednet = self.instance
         return lines
-
 
     @cached_property
     def crosswalk(self) -> gpd.GeoDataFrame:
@@ -167,40 +142,6 @@ class Center(
         loc = self.clipped.feature == 'sidewalk'
         sidewalk = self.clipped.loc[loc].copy()
         return sidewalk
-
-    @cached_property
-    def pruned(self) -> Self:
-        """
-        Create network from the full polygon dataset
-        """
-        lines = self.lines
-        center = self
-        msg = f'Pruning centerlines to remove stubs and mintrees'
-        with benchmark(msg):
-            i = -1
-            while True:
-                i+= 1
-                msg = f'Iteration {i} of pruning centerlines'
-                logger.debug(msg)
-                loc = ~lines.iline.isin(lines.stubs.iline)
-                loc |= lines.iline.isin(lines.mintrees.iline)
-                if np.all(loc):
-                    break
-                msg = f'Resolving interstitial lines'
-                logger.debug(msg)
-                center: Center = (
-                    lines
-                    .loc[loc]
-                    .pipe(Lines)
-                    .drop2nodes
-                    .pipe(Center)
-                )
-                lines = center.lines
-                center.instance = self.instance
-                lines.pednet = self.instance
-            msg = f'Pruning centerlines completed after {i} iterations'
-            logger.debug(msg)
-        return center
 
     @cached_property
     def pruned(
@@ -294,7 +235,6 @@ class Center(
                     highlight=False,
                     **kwargs,
                 )
-
 
         it = features.groupby(level='feature', observed=False)
 

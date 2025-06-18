@@ -426,7 +426,7 @@ class Raster(Grid):
         self.calculate_padding()
         self.update_tiles()
         self.download()
-        self.project.tiles.stitched.path.mkdir(parents=True, exist_ok=True)
+        self.project.tiles.predtiles.path.mkdir(parents=True, exist_ok=True)
         if not (self.source or self.input_dir):
             raise RuntimeError(
                 "No source or input directory specified. Cannot stitch tiles."
@@ -434,7 +434,7 @@ class Raster(Grid):
         outfiles = pipe(
             # self.tiles[:r:step, :c:step],
             self.tiles[::step, ::step],
-            self.project.tiles.stitched.files,
+            self.project.tiles.predtiles.files,
             list,
         )
         not_exists = [not os.path.exists(outfile) for outfile in outfiles]

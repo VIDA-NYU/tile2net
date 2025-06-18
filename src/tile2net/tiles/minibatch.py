@@ -387,7 +387,7 @@ class MiniBatch(
 
     @look_at(tile2net.tileseg.inference.inference.Inference.validate)
     def submit_polygons(self):
-        affines = next(self.tiles.stitched.affine_iterator())
+        affines = next(self.tiles.predtiles.affine_iterator())
         arrays = to_numpy(self.predictions).astype(np.uint8)
         files = next(self.tiles.outdir.polygons.iterator())
         it = zip(arrays, affines, files)

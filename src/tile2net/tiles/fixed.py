@@ -120,6 +120,8 @@ class GeoDataFrameFixed(
     def __eq__(self, other):
         return False
 
+    def __deepcopy__(self, memo) -> Self:
+        return self.copy()
 
     @final
     def __finalize__(self, other, method: str | None = None, **kwargs) -> Self:
