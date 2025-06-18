@@ -24,7 +24,7 @@ class Mosaic(
         key = 'mosaic.r'
         if key in predtiles.columns:
             return predtiles[key]
-        return result
+        raise  AttributeError
 
     @property
     def c(self) -> pd.Series:
@@ -33,5 +33,4 @@ class Mosaic(
         key = 'mosaic.c'
         if key in predtiles.columns:
             return predtiles[key]
-        return result
-
+        raise AttributeError

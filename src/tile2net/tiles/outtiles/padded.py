@@ -100,6 +100,7 @@ def __get__(
         loc = pd.MultiIndex.from_arrays(arrays, names=names)
         out_xtile = instance.xtile.repeat(repeat)
         out_ytile = instance.ytile.repeat(repeat)
+        # todo: also assign mosaic.r and mosaic.c
         result = (
             predtiles
             .loc[loc]
