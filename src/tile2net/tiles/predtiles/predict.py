@@ -1,4 +1,5 @@
 from __future__ import annotations, absolute_import, division
+from tqdm.auto import tqdm
 import geopandas as gpd
 
 import os
@@ -277,6 +278,11 @@ class Infer:
         for i, (input_images, labels, img_names, scale_float) in it:
             if i % 20 == 0:
                 logger.debug(f'Inference [Iter: {i + 1} / {len(loader)}]')
+
+        with logging_redirect_tqdm():
+            for i, (input_images, labels, img_names, scale_float) in enumerate(tqdm(loader)):
+                if i % 20 == 0:
+                    logger.debug(f'Inference [Iter: {i + 1} / {len(loader)}]')
 
             batch = (
                 MiniBatch
