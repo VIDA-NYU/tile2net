@@ -84,45 +84,6 @@ class Mosaic(
     def xtile(self):
         return self.frame.xtile
 
-
-    @property
-    def r(self) -> pd.Series:
-        """row within the mosaic of this tile"""
-        predtiles = self.predtiles
-        key = 'mosaic.r'
-        if key in predtiles.columns:
-            return predtiles[key]
-        outtiles = predtiles.outtiles
-        result = (
-            predtiles.ytile
-            .to_series(index=predtiles.index)
-            .floordiv(predtiles.mosaic.length)
-            .mul(predtiles.mosaic.length)
-            .rsub(predtiles.ytile.values)
-        )
-        predtiles[key] = result
-        result = predtiles[key]
-        return result
-
-    @property
-    def c(self) -> pd.Series:
-        """column within the mosaic of this tile"""
-        predtiles = self.predtiles
-        key = 'mosaic.c'
-        if key in predtiles.columns:
-            return predtiles[key]
-        outtiles = predtiles.outtiles
-        result = (
-            predtiles.xtile
-            .to_series(index=predtiles.index)
-            .floordiv(predtiles.mosaic.length)
-            .mul(predtiles.mosaic.length)
-            .rsub(predtiles.xtile.values)
-        )
-        predtiles[key] = result
-        result = predtiles[key]
-        return result
-
     @property
     def group(self) -> pd.Series:
         predtiles = self.predtiles
@@ -132,7 +93,7 @@ class Mosaic(
         arrays = self.xtile, self.ytile
         loc = pd.MultiIndex.from_arrays(arrays)
         result = (
-            predtiles.outtiles.group
+            predtiles.outtiles.ipred
             .loc[loc]
             .values
         )

@@ -20,7 +20,6 @@ source -> inference -> network
 SourceTiles.stitch() -> InferenceTiles
 InferenceTiles.stitch() -> NetworkTiles
 
-
 pad.
 
 InTiles.stitch() -> PredTiles
@@ -30,3 +29,10 @@ previously, mosaic.xtile and mosaic.ytile were easy because they were 1-to-1 map
 now, each xtile and ytile can belong to two mosaics
 
 can't use mosaic(frame) because we need to first access lengt,
+
+
+pred.xtile
+out.xtile
+
+
+padded inherits from

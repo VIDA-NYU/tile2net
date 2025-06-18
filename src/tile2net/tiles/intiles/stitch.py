@@ -232,7 +232,7 @@ class Stitch:
             logger.info(msg)
 
             # sort stitched by group so that outfiles come out in row–major mosaic order
-            iloc = np.argsort(stitched.group.values)
+            iloc = np.argsort(stitched.ipred.values)
             stitched: Stitched = stitched.iloc[iloc]
             # outfiles = stitched.file  # 1:1 with mosaics
             outfiles = stitched.indir.files()
@@ -250,15 +250,15 @@ class Stitch:
                 logger.info(f'Stitching {n_missing:,} of {n_total:,} mosaics missing on disk.')
 
             # groups (integer IDs) whose stitched files are absent
-            groups_needed = stitched.group[missing_mask].unique()
+            groups_needed = stitched.ipred[missing_mask].unique()
 
             # subset all per-tile Series to only tiles belonging to those groups
-            sel = tiles.mosaic.group.isin(groups_needed).values
+            sel = tiles.mosaic.ipred.isin(groups_needed).values
             files_sub = tiles.indir.files().loc[sel]
 
             row_sub = tiles.mosaic.r.loc[sel]
             col_sub = tiles.mosaic.c.loc[sel]
-            group_sub = tiles.mosaic.group.loc[sel]
+            group_sub = tiles.mosaic.ipred.loc[sel]
 
             tile_shape = tiles.dimension, tiles.dimension, 3
             mosaic_shape = stitched.dimension, stitched.dimension, 3

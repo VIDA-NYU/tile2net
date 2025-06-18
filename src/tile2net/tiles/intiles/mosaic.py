@@ -37,6 +37,13 @@ class Mosaic(
         )
         return length ** 2
 
+    @tile.cached_property
+    def index(self):
+        arrays = self.xtile, self.ytile
+        names = self.xtile.name, self.ytile.name
+        result = pd.MultiIndex.from_arrays(arrays, names=names)
+        return result
+
     @property
     def xtile(self) -> pd.Series:
         """Tile integer X of this tile in the predtiles mosaic"""
@@ -76,7 +83,6 @@ class Mosaic(
         key = 'mosaic.r'
         if key in intiles.columns:
             return intiles[key]
-        predtiles = intiles.predtiles
         result = (
             intiles.ytile
             .to_series(index=intiles.index)
@@ -95,7 +101,6 @@ class Mosaic(
         key = 'mosaic.c'
         if key in intiles.columns:
             return intiles[key]
-        predtiles = intiles.predtiles
         result = (
             intiles.xtile
             .to_series(index=intiles.index)
@@ -108,15 +113,15 @@ class Mosaic(
         return result
 
     @property
-    def group(self) -> pd.Series:
+    def ipred(self) -> pd.Series:
         intiles = self.intiles
-        key = 'mosaic.group'
+        key = 'mosaic.ipred'
         if key in intiles.columns:
             return intiles[key]
         arrays = self.xtile, self.ytile
         loc = pd.MultiIndex.from_arrays(arrays)
         result = (
-            intiles.predtiles.group
+            intiles.predtiles.ipred
             .loc[loc]
             .values
         )

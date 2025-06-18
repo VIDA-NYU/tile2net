@@ -15,8 +15,9 @@ if False:
     from ..intiles import InTiles
 
 
-
-class Tile(tile.Tile):
+class Tile(
+    tile.Tile
+):
     tiles: PredTiles
 
     @property
@@ -31,6 +32,7 @@ class Tile(tile.Tile):
         cache[key] = result
         self.tiles.intiles.cfg.stitch.dimension = result
         return result
+
 
 def __get__(
         self: PredTiles,
@@ -57,30 +59,17 @@ class PredTiles(
 ):
     __name__ = 'predtiles'
 
-    def __set_name__(self, owner, name):
-        self.__name__ = name
-
-    def __set__(
-            self,
-            instance: Tiles,
-            value: type[Tiles],
-    ):
-        value.__name__ = self.__name__
-        instance.attrs[self.__name__] = value
-
-
-
     @tile.cached_property
     def intiles(self) -> InTiles:
         """InTiles object that this PredTiles object is based on"""
 
     @property
-    def group(self) -> pd.Series:
-        if 'group' in self.columns:
-            return self['group']
-        result = pd.Series(np.arange(len(self)), index=self.index)
-        self['group'] = result
-        return self['group']
+    def ipred(self) -> pd.Series:
+        key = 'ipred'
+        if key in self.columns:
+            return self[key]
+        self[key] = np.arange(len(self), dtype=np.uint32)
+        return self[key]
 
     @property
     def outdir(self):
@@ -141,7 +130,6 @@ class PredTiles(
     @property
     def static(self):
         return self.intiles.static
-
 
     @Mosaic
     def mosaic(self):

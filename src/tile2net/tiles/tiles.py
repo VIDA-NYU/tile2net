@@ -31,7 +31,6 @@ if False:
     import folium
 
 
-
 class Tiles(
     GeoDataFrameFixed,
 ):
@@ -417,4 +416,15 @@ class Tiles(
             super().__init__(*args[1:], **kwargs)
         else:
             super().__init__(*args, **kwargs)
+
+    def __set_name__(self, owner, name):
+        self.__name__ = name
+
+    def __set__(
+            self,
+            instance: Tiles,
+            value: type[Tiles],
+    ):
+        value.__name__ = self.__name__
+        instance.attrs[self.__name__] = value
 
