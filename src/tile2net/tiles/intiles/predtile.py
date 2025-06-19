@@ -1,26 +1,23 @@
 from __future__ import annotations
 
-from typing import *
-
-import numpy as np
 import pandas as pd
-from .. import tile
+from ..tiles import tile
 
 if False:
     from .intiles import InTiles
 
 
 def __get__(
-        self: Mosaic,
+        self: PredTile,
         instance: InTiles,
         owner: type[InTiles],
-) -> Mosaic:
+) -> PredTile:
     self.intiles = instance
     self.InTiles = owner
     return self
 
 
-class Mosaic(
+class PredTile(
 
 ):
     intiles: InTiles
@@ -53,7 +50,7 @@ class Mosaic(
             return intiles[key]
 
         predtiles = intiles.predtiles
-        result = intiles.xtile // intiles.mosaic.length
+        result = intiles.xtile // intiles.predtile.length
 
         msg = 'All mosaic.xtile must be in predtiles.xtile!'
         assert result.isin(predtiles.xtile).all(), msg
@@ -69,7 +66,7 @@ class Mosaic(
             return intiles[key]
 
         predtiles = intiles.predtiles
-        result = intiles.ytile // intiles.mosaic.length
+        result = intiles.ytile // intiles.predtile.length
 
         msg = 'All mosaic.ytile must be in predtiles.ytile!'
         assert result.isin(predtiles.ytile).all(), msg
@@ -86,8 +83,8 @@ class Mosaic(
         result = (
             intiles.ytile
             .to_series(index=intiles.index)
-            .floordiv(intiles.mosaic.length)
-            .mul(intiles.mosaic.length)
+            .floordiv(intiles.predtile.length)
+            .mul(intiles.predtile.length)
             .rsub(intiles.ytile.values)
         )
         intiles[key] = result
@@ -104,8 +101,8 @@ class Mosaic(
         result = (
             intiles.xtile
             .to_series(index=intiles.index)
-            .floordiv(intiles.mosaic.length)
-            .mul(intiles.mosaic.length)
+            .floordiv(intiles.predtile.length)
+            .mul(intiles.predtile.length)
             .rsub(intiles.xtile.values)
         )
         intiles[key] = result
@@ -127,6 +124,37 @@ class Mosaic(
         )
         intiles[key] = result
         return intiles[key]
+
+    @property
+    def file(self) -> pd.Series:
+        """predtiles.file broadcasted to intiles"""
+        intiles = self.intiles
+        key = 'mosaic.file'
+        if key in intiles.columns:
+            return intiles[key]
+        result = (
+            intiles.predtiles.file
+            .loc[self.index]
+            .values
+        )
+        intiles[key] = result
+        return intiles[key]
+
+    @property
+    def skip(self) -> pd.Series:
+        """predtiles.skip broadcasted to intiles"""
+        intiles = self.intiles
+        key = 'mosaic.skip'
+        if key in intiles.columns:
+            return intiles[key]
+        result = (
+            intiles.predtiles.skip
+            .loc[self.index]
+            .values
+        )
+        intiles[key] = result
+        return intiles[key]
+
 
     def __init__(
             self,

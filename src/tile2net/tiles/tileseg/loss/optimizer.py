@@ -31,11 +31,11 @@ POSSIBILITY OF SUCH DAMAGE.
 # Optimizer and scheduler related tasks
 
 import math
-from tile2net.logger import logger
+from tile2net.tiles.logger import logger
 import torch
 
 from torch import optim
-from tile2net.logger import logger
+from tile2net.tiles.logger import logger
 
 from tile2net.tiles.cfg import cfg
 from tile2net.tiles.tileseg.loss.radam import RAdam

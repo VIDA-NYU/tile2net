@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-import os
-import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from functools import cached_property
-from pathlib import Path
 from typing import *
 
 import PIL.Image
@@ -15,15 +12,13 @@ import pyproj
 import shapely
 from PIL import Image
 
-from tile2net.logger import logger
 from tile2net.raster import util
-from tile2net.tiles.cfg import cfg
-from . import util
+from tile2net.tiles import util
+from tile2net.tiles.explore import explore
+from tile2net.tiles.fixed import GeoDataFrameFixed
 from .colormap import ColorMap
-from .explore import explore
-from .fixed import GeoDataFrameFixed
-from .tile import Tile
 from .static import Static
+from .tile import Tile
 
 if False:
     import folium
@@ -40,12 +35,18 @@ class Tiles(
     @property
     def xtile(self) -> pd.Index:
         """Tile integer X"""
-        return self.index.get_level_values('xtile')
+        try:
+            return self.index.get_level_values('xtile')
+        except KeyError:
+            return self['xtile']
 
     @property
     def ytile(self) -> pd.Index:
         """Tile integer Y"""
-        return self.index.get_level_values('ytile')
+        try:
+            return self.index.get_level_values('ytile')
+        except KeyError:
+            return self['ytile']
 
     @Tile
     def tile(self):
@@ -59,34 +60,34 @@ class Tiles(
     @classmethod
     def from_integers(
             cls,
-            tx,
-            ty,
-            zoom: int = 19,
+            xtile: pd.Series | pd.Index | np.ndarray,
+            ytile: pd.Series | pd.Index | np.ndarray,
+            zoom: int,
     ) -> Self:
         """
         Construct Tiles from integer tile numbers.
         This allows for a non-rectangular grid of tiles.
         """
-        if isinstance(ty, (pd.Series, pd.Index)):
-            tn = ty.values
-        elif isinstance(ty, np.ndarray):
-            tn = ty
+        if isinstance(ytile, (pd.Series, pd.Index)):
+            tn = ytile.values
+        elif isinstance(ytile, np.ndarray):
+            tn = ytile
         else:
-            raise TypeError('ty must be a Series, Index, or ndarray')
+            raise TypeError('ytile must be a Series, Index, or ndarray')
         tn = tn.astype('uint32')
 
-        if isinstance(tx, (pd.Series, pd.Index)):
-            tw = tx.values
-        elif isinstance(tx, np.ndarray):
-            tw = tx
+        if isinstance(xtile, (pd.Series, pd.Index)):
+            tw = xtile.values
+        elif isinstance(xtile, np.ndarray):
+            tw = xtile
         else:
-            raise TypeError('tx must be a Series, Index, or ndarray')
+            raise TypeError('xtile must be a Series, Index, or ndarray')
         tw = tw.astype('uint32')
 
         te = tw + 1
         ts = tn + 1
         names = 'xtile ytile'.split()
-        index = pd.MultiIndex.from_arrays([tx, ty], names=names)
+        index = pd.MultiIndex.from_arrays([xtile, ytile], names=names)
         gw, gn = util.num2deg(tw, tn, zoom=zoom)
         ge, gs = util.num2deg(te, ts, zoom=zoom)
         trans = (
@@ -115,135 +116,26 @@ class Tiles(
         result.zoom = zoom
         return result
 
-    def with_indir(
-            self,
-            indir: str,
-            name: str = None,
-    ) -> Self:
-        """
-        Assign an input directory to the tiles. The directory must
-        implicate the X and Y tile numbers in the file names.
-
-        Good:
-            input/dir/x/y/z.png
-            input/dir/x/y/.png
-            input/dir/x_y_z.png
-            input/dir/x_y.png
-            input/dir/z/x_y.png
-        Bad:
-            input/dir/x.png
-            input/dir/y
-
-        This will set the input directory and format
-        self.with_indir('input/dir/x/y/z.png')
-
-        There is no format specified to, so it will default to
-        input/dir/x_y_z.png:
-        self.with_indir('input/dir')
-
-        This will fail to explicitly set the format, so it will
-        default to input/dir/x/x_y_z.png
-        self.with_indir('input/dir/x')
-        """
-        result = self.copy()
-        if name:
-            result.name = name
-        try:
-            result.indir = indir
-            indir: Indir = result.indir
-            msg = f'Setting input directory to \n\t{indir.original}. '
-
-            logger.info(msg)
-
-        except ValueError as e:
-            msg = (
-                f'Invalid input directory: {indir}. '
-                f'The directory directory must implicate the X and Y '
-                f'tile numbers by including `x` and `y` in some format, '
-                f'for example: '
-                f'input/dir/x/y/z.png or input/dir/x_y_z.png.'
-            )
-            raise ValueError(msg) from e
-        try:
-            _ = result.outdir
-        except AttributeError:
-            msg = (
-                f'Output directory not yet set. Based on the input directory, '
-                f'setting it to a default value.'
-            )
-            logger.info(msg)
-            result = result.with_outdir()
-        return result
-
-    def with_outdir(
-            self,
-            outdir: Union[str, Path] = None,
-    ) -> Self:
-        """
-        Assign an output directory to the tiles.
-        The tiles are saved to the output directory.
-        """
-        result: Tiles = self.copy()
-        if outdir:
-            ...
-        elif cfg.output_dir:
-            outdir = cfg.output_dir
-        else:
-            if self.name:
-                name = self.name
-            elif cfg.name:
-                name = cfg.name
-            elif (
-                    self.source
-                    and self.source.name
-            ):
-                name = self.source.name
-            else:
-                msg = (
-                    f'No output directory specified, and unable to infer '
-                    f'a name for a temporary output directory. Either '
-                    f'set a name, use a source, or specify an output directory.'
-                )
-                raise ValueError(msg)
-
-            outdir = os.path.join(
-                tempfile.gettempdir(),
-                'tile2net',
-                name,
-                'outdir'
-            )
-
-        try:
-            result.outdir = outdir
-        except ValueError:
-            retry = os.path.join(outdir, 'z', 'x_y.png')
-            result.outdir = retry
-            logger.info(f'Setting output directory to \n\t{retry}')
-        else:
-            logger.info(f'Setting output directory to \n\t{outdir}')
-
-        return result
-
     @cached_property
     def r(self) -> pd.Series:
         """Row of the tile within the overall grid."""
-        ytile = (
+        result = (
             self.ytile
             .to_series()
             .set_axis(self.index)
+            .sub(self.ytile.min())
         )
-        result = ytile - ytile.min()
         return result
 
     @cached_property
     def c(self) -> pd.Series:
         """Column of the tile within the overall grid."""
-        xtile = (
+        result = (
             self.xtile
             .to_series()
             .set_axis(self.index)
+            .sub(self.xtile.min())
         )
-        result = xtile - xtile.min()
         return result
 
     @property
@@ -402,4 +294,87 @@ class Tiles(
 
     @Static
     def static(self):
-        ...
+        # This code block is just semantic sugar and does not run.
+        # This is a namespace container for static files:
+        self.static.hrnet_checkpoint = ...
+        self.static.snapshot = ...
+
+    def to_scale(
+            self,
+            scale: int,
+            fill: bool = True,
+    ) -> Self:
+        """
+        scale:
+            new scale of tiles
+        fill:
+            if True, fills missing tiles when making larger tiles.
+            else, the larger tiles that have missing tiles are dropped.
+        """
+
+        mosaic_length = (self.tile.scale - scale) ** 2
+        if self.tile.scale < scale:
+            # smaller tiles
+            smaller = self.index.to_frame()
+            larger = smaller // mosaic_length
+            topleft = (
+                larger
+                .drop_duplicates()
+                .mul(mosaic_length)
+            )
+            arange = np.arange(mosaic_length)
+            x, y = np.meshgrid(arange, arange, indexing='ij')
+            txy: np.ndarray = (
+                np.stack((x, y), -1)
+                .reshape(-1, 2)
+                .__add__(topleft.values[:, None, :])
+                .reshape(-1, 2)
+            )
+            xtile, ytile = txy.T
+            result = self.from_integers(
+                xtile,
+                ytile,
+                scale
+            )
+            tile_dimension = self.tile.dimension // mosaic_length
+
+        elif self.tile.scale > scale:
+            # larger tiles
+            frame: Self = (
+                self.index
+                .to_frame()
+                .floordiv(mosaic_length)
+            )
+            if fill:
+                frame = frame.drop_duplicates()
+            else:
+                loc = (
+                    frame
+                    .drop_duplicates()
+                    .pipe(pd.MultiIndex.from_frame)
+                )
+                loc = (
+                    frame
+                    .groupby(frame.columns.tolist())
+                    .size()
+                    .eq(mosaic_length ** 2)
+                    .loc[loc]
+                )
+                frame = frame.loc[loc]
+
+            result = self.from_integers(
+                frame.xtile,
+                frame.ytile,
+                scale
+            )
+            tile_dimension = self.tile.dimension * mosaic_length
+
+        else:
+            # same scale
+            result = self.copy()
+            tile_dimension = self.tile.dimension
+
+        result.attrs.update(self.attrs)
+        result.tile.dimension = tile_dimension
+        result.tile.scale = scale
+        return result

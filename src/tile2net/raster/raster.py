@@ -935,7 +935,7 @@ class Raster(Grid):
             for raster in rasters
         )
         assert sum(
-            raster.tiles.size
+            raster.intiles.size
             for raster in rasters
         ) == self.tiles.size
         assert len(rasters) == n

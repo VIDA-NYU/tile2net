@@ -33,7 +33,7 @@ from tile2net.tileseg.utils.misc import fast_hist, fmt_scale
 from tile2net.tileseg.utils.misc import AverageMeter, eval_metrics
 from tile2net.tileseg.utils.misc import metrics_per_image
 from tile2net.tileseg.utils.misc import ImageDumper
-from tile2net.logger import logger
+from tile2net.tiles.logger import logger
 
 
 def flip_tensor(

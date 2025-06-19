@@ -2,16 +2,11 @@ from __future__ import annotations
 from .stitch import Stitch
 from .predict import Predict
 
-from typing import *
-
 import numpy as np
 import pandas as pd
-import rasterio
 
-from .batchiterator import BatchIterator
-from .mosaic import Mosaic
-from .. import tile
-from ..tiles import Tiles
+from .outtile import OutTile
+from ..tiles import Tiles, tile
 from ..outtiles import OutTiles
 
 if False:
@@ -31,7 +26,7 @@ class Tile(
         cache = intiles.attrs
         if key in cache:
             return cache[key]
-        result = intiles.tile.dimension * intiles.mosaic.length
+        result = intiles.tile.dimension * intiles.predtile.length
         cache[key] = result
         self.tiles.intiles.cfg.stitch.dimension = result
         return result
@@ -53,7 +48,7 @@ def __get__(
             f'`InTiles.stitch.to_cluster(16)`'
         )
         raise ValueError(msg) from e
-    result.tiles = instance
+    result.intiles = instance
     return result
 
 
@@ -119,54 +114,6 @@ class PredTiles(
         return self.intiles.outdir
 
     @property
-    def affine_params(self) -> pd.Series:
-        key = 'affine_params'
-        if key in self:
-            return self[key]
-
-        dim = self.tile.dimension
-        self: pd.DataFrame
-        col = 'gw gs ge gn'.split()
-        it = self[col].itertuples(index=False)
-        data = [
-            rasterio.transform
-            .from_bounds(gw, gs, ge, gn, dim, dim)
-            for gw, gs, ge, gn in it
-        ]
-        result = pd.Series(data, index=self.index, name=key)
-        self[key] = result
-        return self[key]
-
-    # def affine_iterator(self, *args, **kwargs) -> Iterator[ndarray]:
-    #     key = 'affine_iterator'
-    #     cache = self.intiles.attrs
-    #     if key in cache:
-    #         it = cache[key]
-    #     else:
-    #         affine = self.affine_params
-    #         if not self.intiles.cfg.force:
-    #             loc = ~self.intiles.outdir.skip
-    #             affine = affine[loc]
-    #
-    #         def gen():
-    #             n = self.cfg.model.bs_val
-    #             a = affine.to_numpy()
-    #             q, r = divmod(len(a), n)
-    #             yield from a[:q * n].reshape(q, n)
-    #             if r:
-    #                 yield a[-r:]
-    #
-    #         it = gen()
-    #         cache[key] = it
-    #     yield from it
-    #     del cache[key]
-
-    @BatchIterator
-    def affine_iterator(self):
-        raise NotImplementedError('need to implement skip')
-        return self.affine_params
-
-    @property
     def cfg(self):
         return self.intiles.cfg
 
@@ -174,17 +121,32 @@ class PredTiles(
     def static(self):
         return self.intiles.static
 
-    @Mosaic
-    def mosaic(self):
+    @OutTile
+    def outtile(self):
         # This code block is just semantic sugar and does not run.
         # These columns are available once the tiles have been stitched:
-        _ = (
-            # xtile of the larger mosaic
-            self.mosaic.xtile,
-            # ytile of the larger mosaic
-            self.mosaic.ytile,
-        )
+        # xtile of the outtile
+        self.outtiles.xtile = ...
+        # ytile of outtile
+        self.outtiles.ytile = ...
+
 
     @Tile
     def tile(self):
         ...
+
+    @property
+    def file(self) -> pd.Series:
+        key = 'file'
+        if key in self:
+            return self[key]
+        self[key] = self.intiles.outdir.predtiles.files()
+        return self[key]
+
+    @property
+    def skip(self) -> pd.Series:
+        key = 'skip'
+        if key in self:
+            return self[key]
+        self[key] = self.intiles.outdir.predtiles.skip()
+        return self[key]

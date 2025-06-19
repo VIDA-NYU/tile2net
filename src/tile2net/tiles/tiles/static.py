@@ -7,14 +7,14 @@ import gdown
 from PIL import Image
 
 if False:
-    from .tiles import Tiles
+    from tile2net.tiles.tiles import Tiles
 
 
 def __get__(
-        self,
+        self: Static,
         instance: Tiles,
         owner: type[Tiles]
-):
+) -> Static:
     self.tiles = instance
     return self
 
@@ -23,10 +23,7 @@ class Static:
     tiles: Tiles
     locals().update(__get__=__get__)
 
-    def __init__(
-            self,
-            *args,
-    ):
+    def __init__(self, *args, ):
         ...
 
     """Static directory into which weights are saved."""
@@ -68,4 +65,3 @@ class Static:
             Image.new('RGB', (dim, dim), (0, 0, 0)).save(path)
 
         return path
-

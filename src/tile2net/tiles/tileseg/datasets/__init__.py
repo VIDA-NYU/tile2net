@@ -39,7 +39,7 @@ from torch.utils.data import DataLoader
 
 import tile2net.tiles.tileseg.transforms.joint_transforms as joint_transforms
 import tile2net.tiles.tileseg.transforms.transforms as extended_transforms
-from tile2net.logger import logger
+from tile2net.tiles.logger import logger
 from tile2net.tiles.cfg.cfg import update_dataset_cfg, update_dataset_inst
 from tile2net.tiles.tileseg.datasets.randaugment import RandAugment
 from .base_loader import BaseLoader

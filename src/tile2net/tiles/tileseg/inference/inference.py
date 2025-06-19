@@ -41,7 +41,7 @@ from geopandas import GeoDataFrame
 from torch.utils.data import DataLoader
 
 import tile2net.tiles.tileseg.network.ocrnet
-from tile2net.logger import logger
+from tile2net.tiles.logger import logger
 from tile2net.namespace import Namespace
 from tile2net.raster.pednet import PedNet
 from tile2net.raster.project import Project

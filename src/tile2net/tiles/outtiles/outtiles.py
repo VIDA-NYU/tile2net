@@ -1,22 +1,66 @@
 from __future__ import annotations
 
+from ..dir import BatchIterator
 from typing import *
 
 import numpy as np
 import pandas as pd
 import rasterio
 
-from .. import tile
-from ..tiles import Tiles
+from ..tiles import Tiles, tile
 
-from .padded import Padded
 
 if False:
-    from ..intiles import InTiles
+    from .padded import Padded
     from ..predtiles import PredTiles
 
 from ..tiles import Tiles
 from . import delayed
+
+def __get__(
+        self: Padding,
+        instance: OutTiles,
+        owner,
+) -> Padding:
+    self.outtiles = instance
+    return self
+
+
+class Padding(
+
+):
+    outtiles: OutTiles = None
+    locals().update(
+        __get__=__get__,
+    )
+
+    @property
+    def gw(self) -> pd.Series:
+        outtiles = self.outtiles
+        padded = outtiles.padded
+        haystack = padded.outtile.index
+        index = outtiles.index
+        top_left = np.zeros_like((len(index), 2))
+        needles = pd.MultiIndex.append(index, top_left)
+        result = (
+            padded
+            .set_axis(haystack)
+            .loc[needles, 'gw']
+            .values
+        )
+        raise NotImplementedError
+
+    @property
+    def gn(self) -> pd.Series:
+        ...
+
+    @property
+    def ge(self) -> pd.Series:
+        ...
+
+    @property
+    def gs(self) -> pd.Series:
+        ...
 
 
 
@@ -39,7 +83,6 @@ def __get__(
     result.predtiles = instance
     return result
 
-
 class OutTiles(
     Tiles
 ):
@@ -54,23 +97,40 @@ class OutTiles(
         ...
 
     @property
-    def xorigin(self) -> pd.Series:
-        key = 'xorigin'
+    def affine_params(self) -> pd.Series:
+        key = 'affine_params'
         if key in self:
             return self[key]
-        pred = self.predtiles
-        result = pred.xtile // pred.mosaic.length
-        result *= pred.mosaic.length
+
+        dim = self.tile.dimension
+        self: pd.DataFrame
+        col = 'gw gs ge gn'.split()
+        it = self[col].itertuples(index=False)
+        data = [
+            rasterio.transform
+            .from_bounds(gw, gs, ge, gn, dim, dim)
+            for gw, gs, ge, gn in it
+        ]
+        result = pd.Series(data, index=self.index, name=key)
         self[key] = result
         return self[key]
 
+    @BatchIterator
+    def affine_iterator(self):
+        return self.affine_params
+
     @property
-    def yorigin(self) -> pd.Series:
-        key = 'yorigin'
+    def skip(self):
+        key = 'skip'
+        if key in self:
+            return  self[key]
+        self[key] = self.intiles.outdir.outtiles.skip()
+        return self[key]
+
+    @property
+    def file(self):
+        key = 'file'
         if key in self:
             return self[key]
-        pred = self.predtiles
-        result = pred.ytile // pred.mosaic.length
-        result *= pred.mosaic.length
-        self[key] = result
+        self[key] = self.intiles.outdir.outtiles.files()
         return self[key]

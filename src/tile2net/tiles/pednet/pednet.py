@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import *
 
-from tile2net.logger import logger
+from tile2net.tiles.logger import logger
 from tile2net.raster.tile_utils.topology import *
 from .center import Center
 from .features import Features

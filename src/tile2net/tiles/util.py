@@ -15,7 +15,7 @@ from geopy.geocoders import Nominatim
 from numpy import ndarray
 from toolz import curried, pipe
 
-from tile2net.logger import logger
+from tile2net.tiles.logger import logger
 
 if False:
     import folium
@@ -64,8 +64,8 @@ def _(
         lat: ndarray,
         zoom: int,
 ) -> tuple[
-    ndarray[int],
-    ndarray[int],
+    ndarray,
+    ndarray,
 ]:
     n = 2.0 ** zoom
     x = (lon + 180.0) / 360.0 * n

@@ -20,18 +20,65 @@ from numpy import ndarray
 from pandas import Series
 from shapely.geometry import shape
 
-import tile2net.raster.tile
-import tile2net.raster.tile_utils.topology
-import tile2net.tileseg.utils.misc
-from tile2net.logger import logger
 from tile2net.raster.tile_utils.geodata_utils import _check_skimage_im_load
-from tile2net.tiles.util import look_at
-from .benchmark import benchmark
-from .cfg import cfg
-from .fixed import GeoDataFrameFixed
+from tile2net.tiles.logger import logger
+from ..benchmark import benchmark
+from ..cfg import cfg
+from ..fixed import GeoDataFrameFixed
 
 os.environ['USE_PYGEOS'] = '0'
 
+
+# else:
+#     if testing:
+#         file = tiles.outdir.polygons.file
+#         if os.path.exists(file):
+#             logger.debug(f'Loading existing polygons: \n\t{file}')
+#             net = PedNet.from_parquet(
+#                 file,
+#                 checkpoint='./checkpoint'
+#             )
+#         else:
+#             msg = f'Polygons file not found: {file}. '
+#             logger.debug(msg)
+#             msg = f'Postprocessing segmentation polygons'
+#             logger.info(msg)
+#             polys = (
+#                 tiles.outdir.polygons.files()
+#                 .pipe(Mask2Poly.from_parquets)
+#                 .postprocess()
+#             )
+#             msg = (
+#                 f'Done. Writing polygons to '
+#                 f'\n\t{tiles.outdir.polygons.file}'
+#             )
+#             logger.info(msg)
+#             _ = (
+#                 polys
+#                 .to_crs(4326)
+#                 .to_parquet(tiles.outdir.polygons.file)
+#             )
+#
+#             msg = f'Polygons file not written! {file}'
+#             assert os.path.exists(file), msg
+#             if polys.empty:
+#                 logging.warning('No polygons were generated during the session.')
+#             net = PedNet.from_polygons(
+#                 polys,
+#                 checkpoint='./checkpoint'
+#             )
+#
+#         msg = f'Generating network from polygons'
+#         logger.info(msg)
+#         clipped = net.center.clipped
+#
+#         msg = f'Writing network to\n\t{tiles.outdir.network.file}'
+#         logger.info(msg)
+#         _ = (
+#             clipped
+#             .to_crs(4326)
+#             .to_parquet(tiles.outdir.network.file)
+#         )
 
 class Mask2Poly(
     GeoDataFrameFixed,
@@ -151,7 +198,6 @@ class Mask2Poly(
         return result
 
     @classmethod
-    @look_at(tile2net.raster.tile.Tile.mask_to_poly_geojson)
     def mask_to_poly_geojson(
             cls,
             source,
@@ -168,7 +214,6 @@ class Mask2Poly(
         return result
 
     @classmethod
-    @look_at(tile2net.raster.tile.Tile.preds_to_binary)
     def preds_to_binary(
             cls,
             pred_arr: Union[np.ndarray, str],
@@ -221,7 +266,6 @@ class Mask2Poly(
         )
         return mask_arr
 
-    @look_at(tile2net.raster.tile_utils.topology.replace_convexhull)
     def _replace_convexhull(
             self,
             threshold: float | Series
@@ -246,7 +290,6 @@ class Mask2Poly(
 
         return result
 
-    @look_at(tile2net.raster.tile_utils.topology.fill_holes)
     def _fill_holes(self, max_area: ndarray) -> Self:
         logger.debug(f"Starting hole‐filling")
         MAX_AREA = max_area
@@ -278,7 +321,6 @@ class Mask2Poly(
         )
         return result
 
-    @look_at(tile2net.raster.tile.Tile.mask2poly)
     def postprocess(
             self,
             min_poly_area: Union[float, Series, dict] = None,

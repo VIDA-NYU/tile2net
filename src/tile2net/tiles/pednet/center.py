@@ -7,7 +7,7 @@ import shapely.wkt
 from centerline.geometry import Centerline
 from tqdm import tqdm
 
-from tile2net.logger import logger
+from tile2net.tiles.logger import logger
 from . import mintrees, stubs
 from .standalone import Lines
 from ..benchmark import benchmark

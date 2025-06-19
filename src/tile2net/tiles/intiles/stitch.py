@@ -1,43 +1,43 @@
 from __future__ import annotations
-from tqdm import tqdm
 
 import os.path
-
-from pathlib import Path
-from sympy.core.benchmarks.bench_assumptions import timeit_x_is_integer
-from tempfile import gettempdir
-from uuid import uuid4
-
-import tempfile
-
-from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
-import imageio.v2
+from pathlib import Path
 
+import imageio.v2
 import math
 import numpy as np
 import pandas as pd
-from typing import *
-from .indir import Indir
-from .dir import Loader
-from tile2net.logger import logger
+from tqdm import tqdm
+
+from tile2net.tiles.logger import logger
+from tile2net.tiles.dir.loader import Loader
 
 if False:
-    from .tiles import Tiles
+    from .intiles import InTiles
+
+def __get__(
+        self: Stitch,
+        instance: InTiles,
+        owner
+) -> Stitch:
+    self.intiles = instance
+    return self
+
 
 
 class Stitch:
-    tiles: Tiles
+    intiles: InTiles
 
     def to_dimension(
             self,
             dimension: int = 1024,
-            pad: bool = True,
-    ) -> Tiles:
+            fill: bool = True,
+    ) -> InTiles:
         """
         resolution:
             target resolution of the stitched tiles
-        pad:
+        fill:
             True:
                 Go back and include more tiles to ensure the stitched
                 tiles include all the original tiles.
@@ -46,11 +46,11 @@ class Stitch:
                 tile.
 
         Returns:
-            Tiles:
-                New Tiles object with Tiles.stitched set to the stitched
+            InTiles:
+                New InTiles object with InTiles.stitched set to the stitched
                 tiles at the specified resolution.
         """
-        tiles = self.tiles
+        tiles = self.intiles
         try:
             _ = tiles.dimension
         except KeyError as e:
@@ -63,18 +63,19 @@ class Stitch:
             raise ValueError(msg) from e
         dscale = int(math.log2(dimension / tiles.dimension))
         scale = tiles.tscale - dscale
-        result = tiles.stitch.to_scale(scale, pad=pad)
+        result = tiles.stitch.to_scale(scale, fill=fill)
         return result
+
 
     def to_mosaic(
             self,
             mosaic: int = 16,
-            pad: bool = True,
-    ) -> Tiles:
+            fill: bool = True,
+    ) -> InTiles:
         """
         mosaic:
             Mosaic size of the stitched tiles. Must be a power of 2.
-        pad:
+        fill:
             True:
                 Go back and include more tiles to ensure the stitched
                 tiles include all the original tiles.
@@ -83,8 +84,8 @@ class Stitch:
                 tile.
 
         Returns:
-            Tiles:
-                New Tiles object with Tiles.stitched set to the stitched
+            InTiles:
+                New InTiles object with InTiles.stitched set to the stitched
                 tiles at the specified cluster size.
         """
         if (
@@ -93,22 +94,22 @@ class Stitch:
                 or (mosaic & (mosaic - 1)) != 0
         ):
             raise ValueError('Cluster must be a positive power of 2.')
-        tiles = self.tiles
+        tiles = self.intiles
         marea = int(math.log2(mosaic))
         dscale = int(math.sqrt(marea))
         scale = tiles.tscale - dscale
-        result = tiles.stitch.to_scale(scale, pad=pad)
+        result = tiles.stitch.to_scale(scale, fill=fill)
         return result
 
     def to_scale(
             self,
-            scale: int = 17,
-            pad: bool = True,
-    ) -> Tiles:
+            scale: int,
+            fill: bool = True,
+    ) -> InTiles:
         """
         scale:
             Scale of larger slippy tiles into which smaller tiles are stitched
-        pad:
+        fill:
             True:
                 Go back and include more tiles to ensure the stitched
                 tiles include all the original tiles.
@@ -116,192 +117,78 @@ class Stitch:
                 Drop any tiles that cannot be stitched into a complete
                 tile.
         """
-        from .tiles import Tiles
-        TILES = self.tiles
-
-        tiles = TILES
-
-        dscale = tiles.tscale - scale
-        # todo: how to get the bounds in a different scale
-        if dscale < 0:
-            msg = (
-                f'Cannot stitch from slippy scale {tiles.tscale} to '
-                f'slippy scale {scale}. The target must be a lower int.'
-            )
-            raise ValueError(msg)
-        mlength = dscale ** 2  # mosaic length
-        marea = dscale ** 4  # mosaic area
-
-        txy = tiles.index.to_frame()
-        if txy.duplicated().any():
-            msg = ('Cannot stitch tiles with duplicate indices!')
-            raise ValueError(msg)
-
-        # a mosaic is a group of tiles
-        if pad:
-            # fill all implicated mosaics
-            mxy: pd.DataFrame = txy // mlength
-            topleft = (
-                mxy
-                .drop_duplicates()
-                .mul(mlength)
-            )
-
-            arange = np.arange(mlength)
-            x, y = np.meshgrid(arange, arange, indexing='ij')
-            txy: np.ndarray = (
-                np.stack((x, y), -1)
-                .reshape(-1, 2)
-                .__add__(topleft.values[:, None, :])
-                .reshape(-1, 2)
-            )
-            tx = txy[:, 0]
-            ty = txy[:, 1]
-            assert not pd.DataFrame(dict(tx=tx, ty=ty)).duplicated().any()
-            tiles = Tiles.from_integers(tx, ty, zoom=tiles.zoom)
-            tiles.attrs.update(TILES.attrs)
-            if 'source' in TILES.attrs:
-                tiles = tiles.with_source(
-                    source=TILES.source,
-                    indir=TILES.indir.original,
-                )
-            # we need to download from source if appropriate
-        else:
-            # drop mosaics not containing all tiles
-            mxy: pd.DataFrame = txy // mlength
-            loc = (
-                pd.Series(1, index=mxy)
-                .groupby(mxy)
-                .sum()
-                .eq(mlength * mlength)
-                .loc[mxy]
-            )
-            tiles = tiles.loc[loc]
-
-        mxy = (
-            tiles.index
-            .to_frame()
-            .floordiv(mlength)
+        msg = 'Padding InTiles to align with PredTiles'
+        logger.debug(msg)
+        intiles = (
+            self.intiles
+            .to_scale(scale)
+            .to_scale(self.intiles.tile.scale)
+            .download()
         )
-        unique = mxy.drop_duplicates()
-        tx = unique.xtile
-        ty = unique.ytile
-        from .stitched import Stitched
-        # tiles.indir.root +
-        indir = tiles.indir
-        indir = os.path.join(
-            indir.dir,
-            'stitched',
-            indir.suffix,
+        predtiles = (
+            intiles
+            .to_scale(scale)
+            .pipe(self.intiles.__class__.predtiles.__class__)
         )
-        _stitched = Tiles.from_integers(tx=tx, ty=ty, zoom=scale)
-        stitched = Stitched(_stitched)
-        stitched.attrs.update(_stitched.attrs)
-        setattr(stitched, 'indir', indir)
-        tiles.predtiles = stitched
-        stitched.tiles = tiles
+        assert intiles.predtile.ipred.is_monotonic_increasing
+        assert predtiles.ipred.is_monotonic_increasing
+        intiles.predtiles = predtiles
+        msg = 'Done padding.'
+        logger.debug(msg)
 
-        stitched.zoom = tiles.zoom
-        stitched.tscale = scale
-        mlength = dscale ** 2
+        loc = ~intiles.predtile.skip
+        infiles = intiles.file.loc[loc]
+        row = intiles.predtile.r.loc[loc]
+        col = intiles.predtile.c.loc[loc]
+        group = intiles.predtile.ipred.loc[loc]
 
-        msg = f'Tile count is not {marea}x the mosaic count.'
-        assert len(tiles) == len(tiles.predtiles) * marea, msg
-        msg = f'Not all mosaics are complete'
-        assert (
-            tiles
-            .groupby(pd.MultiIndex.from_frame(mxy))
-            .size()
-            .eq(marea)
-            .all()
-        ), msg
+        loc = ~predtiles.skip
+        predfiles = predtiles.file.loc[loc]
+        n_missing = np.sum(loc)
+        n_total = len(predtiles)
 
-        tiles: Tiles
-
-        try:
-            indir = tiles.indir
-        except (AttributeError, KeyError) as e:
-            ...
-        else:
-
-            # todo: do not stitch if file exists
-            msg = (
-                f'Stitching tiles from \n\t{tiles.indir.original} '
-                f'to\n\t{stitched.indir.original}. '
-            )
+        if n_missing == 0:  # nothing to do
+            msg = f'All {n_total:,} mosaics are already stitched.'
             logger.info(msg)
+            return intiles
+        else:
+            logger.info(f'Stitching {n_missing:,} of {n_total:,} mosaics missing on disk.')
 
-            # sort stitched by group so that outfiles come out in row–major mosaic order
-            iloc = np.argsort(stitched.ipred.values)
-            stitched: Stitched = stitched.iloc[iloc]
-            # outfiles = stitched.file  # 1:1 with mosaics
-            outfiles = stitched.indir.files()
+        loader = Loader(
+            files=infiles,
+            row=row,
+            col=col,
+            tile_shape=intiles.tile.shape,
+            mosaic_shape=predtiles.tile.shape,
+            group=group
+        )
 
-            # ── determine which mosaics are still missing ────────────────────────────────
-            missing_mask = ~outfiles.apply(os.path.exists)
-            n_total = len(outfiles)
-            n_missing = int(missing_mask.sum())
+        seen = set()
+        for f in predfiles:
+            d = Path(f).parent
+            if d not in seen:  # avoids extra mkdir syscalls
+                d.mkdir(parents=True, exist_ok=True)
+                seen.add(d)
 
-            if n_missing == 0:  # nothing to do
-                msg = f'All {n_total:,} mosaics are already stitched.'
-                logger.info(msg)
-                return tiles
-            else:
-                logger.info(f'Stitching {n_missing:,} of {n_total:,} mosaics missing on disk.')
+        executor = ThreadPoolExecutor()
+        imwrite = imageio.v3.imwrite
+        it = zip(loader, predfiles)
+        it = tqdm(it, 'stitching', n_missing, unit=' mosaic')
 
-            # groups (integer IDs) whose stitched files are absent
-            groups_needed = stitched.ipred[missing_mask].unique()
+        writes = [
+            executor.submit(imwrite, outfile, array)
+            for array, outfile in it
+        ]
 
-            # subset all per-tile Series to only tiles belonging to those groups
-            sel = tiles.mosaic.ipred.isin(groups_needed).values
-            files_sub = tiles.indir.files().loc[sel]
+        for w in writes:
+            w.result()
 
-            row_sub = tiles.mosaic.r.loc[sel]
-            col_sub = tiles.mosaic.c.loc[sel]
-            group_sub = tiles.mosaic.ipred.loc[sel]
+        executor.shutdown(wait=True)
 
-            tile_shape = tiles.dimension, tiles.dimension, 3
-            mosaic_shape = stitched.dimension, stitched.dimension, 3
+        del predtiles.skip
+        assert predtiles.skip.all()
 
-            loader = Loader(
-                files=files_sub,
-                row=row_sub,
-                col=col_sub,
-                group=group_sub,
-                tile=tile_shape,
-                mosaic=mosaic_shape,
-            )
-
-            # ── write the (still-missing) stitched mosaics in parallel ───────────────────
-            executor = ThreadPoolExecutor()
-            imwrite = imageio.v3.imwrite
-
-            it = zip(loader, outfiles[missing_mask])
-            it = tqdm(it, 'stitching', n_missing, unit=' mosaic')
-
-            writes = []
-            for array, outfile in it:
-                Path(outfile).parent.mkdir(parents=True, exist_ok=True)
-                writes.append(executor.submit(imwrite, outfile, array))
-
-            for w in writes:
-                w.result()
-
-            executor.shutdown(wait=True)
-
-            files: pd.Series[str] = stitched.file
-            assert all(map(os.path.exists, files))
-
-        return tiles
-
-    def __get__(
-            self,
-            instance,
-            owner
-    ) -> Self:
-        self.tiles = instance
-        self.Tiles = owner
-        return self
+        return intiles
 
     def __init__(self, *args, **kwargs):
         ...

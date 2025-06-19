@@ -1,45 +1,13 @@
 from __future__ import annotations
 
 import functools
-import shutil
-
-import os
-import tempfile
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import partial
 from pathlib import Path
-from typing import *
 
-import PIL.Image
-import certifi
-import geopandas as gpd
-import imageio.v3
 import imageio.v3 as iio
-import numpy as np
-import pandas as pd
-import pyproj
-import requests
-import shapely
-from PIL import Image
-from requests.adapters import HTTPAdapter
-from tqdm.auto import tqdm
 
-from tile2net.logger import logger
-from tile2net.raster import util
-from tile2net.tiles.cfg import cfg
-from . import util
-from .colormap import ColorMap
-from .dir import Dir
-from .explore import explore
-from .fixed import GeoDataFrameFixed
-from .indir import Indir
-from .outdir import Outdir
-from .source import Source, SourceNotFound
 
 if False:
-    import folium
-    from .tiles import Tiles
-
+    from tile2net.tiles.tiles import Tiles
 
 
 class cached_property:
@@ -111,6 +79,7 @@ def __get__(
     self.tiles = instance
     return self
 
+
 class Tile(
 
 ):
@@ -151,3 +120,7 @@ class Tile(
         except StopIteration:
             raise FileNotFoundError('No image files found to infer dimension.')
         return iio.imread(sample).shape[1]  # width
+
+    @property
+    def shape(self) -> tuple[int, int, int]:
+        return self.dimension, self.dimension, 3

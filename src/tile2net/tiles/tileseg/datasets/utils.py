@@ -2,7 +2,7 @@ import os
 import numpy as np
 from typing import List, Tuple, Optional, Union, Any
 from PIL import Image
-from tile2net.logger import logger
+from tile2net.tiles.logger import logger
 
 
 def make_dataset_folder(folder: str, testing: Optional[bool] = None) -> List[Tuple[str, str]]:

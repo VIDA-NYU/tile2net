@@ -22,12 +22,11 @@ from geopandas import GeoDataFrame
 from geopandas import GeoSeries
 from shapely import box
 
-from tile2net.logger import logger
+from tile2net.tiles.logger import logger
 from tile2net.raster.geocode import GeoCode
-from ..raster.source import class_attr
 
 if False:
-    from .tiles import Tiles
+    from .intiles import InTiles
 
 
 class SourceNotFound(Exception):
@@ -109,7 +108,6 @@ def __get__(
     return result
 
 
-
 def __init__(
         self: cls_attr,
         func: Callable[..., T],
@@ -121,6 +119,7 @@ def __init__(
         func = func.fget
     self.func = func
     functools.update_wrapper(self, func)
+
 
 class cls_attr(
     # Generic[T],
@@ -145,7 +144,6 @@ class cls_attr(
         }
         return res
 
-
     def __set_name__(self, owner, name):
         self.name = name
         self.cache.setdefault(owner, set()).add(self)
@@ -164,7 +162,7 @@ class cls_attr(
 class Source(
     ABC,
 ):
-    tiles: Tiles
+    intiles: InTiles
     catalog: dict[str, type[Source]] = {}
 
     """
@@ -237,25 +235,25 @@ class Source(
 
     def __get__(
             self,
-            instance: Tiles,
-            owner: type[Tiles],
+            instance: InTiles,
+            owner: type[InTiles],
     ) -> Self:
         """Return the source object for the tiles instance."""
         try:
             result = instance.attrs[self.__name__]
-            result.tiles = instance
-            result.Tiles = owner
+            result.intiles = instance
+            result.InTiles = owner
         except KeyError as e:
             msg = (
                 f'Source has not yet been set. To set the source, you '
-                f'must call `Tiles.with_source()`.'
+                f'must call `InTiles.with_source()`.'
             )
             raise KeyError(msg) from e
         return result
 
     def __set__(
             self,
-            instance: Tiles,
+            instance: InTiles,
             value,
     ):
         """Set the source object for the tiles instance."""
@@ -266,7 +264,7 @@ class Source(
 
     def __delete__(
             self,
-            instance: Tiles,
+            instance: InTiles,
     ):
         """Delete the source object for the tiles instance."""
         if hasattr(instance, '_source'):
@@ -282,11 +280,11 @@ class Source(
     ):
         ...
 
-    # def __getitem__(self, item: Tiles) -> pd.Series[str]:
+    # def __getitem__(self, item: InTiles) -> pd.Series[str]:
     @property
     def urls(self) -> pd.Series[str]:
         """Given some tiles, return the URL for the images"""
-        tiles = self.tiles
+        tiles = self.intiles
         temp = self.template
         zoom = tiles.zoom
         it = zip(tiles.ytile, tiles.xtile)
@@ -494,7 +492,7 @@ class WashingtonDC(ArcGis):
         '&imageSR=102100&bboxSR=102100&size=512%2C512'
     )
 
-    def __getitem__(self, item: Tiles) -> pd.Series[str]:
+    def __getitem__(self, item: InTiles) -> pd.Series[str]:
         bounds = item.bounds
         it = zip(bounds.minx, bounds.miny, bounds.maxx, bounds.maxy)
         template = self.template
@@ -618,17 +616,17 @@ class AlamedaCounty(
     )
     zoom = 20
 
-    @class_attr
+    @cls_attr
     @property
     def metadata(cls):
         return 'https://svc.pictometry.com/Image/6D9E15C5-C6B4-4ACB-A244-4C44ECA33D90/wmts?SERVICE=WMTS&REQUEST=GetCapabilities&VERSION=1.0.0'
 
-    @class_attr
+    @cls_attr
     @property
     def tiles(cls):
         return cls.server + '/{z}/{x}/{y}.png'
 
-    @class_attr
+    @cls_attr
     @property
     def coverage(cls):
         res = GeoSeries([
@@ -640,8 +638,3 @@ class AlamedaCounty(
             )
         ], crs='EPSG:4326')
         return res
-
-
-
-
-

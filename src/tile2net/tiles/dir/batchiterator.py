@@ -4,17 +4,40 @@ import functools
 from typing import *
 
 import pandas as pd
+from tile2net.tiles.tiles import  Tiles
 
 if False:
-    from .tiles import Tiles
     from .dir import Dir
 
+
+def __get__(
+        self: BatchIterator,
+        instance: Dir | Tiles,
+        owner
+) -> BatchIterator:
+    if instance is None:
+        return self
+    if isinstance(instance, Dir):
+        self.tiles = instance.tiles
+        self.trace = instance._trace
+    elif isinstance(instance, Tiles):
+        self.tiles = instance
+        self.trace = self.__name__
+    else:
+        raise TypeError(instance)
+    self.instance = instance
+    return self
 
 
 class BatchIterator:
     __wrapped__: Callable
     tiles: Tiles = None
     key: Any = None
+    trace: str = None
+    instance: Dir | Tiles = None
+    locals().update(
+        __get__=__get__,
+    )
 
     def __init__(
             self,
@@ -38,7 +61,7 @@ class BatchIterator:
         cfg = tiles.cfg
         n = cfg.model.bs_val
         if not cfg.force:
-            loc = ~tiles.outdir.skip
+            loc = ~tiles.skip
             series = series.loc[loc]
         a = series.values
         q, r = divmod(len(a), n)
@@ -53,26 +76,6 @@ class BatchIterator:
         self.gen = gen()
         self.cache = cache
         self.key = key
-
-    def __get__(
-            self,
-            instance: Dir,
-            owner
-    ) -> Self:
-        if instance is None:
-            return self
-        from .tiles import Tiles
-        from .dir import Dir
-        if isinstance(instance, Dir):
-            self.tiles = instance.tiles
-            self.trace = instance._trace
-        elif isinstance(instance, Tiles):
-            self.tiles = instance
-            self.trace = self.__name__
-        else:
-            raise TypeError(instance)
-        self.instance = instance
-        return self
 
     def __set_name__(self, owner, name):
         self.__name__ = name

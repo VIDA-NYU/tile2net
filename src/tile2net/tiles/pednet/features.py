@@ -1,6 +1,6 @@
 from __future__ import annotations
 from ..explore import explore
-from tile2net.logger import logger
+from tile2net.tiles.logger import logger
 from ..cfg import cfg
 
 import itertools

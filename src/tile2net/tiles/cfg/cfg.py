@@ -15,7 +15,7 @@ from typing import TypeVar, Callable
 import torch
 from toolz.curried import *
 
-from tile2net.tiles.static import static
+from tile2net.tiles.tiles.static import Static
 from . import cmdline
 from .nested import Nested
 
@@ -642,14 +642,14 @@ class Model(cmdline.Namespace):
         """
         Path to HRNet checkpoint
         """
-        return static.hrnet_checkpoint
+        return Static.hrnet_checkpoint
 
     @cmdline.property
     def snapshot(self) -> str:
         """
         Path to the model snapshot
         """
-        return static.snapshot
+        return Static.snapshot
 
     @cmdline.property
     def trial(self) -> int:
@@ -1519,4 +1519,3 @@ def update_dataset_inst(dataset_inst) -> None:
     cfg.dataset_inst = dataset_inst
 
 
-Cfg.__setattr__

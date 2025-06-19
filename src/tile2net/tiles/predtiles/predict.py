@@ -1,33 +1,27 @@
 from __future__ import annotations, absolute_import, division
-import logging
-from tqdm import tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
-
-from tqdm.auto import tqdm
-import geopandas as gpd
 
 import os
 import warnings
 
 from torch.nn.parallel.data_parallel import DataParallel
+from tqdm import tqdm
+from tqdm.auto import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 from tile2net.tiles.tileseg.network.ocrnet import MscaleOCR
-from .mask2poly import Mask2Poly
-from .tileseg.datasets.satellite import labels
 
 os.environ['USE_PYGEOS'] = '0'
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-from tile2net.tiles.static import static
-import logging
+from tile2net.tiles.tiles.static import Static
 import numpy
 import torch
 import torch.distributed as dist
 from torch.utils.data import DataLoader
 
 import tile2net.tiles.tileseg.network.ocrnet
-from tile2net.logger import logger
+from tile2net.tiles.logger import logger
 from tile2net.tiles.tileseg import datasets
 from tile2net.tiles.tileseg import network
 from tile2net.tiles.cfg.cfg import assert_and_infer_cfg
@@ -35,7 +29,6 @@ from tile2net.tiles.tileseg.loss.optimizer import get_optimizer, restore_opt, re
 from tile2net.tiles.tileseg.loss.utils import get_loss
 from tile2net.tiles.tileseg.utils.misc import AverageMeter, prep_experiment
 from .minibatch import MiniBatch
-from tile2net.tiles.pednet import PedNet
 
 import os
 import sys
@@ -59,6 +52,7 @@ AutoResume = None
 
 if False:
     from .tiles import Tiles
+
 
 def __get__(
         self: Predict,
@@ -134,10 +128,10 @@ class Predict:
 
             if (
                     not os.path.exists(cfg.model.snapshot)
-                    and cfg.model.snapshot == static.snapshot
+                    and cfg.model.snapshot == Static.snapshot
             ) or (
                     not os.path.exists(cfg.model.hrnet_checkpoint)
-                    and cfg.model.hrnet_checkpoint == static.hrnet_checkpoint
+                    and cfg.model.hrnet_checkpoint == Static.hrnet_checkpoint
             ):
                 logger.info('Downloading weights for segmentation, this may take a while...')
                 tiles.static.download()
@@ -206,7 +200,7 @@ class Predict:
             cfg.restore_net = True
             msg = "Loading weights \n\t{}".format(cfg.model.snapshot)
             logger.info(msg)
-            if cfg.model.snapshot != static.snapshot:
+            if cfg.model.snapshot != Static.snapshot:
                 msg = (
                     f'Weights are being loaded using weights_only=False. '
                     f'We assure the security of our weights by using a checksum, '
@@ -288,73 +282,23 @@ class Predict:
                 if i % 20 == 0:
                     logger.debug(f'Inference [Iter: {i + 1} / {len(loader)}]')
 
-            batch = (
-                MiniBatch
-                .from_data(
-                    images=input_images,
-                    net=net,
-                    gt_image=labels,
-                    criterion=criterion,
-                    val_loss=val_loss,
-                    tiles=tiles,
+                batch = (
+                    MiniBatch
+                    .from_data(
+                        images=input_images,
+                        net=net,
+                        gt_image=labels,
+                        criterion=criterion,
+                        val_loss=val_loss,
+                        tiles=tiles,
+                    )
+                    .submit_all()
+                    .await_all()
                 )
-                .submit_all()
-                .await_all()
-            )
-            iou_acc += batch.iou_acc
-            if (
-                    cfg.options.test_mode
-                    and i >= 5
-            ):
-                break
+                iou_acc += batch.iou_acc
+                if (
+                        cfg.options.test_mode
+                        and i >= 5
+                ):
+                    break
 
-        else:
-            if testing:
-                file = tiles.outdir.polygons.file
-                if os.path.exists(file):
-                    logger.debug(f'Loading existing polygons: \n\t{file}')
-                    net = PedNet.from_parquet(
-                        file,
-                        checkpoint='./checkpoint'
-                    )
-                else:
-                    msg = f'Polygons file not found: {file}. '
-                    logger.debug(msg)
-                    msg = f'Postprocessing segmentation polygons'
-                    logger.info(msg)
-                    polys = (
-                        tiles.outdir.polygons.files()
-                        .pipe(Mask2Poly.from_parquets)
-                        .postprocess()
-                    )
-                    msg = (
-                        f'Done. Writing polygons to '
-                        f'\n\t{tiles.outdir.polygons.file}'
-                    )
-                    logger.info(msg)
-                    _ = (
-                        polys
-                        .to_crs(4326)
-                        .to_parquet(tiles.outdir.polygons.file)
-                    )
-
-                    msg = f'Polygons file not written! {file}'
-                    assert os.path.exists(file), msg
-                    if polys.empty:
-                        logging.warning('No polygons were generated during the session.')
-                    net = PedNet.from_polygons(
-                        polys,
-                        checkpoint='./checkpoint'
-                    )
-
-                msg = f'Generating network from polygons'
-                logger.info(msg)
-                clipped = net.center.clipped
-
-                msg = f'Writing network to\n\t{tiles.outdir.network.file}'
-                logger.info(msg)
-                _ = (
-                    clipped
-                    .to_crs(4326)
-                    .to_parquet(tiles.outdir.network.file)
-                )

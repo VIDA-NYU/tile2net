@@ -12,51 +12,43 @@ import datetime
 import os.path
 
 import pandas as pd
+from pandas.tseries.holiday import USPresidentsDay
 
 from .batchiterator import BatchIterator
-from .dir import Dir
+from .dir import Dir, UsesInTiles, UsesOutTiles, UsesPredTiles
+
 
 
 class Probability(
-    Dir
+    UsesPredTiles,
 ):
     extension = 'npy'
 
 
 class Prediction(
-    Dir
+    UsesPredTiles
 ):
     extension = 'png'
 
 
 class Error(
-    Dir
+    UsesPredTiles
 ):
     extension = 'npy'
 
 
+
 class Polygons(
-    Dir
+    UsesOutTiles
 ):
-    # @property
-    # def file(self) -> str:
-    #     key = f'{self._trace}.polygons'
-    #     cache = self.tiles.attrs
-    #     if key in cache:
-    #         return cache[key]
-    #     time = (
-    #         datetime.datetime.now()
-    #         .strftime('%d-%m-%Y_%H_%M')
-    #     )
-    #     os.makedirs(self.dir, exist_ok=True)
-    #     file = os.path.join(self.dir, f'Polygons-{time}.parquet')
-    #     cache[key] = file
-    #     return file
+    @property
+    def tiles(self):
+        return self.intiles.outtiles
 
     @property
     def file(self) -> str:
         key = f'{self._trace}.polygons'
-        cache = self.tiles.attrs
+        cache = self.intiles.attrs
 
         if key in cache:
             return cache[key]
@@ -64,7 +56,7 @@ class Polygons(
         # ───── deterministic UUID from tile indices ───── #
         # unique (x, y) pairs ensure ordering does not alter digest
         pairs = np.unique(
-            np.column_stack([self.tiles.xtile.to_numpy(), self.tiles.ytile.to_numpy()]),
+            np.column_stack([self.intiles.xtile.to_numpy(), self.intiles.ytile.to_numpy()]),
             axis=0,
         )
         digest = hashlib.blake2b(pairs.tobytes(), digest_size=8).hexdigest()  # 16 hex
@@ -76,31 +68,21 @@ class Polygons(
 
 
 class Network(
-    Dir
+    UsesOutTiles
 ):
-    # @property
-    # def file(self) -> str:
-    #     key = f'{self._trace}.polygons'
-    #     cache = self.tiles.attrs
-    #     if key in cache:
-    #         return cache[key]
-    #     time = (
-    #         datetime.datetime.now()
-    #         .strftime('%d-%m-%Y_%H_%M')
-    #     )
-    #     os.makedirs(self.dir, exist_ok=True)
-    #     file = os.path.join(self.dir, f'Network-{time}.parquet')
-    #     return file
+    @property
+    def tiles(self):
+        return self.intiles.outtiles
 
     @property
     def file(self) -> str:
         key = f'{self._trace}.network'
-        cache = self.tiles.attrs
+        cache = self.intiles.attrs
         if key in cache:
             return cache[key]
 
         pairs = np.unique(
-            np.column_stack([self.tiles.xtile.to_numpy(), self.tiles.ytile.to_numpy()]),
+            np.column_stack([self.intiles.xtile.to_numpy(), self.intiles.ytile.to_numpy()]),
             axis=0,
         )
         digest = hashlib.blake2b(pairs.tobytes(), digest_size=8).hexdigest()  # 16-hex UUID
@@ -112,38 +94,17 @@ class Network(
 
 
 class SideBySide(
-    Dir
+    UsesPredTiles
 ):
     ...
 
 
 class Outputs(
-    Dir
+    UsesPredTiles,
 ):
+    ...
 
-    def files(self, dirname: str) -> pd.Series:
-        tiles = self.tiles.stitched
-        key = f'{self._trace}.{dirname}'
-        if key in tiles:
-            return tiles[key]
-        suffix = (
-            self.format
-            .removeprefix(self.dir)
-            .lstrip(os.sep)
-        )
-        format = os.path.join(self.dir, dirname, suffix)
-        dir = os.path.dirname(format)
-        os.makedirs(dir, exist_ok=True)
-        zoom = tiles.zoom
-        it = zip(tiles.ytile, tiles.xtile)
-        data = [
-            format.format(z=zoom, y=ytile, x=xtile)
-            for ytile, xtile in it
-        ]
-        result = pd.Series(data, index=tiles.index)
-        tiles[key] = result
-        result = tiles[key]
-        return result
+
 
     # def iterator(self, dirname: str, *args, **kwargs) -> Iterator[pd.Series]:
     #     return super(Outputs, self).iterator(dirname)
@@ -162,28 +123,11 @@ class Outputs(
     #     del cache[key]
     #
 
-    # def iterator(self, dirname, *args, **kwargs):
-    #     key = f'{self._trace}.{dirname}.iterator'
-    #     cache = self.tiles.attrs
-    #
-    #     try:  # → already cached ↴
-    #         return cache[key]
-    #     except KeyError:
-    #         files = self.files(dirname, *args, **kwargs)
-    #         if not self.tiles.cfg.force:  # drop skipped tiles
-    #             files = files.loc[~self.tiles.outdir.skip]
-    #
-    #         return CachedIterator(self.tiles, files, cache, key)
-
-    @BatchIterator
-    def iterator(self, dirname: str):
-        files = self.files(dirname)
-        return files
 
 
 
 class SegResults(
-    Dir
+    UsesPredTiles,
 ):
 
     @Probability
@@ -222,25 +166,36 @@ class SegResults(
 
 
 class Submit(
-    Dir
+    UsesPredTiles,
 ):
     ...
 
 
 class MaskRaw(
-    Dir
+    UsesPredTiles,
 ):
     ...
 
 
 class Mask(
-    Dir
+    UsesPredTiles,
+):
+    ...
+
+
+class OutTiles(
+    UsesOutTiles
+):
+    ...
+
+class PredTiles(
+    UsesPredTiles,
 ):
     ...
 
 
 class BestImages(
-    Dir
+    UsesPredTiles
 ):
     @property
     def webpage(self):
@@ -323,13 +278,13 @@ class Outdir(
 
     @property
     def skip(self) -> pd.Series:
-        tiles = self.tiles.stitched
+        tiles = self.intiles.predtiles
         key = f'{self._trace}.skip'
         if key in tiles:
             return tiles[key]
         else:
             files: pd.Series = self.polygons.files()
-            if self.tiles.cfg.force:
+            if self.intiles.cfg.force:
                 data = False
             else:
                 data = list(map(os.path.exists, files))
@@ -355,6 +310,26 @@ class Outdir(
             self.suffix,
         )
         result = BestImages.from_format(format)
+        return result
+
+    @OutTiles
+    def outtiles(self):
+        format = os.path.join(
+            self.dir,
+            'outtiles',
+            self.suffix
+        ).replace(self.extension, 'png')
+        result = OutTiles.from_format(format)
+        return result
+
+    @PredTiles
+    def predtiles(self):
+        format = os.path.join(
+            self.dir,
+            'predtiles',
+            self.suffix
+        ).replace(self.extension, 'png')
+        result = PredTiles.from_format(format)
         return result
 
     def preview(self) -> str:

@@ -10,7 +10,7 @@ from torch.nn.modules.loss import _Loss
 from torch.nn.parallel.data_parallel import DataParallel
 from torch.nn.parallel.distributed import DistributedDataParallel
 
-from tile2net.logger import logger
+from tile2net.tiles.logger import logger
 from tile2net.tiles.cfg import cfg
 
 

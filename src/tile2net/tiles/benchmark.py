@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from time import perf_counter
-from tile2net.logger import logger
+from tile2net.tiles.logger import logger
 
 @contextmanager
 def benchmark(step: str):

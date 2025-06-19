@@ -52,7 +52,7 @@ from scipy.ndimage.measurements import center_of_mass
 from PIL import Image
 from tqdm import tqdm
 from tile2net.tiles.cfg import cfg
-from tile2net.logger import logger
+from tile2net.tiles.logger import logger
 
 pbar = None
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
-from .dir import Dir
-from .indir import Indir
-from .outdir import Outdir
+from tile2net.tiles.dir.indir import Indir
+from tile2net.tiles.dir.outdir import Outdir
 
 import os
 import shutil
@@ -21,35 +20,26 @@ import requests
 from requests.adapters import HTTPAdapter
 from tqdm.auto import tqdm
 
-from tile2net.logger import logger
+from tile2net.tiles.logger import logger
 from tile2net.raster import util
 from tile2net.tiles.cfg import cfg
-from .mosaic import Mosaic
-from .static import static
+from .predtile import PredTile
 from .stitch import Stitch
 from .. import util
 from ..cfg import Cfg
-from .dir import Dir
+from tile2net.tiles.dir.dir import Dir
 from ..predtiles import PredTiles
 from .source import Source, SourceNotFound
 from ..tiles import Tiles
-from .. import tile
+
 
 class InTiles(
     Tiles
 ):
-    # @Static
-    # def static(self):
-    #     # This code block is just semantic sugar and does not run.
-    #     # This is a namespace container for static files:
-    #     _ = self.static.hrnet_checkpoint
-    #     _ = self.static.snapshot
 
     @property
     def outtiles(self):
         return self.predtiles.outtiles
-
-    static = static
 
     @Stitch
     def stitch(self):
@@ -212,29 +202,29 @@ class InTiles(
         # Please do not set the configuration options directly,
         # you may introduce bugs.
 
-    @Mosaic
-    def mosaic(self):
+    @PredTile
+    def predtile(self):
         # This code block is just semantic sugar and does not run.
         # These columns are available once the tiles have been stitched:
         _ = (
             # xtile of the larger mosaic
-            self.mosaic.xtile,
+            self.predtile.xtile,
             # ytile of the larger mosaic
-            self.mosaic.ytile,
+            self.predtile.ytile,
             # row of the tile within the larger mosaic
-            self.mosaic.r,
+            self.predtile.r,
             # column of the tile within the larger mosaic
-            self.mosaic.c,
+            self.predtile.c,
         )
 
     def download(
             self,
-            paths: pd.Series,
-            urls: pd.Series,
+            paths: pd.Series = None,
+            urls: pd.Series = None,
             retry: bool = True,
             force: bool = False,
             max_workers: int = 100,
-    ) -> None:
+    ) -> Self:
         """
         infiles:
             Series of file path destinations
@@ -245,6 +235,11 @@ class InTiles(
         force:
             redownload the tiles even if they already exist
         """
+        if paths is None:
+            paths = self.indir.files()
+        if urls is None:
+            urls = self.source.urls
+
         if paths.empty or urls.empty:
             return
         if len(paths) != len(urls):
@@ -410,6 +405,8 @@ class InTiles(
 
             logger.info('All requested tiles are on disk.')
 
+        return self
+
     def with_source(
             self,
             source=None,
@@ -487,8 +484,121 @@ class InTiles(
             name=name,
         )
 
-        urls = result.source.urls
-        files = result.indir.files()
-        result.download(files, urls, max_workers=max_workers)
+        # urls = result.source.urls
+        # files = result.indir.files()
+        # result.download(files, urls, max_workers=max_workers)
+        result.download(max_workers=max_workers)
 
         return result
+
+    # def skip(self):
+    #     loc = self.indir.files()
+    def with_indir(
+            self,
+            indir: str,
+            name: str = None,
+    ) -> Self:
+        """
+        Assign an input directory to the tiles. The directory must
+        implicate the X and Y tile numbers in the file names.
+
+        Good:
+            input/dir/x/y/z.png
+            input/dir/x/y/.png
+            input/dir/x_y_z.png
+            input/dir/x_y.png
+            input/dir/z/x_y.png
+        Bad:
+            input/dir/x.png
+            input/dir/y
+
+        This will set the input directory and format
+        self.with_indir('input/dir/x/y/z.png')
+
+        There is no format specified to, so it will default to
+        input/dir/x_y_z.png:
+        self.with_indir('input/dir')
+
+        This will fail to explicitly set the format, so it will
+        default to input/dir/x/x_y_z.png
+        self.with_indir('input/dir/x')
+        """
+        result = self.copy()
+        if name:
+            result.name = name
+        try:
+            result.indir = indir
+            indir: Indir = result.indir
+            msg = f'Setting input directory to \n\t{indir.original}. '
+
+            logger.info(msg)
+
+        except ValueError as e:
+            msg = (
+                f'Invalid input directory: {indir}. '
+                f'The directory directory must implicate the X and Y '
+                f'tile numbers by including `x` and `y` in some format, '
+                f'for example: '
+                f'input/dir/x/y/z.png or input/dir/x_y_z.png.'
+            )
+            raise ValueError(msg) from e
+        try:
+            _ = result.outdir
+        except AttributeError:
+            msg = (
+                f'Output directory not yet set. Based on the input directory, '
+                f'setting it to a default value.'
+            )
+            logger.info(msg)
+            result = result.with_outdir()
+        return result
+
+    def with_outdir(
+            self,
+            outdir: Union[str, Path] = None,
+    ) -> Self:
+        """
+        Assign an output directory to the tiles.
+        The tiles are saved to the output directory.
+        """
+        result: Tiles = self.copy()
+        if outdir:
+            ...
+        elif cfg.output_dir:
+            outdir = cfg.output_dir
+        else:
+            if self.name:
+                name = self.name
+            elif cfg.name:
+                name = cfg.name
+            elif (
+                    self.source
+                    and self.source.name
+            ):
+                name = self.source.name
+            else:
+                msg = (
+                    f'No output directory specified, and unable to infer '
+                    f'a name for a temporary output directory. Either '
+                    f'set a name, use a source, or specify an output directory.'
+                )
+                raise ValueError(msg)
+
+            outdir = os.path.join(
+                tempfile.gettempdir(),
+                'tile2net',
+                name,
+                'outdir'
+            )
+
+        try:
+            result.outdir = outdir
+        except ValueError:
+            retry = os.path.join(outdir, 'z', 'x_y.png')
+            result.outdir = retry
+            logger.info(f'Setting output directory to \n\t{retry}')
+        else:
+            logger.info(f'Setting output directory to \n\t{outdir}')
+
+        return result
+

@@ -1,18 +1,11 @@
 from __future__ import annotations
-from ..fixed import GeoDataFrameFixed
-import pandas as pd
-
-from typing import *
 
 import numpy as np
 from ..predtiles import PredTiles
-from .. import predtiles
 import pandas as pd
-import rasterio
 
-from .mosaic import Mosaic
-from .. import tile
-from ..tiles import Tiles
+from .outtile import OutTile
+from ..tiles import Tiles, tile
 
 if False:
     from .outtiles import OutTiles
@@ -86,7 +79,7 @@ def __get__(
         result = instance.attrs[self.__name__]
     else:
         predtiles = instance.predtiles
-        length = predtiles.mosaic.length
+        length = predtiles.outtile.length
         shape = length, length
         boundary = boundary_tiles(shape)
         repeat = len(boundary)
@@ -94,8 +87,11 @@ def __get__(
         dx: np.ndarray
         dy: np.ndarray
         dx, dy = boundary.T
-        xo = instance.xorigin.values[:, None]
-        yo = instance.yorigin.values[:, None]
+        length = instance.predtiles.outtile.length
+        xorigin = instance.xtile // length * length
+        yorigin = instance.ytile // length * length
+        xo = xorigin.values[:, None]
+        yo = yorigin.values[:, None]
 
         pred_xtile = (xo + dx).ravel()
         pred_ytile = (yo + dy).ravel()
@@ -109,16 +105,16 @@ def __get__(
         arrays = pred_xtile, pred_ytile
         names = 'xtile ytile'.split()
         loc = pd.MultiIndex.from_arrays(arrays, names=names)
-        result = (
+        result: Padded = (
             predtiles
             .loc[loc]
             .assign({
-                'out.xtile': out_xtile,
-                'out.ytile': out_ytile,
-                'mosaic.r': r,
-                'mosaic.c': c,
+                'outtile.xtile': out_xtile,
+                'outtile.ytile': out_ytile,
+                'outtile.r': r,
+                'outtile.c': c,
             })
-            .pipe(Padded)
+            .pipe(self.__class__)
         )
         result.attrs.update(predtiles.attrs)
         instance.attrs[self.__name__] = result
@@ -133,10 +129,15 @@ class Padded(
     outtiles: OutTiles = None
     __name__ = 'padded'
 
+    @property
+    def predtiles(self):
+        return self.outtiles.predtiles
+
     @Index
     def out(self):
         ...
 
-    @Mosaic
-    def mosaic(self):
+    @OutTile
+    def outtile(self):
         ...
+

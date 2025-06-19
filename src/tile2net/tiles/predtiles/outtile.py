@@ -1,26 +1,23 @@
 from __future__ import annotations
 
-from typing import *
-
-import numpy as np
 import pandas as pd
-from .. import tile
+from ..tiles import tile
 
 if False:
     from .predtiles import PredTiles
 
 
 def __get__(
-        self: Mosaic,
+        self: OutTile,
         instance: PredTiles,
         owner: type[PredTiles],
-) -> Mosaic:
+) -> OutTile:
     self.predtiles = instance
     self.PredTiles = owner
     return self
 
 
-class Mosaic(
+class OutTile(
 
 ):
     predtiles: PredTiles
@@ -47,7 +44,7 @@ class Mosaic(
             return predtiles[key]
 
         outtiles = predtiles.outtiles
-        result = predtiles.xtile // predtiles.mosaic.length
+        result = predtiles.xtile // predtiles.outtile.length
 
         msg = 'All mosaic.xtile must be in outtiles.xtile!'
         assert result.isin(outtiles.xtile).all(), msg
@@ -59,7 +56,7 @@ class Mosaic(
         """Tile integer X of this tile in the outtiles mosaic"""
         predtiles = self.predtiles
         outtiles = predtiles.outtiles
-        result = predtiles.ytile // predtiles.mosaic.length
+        result = predtiles.ytile // predtiles.outtile.length
 
         # todo: for each outtile origin, use array ranges to pad the tiles
 
@@ -67,8 +64,8 @@ class Mosaic(
     def frame(self) -> pd.DataFrame:
         predtiles = self.predtiles
         concat = []
-        ytile = predtiles.ytile // predtiles.mosaic.length
-        xtile = predtiles.xtile // predtiles.mosaic.length
+        ytile = predtiles.ytile // predtiles.outtile.length
+        xtile = predtiles.xtile // predtiles.outtile.length
         frame = pd.DataFrame(dict(
             xtile=xtile,
             ytile=ytile,
@@ -99,6 +96,7 @@ class Mosaic(
         )
         predtiles[key] = result
         return predtiles[key]
+
 
     def __init__(
             self,

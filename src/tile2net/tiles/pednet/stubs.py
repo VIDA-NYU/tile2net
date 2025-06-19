@@ -2,7 +2,7 @@ from __future__ import annotations
 import logging
 from ..benchmark import benchmark
 from tqdm.auto import tqdm
-from tile2net.logger import logger
+from tile2net.tiles.logger import logger
 
 import heapq
 

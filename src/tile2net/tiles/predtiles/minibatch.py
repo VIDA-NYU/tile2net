@@ -15,16 +15,9 @@ import torch
 import torchvision.transforms as standard_transforms
 from PIL import Image
 
-import tile2net.tileseg.datasets.base_loader
-import tile2net.tileseg.inference.inference
-import tile2net.tileseg.utils.misc
-import tile2net.tileseg.utils.trnval_utils
 from tile2net.tiles.cfg import cfg
-from tile2net.tiles.util import look_at
 from tile2net.tileseg.utils.misc import AverageMeter
 from tile2net.tileseg.utils.misc import fast_hist, fmt_scale
-from .dir import Dir
-from .mask2poly import Mask2Poly
 
 if False:
     from tile2net.tiles import Tiles
@@ -56,7 +49,6 @@ class MiniBatch(
     error_mask: Optional[np.ndarray] = None
 
     @classmethod
-    @look_at(tile2net.tileseg.utils.trnval_utils.eval_minibatch)
     def from_data(
             cls,
             images,
@@ -187,7 +179,6 @@ class MiniBatch(
         return result
 
     @classmethod
-    @look_at(tile2net.tileseg.utils.trnval_utils.flip_tensor)
     def flip_tensor(
             cls,
             x: torch.Tensor,
@@ -206,7 +197,6 @@ class MiniBatch(
         return x[item]
 
     @classmethod
-    @look_at(tile2net.tileseg.utils.trnval_utils.resize_tensor)
     def resize_tensor(
             cls,
             inputs: torch.Tensor,
@@ -221,7 +211,6 @@ class MiniBatch(
         return inputs
 
     @classmethod
-    @look_at(tile2net.tileseg.utils.trnval_utils.calc_err_mask)
     def calc_err_mask(
             cls,
             pred: np.ndarray,
@@ -244,7 +233,6 @@ class MiniBatch(
         return err_mask.astype(int)
 
     @classmethod
-    @look_at(tile2net.tileseg.utils.trnval_utils.calc_err_mask_all)
     def calc_err_mask_all(
             cls,
             pred: np.ndarray,
@@ -283,12 +271,10 @@ class MiniBatch(
         self.submit_sidebyside()
         self.submit_output()
         self.submit_raw()
-        self.submit_mask()
-        self.submit_polygons()
+        # self.submit_mask()
+        # self.submit_polygons()
         return self
 
-    @look_at(tile2net.tileseg.utils.misc.ThreadedDumper.save_prob_and_err_mask)
-    @look_at(Dir.iterator)
     def submit_probability(self):
         if self.prob_mask is None:
             return
@@ -305,16 +291,13 @@ class MiniBatch(
             future = self.threads.submit(cv2.imwrite, file, array)
             self.futures.append(future)
 
-    @look_at(tile2net.tileseg.utils.misc.ThreadedDumper.save_prob_and_err_mask)
     def submit_error(self):
         if self.error_mask is None:
             return
         # todo @mary-h86 see this func. It doesn't seem to be saving err masks
         #   it just saves the prediction, will return to this later
-        look_at(tile2net.tileseg.utils.misc.ThreadedDumper.save_prob_and_err_mask)
         raise NotImplementedError
 
-    @look_at(tile2net.tileseg.utils.misc.ThreadedDumper.create_composite_image)
     def submit_sidebyside(self):
         it = zip(cfg.DATASET.MEAN, cfg.DATASET.STD)
         inv_mean = [-mean / std for mean, std in it]
@@ -346,7 +329,6 @@ class MiniBatch(
             future = self.threads.submit(composited.save, file)
             self.futures.append(future)
 
-    @look_at(tile2net.tileseg.utils.misc.ThreadedDumper.get_dump_assets)
     def submit_output(self):
         colorize = self.tiles.colormap
         it = to_numpy(self.output).items()
@@ -358,7 +340,6 @@ class MiniBatch(
                 future = self.threads.submit(cv2.imwrite, file, array)
                 self.futures.append(future)
 
-    @look_at(tile2net.tileseg.datasets.base_loader.BaseLoader.dump_images)
     def submit_raw(self):
         """
         Raw segmentation mask without colorization, containing class IDs as pixel values.
@@ -370,32 +351,30 @@ class MiniBatch(
         for array, file in zip(arrays, files):
             future = self.threads.submit(cv2.imwrite, file, array)
             self.futures.append(future)
-
-    @look_at(tile2net.tileseg.datasets.base_loader.BaseLoader.dump_images)
-    def submit_mask(self):
-        """
-        Colorized segmentation mask where different classes (road, sidewalk, crosswalk) are represented by different colors according to a predefined color palette
-        """
-        if self.predictions is None:
-            return
-        arrays = to_numpy(self.predictions)
-        arrays = self.tiles.colormap(arrays)
-        files = next(self.tiles.outdir.mask.iterator())
-        for array, file in zip(arrays, files):
-            future = self.threads.submit(cv2.imwrite, file, array)
-            self.futures.append(future)
-
-    @look_at(tile2net.tileseg.inference.inference.Inference.validate)
-    def submit_polygons(self):
-        affines = next(self.tiles.predtiles.affine_iterator())
-        arrays = to_numpy(self.predictions).astype(np.uint8)
-        files = next(self.tiles.outdir.polygons.iterator())
-        it = zip(arrays, affines, files)
-        for array, affine, file in it:
-            frame = (
-                Mask2Poly
-                .from_array(array=array, affine=affine)
-                .pipe(gpd.GeoDataFrame)
-            )
-            future = self.threads.submit(frame.to_parquet, file)
-            self.futures.append(future)
+    #
+    # def submit_mask(self):
+    #     """
+    #     Colorized segmentation mask where different classes (road, sidewalk, crosswalk) are represented by different colors according to a predefined color palette
+    #     """
+    #     if self.predictions is None:
+    #         return
+    #     arrays = to_numpy(self.predictions)
+    #     arrays = self.tiles.colormap(arrays)
+    #     files = next(self.tiles.outdir.mask.iterator())
+    #     for array, file in zip(arrays, files):
+    #         future = self.threads.submit(cv2.imwrite, file, array)
+    #         self.futures.append(future)
+    #
+    # def submit_polygons(self):
+    #     affines = next(self.tiles.predtiles.affine_iterator())
+    #     arrays = to_numpy(self.predictions).astype(np.uint8)
+    #     files = next(self.tiles.outdir.polygons.iterator())
+    #     it = zip(arrays, affines, files)
+    #     for array, affine, file in it:
+    #         frame = (
+    #             Mask2Poly
+    #             .from_array(array=array, affine=affine)
+    #             .pipe(gpd.GeoDataFrame)
+    #         )
+    #         future = self.threads.submit(frame.to_parquet, file)
+    #         self.futures.append(future)

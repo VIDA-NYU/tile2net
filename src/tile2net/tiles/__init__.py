@@ -1,2 +1,2 @@
-# from .tiles import Tiles
-# from .cfg.cfg import cfg
+from .intiles import InTiles
+from .cfg.cfg import cfg
