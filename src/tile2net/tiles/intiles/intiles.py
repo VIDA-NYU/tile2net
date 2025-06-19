@@ -602,3 +602,51 @@ class InTiles(
 
         return result
 
+    def with_geometry_tiles(
+            self,
+            *,
+            dimension: int = None,
+            mosaic: int = None,
+            scale: int = None,
+    ) -> Self:
+        # todo: if all are None, determine dimension using RAM
+        ...
+
+    def with_inference_tiles(
+            self,
+            *,
+            dimension: int  =None,
+            mosaic: int = None,
+            scale: int = None,
+    ) -> Self:
+        # todo: if all are None, determine dimension using VRAM
+        n = sum(
+            arg is not None
+            for arg in (dimension, mosaic, scale)
+        )
+        if n != 1:
+            msg = (
+                'You must specify exactly one of dimension, mosaic, or scale '
+                'to set the inference tiles.'
+            )
+            raise ValueError(msg)
+        if dimension:
+            ...
+        if mosaic:
+            ...
+        if scale:
+            ...
+
+
+    @property
+    def network(self) -> gpd.GeoDataFrame:
+        ...
+
+    @property
+    def polygons(self) -> gpd.GeoDataFrame:
+        ...
+
+
+
+
+
