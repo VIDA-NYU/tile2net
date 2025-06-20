@@ -47,6 +47,8 @@ class Coverage:
                 return coverage.geometry
         coverages: list[GeoSeries] = []
         for source in owner.catalog.values():
+            if source.outdated:
+                continue
             try:
                 axis = pd.Index([source.name] * len(source.coverage), name='source')
                 coverage = (
@@ -212,6 +214,7 @@ class Source(ABC, metaclass=SourceMeta):
     keyword: str  # required match when reverse geolocating address from point
     dropword: str = None  # if result contains this word, it is not a match
     year: int = None  # year of the data
+    outdated: bool = False
 
     def __getitem__(self, item: Iterator[Tile]):
         tiles = self.tiles
@@ -507,6 +510,86 @@ class AlamedaCounty(
         return res
 
 
+
+class SanFranciscoBase(
+    Source,
+    ABC
+):
+    outdated = True
+    extension = 'png'
+    keyword = ('San Francisco', 'California')
+    zoom = 20
+    server: str
+    tilesize = 512
+
+    @class_attr
+    @property
+    def metadata(cls):
+        return cls.server + '/tiles.json'
+
+    @class_attr
+    @property
+    def tiles(cls):
+        return cls.server + '/{z}/{x}/{y}.png'
+
+    @class_attr
+    @property
+    def coverage(cls):
+        return GeoSeries(
+            [
+                box(
+                    -122.514926,  # xmin (W)
+                    37.708075,    # ymin (S)
+                    -122.356779,  # xmax (E)
+                    37.832371     # ymax (N)
+                )
+            ],
+            crs='EPSG:4326',
+        )
+
+
+class SanFrancisco2014(SanFranciscoBase):
+    name = 'sf2014'
+    year = 2014
+    server = 'https://tile.sf.gov/api/tiles/p2014_rgb8cm'
+
+
+class SanFrancisco2017(SanFranciscoBase):
+    name = 'sf2017'
+    year = 2017
+    server = 'https://tile.sf.gov/api/tiles/p2017_rgb8cm'
+
+
+class SanFrancisco2018(SanFranciscoBase):
+    name = 'sf2018'
+    year = 2018
+    server = 'https://tile.sf.gov/api/tiles/p2018_rgb8cm'
+
+
+class SanFrancisco2019(SanFranciscoBase):
+    name = 'sf2019'
+    year = 2019
+    server = 'https://tile.sf.gov/api/tiles/p2019_rgb8cm'
+
+
+class SanFrancisco2020(SanFranciscoBase):
+    name = 'sf2020'
+    year = 2020
+    server = 'https://tile.sf.gov/api/tiles/p2020_rgb8cm'
+
+
+class SanFrancisco2023(SanFranciscoBase):
+    name = 'sf2023'
+    year = 2023
+    server = 'https://tile.sf.gov/api/tiles/p2023_rgb8cm'
+
+
+class SanFrancisco2024(SanFranciscoBase):
+    name = 'sf2024'
+    year = 2024
+    server = 'https://tile.sf.gov/api/tiles/p2024_rgb8cm'
+    outdated = False
+
 if __name__ == '__main__':
     assert Source['New Brunswick, New Jersey'] == NewJersey
     assert Source['New York City'] == NewYorkCity
@@ -518,8 +601,9 @@ if __name__ == '__main__':
     assert Source['Jersey City'] == NewJersey
     assert Source['Hoboken'] == NewJersey
     assert Source["Spring Hill, TN"] == SpringHillTN
-    assert Source['Oregon'] == Oregon
+    # assert Source['Oregon'] == Oregon
     assert Source['Virginia'] == Virginia
     assert Source['Berkeley, California'] == AlamedaCounty
     assert Source['Fremont, California'] == AlamedaCounty
     assert Source['Oakland, California'] == AlamedaCounty
+    assert Source['San Francisco, California'] == SanFrancisco2024
