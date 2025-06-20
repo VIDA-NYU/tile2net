@@ -10,15 +10,15 @@ if False:
 
 
 def __get__(
-        self: GeoTile,
+        self: VecTile,
         instance: SegTiles,
         owner: type[SegTiles],
-) -> GeoTile:
+) -> VecTile:
     self.segtiles = instance
     return copy.copy(self)
 
 
-class GeoTile(
+class VecTile(
 
 ):
     segtiles: SegTiles
@@ -33,7 +33,7 @@ class GeoTile(
     def length(self):
         """Number of tiles in one dimension of the mosaic"""
         length = int(
-            self.segtiles.geotiles.tile.scale
+            self.segtiles.vectiles.tile.scale
             - self.segtiles.tile.scale
         )
         return length ** 2
@@ -41,35 +41,35 @@ class GeoTile(
 
     @tile.cached_property
     def xtile(self) -> pd.Series:
-        """Tile integer X of this tile in the geotiles mosaic"""
+        """Tile integer X of this tile in the vectiles mosaic"""
         key = 'mosaic.xtile'
         segtiles = self.segtiles
         if key in segtiles.columns:
             return segtiles[key]
 
-        geotiles = segtiles.geotiles
-        result = segtiles.xtile // segtiles.geotile.length
+        vectiles = segtiles.vectiles
+        result = segtiles.xtile // segtiles.vectile.length
 
-        msg = 'All mosaic.xtile must be in geotiles.xtile!'
-        assert result.isin(geotiles.xtile).all(), msg
+        msg = 'All mosaic.xtile must be in vectiles.xtile!'
+        assert result.isin(vectiles.xtile).all(), msg
         segtiles[key] = result
         return result
 
     @tile.cached_property
     def ytile(self) -> pd.Series:
-        """Tile integer X of this tile in the geotiles mosaic"""
+        """Tile integer X of this tile in the vectiles mosaic"""
         segtiles = self.segtiles
-        geotiles = segtiles.geotiles
-        result = segtiles.ytile // segtiles.geotile.length
+        vectiles = segtiles.vectiles
+        result = segtiles.ytile // segtiles.vectile.length
 
-        # todo: for each geotile origin, use array ranges to pad the tiles
+        # todo: for each vectile origin, use array ranges to pad the tiles
 
     @tile.cached_property
     def frame(self) -> pd.DataFrame:
         segtiles = self.segtiles
         concat = []
-        ytile = segtiles.ytile // segtiles.geotile.length
-        xtile = segtiles.xtile // segtiles.geotile.length
+        ytile = segtiles.ytile // segtiles.vectile.length
+        xtile = segtiles.xtile // segtiles.vectile.length
         frame = pd.DataFrame(dict(
             xtile=xtile,
             ytile=ytile,
@@ -94,7 +94,7 @@ class GeoTile(
         arrays = self.xtile, self.ytile
         loc = pd.MultiIndex.from_arrays(arrays)
         result = (
-            segtiles.geotiles.ipred
+            segtiles.vectiles.ipred
             .loc[loc]
             .values
         )

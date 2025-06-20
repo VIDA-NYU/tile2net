@@ -4,11 +4,11 @@ import numpy as np
 from ..segtiles import SegTiles
 import pandas as pd
 
-from .geotile import GeoTile
+from .vectile import VecTile
 from ..tiles import Tiles, tile
 
 if False:
-    from .geotiles import GeoTiles
+    from .vectiles import VecTiles
 
 
 def boundary_tiles(
@@ -70,7 +70,7 @@ class Index(
 
 def __get__(
         self: Padded,
-        instance: GeoTiles,
+        instance: VecTiles,
         owner,
 ) -> Padded:
     if instance is None:
@@ -79,7 +79,7 @@ def __get__(
         result = instance.attrs[self.__name__]
     else:
         segtiles = instance.segtiles
-        length = segtiles.geotile.length
+        length = segtiles.vectile.length
         shape = length, length
         boundary = boundary_tiles(shape)
         repeat = len(boundary)
@@ -87,7 +87,7 @@ def __get__(
         dx: np.ndarray
         dy: np.ndarray
         dx, dy = boundary.T
-        length = instance.segtiles.geotile.length
+        length = instance.segtiles.vectile.length
         xorigin = instance.xtile // length * length
         yorigin = instance.ytile // length * length
         xo = xorigin.values[:, None]
@@ -109,35 +109,35 @@ def __get__(
             segtiles
             .loc[loc]
             .assign({
-                'geotile.xtile': out_xtile,
-                'geotile.ytile': out_ytile,
-                'geotile.r': r,
-                'geotile.c': c,
+                'vectile.xtile': out_xtile,
+                'vectile.ytile': out_ytile,
+                'vectile.r': r,
+                'vectile.c': c,
             })
             .pipe(self.__class__)
         )
         result.attrs.update(segtiles.attrs)
         instance.attrs[self.__name__] = result
 
-    result.geotiles = instance
+    result.vectiles = instance
     return result
 
 
 class Padded(
     SegTiles
 ):
-    geotiles: GeoTiles = None
+    vectiles: VecTiles = None
     __name__ = 'padded'
 
     @property
     def segtiles(self):
-        return self.geotiles.segtiles
+        return self.vectiles.segtiles
 
     @Index
     def out(self):
         ...
 
-    @GeoTile
-    def geotile(self):
+    @VecTile
+    def vectile(self):
         ...
 

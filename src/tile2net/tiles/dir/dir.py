@@ -81,8 +81,8 @@ class Dir:
         return self.intiles.segtiles
 
     @property
-    def geotiles(self):
-        return self.intiles.geotiles
+    def vectiles(self):
+        return self.intiles.vectiles
 
     def __set_name__(self, owner, name):
         self.__name__ = name
@@ -352,12 +352,12 @@ class UsesInTiles(
         return self.intiles
 
 
-class UsesGeoTiles(
+class UsesVecTiles(
     Dir
 ):
     @property
     def tiles(self):
-        return self.intiles.geotiles
+        return self.intiles.vectiles
 
 
 class UsesSegTiles(

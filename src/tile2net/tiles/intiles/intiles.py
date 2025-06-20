@@ -26,7 +26,7 @@ from tqdm.auto import tqdm
 from tile2net.tiles.logger import logger
 from tile2net.raster import util
 from tile2net.tiles.cfg import cfg
-from .predtile import SegTile
+from .segtile import SegTile
 from .stitch import Stitch
 from .. import util
 from ..cfg import Cfg
@@ -42,8 +42,8 @@ class InTiles(
     __name__ = 'intiles'
 
     @property
-    def geotiles(self):
-        return self.segtiles.geotiles
+    def vectiles(self):
+        return self.segtiles.vectiles
 
     @Stitch
     def stitch(self):
@@ -72,8 +72,8 @@ class InTiles(
         """
         # This code block is just semantic sugar and does not run.
         # These methods are how to set the source:
-        self.with_source(...)  # automatically sets the source
-        self.with_source('nyc')
+        intiles = self.set_source(...)  # automatically sets the source
+        intiles = self.set_source('nyc')
 
     @Indir
     def indir(self):
@@ -84,7 +84,7 @@ class InTiles(
         """
         # This code block is just semantic sugar and does not run.
         # This method is how to set the input directory:
-        self.with_indir(...)
+        self.set_indir(...)
 
     @Outdir
     def outdir(self):
@@ -167,18 +167,18 @@ class InTiles(
 
         if cfg.source:
             # use specified source
-            tiles = tiles.with_source(
+            tiles = tiles.set_source(
                 source=cfg.source,
                 indir=cfg.input_dir,
             )
         elif cfg.input_dir:
             # use local files
-            tiles = tiles.with_indir(
+            tiles = tiles.set_indir(
                 indir=cfg.input_dir,
             )
         else:
             # infer source from location
-            tiles = tiles.with_source(
+            tiles = tiles.set_source(
                 indir=cfg.input_dir,
             )
 
@@ -205,18 +205,18 @@ class InTiles(
         # you may introduce bugs.
 
     @SegTile
-    def predtile(self):
+    def segtile(self):
         # This code block is just semantic sugar and does not run.
         # These columns are available once the tiles have been stitched:
         _ = (
             # xtile of the larger mosaic
-            self.predtile.xtile,
+            self.segtile.xtile,
             # ytile of the larger mosaic
-            self.predtile.ytile,
+            self.segtile.ytile,
             # row of the tile within the larger mosaic
-            self.predtile.r,
+            self.segtile.r,
             # column of the tile within the larger mosaic
-            self.predtile.c,
+            self.segtile.c,
         )
 
     def download(
@@ -409,7 +409,7 @@ class InTiles(
 
         return self
 
-    def with_source(
+    def set_source(
             self,
             source=None,
             name: str = None,
@@ -481,7 +481,7 @@ class InTiles(
                 .resolve()
                 .__str__()
             )
-        result = result.with_indir(
+        result = result.set_indir(
             indir,
             name=name,
         )
@@ -495,7 +495,7 @@ class InTiles(
 
     # def skip(self):
     #     loc = self.indir.files()
-    def with_indir(
+    def set_indir(
             self,
             indir: str,
             name: str = None,
@@ -552,10 +552,10 @@ class InTiles(
                 f'setting it to a default value.'
             )
             logger.info(msg)
-            result = result.with_outdir()
+            result = result.set_outdir()
         return result
 
-    def with_outdir(
+    def set_outdir(
             self,
             outdir: Union[str, Path] = None,
     ) -> Self:
@@ -604,7 +604,7 @@ class InTiles(
 
         return result
 
-    def with_segmented_tiles(
+    def set_segmentation(
             self,
             *,
             dimension: int = None,
@@ -651,13 +651,13 @@ class InTiles(
             segtiles = SegTiles.from_rescale(intiles, scale, fill)
             intiles.segtiles = segtiles
             segtiles = intiles.segtiles
-            assert intiles.predtile.ipred.is_monotonic_increasing
+            assert intiles.segtile.ipred.is_monotonic_increasing
             assert segtiles.ipred.is_monotonic_increasing
             return intiles
         else:
             raise ValueError
 
-    def with_geometry_tiles(
+    def set_vectorization(
             self,
             *,
             dimension: int = None,
@@ -666,6 +666,7 @@ class InTiles(
             fill: bool = True,
     ) -> Self:
         # todo: if all are None, determine dimension using RAM
+        from ..vectiles import VecTiles
         n = sum(
             arg is not None
             for arg in (dimension, mosaic, scale)
@@ -704,15 +705,11 @@ class InTiles(
                 .to_scale(scale, fill=fill)
                 .to_scale(self.segtiles.tile.scale, fill=fill)
             )
-            # geotiles = (
-            #     intiles
-            #     .to_scale(scale, fill=fill)
-            #     .pipe(self.__class__.geotiles.__class__)
-            # )
-            assert intiles.predtile.ipred.is_monotonic_increasing
+            vectiles = VecTiles.from_rescale(intiles, scale, fill=fill)
+            assert intiles.segtile.ipred.is_monotonic_increasing
             assert segtiles.ipred.is_monotonic_increasing
             intiles.segtiles = segtiles
-            intiles.geotiles = geotiles
+            intiles.vectiles = vectiles
             return intiles
         else:
             raise ValueError

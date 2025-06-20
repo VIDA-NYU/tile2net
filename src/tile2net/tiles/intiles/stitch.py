@@ -130,17 +130,17 @@ class Stitch:
             .to_scale(scale)
             .pipe(self.intiles.__class__.segtiles.__class__)
         )
-        assert intiles.predtile.ipred.is_monotonic_increasing
+        assert intiles.segtile.ipred.is_monotonic_increasing
         assert segtiles.ipred.is_monotonic_increasing
         intiles.segtiles = segtiles
         msg = 'Done padding.'
         logger.debug(msg)
 
-        loc = ~intiles.predtile.skip
+        loc = ~intiles.segtile.skip
         infiles = intiles.file.loc[loc]
-        row = intiles.predtile.r.loc[loc]
-        col = intiles.predtile.c.loc[loc]
-        group = intiles.predtile.ipred.loc[loc]
+        row = intiles.segtile.r.loc[loc]
+        col = intiles.segtile.c.loc[loc]
+        group = intiles.segtile.ipred.loc[loc]
 
         loc = ~segtiles.skip
         predfiles = segtiles.file.loc[loc]

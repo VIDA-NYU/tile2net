@@ -163,7 +163,7 @@ class Stitch:
             tiles = InTiles.from_integers(tx, ty, zoom=tiles.zoom)
             tiles.attrs.update(TILES.attrs)
             if 'source' in TILES.attrs:
-                tiles = tiles.with_source(
+                tiles = tiles.set_source(
                     source=TILES.source,
                     indir=TILES.indir.original,
                 )
@@ -254,12 +254,12 @@ class Stitch:
             groups_needed = stitched.ipred[missing_mask].unique()
 
             # subset all per-tile Series to only tiles belonging to those groups
-            sel = tiles.predtile.ipred.isin(groups_needed).values
+            sel = tiles.segtile.ipred.isin(groups_needed).values
             files_sub = tiles.indir.files().loc[sel]
 
-            row_sub = tiles.predtile.r.loc[sel]
-            col_sub = tiles.predtile.c.loc[sel]
-            group_sub = tiles.predtile.ipred.loc[sel]
+            row_sub = tiles.segtile.r.loc[sel]
+            col_sub = tiles.segtile.c.loc[sel]
+            group_sub = tiles.segtile.ipred.loc[sel]
 
             tile_shape = tiles.dimension, tiles.dimension, 3
             mosaic_shape = stitched.dimension, stitched.dimension, 3

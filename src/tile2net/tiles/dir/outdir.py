@@ -15,7 +15,7 @@ import pandas as pd
 from pandas.tseries.holiday import USPresidentsDay
 
 from .batchiterator import BatchIterator
-from .dir import Dir, UsesInTiles, UsesGeoTiles, UsesSegTiles
+from .dir import Dir, UsesInTiles, UsesVecTiles, UsesSegTiles
 
 
 
@@ -39,11 +39,11 @@ class Error(
 
 
 class Polygons(
-    UsesGeoTiles
+    UsesVecTiles
 ):
     @property
     def tiles(self):
-        return self.intiles.geotiles
+        return self.intiles.vectiles
 
     @property
     def file(self) -> str:
@@ -68,11 +68,11 @@ class Polygons(
 
 
 class Network(
-    UsesGeoTiles
+    UsesVecTiles
 ):
     @property
     def tiles(self):
-        return self.intiles.geotiles
+        return self.intiles.vectiles
 
     @property
     def file(self) -> str:
@@ -183,8 +183,8 @@ class Mask(
     ...
 
 
-class GeoTiles(
-    UsesGeoTiles
+class VecTiles(
+    UsesVecTiles
 ):
     ...
 
@@ -312,14 +312,14 @@ class Outdir(
         result = BestImages.from_format(format)
         return result
 
-    @GeoTiles
-    def geotiles(self):
+    @VecTiles
+    def vectiles(self):
         format = os.path.join(
             self.dir,
-            'geotiles',
+            'vectiles',
             self.suffix
         ).replace(self.extension, 'png')
-        result = GeoTiles.from_format(format)
+        result = VecTiles.from_format(format)
         return result
 
     @SegTiles

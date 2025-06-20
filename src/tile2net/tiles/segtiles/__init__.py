@@ -1,3 +1,3 @@
 
 from .segtiles import SegTiles
-from .geotile import GeoTile
+from .vectile import VecTile

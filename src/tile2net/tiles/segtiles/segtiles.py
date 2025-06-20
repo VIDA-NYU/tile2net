@@ -5,9 +5,9 @@ from .predict import Predict
 import numpy as np
 import pandas as pd
 
-from .geotile import GeoTile
+from .vectile import VecTile
 from ..tiles import Tiles, tile
-from ..geotiles import GeoTiles
+from ..vectiles import VecTiles
 
 if False:
     from ..intiles import InTiles
@@ -26,7 +26,7 @@ class Tile(
         cache = intiles.attrs
         if key in cache:
             return cache[key]
-        result = intiles.tile.dimension * intiles.predtile.length
+        result = intiles.tile.dimension * intiles.segtile.length
         cache[key] = result
         self.tiles.intiles.cfg.stitch.dimension = result
         return result
@@ -64,10 +64,10 @@ class SegTiles(
     def intiles(self) -> InTiles:
         ...
 
-    @GeoTiles
-    def geotiles(self):
+    @VecTiles
+    def vectiles(self):
         """
-        After performing SegTiles.stitch, SegTiles.geotiles is
+        After performing SegTiles.stitch, SegTiles.vectiles is
         available for performing inference on the stitched tiles.
         """
 
@@ -124,14 +124,14 @@ class SegTiles(
     def static(self):
         return self.intiles.static
 
-    @GeoTile
-    def geotile(self):
+    @VecTile
+    def vectile(self):
         # This code block is just semantic sugar and does not run.
         # These columns are available once the tiles have been stitched:
-        # xtile of the geotile
-        self.geotiles.xtile = ...
-        # ytile of geotile
-        self.geotiles.ytile = ...
+        # xtile of the vectile
+        self.vectiles.xtile = ...
+        # ytile of vectile
+        self.vectiles.ytile = ...
 
 
     @Tile

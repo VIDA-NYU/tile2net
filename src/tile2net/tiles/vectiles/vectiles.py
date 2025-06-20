@@ -19,27 +19,27 @@ from . import delayed
 
 def __get__(
         self: Padding,
-        instance: GeoTiles,
+        instance: VecTiles,
         owner,
 ) -> Padding:
-    self.geotiles = instance
+    self.vectiles = instance
     return self
 
 
 class Padding(
 
 ):
-    geotiles: GeoTiles = None
+    vectiles: VecTiles = None
     locals().update(
         __get__=__get__,
     )
 
     @property
     def gw(self) -> pd.Series:
-        geotiles = self.geotiles
-        padded = geotiles.padded
-        haystack = padded.geotile.index
-        index = geotiles.index
+        vectiles = self.vectiles
+        padded = vectiles.padded
+        haystack = padded.vectile.index
+        index = vectiles.index
         top_left = np.zeros_like((len(index), 2))
         needles = pd.MultiIndex.append(index, top_left)
         result = (
@@ -65,17 +65,17 @@ class Padding(
 
 
 def __get__(
-        self: GeoTiles,
+        self: VecTiles,
         instance: Optional[SegTiles],
         owner: type[Tiles],
-) -> GeoTiles:
+) -> VecTiles:
     if instance is None:
         return self
     try:
-        result: GeoTiles = instance.attrs[self.__name__]
+        result: VecTiles = instance.attrs[self.__name__]
     except KeyError as e:
         msg = (
-            f'GeoTiles must be stitched using `SegTiles.stitch` for '
+            f'VecTiles must be stitched using `SegTiles.stitch` for '
             f'example `SegTiles.stitch.to_dimension(2048)` or '
             f'`SegTiles.stitch.to_cluster(16)`'
         )
@@ -83,10 +83,10 @@ def __get__(
     result.segtiles = instance
     return result
 
-class GeoTiles(
+class VecTiles(
     Tiles
 ):
-    __name__ = 'geotiles'
+    __name__ = 'vectiles'
 
     @delayed.Padded
     def padded(self) -> Padded:
@@ -124,7 +124,7 @@ class GeoTiles(
         key = 'skip'
         if key in self:
             return  self[key]
-        self[key] = self.intiles.outdir.geotiles.skip()
+        self[key] = self.intiles.outdir.vectiles.skip()
         return self[key]
 
     @property
@@ -132,5 +132,5 @@ class GeoTiles(
         key = 'file'
         if key in self:
             return self[key]
-        self[key] = self.intiles.outdir.geotiles.files()
+        self[key] = self.intiles.outdir.vectiles.files()
         return self[key]

@@ -58,7 +58,7 @@ class SegTile(
             return intiles[key]
 
         segtiles = intiles.segtiles
-        result = intiles.xtile // intiles.predtile.length
+        result = intiles.xtile // intiles.segtile.length
 
         msg = 'All mosaic.xtile must be in segtiles.xtile!'
         assert result.isin(segtiles.xtile).all(), msg
@@ -74,7 +74,7 @@ class SegTile(
             return intiles[key]
 
         segtiles = intiles.segtiles
-        result = intiles.ytile // intiles.predtile.length
+        result = intiles.ytile // intiles.segtile.length
 
         msg = 'All mosaic.ytile must be in segtiles.ytile!'
         assert result.isin(segtiles.ytile).all(), msg
@@ -91,8 +91,8 @@ class SegTile(
         result = (
             intiles.ytile
             .to_series(index=intiles.index)
-            .floordiv(intiles.predtile.length)
-            .mul(intiles.predtile.length)
+            .floordiv(intiles.segtile.length)
+            .mul(intiles.segtile.length)
             .rsub(intiles.ytile.values)
         )
         intiles[key] = result
@@ -109,8 +109,8 @@ class SegTile(
         result = (
             intiles.xtile
             .to_series(index=intiles.index)
-            .floordiv(intiles.predtile.length)
-            .mul(intiles.predtile.length)
+            .floordiv(intiles.segtile.length)
+            .mul(intiles.segtile.length)
             .rsub(intiles.xtile.values)
         )
         intiles[key] = result
