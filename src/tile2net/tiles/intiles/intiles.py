@@ -622,7 +622,7 @@ class InTiles(
         if n != 1:
             msg = (
                 'You must specify exactly one of dimension, mosaic, or scale '
-                'to set the inference tiles.'
+                'to set the segmented tiles.'
             )
             raise ValueError(msg)
         if dimension:
