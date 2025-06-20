@@ -77,12 +77,12 @@ class Dir:
     __wrapped__ = None
 
     @property
-    def predtiles(self):
-        return self.intiles.predtiles
+    def inftiles(self):
+        return self.intiles.inftiles
 
     @property
-    def outtiles(self):
-        return self.intiles.outtiles
+    def geotiles(self):
+        return self.intiles.geotiles
 
     def __set_name__(self, owner, name):
         self.__name__ = name
@@ -352,20 +352,20 @@ class UsesInTiles(
         return self.intiles
 
 
-class UsesOutTiles(
+class UsesGeometryTiles(
     Dir
 ):
     @property
     def tiles(self):
-        return self.intiles.outtiles
+        return self.intiles.geotiles
 
 
-class UsesPredTiles(
+class UsesInferenceTiles(
     Dir
 ):
     @property
     def tiles(self):
-        return self.intiles.predtiles
+        return self.intiles.inftiles
 
 
 class TestIndir:

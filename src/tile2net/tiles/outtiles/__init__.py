@@ -1,1 +1,1 @@
-from .outtiles import OutTiles
+from .geotiles import GeometryTiles

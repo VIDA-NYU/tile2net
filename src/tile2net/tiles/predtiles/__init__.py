@@ -1,3 +1,3 @@
 
-from .predtiles import PredTiles
-from .outtile import OutTile
+from .inftiles import InferenceTiles
+from .outtile import GeometryTile

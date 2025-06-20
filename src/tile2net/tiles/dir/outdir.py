@@ -15,35 +15,35 @@ import pandas as pd
 from pandas.tseries.holiday import USPresidentsDay
 
 from .batchiterator import BatchIterator
-from .dir import Dir, UsesInTiles, UsesOutTiles, UsesPredTiles
+from .dir import Dir, UsesInTiles, UsesGeometryTiles, UsesInferenceTiles
 
 
 
 class Probability(
-    UsesPredTiles,
+    UsesInferenceTiles,
 ):
     extension = 'npy'
 
 
 class Prediction(
-    UsesPredTiles
+    UsesInferenceTiles
 ):
     extension = 'png'
 
 
 class Error(
-    UsesPredTiles
+    UsesInferenceTiles
 ):
     extension = 'npy'
 
 
 
 class Polygons(
-    UsesOutTiles
+    UsesGeometryTiles
 ):
     @property
     def tiles(self):
-        return self.intiles.outtiles
+        return self.intiles.geotiles
 
     @property
     def file(self) -> str:
@@ -68,11 +68,11 @@ class Polygons(
 
 
 class Network(
-    UsesOutTiles
+    UsesGeometryTiles
 ):
     @property
     def tiles(self):
-        return self.intiles.outtiles
+        return self.intiles.geotiles
 
     @property
     def file(self) -> str:
@@ -94,13 +94,13 @@ class Network(
 
 
 class SideBySide(
-    UsesPredTiles
+    UsesInferenceTiles
 ):
     ...
 
 
 class Outputs(
-    UsesPredTiles,
+    UsesInferenceTiles,
 ):
     ...
 
@@ -127,7 +127,7 @@ class Outputs(
 
 
 class SegResults(
-    UsesPredTiles,
+    UsesInferenceTiles,
 ):
 
     @Probability
@@ -166,36 +166,36 @@ class SegResults(
 
 
 class Submit(
-    UsesPredTiles,
+    UsesInferenceTiles,
 ):
     ...
 
 
 class MaskRaw(
-    UsesPredTiles,
+    UsesInferenceTiles,
 ):
     ...
 
 
 class Mask(
-    UsesPredTiles,
+    UsesInferenceTiles,
 ):
     ...
 
 
-class OutTiles(
-    UsesOutTiles
+class GeometryTiles(
+    UsesGeometryTiles
 ):
     ...
 
-class PredTiles(
-    UsesPredTiles,
+class InferenceTiles(
+    UsesInferenceTiles,
 ):
     ...
 
 
 class BestImages(
-    UsesPredTiles
+    UsesInferenceTiles
 ):
     @property
     def webpage(self):
@@ -278,7 +278,7 @@ class Outdir(
 
     @property
     def skip(self) -> pd.Series:
-        tiles = self.intiles.predtiles
+        tiles = self.intiles.inftiles
         key = f'{self._trace}.skip'
         if key in tiles:
             return tiles[key]
@@ -312,24 +312,24 @@ class Outdir(
         result = BestImages.from_format(format)
         return result
 
-    @OutTiles
-    def outtiles(self):
+    @GeometryTiles
+    def geotiles(self):
         format = os.path.join(
             self.dir,
-            'outtiles',
+            'geotiles',
             self.suffix
         ).replace(self.extension, 'png')
-        result = OutTiles.from_format(format)
+        result = GeometryTiles.from_format(format)
         return result
 
-    @PredTiles
-    def predtiles(self):
+    @InferenceTiles
+    def inftiles(self):
         format = os.path.join(
             self.dir,
-            'predtiles',
+            'inftiles',
             self.suffix
         ).replace(self.extension, 'png')
-        result = PredTiles.from_format(format)
+        result = InferenceTiles.from_format(format)
         return result
 
     def preview(self) -> str:

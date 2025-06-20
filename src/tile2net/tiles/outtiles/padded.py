@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import numpy as np
-from ..predtiles import PredTiles
+from ..inftiles import InferenceTiles
 import pandas as pd
 
-from .outtile import OutTile
+from .outtile import GeometryTile
 from ..tiles import Tiles, tile
 
 if False:
-    from .outtiles import OutTiles
+    from .geotiles import GeometryTiles
 
 
 def boundary_tiles(
@@ -70,7 +70,7 @@ class Index(
 
 def __get__(
         self: Padded,
-        instance: OutTiles,
+        instance: GeometryTiles,
         owner,
 ) -> Padded:
     if instance is None:
@@ -78,8 +78,8 @@ def __get__(
     elif self.__name__ in instance.attrs:
         result = instance.attrs[self.__name__]
     else:
-        predtiles = instance.predtiles
-        length = predtiles.outtile.length
+        inftiles = instance.inftiles
+        length = inftiles.outtile.length
         shape = length, length
         boundary = boundary_tiles(shape)
         repeat = len(boundary)
@@ -87,7 +87,7 @@ def __get__(
         dx: np.ndarray
         dy: np.ndarray
         dx, dy = boundary.T
-        length = instance.predtiles.outtile.length
+        length = instance.inftiles.outtile.length
         xorigin = instance.xtile // length * length
         yorigin = instance.ytile // length * length
         xo = xorigin.values[:, None]
@@ -106,7 +106,7 @@ def __get__(
         names = 'xtile ytile'.split()
         loc = pd.MultiIndex.from_arrays(arrays, names=names)
         result: Padded = (
-            predtiles
+            inftiles
             .loc[loc]
             .assign({
                 'outtile.xtile': out_xtile,
@@ -116,28 +116,28 @@ def __get__(
             })
             .pipe(self.__class__)
         )
-        result.attrs.update(predtiles.attrs)
+        result.attrs.update(inftiles.attrs)
         instance.attrs[self.__name__] = result
 
-    result.outtiles = instance
+    result.geotiles = instance
     return result
 
 
 class Padded(
-    PredTiles
+    InferenceTiles
 ):
-    outtiles: OutTiles = None
+    geotiles: GeometryTiles = None
     __name__ = 'padded'
 
     @property
-    def predtiles(self):
-        return self.outtiles.predtiles
+    def inftiles(self):
+        return self.geotiles.inftiles
 
     @Index
     def out(self):
         ...
 
-    @OutTile
+    @GeometryTile
     def outtile(self):
         ...
 

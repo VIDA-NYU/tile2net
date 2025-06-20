@@ -115,9 +115,9 @@ class Loader(BaseLoader):
         self.trainid_to_name = trainId2name
         self.fill_colormap()
 
-        files: pd.Series = tiles.predtiles.indir.files()
+        files: pd.Series = tiles.inftiles.indir.files()
         if not cfg.force:
-            loc = ~tiles.predtiles.outdir.skip
+            loc = ~tiles.inftiles.outdir.skip
             files = files.loc[loc]
         it = zip(files.tolist(), itertools.repeat(''))
         imgs = list(it)

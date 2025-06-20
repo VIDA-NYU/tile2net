@@ -28,7 +28,7 @@ from .stitch import Stitch
 from .. import util
 from ..cfg import Cfg
 from tile2net.tiles.dir.dir import Dir
-from ..predtiles import PredTiles
+from ..inftiles import InferenceTiles
 from .source import Source, SourceNotFound
 from ..tiles import Tiles
 
@@ -38,8 +38,8 @@ class InTiles(
 ):
 
     @property
-    def outtiles(self):
-        return self.predtiles.outtiles
+    def geotiles(self):
+        return self.inftiles.geotiles
 
     @Stitch
     def stitch(self):
@@ -53,10 +53,10 @@ class InTiles(
         # stitch to an XYZ scale e.g. 17
         self.stitch.to_scale(...)
 
-    @PredTiles
-    def predtiles(self):
+    @InferenceTiles
+    def inftiles(self):
         """
-        After performing InTiles.stitch, InTiles.predtiles is
+        After performing InTiles.stitch, InTiles.inftiles is
         available for performing inference on the stitched tiles.
         """
 

@@ -117,7 +117,7 @@ class Stitch:
                 Drop any tiles that cannot be stitched into a complete
                 tile.
         """
-        msg = 'Padding InTiles to align with PredTiles'
+        msg = 'Padding InTiles to align with InferenceTiles'
         logger.debug(msg)
         intiles = (
             self.intiles
@@ -125,14 +125,14 @@ class Stitch:
             .to_scale(self.intiles.tile.scale)
             .download()
         )
-        predtiles = (
+        inftiles = (
             intiles
             .to_scale(scale)
-            .pipe(self.intiles.__class__.predtiles.__class__)
+            .pipe(self.intiles.__class__.inftiles.__class__)
         )
         assert intiles.predtile.ipred.is_monotonic_increasing
-        assert predtiles.ipred.is_monotonic_increasing
-        intiles.predtiles = predtiles
+        assert inftiles.ipred.is_monotonic_increasing
+        intiles.inftiles = inftiles
         msg = 'Done padding.'
         logger.debug(msg)
 
@@ -142,10 +142,10 @@ class Stitch:
         col = intiles.predtile.c.loc[loc]
         group = intiles.predtile.ipred.loc[loc]
 
-        loc = ~predtiles.skip
-        predfiles = predtiles.file.loc[loc]
+        loc = ~inftiles.skip
+        predfiles = inftiles.file.loc[loc]
         n_missing = np.sum(loc)
-        n_total = len(predtiles)
+        n_total = len(inftiles)
 
         if n_missing == 0:  # nothing to do
             msg = f'All {n_total:,} mosaics are already stitched.'
@@ -159,7 +159,7 @@ class Stitch:
             row=row,
             col=col,
             tile_shape=intiles.tile.shape,
-            mosaic_shape=predtiles.tile.shape,
+            mosaic_shape=inftiles.tile.shape,
             group=group
         )
 
@@ -185,8 +185,8 @@ class Stitch:
 
         executor.shutdown(wait=True)
 
-        del predtiles.skip
-        assert predtiles.skip.all()
+        del inftiles.skip
+        assert inftiles.skip.all()
 
         return intiles
 

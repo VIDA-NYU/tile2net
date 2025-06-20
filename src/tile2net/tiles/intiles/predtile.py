@@ -29,7 +29,7 @@ class PredTile(
     def length(self):
         """Number of tiles in one dimension of the mosaic"""
         length = int(
-            self.intiles.predtiles.tile.scale
+            self.intiles.inftiles.tile.scale
             - self.intiles.tile.scale
         )
         return length ** 2
@@ -43,33 +43,33 @@ class PredTile(
 
     @property
     def xtile(self) -> pd.Series:
-        """Tile integer X of this tile in the predtiles mosaic"""
+        """Tile integer X of this tile in the inftiles mosaic"""
         key = 'mosaic.xtile'
         intiles = self.intiles
         if key in intiles.columns:
             return intiles[key]
 
-        predtiles = intiles.predtiles
+        inftiles = intiles.inftiles
         result = intiles.xtile // intiles.predtile.length
 
-        msg = 'All mosaic.xtile must be in predtiles.xtile!'
-        assert result.isin(predtiles.xtile).all(), msg
+        msg = 'All mosaic.xtile must be in inftiles.xtile!'
+        assert result.isin(inftiles.xtile).all(), msg
         intiles[key] = result
         return result
 
     @property
     def ytile(self) -> pd.Series:
-        """Tile integer X of this tile in the predtiles mosaic"""
+        """Tile integer X of this tile in the inftiles mosaic"""
         key = 'mosaic.ytile'
         intiles = self.intiles
         if key in intiles.columns:
             return intiles[key]
 
-        predtiles = intiles.predtiles
+        inftiles = intiles.inftiles
         result = intiles.ytile // intiles.predtile.length
 
-        msg = 'All mosaic.ytile must be in predtiles.ytile!'
-        assert result.isin(predtiles.ytile).all(), msg
+        msg = 'All mosaic.ytile must be in inftiles.ytile!'
+        assert result.isin(inftiles.ytile).all(), msg
         intiles[key] = result
         return result
 
@@ -118,7 +118,7 @@ class PredTile(
         arrays = self.xtile, self.ytile
         loc = pd.MultiIndex.from_arrays(arrays)
         result = (
-            intiles.predtiles.ipred
+            intiles.inftiles.ipred
             .loc[loc]
             .values
         )
@@ -127,13 +127,13 @@ class PredTile(
 
     @property
     def file(self) -> pd.Series:
-        """predtiles.file broadcasted to intiles"""
+        """inftiles.file broadcasted to intiles"""
         intiles = self.intiles
         key = 'mosaic.file'
         if key in intiles.columns:
             return intiles[key]
         result = (
-            intiles.predtiles.file
+            intiles.inftiles.file
             .loc[self.index]
             .values
         )
@@ -142,13 +142,13 @@ class PredTile(
 
     @property
     def skip(self) -> pd.Series:
-        """predtiles.skip broadcasted to intiles"""
+        """inftiles.skip broadcasted to intiles"""
         intiles = self.intiles
         key = 'mosaic.skip'
         if key in intiles.columns:
             return intiles[key]
         result = (
-            intiles.predtiles.skip
+            intiles.inftiles.skip
             .loc[self.index]
             .values
         )

@@ -5,9 +5,9 @@ from .predict import Predict
 import numpy as np
 import pandas as pd
 
-from .outtile import OutTile
+from .outtile import GeometryTile
 from ..tiles import Tiles, tile
-from ..outtiles import OutTiles
+from ..geotiles import GeometryTiles
 
 if False:
     from ..intiles import InTiles
@@ -16,7 +16,7 @@ if False:
 class Tile(
     tile.Tile
 ):
-    tiles: PredTiles
+    tiles: InferenceTiles
 
     @property
     def dimension(self) -> int:
@@ -33,17 +33,17 @@ class Tile(
 
 
 def __get__(
-        self: PredTiles,
+        self: InferenceTiles,
         instance: Tiles,
         owner: type[Tiles],
-) -> PredTiles:
+) -> InferenceTiles:
     if instance is None:
         return self
     try:
         result = instance.attrs[self.__name__]
     except KeyError as e:
         msg = (
-            f'InTiles must be predtiles using `InTiles.stitch` for '
+            f'InTiles must be inftiles using `InTiles.stitch` for '
             f'example `InTiles.stitch.to_resolution(2048)` or '
             f'`InTiles.stitch.to_cluster(16)`'
         )
@@ -52,19 +52,19 @@ def __get__(
     return result
 
 
-class PredTiles(
+class InferenceTiles(
     Tiles,
 ):
-    __name__ = 'predtiles'
+    __name__ = 'inftiles'
 
     @tile.cached_property
     def intiles(self) -> InTiles:
         ...
 
-    @OutTiles
-    def outtiles(self):
+    @GeometryTiles
+    def geotiles(self):
         """
-        After performing PredTiles.stitch, PredTiles.outtiles is
+        After performing InferenceTiles.stitch, InferenceTiles.geotiles is
         available for performing inference on the stitched tiles.
         """
 
@@ -99,7 +99,7 @@ class PredTiles(
 
     @tile.cached_property
     def intiles(self) -> InTiles:
-        """InTiles object that this PredTiles object is based on"""
+        """InTiles object that this InferenceTiles object is based on"""
 
     @property
     def ipred(self) -> pd.Series:
@@ -121,14 +121,14 @@ class PredTiles(
     def static(self):
         return self.intiles.static
 
-    @OutTile
+    @GeometryTile
     def outtile(self):
         # This code block is just semantic sugar and does not run.
         # These columns are available once the tiles have been stitched:
         # xtile of the outtile
-        self.outtiles.xtile = ...
+        self.geotiles.xtile = ...
         # ytile of outtile
-        self.outtiles.ytile = ...
+        self.geotiles.ytile = ...
 
 
     @Tile
@@ -140,7 +140,7 @@ class PredTiles(
         key = 'file'
         if key in self:
             return self[key]
-        self[key] = self.intiles.outdir.predtiles.files()
+        self[key] = self.intiles.outdir.inftiles.files()
         return self[key]
 
     @property
@@ -148,5 +148,5 @@ class PredTiles(
         key = 'skip'
         if key in self:
             return self[key]
-        self[key] = self.intiles.outdir.predtiles.skip()
+        self[key] = self.intiles.outdir.inftiles.skip()
         return self[key]
