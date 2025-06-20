@@ -366,7 +366,7 @@ class MiniBatch(
     #         self.futures.append(future)
     #
     # def submit_polygons(self):
-    #     affines = next(self.tiles.inftiles.affine_iterator())
+    #     affines = next(self.tiles.segtiles.affine_iterator())
     #     arrays = to_numpy(self.predictions).astype(np.uint8)
     #     files = next(self.tiles.outdir.polygons.iterator())
     #     it = zip(arrays, affines, files)

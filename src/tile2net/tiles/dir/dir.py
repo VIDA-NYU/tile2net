@@ -19,9 +19,9 @@ import pandas as pd
 from numpy import ndarray
 from toolz import curried, curry as cur, pipe
 
-from tile2net.tiles.tiles import Tiles
 from tile2net.tiles.util import returns_or_assigns
 from .batchiterator import BatchIterator
+from tile2net.tiles.tiles import Tiles
 
 if False:
     from tile2net.tiles.intiles.intiles import InTiles
@@ -77,8 +77,8 @@ class Dir:
     __wrapped__ = None
 
     @property
-    def inftiles(self):
-        return self.intiles.inftiles
+    def segtiles(self):
+        return self.intiles.segtiles
 
     @property
     def geotiles(self):
@@ -88,7 +88,7 @@ class Dir:
         self.__name__ = name
 
     @property
-    def tiles(self):
+    def tiles(self) -> Tiles:
         raise NotImplementedError(f'Return a subclass of Tiles')
 
     characters = {
@@ -310,7 +310,7 @@ class Dir:
         format = os.path.join(self.dir, dirname, suffix)
         dir = os.path.dirname(format)
         os.makedirs(dir, exist_ok=True)
-        zoom = tiles.zoom
+        zoom = tiles.tile.zoom
         it = zip(tiles.ytile, tiles.xtile)
         data = [
             format.format(z=zoom, y=ytile, x=xtile)
@@ -352,7 +352,7 @@ class UsesInTiles(
         return self.intiles
 
 
-class UsesGeometryTiles(
+class UsesGeoTiles(
     Dir
 ):
     @property
@@ -360,12 +360,12 @@ class UsesGeometryTiles(
         return self.intiles.geotiles
 
 
-class UsesInferenceTiles(
+class UsesSegTiles(
     Dir
 ):
     @property
     def tiles(self):
-        return self.intiles.inftiles
+        return self.intiles.segtiles
 
 
 class TestIndir:

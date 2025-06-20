@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import functools
 from pathlib import Path
 
@@ -12,6 +13,7 @@ if False:
 
 class cached_property:
     __wrapped__ = None
+    instance = None
 
     def __init__(
             self,
@@ -26,10 +28,10 @@ class cached_property:
     @functools.cached_property
     def key(self):
         from .tiles import Tiles
-        if isinstance(self.owner, Tiles):
+        if issubclass(self.owner, Tiles):
             return self.__name__
         elif hasattr(self.owner, 'tiles'):
-            return f'{self.owner.tiles.__name__}.{self.__name__}'
+            return f'{self.instance.tiles.__name__}.{self.__name__}'
         else:
             raise TypeError(
                 f'Owner {self.owner} must be a Tiles subclass or have a tiles attribute.'
@@ -40,10 +42,12 @@ class cached_property:
             instance,
             owner
     ):
+        from .tiles import Tiles
+        self.instance = instance
         if instance is None:
             return self
         key = self.key
-        if isinstance(self.owner, Tiles):
+        if issubclass(self.owner, Tiles):
             cache = instance.attrs
         elif hasattr(self.owner, 'tiles'):
             cache = instance.tiles.attrs
@@ -57,18 +61,33 @@ class cached_property:
         cache[key] = result
         return result
 
-    def __set__(
-            self,
-            instance,
-            value,
-    ):
-        pass
+    def __set__(self, instance, value):
+        from .tiles import Tiles
+        self.instance = instance
+        key = self.key
+        if issubclass(self.owner, Tiles):
+            cache = instance.attrs
+        elif hasattr(self.owner, 'tiles'):
+            cache = instance.tiles.attrs
+        else:
+            raise TypeError(
+                f'Owner {self.owner} must be a Tiles subclass or have a tiles attribute.'
+            )
+        cache[key] = value
 
-    def __delete__(
-            self,
-            instance,
-    ):
-        pass
+    def __delete__(self, instance):
+        from .tiles import Tiles
+        self.instance = instance
+        key = self.key
+        if issubclass(self.owner, Tiles):
+            cache = instance.attrs
+        elif hasattr(self.owner, 'tiles'):
+            cache = instance.tiles.attrs
+        else:
+            raise TypeError(
+                f'Owner {self.owner} must be a Tiles subclass or have a tiles attribute.'
+            )
+        cache.pop(key, None)
 
 
 def __get__(
@@ -76,8 +95,9 @@ def __get__(
         instance: Tiles,
         owner: type[Tiles],
 ) -> Tile:
+    from .tiles import Tiles
     self.tiles = instance
-    return self
+    return copy.copy(self)
 
 
 class Tile(
@@ -86,7 +106,7 @@ class Tile(
     locals().update(
         __get__=__get__
     )
-    tiles: Tiles
+    tiles: Tiles = None
 
     def __init__(
             self,

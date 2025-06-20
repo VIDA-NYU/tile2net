@@ -118,7 +118,7 @@ class Stitch:
                 tile.
         """
         from .intiles import InTiles
-        from ..inftiles import InferenceTiles
+        from ..segtiles import SegTiles
         TILES = self.intiles
 
         tiles = TILES
@@ -199,7 +199,7 @@ class Stitch:
         stitched = Stitched(_stitched)
         stitched.attrs.update(_stitched.attrs)
         setattr(stitched, 'indir', indir)
-        tiles.inftiles = stitched
+        tiles.segtiles = stitched
         stitched.intiles = tiles
 
         stitched.zoom = tiles.zoom
@@ -207,7 +207,7 @@ class Stitch:
         mlength = dscale ** 2
 
         msg = f'Tile count is not {marea}x the mosaic count.'
-        assert len(tiles) == len(tiles.inftiles) * marea, msg
+        assert len(tiles) == len(tiles.segtiles) * marea, msg
         msg = f'Not all mosaics are complete'
         assert (
             tiles

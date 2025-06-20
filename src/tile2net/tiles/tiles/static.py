@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from functools import *
 from pathlib import Path
 
@@ -16,7 +17,7 @@ def __get__(
         owner: type[Tiles]
 ) -> Static:
     self.tiles = instance
-    return self
+    return copy.copy(self)
 
 
 class Static:

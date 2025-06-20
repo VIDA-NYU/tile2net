@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import numpy as np
-from ..inftiles import InferenceTiles
+from ..segtiles import SegTiles
 import pandas as pd
 
-from .outtile import GeometryTile
+from .geotile import GeoTile
 from ..tiles import Tiles, tile
 
 if False:
-    from .geotiles import GeometryTiles
+    from .geotiles import GeoTiles
 
 
 def boundary_tiles(
@@ -70,7 +70,7 @@ class Index(
 
 def __get__(
         self: Padded,
-        instance: GeometryTiles,
+        instance: GeoTiles,
         owner,
 ) -> Padded:
     if instance is None:
@@ -78,8 +78,8 @@ def __get__(
     elif self.__name__ in instance.attrs:
         result = instance.attrs[self.__name__]
     else:
-        inftiles = instance.inftiles
-        length = inftiles.outtile.length
+        segtiles = instance.segtiles
+        length = segtiles.geotile.length
         shape = length, length
         boundary = boundary_tiles(shape)
         repeat = len(boundary)
@@ -87,7 +87,7 @@ def __get__(
         dx: np.ndarray
         dy: np.ndarray
         dx, dy = boundary.T
-        length = instance.inftiles.outtile.length
+        length = instance.segtiles.geotile.length
         xorigin = instance.xtile // length * length
         yorigin = instance.ytile // length * length
         xo = xorigin.values[:, None]
@@ -106,17 +106,17 @@ def __get__(
         names = 'xtile ytile'.split()
         loc = pd.MultiIndex.from_arrays(arrays, names=names)
         result: Padded = (
-            inftiles
+            segtiles
             .loc[loc]
             .assign({
-                'outtile.xtile': out_xtile,
-                'outtile.ytile': out_ytile,
-                'outtile.r': r,
-                'outtile.c': c,
+                'geotile.xtile': out_xtile,
+                'geotile.ytile': out_ytile,
+                'geotile.r': r,
+                'geotile.c': c,
             })
             .pipe(self.__class__)
         )
-        result.attrs.update(inftiles.attrs)
+        result.attrs.update(segtiles.attrs)
         instance.attrs[self.__name__] = result
 
     result.geotiles = instance
@@ -124,20 +124,20 @@ def __get__(
 
 
 class Padded(
-    InferenceTiles
+    SegTiles
 ):
-    geotiles: GeometryTiles = None
+    geotiles: GeoTiles = None
     __name__ = 'padded'
 
     @property
-    def inftiles(self):
-        return self.geotiles.inftiles
+    def segtiles(self):
+        return self.geotiles.segtiles
 
     @Index
     def out(self):
         ...
 
-    @GeometryTile
-    def outtile(self):
+    @GeoTile
+    def geotile(self):
         ...
 

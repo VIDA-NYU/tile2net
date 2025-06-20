@@ -15,31 +15,31 @@ import pandas as pd
 from pandas.tseries.holiday import USPresidentsDay
 
 from .batchiterator import BatchIterator
-from .dir import Dir, UsesInTiles, UsesGeometryTiles, UsesInferenceTiles
+from .dir import Dir, UsesInTiles, UsesGeoTiles, UsesSegTiles
 
 
 
 class Probability(
-    UsesInferenceTiles,
+    UsesSegTiles,
 ):
     extension = 'npy'
 
 
 class Prediction(
-    UsesInferenceTiles
+    UsesSegTiles
 ):
     extension = 'png'
 
 
 class Error(
-    UsesInferenceTiles
+    UsesSegTiles
 ):
     extension = 'npy'
 
 
 
 class Polygons(
-    UsesGeometryTiles
+    UsesGeoTiles
 ):
     @property
     def tiles(self):
@@ -68,7 +68,7 @@ class Polygons(
 
 
 class Network(
-    UsesGeometryTiles
+    UsesGeoTiles
 ):
     @property
     def tiles(self):
@@ -94,13 +94,13 @@ class Network(
 
 
 class SideBySide(
-    UsesInferenceTiles
+    UsesSegTiles
 ):
     ...
 
 
 class Outputs(
-    UsesInferenceTiles,
+    UsesSegTiles,
 ):
     ...
 
@@ -127,7 +127,7 @@ class Outputs(
 
 
 class SegResults(
-    UsesInferenceTiles,
+    UsesSegTiles,
 ):
 
     @Probability
@@ -166,36 +166,36 @@ class SegResults(
 
 
 class Submit(
-    UsesInferenceTiles,
+    UsesSegTiles,
 ):
     ...
 
 
 class MaskRaw(
-    UsesInferenceTiles,
+    UsesSegTiles,
 ):
     ...
 
 
 class Mask(
-    UsesInferenceTiles,
+    UsesSegTiles,
 ):
     ...
 
 
-class GeometryTiles(
-    UsesGeometryTiles
+class GeoTiles(
+    UsesGeoTiles
 ):
     ...
 
-class InferenceTiles(
-    UsesInferenceTiles,
+class SegTiles(
+    UsesSegTiles,
 ):
     ...
 
 
 class BestImages(
-    UsesInferenceTiles
+    UsesSegTiles
 ):
     @property
     def webpage(self):
@@ -278,7 +278,7 @@ class Outdir(
 
     @property
     def skip(self) -> pd.Series:
-        tiles = self.intiles.inftiles
+        tiles = self.intiles.segtiles
         key = f'{self._trace}.skip'
         if key in tiles:
             return tiles[key]
@@ -312,24 +312,24 @@ class Outdir(
         result = BestImages.from_format(format)
         return result
 
-    @GeometryTiles
+    @GeoTiles
     def geotiles(self):
         format = os.path.join(
             self.dir,
             'geotiles',
             self.suffix
         ).replace(self.extension, 'png')
-        result = GeometryTiles.from_format(format)
+        result = GeoTiles.from_format(format)
         return result
 
-    @InferenceTiles
-    def inftiles(self):
+    @SegTiles
+    def segtiles(self):
         format = os.path.join(
             self.dir,
-            'inftiles',
+            'segtiles',
             self.suffix
         ).replace(self.extension, 'png')
-        result = InferenceTiles.from_format(format)
+        result = SegTiles.from_format(format)
         return result
 
     def preview(self) -> str:

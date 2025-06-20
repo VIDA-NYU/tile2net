@@ -1,4 +1,7 @@
 from __future__ import annotations
+import math
+from sympy.assumptions.lra_satask import pred_to_pos_neg_zero
+
 from tile2net.tiles.dir.indir import Indir
 from tile2net.tiles.dir.outdir import Outdir
 
@@ -23,12 +26,12 @@ from tqdm.auto import tqdm
 from tile2net.tiles.logger import logger
 from tile2net.raster import util
 from tile2net.tiles.cfg import cfg
-from .predtile import PredTile
+from .predtile import SegTile
 from .stitch import Stitch
 from .. import util
 from ..cfg import Cfg
 from tile2net.tiles.dir.dir import Dir
-from ..inftiles import InferenceTiles
+from ..segtiles import SegTiles
 from .source import Source, SourceNotFound
 from ..tiles import Tiles
 
@@ -36,10 +39,11 @@ from ..tiles import Tiles
 class InTiles(
     Tiles
 ):
+    __name__ = 'intiles'
 
     @property
     def geotiles(self):
-        return self.inftiles.geotiles
+        return self.segtiles.geotiles
 
     @Stitch
     def stitch(self):
@@ -53,13 +57,12 @@ class InTiles(
         # stitch to an XYZ scale e.g. 17
         self.stitch.to_scale(...)
 
-    @InferenceTiles
-    def inftiles(self):
+    @SegTiles
+    def segtiles(self):
         """
-        After performing InTiles.stitch, InTiles.inftiles is
+        After performing InTiles.stitch, InTiles.segtiles is
         available for performing inference on the stitched tiles.
         """
-
 
     @Source
     def source(self):
@@ -86,7 +89,6 @@ class InTiles(
     @Outdir
     def outdir(self):
         ...
-
 
     @classmethod
     def from_location(
@@ -202,7 +204,7 @@ class InTiles(
         # Please do not set the configuration options directly,
         # you may introduce bugs.
 
-    @PredTile
+    @SegTile
     def predtile(self):
         # This code block is just semantic sugar and does not run.
         # These columns are available once the tiles have been stitched:
@@ -487,7 +489,7 @@ class InTiles(
         # urls = result.source.urls
         # files = result.indir.files()
         # result.download(files, urls, max_workers=max_workers)
-        result.download(max_workers=max_workers)
+        # result.download(max_workers=max_workers)
 
         return result
 
@@ -602,23 +604,16 @@ class InTiles(
 
         return result
 
-    def with_geometry_tiles(
+    def with_segmented_tiles(
             self,
             *,
             dimension: int = None,
             mosaic: int = None,
             scale: int = None,
+            fill: bool = True,
+            bs_val: int = None,
     ) -> Self:
-        # todo: if all are None, determine dimension using RAM
-        ...
-
-    def with_inference_tiles(
-            self,
-            *,
-            dimension: int  =None,
-            mosaic: int = None,
-            scale: int = None,
-    ) -> Self:
+        from ..segtiles import SegTiles
         # todo: if all are None, determine dimension using VRAM
         n = sum(
             arg is not None
@@ -631,12 +626,96 @@ class InTiles(
             )
             raise ValueError(msg)
         if dimension:
-            ...
-        if mosaic:
-            ...
-        if scale:
-            ...
+            dscale = int(math.log2(dimension / self.dimension))
+            scale = self.tscale - dscale
+            return self.stitch.to_scale(scale, fill=fill)
+        elif mosaic:
+            if (
+                    not isinstance(mosaic, int)
+                    or mosaic <= 0
+                    or (mosaic & (mosaic - 1)) != 0
+            ):
+                raise ValueError('Cluster must be a positive power of 2.')
+            marea = int(math.log2(mosaic))
+            dscale = int(math.sqrt(marea))
+            scale = self.tile.scale - dscale
+            return self.stitch.to_scale(scale, fill=fill)
+        elif scale:
+            msg = 'Padding InTiles to align with SegTiles'
+            logger.debug(msg)
+            intiles = (
+                self
+                .to_scale(scale, fill=fill)
+                .to_scale(self.tile.scale, fill=fill)
+            )
+            segtiles = SegTiles.from_rescale(intiles, scale, fill)
+            intiles.segtiles = segtiles
+            segtiles = intiles.segtiles
+            assert intiles.predtile.ipred.is_monotonic_increasing
+            assert segtiles.ipred.is_monotonic_increasing
+            return intiles
+        else:
+            raise ValueError
 
+    def with_geometry_tiles(
+            self,
+            *,
+            dimension: int = None,
+            mosaic: int = None,
+            scale: int = None,
+            fill: bool = True,
+    ) -> Self:
+        # todo: if all are None, determine dimension using RAM
+        n = sum(
+            arg is not None
+            for arg in (dimension, mosaic, scale)
+        )
+        if n != 1:
+            msg = (
+                'You must specify exactly one of dimension, mosaic, or scale '
+                'to set the inference tiles.'
+            )
+            raise ValueError(msg)
+        if dimension:
+            dscale = int(math.log2(dimension / self.dimension))
+            scale = self.tscale - dscale
+            return self.stitch.to_scale(scale, fill=fill)
+        elif mosaic:
+            if (
+                    not isinstance(mosaic, int)
+                    or mosaic <= 0
+                    or (mosaic & (mosaic - 1)) != 0
+            ):
+                raise ValueError('Cluster must be a positive power of 2.')
+            marea = int(math.log2(mosaic))
+            dscale = int(math.sqrt(marea))
+            scale = self.tile.scale - dscale
+            return self.stitch.to_scale(scale, fill=fill)
+        elif scale:
+            msg = 'Padding InTiles to align with SegTiles'
+            logger.debug(msg)
+            intiles = (
+                self
+                .to_scale(scale, fill=fill)
+                .to_scale(self.tile.scale, fill=fill)
+            )
+            segtiles = (
+                self.segtiles
+                .to_scale(scale, fill=fill)
+                .to_scale(self.segtiles.tile.scale, fill=fill)
+            )
+            # geotiles = (
+            #     intiles
+            #     .to_scale(scale, fill=fill)
+            #     .pipe(self.__class__.geotiles.__class__)
+            # )
+            assert intiles.predtile.ipred.is_monotonic_increasing
+            assert segtiles.ipred.is_monotonic_increasing
+            intiles.segtiles = segtiles
+            intiles.geotiles = geotiles
+            return intiles
+        else:
+            raise ValueError
 
     @property
     def network(self) -> gpd.GeoDataFrame:
@@ -646,7 +725,6 @@ class InTiles(
     def polygons(self) -> gpd.GeoDataFrame:
         ...
 
-
-
-
-
+    @property
+    def file(self):
+        return self.indir.files()

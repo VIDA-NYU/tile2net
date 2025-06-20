@@ -116,6 +116,28 @@ class Tiles(
         result.zoom = zoom
         return result
 
+    @classmethod
+    def from_rescale(
+            cls,
+            tiles: Tiles,
+            scale: int,
+            fill: bool = True,
+    ) -> Self:
+        """
+        Rescale tiles to a new scale.
+        If the new scale is larger, the tiles are filled with zeros.
+        If the new scale is smaller, the tiles are downscaled.
+        """
+        scaled = tiles.to_scale(scale, fill=fill)
+        xtile = scaled.xtile
+        ytile = scaled.ytile
+        return cls.from_integers(
+            xtile=xtile,
+            ytile=ytile,
+            zoom=scaled.tile.zoom,
+        )
+
+
     @cached_property
     def r(self) -> pd.Series:
         """Row of the tile within the overall grid."""
@@ -137,10 +159,6 @@ class Tiles(
             .sub(self.xtile.min())
         )
         return result
-
-    @property
-    def file(self):
-        return self.indir.files()
 
     @property
     def name(self) -> str:
@@ -290,7 +308,9 @@ class Tiles(
             value: type[Tiles],
     ):
         value.__name__ = self.__name__
-        instance.attrs[self.__name__] = value
+        copy = value.copy()
+        copy.attrs.clear()
+        instance.attrs[self.__name__] = copy
 
     @Static
     def static(self):
@@ -336,7 +356,6 @@ class Tiles(
                 ytile,
                 scale
             )
-            tile_dimension = self.tile.dimension // mosaic_length
 
         elif self.tile.scale > scale:
             # larger tiles
@@ -367,14 +386,11 @@ class Tiles(
                 frame.ytile,
                 scale
             )
-            tile_dimension = self.tile.dimension * mosaic_length
 
         else:
             # same scale
             result = self.copy()
-            tile_dimension = self.tile.dimension
 
         result.attrs.update(self.attrs)
-        result.tile.dimension = tile_dimension
         result.tile.scale = scale
         return result

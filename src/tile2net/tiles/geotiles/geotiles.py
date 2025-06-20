@@ -12,14 +12,14 @@ from ..tiles import Tiles, tile
 
 if False:
     from .padded import Padded
-    from ..inftiles import InferenceTiles
+    from ..segtiles import SegTiles
 
 from ..tiles import Tiles
 from . import delayed
 
 def __get__(
         self: Padding,
-        instance: GeometryTiles,
+        instance: GeoTiles,
         owner,
 ) -> Padding:
     self.geotiles = instance
@@ -29,7 +29,7 @@ def __get__(
 class Padding(
 
 ):
-    geotiles: GeometryTiles = None
+    geotiles: GeoTiles = None
     locals().update(
         __get__=__get__,
     )
@@ -38,7 +38,7 @@ class Padding(
     def gw(self) -> pd.Series:
         geotiles = self.geotiles
         padded = geotiles.padded
-        haystack = padded.outtile.index
+        haystack = padded.geotile.index
         index = geotiles.index
         top_left = np.zeros_like((len(index), 2))
         needles = pd.MultiIndex.append(index, top_left)
@@ -65,25 +65,25 @@ class Padding(
 
 
 def __get__(
-        self: GeometryTiles,
-        instance: Optional[InferenceTiles],
+        self: GeoTiles,
+        instance: Optional[SegTiles],
         owner: type[Tiles],
-) -> GeometryTiles:
+) -> GeoTiles:
     if instance is None:
         return self
     try:
-        result: GeometryTiles = instance.attrs[self.__name__]
+        result: GeoTiles = instance.attrs[self.__name__]
     except KeyError as e:
         msg = (
-            f'GeometryTiles must be stitched using `InferenceTiles.stitch` for '
-            f'example `InferenceTiles.stitch.to_dimension(2048)` or '
-            f'`InferenceTiles.stitch.to_cluster(16)`'
+            f'GeoTiles must be stitched using `SegTiles.stitch` for '
+            f'example `SegTiles.stitch.to_dimension(2048)` or '
+            f'`SegTiles.stitch.to_cluster(16)`'
         )
         raise ValueError(msg) from e
-    result.inftiles = instance
+    result.segtiles = instance
     return result
 
-class GeometryTiles(
+class GeoTiles(
     Tiles
 ):
     __name__ = 'geotiles'
@@ -93,7 +93,7 @@ class GeometryTiles(
         ...
 
     @tile.cached_property
-    def inftiles(self) -> InferenceTiles:
+    def segtiles(self) -> SegTiles:
         ...
 
     @property

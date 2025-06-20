@@ -1,36 +1,40 @@
 from __future__ import annotations
 
+import copy
+
 import pandas as pd
 from ..tiles import tile
 
 if False:
-    from .inftiles import InferenceTiles
+    from .segtiles import SegTiles
 
 
 def __get__(
-        self: GeometryTile,
-        instance: InferenceTiles,
-        owner: type[InferenceTiles],
-) -> GeometryTile:
-    self.inftiles = instance
-    self.InferenceTiles = owner
-    return self
+        self: GeoTile,
+        instance: SegTiles,
+        owner: type[SegTiles],
+) -> GeoTile:
+    self.segtiles = instance
+    return copy.copy(self)
 
 
-class GeometryTile(
+class GeoTile(
 
 ):
-    inftiles: InferenceTiles
+    segtiles: SegTiles
     locals().update(
         __get__=__get__,
     )
+    @property
+    def tiles(self):
+        return self.segtiles
 
     @tile.cached_property
     def length(self):
         """Number of tiles in one dimension of the mosaic"""
         length = int(
-            self.inftiles.geotiles.tile.scale
-            - self.inftiles.tile.scale
+            self.segtiles.geotiles.tile.scale
+            - self.segtiles.tile.scale
         )
         return length ** 2
 
@@ -39,37 +43,37 @@ class GeometryTile(
     def xtile(self) -> pd.Series:
         """Tile integer X of this tile in the geotiles mosaic"""
         key = 'mosaic.xtile'
-        inftiles = self.inftiles
-        if key in inftiles.columns:
-            return inftiles[key]
+        segtiles = self.segtiles
+        if key in segtiles.columns:
+            return segtiles[key]
 
-        geotiles = inftiles.geotiles
-        result = inftiles.xtile // inftiles.outtile.length
+        geotiles = segtiles.geotiles
+        result = segtiles.xtile // segtiles.geotile.length
 
         msg = 'All mosaic.xtile must be in geotiles.xtile!'
         assert result.isin(geotiles.xtile).all(), msg
-        inftiles[key] = result
+        segtiles[key] = result
         return result
 
     @tile.cached_property
     def ytile(self) -> pd.Series:
         """Tile integer X of this tile in the geotiles mosaic"""
-        inftiles = self.inftiles
-        geotiles = inftiles.geotiles
-        result = inftiles.ytile // inftiles.outtile.length
+        segtiles = self.segtiles
+        geotiles = segtiles.geotiles
+        result = segtiles.ytile // segtiles.geotile.length
 
-        # todo: for each outtile origin, use array ranges to pad the tiles
+        # todo: for each geotile origin, use array ranges to pad the tiles
 
     @tile.cached_property
     def frame(self) -> pd.DataFrame:
-        inftiles = self.inftiles
+        segtiles = self.segtiles
         concat = []
-        ytile = inftiles.ytile // inftiles.outtile.length
-        xtile = inftiles.xtile // inftiles.outtile.length
+        ytile = segtiles.ytile // segtiles.geotile.length
+        xtile = segtiles.xtile // segtiles.geotile.length
         frame = pd.DataFrame(dict(
             xtile=xtile,
             ytile=ytile,
-        ), index=inftiles.index)
+        ), index=segtiles.index)
         concat.append(frame)
 
 
@@ -83,19 +87,19 @@ class GeometryTile(
 
     @property
     def group(self) -> pd.Series:
-        inftiles = self.inftiles
+        segtiles = self.segtiles
         key = 'mosaic.group'
-        if key in inftiles.columns:
-            return inftiles[key]
+        if key in segtiles.columns:
+            return segtiles[key]
         arrays = self.xtile, self.ytile
         loc = pd.MultiIndex.from_arrays(arrays)
         result = (
-            inftiles.geotiles.ipred
+            segtiles.geotiles.ipred
             .loc[loc]
             .values
         )
-        inftiles[key] = result
-        return inftiles[key]
+        segtiles[key] = result
+        return segtiles[key]
 
 
     def __init__(

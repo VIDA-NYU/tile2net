@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+
 import pandas as pd
 from ..tiles import tile
 
@@ -8,16 +10,16 @@ if False:
 
 
 def __get__(
-        self: PredTile,
+        self: SegTile,
         instance: InTiles,
         owner: type[InTiles],
-) -> PredTile:
+) -> SegTile:
     self.intiles = instance
-    self.InTiles = owner
-    return self
+    # return self.copy()
+    return copy.copy(self)
 
 
-class PredTile(
+class SegTile(
 
 ):
     intiles: InTiles
@@ -25,11 +27,17 @@ class PredTile(
         __get__=__get__,
     )
 
+    @property
+    def tiles(self):
+        return self.intiles
+
     @tile.cached_property
     def length(self):
         """Number of tiles in one dimension of the mosaic"""
+        self.intiles.segtiles.tile.tiles
+        self.intiles.segtiles.intiles
         length = int(
-            self.intiles.inftiles.tile.scale
+            self.intiles.segtiles.tile.scale
             - self.intiles.tile.scale
         )
         return length ** 2
@@ -43,33 +51,33 @@ class PredTile(
 
     @property
     def xtile(self) -> pd.Series:
-        """Tile integer X of this tile in the inftiles mosaic"""
+        """Tile integer X of this tile in the segtiles mosaic"""
         key = 'mosaic.xtile'
         intiles = self.intiles
         if key in intiles.columns:
             return intiles[key]
 
-        inftiles = intiles.inftiles
+        segtiles = intiles.segtiles
         result = intiles.xtile // intiles.predtile.length
 
-        msg = 'All mosaic.xtile must be in inftiles.xtile!'
-        assert result.isin(inftiles.xtile).all(), msg
+        msg = 'All mosaic.xtile must be in segtiles.xtile!'
+        assert result.isin(segtiles.xtile).all(), msg
         intiles[key] = result
         return result
 
     @property
     def ytile(self) -> pd.Series:
-        """Tile integer X of this tile in the inftiles mosaic"""
+        """Tile integer X of this tile in the segtiles mosaic"""
         key = 'mosaic.ytile'
         intiles = self.intiles
         if key in intiles.columns:
             return intiles[key]
 
-        inftiles = intiles.inftiles
+        segtiles = intiles.segtiles
         result = intiles.ytile // intiles.predtile.length
 
-        msg = 'All mosaic.ytile must be in inftiles.ytile!'
-        assert result.isin(inftiles.ytile).all(), msg
+        msg = 'All mosaic.ytile must be in segtiles.ytile!'
+        assert result.isin(segtiles.ytile).all(), msg
         intiles[key] = result
         return result
 
@@ -118,7 +126,7 @@ class PredTile(
         arrays = self.xtile, self.ytile
         loc = pd.MultiIndex.from_arrays(arrays)
         result = (
-            intiles.inftiles.ipred
+            intiles.segtiles.ipred
             .loc[loc]
             .values
         )
@@ -127,13 +135,13 @@ class PredTile(
 
     @property
     def file(self) -> pd.Series:
-        """inftiles.file broadcasted to intiles"""
+        """segtiles.file broadcasted to intiles"""
         intiles = self.intiles
         key = 'mosaic.file'
         if key in intiles.columns:
             return intiles[key]
         result = (
-            intiles.inftiles.file
+            intiles.segtiles.file
             .loc[self.index]
             .values
         )
@@ -142,13 +150,13 @@ class PredTile(
 
     @property
     def skip(self) -> pd.Series:
-        """inftiles.skip broadcasted to intiles"""
+        """segtiles.skip broadcasted to intiles"""
         intiles = self.intiles
         key = 'mosaic.skip'
         if key in intiles.columns:
             return intiles[key]
         result = (
-            intiles.inftiles.skip
+            intiles.segtiles.skip
             .loc[self.index]
             .values
         )

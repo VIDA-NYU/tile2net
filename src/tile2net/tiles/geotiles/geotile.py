@@ -1,30 +1,30 @@
 from __future__ import annotations
 
-from .. import inftiles
+from .. import segtiles
 import pandas as pd
 
 from ..tiles import Tiles, tile
 
 
-class GeometryTile(
-    inftiles.GeometryTile
+class GeoTile(
+    segtiles.GeoTile
 ):
     @property
     def r(self) -> pd.Series:
         """row within the mosaic of this tile"""
-        inftiles = self.inftiles
+        segtiles = self.segtiles
         key = 'mosaic.r'
-        if key in inftiles.columns:
-            return inftiles[key]
+        if key in segtiles.columns:
+            return segtiles[key]
         raise AttributeError
 
     @property
     def c(self) -> pd.Series:
         """column within the mosaic of this tile"""
-        inftiles = self.inftiles
+        segtiles = self.segtiles
         key = 'mosaic.c'
-        if key in inftiles.columns:
-            return inftiles[key]
+        if key in segtiles.columns:
+            return segtiles[key]
         raise AttributeError
 
     @tile.cached_property
@@ -40,31 +40,31 @@ class GeometryTile(
 
     @property
     def file(self) -> pd.Series:
-        """geotiles.file broadcasted to inftiles"""
-        inftiles = self.inftiles
+        """geotiles.file broadcasted to segtiles"""
+        segtiles = self.segtiles
         key = 'mosaic.file'
-        if key in inftiles.columns:
-            return inftiles[key]
+        if key in segtiles.columns:
+            return segtiles[key]
         result = (
-            inftiles.geotiles.file
+            segtiles.geotiles.file
             .loc[self.index]
             .values
         )
-        inftiles[key] = result
-        return inftiles[key]
+        segtiles[key] = result
+        return segtiles[key]
 
     @property
     def skip(self) -> pd.Series:
-        """geotiles.skip broadcasted to inftiles"""
-        inftiles = self.inftiles
+        """geotiles.skip broadcasted to segtiles"""
+        segtiles = self.segtiles
         key = 'mosaic.skip'
-        if key in inftiles.columns:
-            return inftiles[key]
+        if key in segtiles.columns:
+            return segtiles[key]
         result = (
-            inftiles.geotiles.skip
+            segtiles.geotiles.skip
             .loc[self.index]
             .values
         )
-        inftiles[key] = result
-        return inftiles[key]
+        segtiles[key] = result
+        return segtiles[key]
 

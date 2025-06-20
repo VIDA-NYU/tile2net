@@ -7,7 +7,7 @@ Tiles
 
 SourceTiles
     - stitch to inference tiles aggregates source tiles
-InferenceTiles
+SegTiles
     - stitch to network tiles aggregates inference tiles
     - does not write polygons
 NetworkTiles
@@ -17,13 +17,13 @@ NetworkTiles
 
 source -> inference -> network
 
-SourceTiles.stitch() -> InferenceTiles
-InferenceTiles.stitch() -> NetworkTiles
+SourceTiles.stitch() -> SegTiles
+SegTiles.stitch() -> NetworkTiles
 
 pad.
 
-InTiles.stitch() -> InferenceTiles
-InferenceTiles.stitch() -> GeometryTiles
+InTiles.stitch() -> SegTiles
+SegTiles.stitch() -> GeoTiles
 
 previously, mosaic.xtile and mosaic.ytile were easy because they were 1-to-1 mappings and therefore columns
 now, each xtile and ytile can belong to two mosaics
@@ -34,7 +34,6 @@ can't use mosaic(frame) because we need to first access lengt,
 pred.xtile
 out.xtile
 
-
 padded inherits from
 
 each tile subclass should get its own self.static so it can get self.static.black
@@ -43,12 +42,18 @@ predict.py
 mask2poly.py
 minibatch.py
 
-todo: inftiles.stitch() -> geotiles requires padding intiles once more
+todo: segtiles.stitch() -> geotiles requires padding intiles once more
 
 intiles.stitch() -> intiles
-inftiles.stitch() -> intiles
+segtiles.stitch() -> intiles
 
 add cfg.stitch.dimension to cfg
 
-inftiles.predict
+segtiles.predict
 .geotiles.vectorize
+
+if intiles:
+    dimension is from sample
+
+Tile descriptor has possibly bug if it's accessed for another class while in it
+return a copy

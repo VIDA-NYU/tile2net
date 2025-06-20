@@ -1,1 +1,0 @@
-from .geotiles import GeometryTiles
