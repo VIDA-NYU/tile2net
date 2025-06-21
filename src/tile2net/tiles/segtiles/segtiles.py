@@ -125,13 +125,15 @@ class SegTiles(
         intiles = self.intiles
         segtiles = self
 
-        loc = ~intiles.segtile.skip
+        # loc = ~intiles.segtile.skip
+        loc = np.ones_like(intiles.infile, dtype=bool)
         infiles = intiles.infile.loc[loc]
         row = intiles.segtile.r.loc[loc]
         col = intiles.segtile.c.loc[loc]
         group = intiles.segtile.ipred.loc[loc]
 
-        loc = ~segtiles.skip
+        # loc = ~segtiles.skip
+        loc = np.ones_like(segtiles.infile, dtype=bool)
         predfiles = segtiles.infile.loc[loc]
         n_missing = np.sum(loc)
         n_total = len(segtiles)
@@ -229,6 +231,7 @@ class SegTiles(
         if not self.intiles.outdir.segtiles.skip().all():
             self.stitch()
         return self[key]
+
 
     @property
     def segtiles(self) -> Self:
