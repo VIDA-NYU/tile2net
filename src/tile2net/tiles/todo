@@ -62,3 +62,7 @@ predtiles stitches when files is accessed
 
 1   2   4   8   16
 3   4   6   10  18
+
+
+set_segmentation should by default set dimension to 1024 from cfg
+set_vectorization should determine from memory

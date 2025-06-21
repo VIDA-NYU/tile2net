@@ -1,4 +1,33 @@
 from __future__ import annotations
+import PIL.Image
+import imageio.v3 as iio
+import numpy as np
+import pandas as pd
+import pyproj
+import shapely
+from PIL import Image
+
+import PIL.Image
+import imageio.v3 as iio
+
+import os
+import shutil
+import tempfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
+from pathlib import Path
+from typing import *
+
+import certifi
+import geopandas as gpd
+import imageio.v3
+import imageio.v3
+import math
+import numpy as np
+import pandas as pd
+import requests
+from requests.adapters import HTTPAdapter
+from tqdm.auto import tqdm
 
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -197,18 +226,58 @@ class SegTiles(
         if key in self:
             return self[key]
         self[key] = self.intiles.outdir.segtiles.files()
-        if not self.skip.all():
+        if not self.intiles.outdir.segtiles.skip().all():
             self.stitch()
-        return self[key]
-
-    @property
-    def skip(self) -> pd.Series:
-        key = 'skip'
-        if key in self:
-            return self[key]
-        self[key] = self.intiles.outdir.segtiles.skip()
         return self[key]
 
     @property
     def segtiles(self) -> Self:
         return self
+    def preview(
+            self,
+            maxdim: int = 2048,
+            divider: Optional[str] = None,
+    ) -> PIL.Image.Image:
+
+        files: pd.Series = self.infile
+        R: pd.Series = self.r  # 0-based row id
+        C: pd.Series = self.c  # 0-based col id
+
+        dim = self.tile.dimension  # original tile side length
+        n_rows = int(R.max()) + 1
+        n_cols = int(C.max()) + 1
+        div_px = 1 if divider else 0
+
+        # full mosaic size before optional down-scaling
+        full_w0 = n_cols * dim + div_px * (n_cols - 1)
+        full_h0 = n_rows * dim + div_px * (n_rows - 1)
+
+        scale = 1.0
+        if max(full_w0, full_h0) > maxdim:
+            scale = maxdim / max(full_w0, full_h0)
+
+        tile_w = max(1, int(round(dim * scale)))
+        tile_h = tile_w  # square tiles
+        full_w = n_cols * tile_w + div_px * (n_cols - 1)
+        full_h = n_rows * tile_h + div_px * (n_rows - 1)
+
+        canvas_col = divider if divider else (0, 0, 0)
+        mosaic = Image.new('RGB', (full_w, full_h), color=canvas_col)
+
+        def load(idx: int) -> tuple[int, int, np.ndarray]:
+            arr = iio.imread(files.iat[idx])
+            if scale != 1.0:
+                arr = np.asarray(
+                    Image.fromarray(arr).resize(
+                        (tile_w, tile_h), Image.Resampling.LANCZOS
+                    )
+                )
+            return R.iat[idx], C.iat[idx], arr
+
+        with ThreadPoolExecutor() as pool:
+            for r, c, arr in pool.map(load, range(len(files))):
+                x0 = c * (tile_w + div_px)
+                y0 = r * (tile_h + div_px)
+                mosaic.paste(Image.fromarray(arr), (x0, y0))
+
+        return mosaic

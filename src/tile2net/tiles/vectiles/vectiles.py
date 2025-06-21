@@ -1,4 +1,45 @@
 from __future__ import annotations
+from tile2net.tiles.dir.loader import Loader
+from tile2net.tiles.cfg.logger import logger
+import PIL.Image
+import imageio.v3 as iio
+import numpy as np
+import pandas as pd
+import pyproj
+import shapely
+from PIL import Image
+
+import PIL.Image
+import imageio.v3 as iio
+
+import os
+import shutil
+import tempfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
+from pathlib import Path
+from typing import *
+
+import certifi
+import geopandas as gpd
+import imageio.v3
+import imageio.v3
+import math
+import numpy as np
+import pandas as pd
+import requests
+from requests.adapters import HTTPAdapter
+from tqdm.auto import tqdm
+
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from typing import *
+
+import imageio.v2
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
+
 
 from ..dir import BatchIterator
 from typing import *
@@ -162,3 +203,64 @@ class VecTiles(
     @property
     def vectiles(self) -> Self:
         return self
+
+    def stitch( self ):
+        intiles = self.intiles
+        segtiles = self.segtiles
+        padded = segtiles.padded
+        vectiles = self
+
+        loc = ~padded.vectile.skip
+        infiles = padded.infile.loc[loc]
+        row = padded.vectile.r.loc[loc]
+        col = padded.vectile.c.loc[loc]
+        group = padded.vectile.ipred.loc[loc]
+
+        loc = ~vectiles.skip
+        predfiles = vectiles.infile.loc[loc]
+        n_missing = np.sum(loc)
+        n_total = len(vectiles)
+
+        if n_missing == 0:  # nothing to do
+            msg = f'All {n_total:,} mosaics are already stitched.'
+            logger.info(msg)
+            return padded
+        else:
+            logger.info(f'Stitching {n_missing:,} of {n_total:,} mosaics missing on disk.')
+
+        loader = Loader(
+            files=infiles,
+            row=row,
+            col=col,
+            tile_shape=padded.tile.shape,
+            mosaic_shape=vectiles.tile.shape,
+            group=group
+        )
+
+        seen = set()
+        for f in predfiles:
+            d = Path(f).parent
+            if d not in seen:  # avoids extra mkdir syscalls
+                d.mkdir(parents=True, exist_ok=True)
+                seen.add(d)
+
+        executor = ThreadPoolExecutor()
+        imwrite = imageio.v3.imwrite
+        it = zip(loader, predfiles)
+        it = tqdm(it, 'stitching', n_missing, unit=' mosaic')
+
+        writes = [
+            executor.submit(imwrite, outfile, array)
+            for array, outfile in it
+        ]
+
+        for w in writes:
+            w.result()
+
+        executor.shutdown(wait=True)
+
+        del vectiles.skip
+        assert vectiles.skip.all()
+
+        return padded
+

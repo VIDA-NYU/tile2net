@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 if False:
-    from ..segtiles import padded
+    from tile2net.tiles.segtiles import padded
 
 
 class Padded(
