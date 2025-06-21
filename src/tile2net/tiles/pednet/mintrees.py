@@ -5,19 +5,15 @@ import tqdm
 
 import heapq
 
-import pandas as pd
-
 from tile2net.raster.tile_utils.topology import *
 from ..explore import explore
-from tile2net.tiles.logger import logger
+from tile2net.tiles.cfg.logger import logger
 
 INF = float('inf')
 from .standalone import Lines
 
 if False:
     from .pednet import PedNet
-    from .standalone import Edges, Nodes
-    from .center import Center
     import folium
 
 

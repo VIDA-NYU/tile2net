@@ -30,8 +30,7 @@ POSSIBILITY OF SUCH DAMAGE.
 Dataset setup and loaders
 """
 from __future__ import annotations
-import importlib
-from typing import NamedTuple, Optional, List, Any, Union, Dict
+from typing import NamedTuple, Optional
 
 import torchvision.transforms as standard_transforms
 from toolz import pipe, curried
@@ -39,8 +38,7 @@ from torch.utils.data import DataLoader
 
 import tile2net.tiles.tileseg.transforms.joint_transforms as joint_transforms
 import tile2net.tiles.tileseg.transforms.transforms as extended_transforms
-from tile2net.tiles.logger import logger
-from tile2net.tiles.cfg.cfg import update_dataset_cfg, update_dataset_inst
+from tile2net.tiles.cfg.logger import logger
 from tile2net.tiles.tileseg.datasets.randaugment import RandAugment
 from .base_loader import BaseLoader
 from tile2net.tiles.cfg import cfg

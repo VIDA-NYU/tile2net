@@ -20,7 +20,7 @@ import pandas as pd
 from numpy import ndarray
 from toolz import curried, curry as cur, pipe
 
-from tile2net.tiles.tiles import Tiles
+from tile2net.tiles.tiles.tiles import  Tiles
 from tile2net.tiles.util import returns_or_assigns
 from .batchiterator import BatchIterator
 class Loader:

@@ -1,12 +1,10 @@
 from __future__ import annotations
 from ..explore import explore
-from tile2net.tiles.logger import logger
+from tile2net.tiles.cfg.logger import logger
 from ..cfg import cfg
 
-import itertools
 from typing import *
 
-import geopandas as gpd
 import pandas as pd
 from geopandas import GeoSeries
 from shapely import *

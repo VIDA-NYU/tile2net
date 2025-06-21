@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import numpy as np
-from ..segtiles import SegTiles
 import pandas as pd
 
 from .vectile import VecTile
-from ..tiles import Tiles, tile
+from ..tiles import tile
+from ..tiles.tiles import Tiles
 
 if False:
-    from .vectiles import VecTiles
+    from tile2net.tiles.vectiles.vectiles import VecTiles
+    from .segtiles import  SegTiles
 
 
 def boundary_tiles(
@@ -124,14 +125,24 @@ def __get__(
 
 
 class Padded(
-    SegTiles
+    Tiles,
 ):
-    vectiles: VecTiles = None
     __name__ = 'padded'
 
-    @property
-    def segtiles(self):
-        return self.vectiles.segtiles
+    # @property
+    # def segtiles(self):
+    #     return self.segtiles.segtiles
+    #
+    # @property
+    # def intiles(self):
+    #     return self
+
+    @tile.cached_property
+    def segtiles(self) -> SegTiles:
+        ...
+
+
+
 
     @Index
     def out(self):

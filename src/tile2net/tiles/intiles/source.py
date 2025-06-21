@@ -6,7 +6,6 @@ import pathlib
 import warnings
 from abc import ABC
 from functools import *
-from functools import wraps
 from typing import *
 from typing import Optional
 from typing import TypeVar
@@ -22,7 +21,7 @@ from geopandas import GeoDataFrame
 from geopandas import GeoSeries
 from shapely import box
 
-from tile2net.tiles.logger import logger
+from tile2net.tiles.cfg.logger import logger
 from tile2net.raster.geocode import GeoCode
 
 if False:
@@ -280,13 +279,12 @@ class Source(
     ):
         ...
 
-    # def __getitem__(self, item: InTiles) -> pd.Series[str]:
     @property
     def urls(self) -> pd.Series[str]:
         """Given some tiles, return the URL for the images"""
         tiles = self.intiles
         temp = self.template
-        zoom = tiles.zoom
+        zoom = tiles.tile.zoom
         it = zip(tiles.ytile, tiles.xtile)
         data = [
             temp.format(z=zoom, y=ytile, x=xtile)

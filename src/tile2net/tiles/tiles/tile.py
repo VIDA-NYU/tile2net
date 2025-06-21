@@ -6,9 +6,8 @@ from pathlib import Path
 
 import imageio.v3 as iio
 
-
 if False:
-    from tile2net.tiles.tiles import Tiles
+    from tile2net.tiles.tiles.tiles import  Tiles
 
 
 class cached_property:
@@ -108,6 +107,22 @@ class Tile(
     )
     tiles: Tiles = None
 
+    @property
+    def intiles(self):
+        return self.tiles.intiles
+
+    @property
+    def vectiles(self):
+        return self.tiles.vectiles
+
+    @property
+    def segtiles(self):
+        return self.tiles.segtiles
+
+    @property
+    def zoom(self):
+        return self.intiles.tile.zoom
+
     def __init__(
             self,
             *args,
@@ -121,22 +136,21 @@ class Tile(
         Tile scale; the XYZ scale of the tiles.
         Higher value means smaller area.
         """
-        return self.zoom
 
-    @cached_property
-    def zoom(self) -> int:
-        """Tile zoom level"""
-        result = self.tiles.cfg.zoom
-        if not result:
-            msg = 'Zoom not set in configuration'
-            raise ValueError(msg)
-        return result
+    # @cached_property
+    # def zoom(self) -> int:
+    #     """Tile zoom level"""
+    #     result = self.tiles.cfg.zoom
+    #     if not result:
+    #         msg = 'Zoom not set in configuration'
+    #         raise ValueError(msg)
+    #     return result
 
     @cached_property
     def dimension(self):
         """Tile dimension; inferred from input files"""
         try:
-            sample = next(p for p in self.tiles.file if Path(p).is_file())
+            sample = next(p for p in self.tiles.infile if Path(p).is_file())
         except StopIteration:
             raise FileNotFoundError('No image files found to infer dimension.')
         return iio.imread(sample).shape[1]  # width
@@ -144,3 +158,12 @@ class Tile(
     @property
     def shape(self) -> tuple[int, int, int]:
         return self.dimension, self.dimension, 3
+
+    @cached_property
+    def length(self) -> int:
+        """How many input tiles comprise a tile of this class"""
+        raise NotImplemented
+
+    @cached_property
+    def area(self):
+        return self.length ** 2

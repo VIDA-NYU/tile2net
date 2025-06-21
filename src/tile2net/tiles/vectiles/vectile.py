@@ -3,7 +3,7 @@ from __future__ import annotations
 from .. import segtiles
 import pandas as pd
 
-from ..tiles import Tiles, tile
+from ..tiles import tile
 
 
 class VecTile(

@@ -57,3 +57,8 @@ if intiles:
 
 Tile descriptor has possibly bug if it's accessed for another class while in it
 return a copy
+
+predtiles stitches when files is accessed
+
+1   2   4   8   16
+3   4   6   10  18

@@ -7,15 +7,15 @@ import numpy as np
 import pandas as pd
 import rasterio
 
-from ..tiles import Tiles, tile
+from ..tiles import tile
 
+from ..tiles.tiles import Tiles
 
 if False:
-    from .padded import Padded
     from ..segtiles import SegTiles
+    from ..intiles import InTiles
 
-from ..tiles import Tiles
-from . import delayed
+
 
 def __get__(
         self: Padding,
@@ -62,11 +62,35 @@ class Padding(
     def gs(self) -> pd.Series:
         ...
 
+class Tile(
+    tile.Tile
+):
+    tiles: VecTiles
 
+    @tile.cached_property
+    def length(self) -> int:
+        """How many input tiles comprise a segmentation tile"""
+        vectiles = self.tiles
+        intiles = vectiles.intiles
+        result = 2 ** (intiles.tile.scale - self.scale) + 2 * self.padding
+        return result
+
+    @tile.cached_property
+    def padding(self) -> int:
+        """How many segmentation tiles are used to pad a vector tile"""
+        return 1
+
+    @tile.cached_property
+    def dimension(self):
+        """How many pixels in a segmentation tile"""
+        vectiles = self.tiles
+        intiles = vectiles.intiles
+        result = intiles.tile.dimension * self.length
+        return result
 
 def __get__(
         self: VecTiles,
-        instance: Optional[SegTiles],
+        instance: InTiles,
         owner: type[Tiles],
 ) -> VecTiles:
     if instance is None:
@@ -80,20 +104,20 @@ def __get__(
             f'`SegTiles.stitch.to_cluster(16)`'
         )
         raise ValueError(msg) from e
-    result.segtiles = instance
+    result.intiles = instance
+
     return result
 
 class VecTiles(
     Tiles
 ):
     __name__ = 'vectiles'
+    locals().update(
+        __get__=__get__,
+    )
 
-    @delayed.Padded
-    def padded(self) -> Padded:
-        ...
-
-    @tile.cached_property
-    def segtiles(self) -> SegTiles:
+    @Tile
+    def tile(self):
         ...
 
     @property
@@ -134,3 +158,7 @@ class VecTiles(
             return self[key]
         self[key] = self.intiles.outdir.vectiles.files()
         return self[key]
+
+    @property
+    def vectiles(self) -> Self:
+        return self

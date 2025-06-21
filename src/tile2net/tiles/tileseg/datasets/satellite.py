@@ -24,18 +24,13 @@ POSSIBILITY OF SUCH DAMAGE.
 Mapillary Dataset Loader
 """
 import itertools
-import os
 
 import pandas as pd
 
-from tile2net.tiles.logger import logger
-import json
-
 from collections import namedtuple
 from tile2net.tiles.cfg import cfg
-from tile2net.tiles.logger import logger
+from tile2net.tiles.cfg.logger import logger
 from tile2net.tiles.tileseg.datasets.base_loader import BaseLoader
-from tile2net.tiles.tileseg.datasets.utils import make_dataset_folder
 from tile2net.tiles.tileseg.datasets import uniform
 
 if False:

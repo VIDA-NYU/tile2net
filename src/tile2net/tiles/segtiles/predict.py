@@ -21,7 +21,7 @@ import torch.distributed as dist
 from torch.utils.data import DataLoader
 
 import tile2net.tiles.tileseg.network.ocrnet
-from tile2net.tiles.logger import logger
+from tile2net.tiles.cfg.logger import logger
 from tile2net.tiles.tileseg import datasets
 from tile2net.tiles.tileseg import network
 from tile2net.tiles.cfg.cfg import assert_and_infer_cfg

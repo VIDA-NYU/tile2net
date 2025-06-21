@@ -19,9 +19,13 @@ from tile2net.tiles.fixed import GeoDataFrameFixed
 from .colormap import ColorMap
 from .static import Static
 from .tile import Tile
+from . import tile
 
 if False:
     import folium
+    from ..intiles import InTiles
+    from ..segtiles import SegTiles
+    from ..vectiles import VecTiles
 
 
 class Tiles(
@@ -31,6 +35,18 @@ class Tiles(
     gn: pd.Series  # geographic north bound of the tile
     ge: pd.Series  # geographic east bound of the tile
     gs: pd.Series  # geographic south bound of the tile
+
+    @tile.cached_property
+    def intiles(self) -> InTiles:
+        ...
+
+    @property
+    def segtiles(self) -> SegTiles:
+        return self.intiles.segtiles
+
+    @property
+    def vectiles(self) -> VecTiles:
+        return self.intiles.vectiles
 
     @property
     def xtile(self) -> pd.Index:
@@ -62,7 +78,7 @@ class Tiles(
             cls,
             xtile: pd.Series | pd.Index | np.ndarray,
             ytile: pd.Series | pd.Index | np.ndarray,
-            zoom: int,
+            scale: int,
     ) -> Self:
         """
         Construct Tiles from integer tile numbers.
@@ -88,8 +104,8 @@ class Tiles(
         ts = tn + 1
         names = 'xtile ytile'.split()
         index = pd.MultiIndex.from_arrays([xtile, ytile], names=names)
-        gw, gn = util.num2deg(tw, tn, zoom=zoom)
-        ge, gs = util.num2deg(te, ts, zoom=zoom)
+        gw, gn = util.num2deg(tw, tn, zoom=scale)
+        ge, gs = util.num2deg(te, ts, zoom=scale)
         trans = (
             pyproj.proj.Transformer
             .from_crs(4326, 3857, always_xy=True)
@@ -113,7 +129,7 @@ class Tiles(
             # crs=4326,
             crs=3857,
         )
-        result.zoom = zoom
+        result.tile.scale = scale
         return result
 
     @classmethod
@@ -131,12 +147,13 @@ class Tiles(
         scaled = tiles.to_scale(scale, fill=fill)
         xtile = scaled.xtile
         ytile = scaled.ytile
-        return cls.from_integers(
+        result = cls.from_integers(
             xtile=xtile,
             ytile=ytile,
-            zoom=scaled.tile.zoom,
+            scale=scale,
         )
-
+        assert result.tile.scale == scale
+        return result
 
     @cached_property
     def r(self) -> pd.Series:
@@ -228,17 +245,25 @@ class Tiles(
         folium.LayerControl().add_to(m)
         return m
 
-    def view(
+    @property
+    def infile(self) -> pd.Series:
+        raise NotImplementedError
+
+    @property
+    def skip(self) -> pd.Series:
+        raise NotImplementedError
+
+    def preview(
             self,
             maxdim: int = 2048,
             divider: Optional[str] = None,
     ) -> PIL.Image.Image:
 
-        files: pd.Series = self.file
+        files: pd.Series = self.infile
         R: pd.Series = self.r  # 0-based row id
         C: pd.Series = self.c  # 0-based col id
 
-        dim = self.dimension  # original tile side length
+        dim = self.tile.dimension  # original tile side length
         n_rows = int(R.max()) + 1
         n_cols = int(C.max()) + 1
         div_px = 1 if divider else 0
@@ -309,7 +334,8 @@ class Tiles(
     ):
         value.__name__ = self.__name__
         copy = value.copy()
-        copy.attrs.clear()
+        # problem is, when we set like this, we lose all attrs like tile.scale
+        # copy.attrs.clear()
         instance.attrs[self.__name__] = copy
 
     @Static
@@ -332,16 +358,11 @@ class Tiles(
             else, the larger tiles that have missing tiles are dropped.
         """
 
-        mosaic_length = (self.tile.scale - scale) ** 2
+        mosaic_length = 2 ** abs(self.tile.scale - scale)
         if self.tile.scale < scale:
-            # smaller tiles
+            # into smaller tiles
             smaller = self.index.to_frame()
-            larger = smaller // mosaic_length
-            topleft = (
-                larger
-                .drop_duplicates()
-                .mul(mosaic_length)
-            )
+            topleft = smaller.mul(mosaic_length)
             arange = np.arange(mosaic_length)
             x, y = np.meshgrid(arange, arange, indexing='ij')
             txy: np.ndarray = (
@@ -356,9 +377,11 @@ class Tiles(
                 ytile,
                 scale
             )
+            assert len(result) == len(self) * (mosaic_length ** 2)
+            assert not result.index.duplicated().any()
 
         elif self.tile.scale > scale:
-            # larger tiles
+            # into larger tiles
             frame: Self = (
                 self.index
                 .to_frame()
@@ -374,7 +397,7 @@ class Tiles(
                 )
                 loc = (
                     frame
-                    .groupby(frame.columns.tolist())
+                    .groupby(frame.columns.tolist(), sort=False)
                     .size()
                     .eq(mosaic_length ** 2)
                     .loc[loc]
@@ -386,6 +409,9 @@ class Tiles(
                 frame.ytile,
                 scale
             )
+
+            assert len(self) > len(result)
+            assert not result.index.duplicated().any()
 
         else:
             # same scale

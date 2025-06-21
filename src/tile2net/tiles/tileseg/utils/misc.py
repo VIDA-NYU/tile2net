@@ -48,7 +48,7 @@ import torchvision.transforms as standard_transforms
 from PIL import Image
 from geopandas import GeoDataFrame
 from tile2net.tiles.cfg import cfg
-from tile2net.tiles.logger import logger
+from tile2net.tiles.cfg.logger import logger
 
 if False:
     from ...tiles import Tiles

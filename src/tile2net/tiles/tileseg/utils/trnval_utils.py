@@ -26,14 +26,13 @@ POSSIBILITY OF SUCH DAMAGE.
 import os
 import torch
 import numpy as np
-import pandas as pd
 
 from tile2net.tiles.cfg import cfg
 from tile2net.tileseg.utils.misc import fast_hist, fmt_scale
 from tile2net.tileseg.utils.misc import AverageMeter, eval_metrics
 from tile2net.tileseg.utils.misc import metrics_per_image
 from tile2net.tileseg.utils.misc import ImageDumper
-from tile2net.tiles.logger import logger
+from tile2net.tiles.cfg.logger import logger
 
 
 def flip_tensor(

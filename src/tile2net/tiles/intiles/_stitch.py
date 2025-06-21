@@ -10,9 +10,8 @@ import imageio.v2
 import math
 import numpy as np
 import pandas as pd
-from typing import *
 from tile2net.tiles.dir.loader import Loader
-from tile2net.tiles.logger import logger
+from tile2net.tiles.cfg.logger import logger
 
 if False:
     from .intiles import InTiles
@@ -118,7 +117,6 @@ class Stitch:
                 tile.
         """
         from .intiles import InTiles
-        from ..segtiles import SegTiles
         TILES = self.intiles
 
         tiles = TILES
@@ -160,7 +158,7 @@ class Stitch:
             tx = txy[:, 0]
             ty = txy[:, 1]
             assert not pd.DataFrame(dict(tx=tx, ty=ty)).duplicated().any()
-            tiles = InTiles.from_integers(tx, ty, zoom=tiles.zoom)
+            tiles = InTiles.from_integers(tx, ty, scale=tiles.zoom)
             tiles.attrs.update(TILES.attrs)
             if 'source' in TILES.attrs:
                 tiles = tiles.set_source(
@@ -195,7 +193,7 @@ class Stitch:
             'stitched',
             indir.suffix,
         )
-        _stitched = InTiles.from_integers(tx=tx, ty=ty, zoom=scale)
+        _stitched = InTiles.from_integers(tx=tx, ty=ty, scale=scale)
         stitched = Stitched(_stitched)
         stitched.attrs.update(_stitched.attrs)
         setattr(stitched, 'indir', indir)
@@ -290,7 +288,7 @@ class Stitch:
 
             executor.shutdown(wait=True)
 
-            files: pd.Series[str] = stitched.file
+            files: pd.Series[str] = stitched.infile
             assert all(map(os.path.exists, files))
 
         return tiles

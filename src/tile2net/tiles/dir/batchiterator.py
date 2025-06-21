@@ -4,7 +4,7 @@ import functools
 from typing import *
 
 import pandas as pd
-from tile2net.tiles.tiles import  Tiles
+from tile2net.tiles.tiles.tiles import  Tiles
 
 if False:
     from .dir import Dir

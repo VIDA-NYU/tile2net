@@ -31,16 +31,11 @@ class SegTile(
     def tiles(self):
         return self.intiles
 
-    @tile.cached_property
+    # @tile.cached_property
+    @property
     def length(self):
         """Number of tiles in one dimension of the mosaic"""
-        self.intiles.segtiles.tile.tiles
-        self.intiles.segtiles.intiles
-        length = int(
-            self.intiles.segtiles.tile.scale
-            - self.intiles.tile.scale
-        )
-        return length ** 2
+        return self.intiles.segtiles.tile.length
 
     @tile.cached_property
     def index(self):
@@ -141,7 +136,7 @@ class SegTile(
         if key in intiles.columns:
             return intiles[key]
         result = (
-            intiles.segtiles.file
+            intiles.segtiles.infile
             .loc[self.index]
             .values
         )

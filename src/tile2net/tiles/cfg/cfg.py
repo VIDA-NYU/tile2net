@@ -15,7 +15,6 @@ from typing import TypeVar, Callable
 import torch
 from toolz.curried import *
 
-from tile2net.tiles.tiles.static import Static
 from . import cmdline
 from .nested import Nested
 
@@ -642,6 +641,7 @@ class Model(cmdline.Namespace):
         """
         Path to HRNet checkpoint
         """
+        from tile2net.tiles.tiles.static import Static
         return Static.hrnet_checkpoint
 
     @cmdline.property
@@ -649,6 +649,7 @@ class Model(cmdline.Namespace):
         """
         Path to the model snapshot
         """
+        from tile2net.tiles.tiles.static import Static
         return Static.snapshot
 
     @cmdline.property

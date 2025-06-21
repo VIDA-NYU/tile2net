@@ -1,9 +1,4 @@
 from __future__ import annotations
-import math
-from sympy.assumptions.lra_satask import pred_to_pos_neg_zero
-
-from tile2net.tiles.dir.indir import Indir
-from tile2net.tiles.dir.outdir import Outdir
 
 import os
 import shutil
@@ -17,23 +12,44 @@ import certifi
 import geopandas as gpd
 import imageio.v3
 import imageio.v3
+import math
 import numpy as np
 import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
 from tqdm.auto import tqdm
 
-from tile2net.tiles.logger import logger
 from tile2net.raster import util
 from tile2net.tiles.cfg import cfg
+from tile2net.tiles.dir.dir import Dir
+from tile2net.tiles.dir.indir import Indir
+from tile2net.tiles.dir.outdir import Outdir
+from tile2net.tiles.cfg.logger import logger
 from .segtile import SegTile
-from .stitch import Stitch
+from .source import Source, SourceNotFound
 from .. import util
 from ..cfg import Cfg
-from tile2net.tiles.dir.dir import Dir
 from ..segtiles import SegTiles
-from .source import Source, SourceNotFound
-from ..tiles import Tiles
+from ..tiles.tiles import Tiles
+from ..tiles import tile
+from ..vectiles import VecTiles
+
+
+class Tile(
+    tile.Tile
+):
+    tiles: InTiles
+
+    @tile.cached_property
+    def zoom(self) -> int:
+        """
+        The zoom level of the tile.
+        """
+        return self.tiles.tile.scale
+
+    @tile.cached_property
+    def length(self):
+        return 1
 
 
 class InTiles(
@@ -41,21 +57,20 @@ class InTiles(
 ):
     __name__ = 'intiles'
 
-    @property
+    @VecTiles
     def vectiles(self):
-        return self.segtiles.vectiles
+        """
+        After performing SegTiles.stitch, SegTiles.vectiles is
+        available for performing inference on the stitched tiles.
+        """
 
-    @Stitch
-    def stitch(self):
-        # This code block is just semantic sugar and does not run.
-        # Take a look at the following methods which do run:
+    # @property
+    # def vectiles(self):
+    #     return self.segtiles.vectiles
 
-        # stitch to a target resolution e.g. 2048 ptxels
-        self.stitch.to_dimension(...)
-        # stitch to a cluster size e.g. 16 tiles
-        self.stitch.to_mosaic(...)
-        # stitch to an XYZ scale e.g. 17
-        self.stitch.to_scale(...)
+    # @tile.cached_property
+    # def vectiles(self) -> VecTiles:
+    #     ...
 
     @SegTiles
     def segtiles(self):
@@ -148,7 +163,7 @@ class InTiles(
         index = pd.MultiIndex.from_product([tx, ty])
         tx = index.get_level_values(0)
         ty = index.get_level_values(1)
-        result = cls.from_integers(tx, ty, zoom=zoom)
+        result = cls.from_integers(tx, ty, scale=zoom)
         return result
 
     @classmethod
@@ -493,8 +508,6 @@ class InTiles(
 
         return result
 
-    # def skip(self):
-    #     loc = self.indir.files()
     def set_indir(
             self,
             indir: str,
@@ -608,6 +621,7 @@ class InTiles(
             self,
             *,
             dimension: int = None,
+            length: int = None,
             mosaic: int = None,
             scale: int = None,
             fill: bool = True,
@@ -615,104 +629,78 @@ class InTiles(
     ) -> Self:
         from ..segtiles import SegTiles
         # todo: if all are None, determine dimension using VRAM
-        n = sum(
-            arg is not None
-            for arg in (dimension, mosaic, scale)
+        scale = self._to_scale(dimension, length, mosaic, scale)
+
+        msg = 'Padding InTiles to align with SegTiles'
+        logger.debug(msg)
+        intiles = (
+            self
+            .to_scale(scale, fill=fill)
+            .to_scale(self.tile.scale, fill=fill)
         )
-        if n != 1:
-            msg = (
-                'You must specify exactly one of dimension, mosaic, or scale '
-                'to set the segmented tiles.'
-            )
-            raise ValueError(msg)
-        if dimension:
-            dscale = int(math.log2(dimension / self.dimension))
-            scale = self.tscale - dscale
-            return self.stitch.to_scale(scale, fill=fill)
-        elif mosaic:
-            if (
-                    not isinstance(mosaic, int)
-                    or mosaic <= 0
-                    or (mosaic & (mosaic - 1)) != 0
-            ):
-                raise ValueError('Cluster must be a positive power of 2.')
-            marea = int(math.log2(mosaic))
-            dscale = int(math.sqrt(marea))
-            scale = self.tile.scale - dscale
-            return self.stitch.to_scale(scale, fill=fill)
-        elif scale:
-            msg = 'Padding InTiles to align with SegTiles'
-            logger.debug(msg)
-            intiles = (
-                self
-                .to_scale(scale, fill=fill)
-                .to_scale(self.tile.scale, fill=fill)
-            )
-            segtiles = SegTiles.from_rescale(intiles, scale, fill)
-            intiles.segtiles = segtiles
-            segtiles = intiles.segtiles
-            assert intiles.segtile.ipred.is_monotonic_increasing
-            assert segtiles.ipred.is_monotonic_increasing
-            return intiles
-        else:
-            raise ValueError
+        segtiles = SegTiles.from_rescale(intiles, scale, fill)
+        intiles.segtiles = segtiles
+        segtiles = intiles.segtiles
+
+        assert segtiles.tile.scale == scale
+        assert len(segtiles) <= len(intiles)
+        assert len(self) <= len(intiles)
+        # 1 4 16
+
+        area = 4 ** (self.tile.scale - scale)
+        assert len(intiles) == len(segtiles) * area
+        return intiles
 
     def set_vectorization(
             self,
             *,
             dimension: int = None,
+            length: int = None,
             mosaic: int = None,
             scale: int = None,
             fill: bool = True,
     ) -> Self:
         # todo: if all are None, determine dimension using RAM
         from ..vectiles import VecTiles
-        n = sum(
-            arg is not None
-            for arg in (dimension, mosaic, scale)
-        )
-        if n != 1:
-            msg = (
-                'You must specify exactly one of dimension, mosaic, or scale '
-                'to set the inference tiles.'
-            )
-            raise ValueError(msg)
         if dimension:
-            dscale = int(math.log2(dimension / self.dimension))
-            scale = self.tscale - dscale
-            return self.stitch.to_scale(scale, fill=fill)
+            dimension -= 2 * self.segtiles.tile.dimension
+        elif length:
+            length -= 2
         elif mosaic:
-            if (
-                    not isinstance(mosaic, int)
-                    or mosaic <= 0
-                    or (mosaic & (mosaic - 1)) != 0
-            ):
-                raise ValueError('Cluster must be a positive power of 2.')
-            marea = int(math.log2(mosaic))
-            dscale = int(math.sqrt(marea))
-            scale = self.tile.scale - dscale
-            return self.stitch.to_scale(scale, fill=fill)
-        elif scale:
-            msg = 'Padding InTiles to align with SegTiles'
-            logger.debug(msg)
-            intiles = (
-                self
-                .to_scale(scale, fill=fill)
-                .to_scale(self.tile.scale, fill=fill)
-            )
-            segtiles = (
-                self.segtiles
-                .to_scale(scale, fill=fill)
-                .to_scale(self.segtiles.tile.scale, fill=fill)
-            )
-            vectiles = VecTiles.from_rescale(intiles, scale, fill=fill)
-            assert intiles.segtile.ipred.is_monotonic_increasing
-            assert segtiles.ipred.is_monotonic_increasing
-            intiles.segtiles = segtiles
-            intiles.vectiles = vectiles
-            return intiles
-        else:
-            raise ValueError
+            mosaic **= 1 / 2
+            mosaic -= 2
+            mosaic **= 2
+            mosaic = int(mosaic)
+
+        scale = self._to_scale(dimension, length, mosaic, scale)
+
+        msg = 'Padding InTiles to align with VecTiles'
+        logger.debug(msg)
+        intiles = (
+            self
+            .to_scale(scale, fill=fill)
+            .to_scale(self.tile.scale, fill=fill)
+        )
+        msg = 'Padding SegTiles to align with VecTiles'
+        logger.debug(msg)
+        segtiles = (
+            self.segtiles
+            .to_scale(scale, fill=fill)
+            .to_scale(self.segtiles.tile.scale, fill=fill)
+        )
+        vectiles = VecTiles.from_rescale(intiles, scale, fill=fill)
+
+        intiles.segtiles = segtiles
+        intiles.vectiles = vectiles
+        segtiles = intiles.segtiles
+        vectiles = intiles.vectiles
+
+        assert len(self) <= len(intiles)
+        assert len(vectiles) <= len(segtiles) <= len(intiles)
+        area = 4 ** (self.tile.scale - scale)
+        assert len(intiles) == len(vectiles) * area
+
+        return intiles
 
     @property
     def network(self) -> gpd.GeoDataFrame:
@@ -723,5 +711,88 @@ class InTiles(
         ...
 
     @property
-    def file(self):
-        return self.indir.files()
+    def infile(self) -> pd.Series:
+        """
+
+        """
+        key = 'infile'
+        if key in self:
+            return self[key]
+        self[key] = self.indir.files()
+        if not self.skip.all():
+            self.download()
+        return self[key]
+
+    @property
+    def skip(self) -> pd.Series:
+        key = 'skip'
+        if key in self:
+            return self[key]
+        self[key] = self.indir.skip()
+        return self[key]
+
+
+    def _to_scale(
+            self,
+            dimension: int = None,
+            length: int = None,
+            mosaic: int = None,
+            scale: int = None,
+    ) -> int:
+
+        n = sum(
+            arg is not None
+            for arg in (dimension, mosaic, scale, length)
+        )
+        if n != 1:
+            msg = (
+                'You must specify exactly one of dimension, length, mosaic, or scale '
+                'to set the inference tiles.'
+            )
+            raise ValueError(msg)
+
+        """get scale from dimension, length, or mosaic"""
+        if dimension:
+
+            if (
+                    not isinstance(dimension, int)
+                    or dimension <= 0
+                    or (dimension & (dimension - 1)) != 0
+            ):
+                raise ValueError('Dimension must be a positive power of 2.')
+            dscale = int(math.log2(dimension / self.dimension))
+            scale = self.tile.scale + dscale
+
+        elif length:
+            if (
+                    not isinstance(length, int)
+                    or length <= 0
+                    or (length & (length - 1)) != 0
+            ):
+                raise ValueError('Length must be a positive power of 2.')
+            scale = self.tile.scale - int(math.log2(length))
+
+        elif mosaic:
+            if (
+                    not isinstance(mosaic, int)
+                    or mosaic <= 0
+                    or (mosaic & (mosaic - 1)) != 0
+            ):
+                raise ValueError('Mosaic must be a positive power of 2.')
+            marea = int(math.log2(mosaic))
+            dscale = int(math.sqrt(marea))
+            scale = self.tile.scale - dscale
+
+        else:
+            msg = 'You must specify either dimension, length, or mosaic to set the scale.'
+            raise ValueError(msg)
+
+        return scale
+
+    @Tile
+    def tile(self):
+        ...
+
+    @property
+    def intiles(self) -> InTiles:
+        return self

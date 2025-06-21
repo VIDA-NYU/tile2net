@@ -7,7 +7,7 @@ import torch
 from PIL import Image
 
 if False:
-    from tile2net.tiles.tiles import Tiles  # noqa: F401
+    from tile2net.tiles.tiles.tiles import  Tiles  # noqa: F401
 
 T = TypeVar('T')
 

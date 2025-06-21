@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 if False:
-    from . import padded
+    from ..segtiles import padded
 
 
 class Padded(

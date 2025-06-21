@@ -8,7 +8,7 @@ import gdown
 from PIL import Image
 
 if False:
-    from tile2net.tiles.tiles import Tiles
+    from tile2net.tiles.tiles.tiles import  Tiles
 
 
 def __get__(

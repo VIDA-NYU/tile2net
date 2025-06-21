@@ -1,4 +1,5 @@
 from __future__ import annotations
+import pandas as pd
 
 import copy
 
@@ -29,15 +30,11 @@ class VecTile(
     def tiles(self):
         return self.segtiles
 
-    @tile.cached_property
+    # @tile.cached_property
+    @property
     def length(self):
         """Number of tiles in one dimension of the mosaic"""
-        length = int(
-            self.segtiles.vectiles.tile.scale
-            - self.segtiles.tile.scale
-        )
-        return length ** 2
-
+        return self.segtiles.vectiles.tile.length
 
     @tile.cached_property
     def xtile(self) -> pd.Series:
@@ -75,15 +72,6 @@ class VecTile(
             ytile=ytile,
         ), index=segtiles.index)
         concat.append(frame)
-
-
-    @property
-    def ytile(self):
-        return self.frame.ytile
-
-    @property
-    def xtile(self):
-        return self.frame.xtile
 
     @property
     def group(self) -> pd.Series:

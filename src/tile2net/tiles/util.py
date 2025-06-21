@@ -15,7 +15,7 @@ from geopy.geocoders import Nominatim
 from numpy import ndarray
 from toolz import curried, pipe
 
-from tile2net.tiles.logger import logger
+from tile2net.tiles.cfg.logger import logger
 
 if False:
     import folium

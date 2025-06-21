@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-import os.path
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import imageio.v2
 import math
 import numpy as np
-import pandas as pd
 from tqdm import tqdm
 
-from tile2net.tiles.logger import logger
 from tile2net.tiles.dir.loader import Loader
+from tile2net.tiles.cfg.logger import logger
 
 if False:
     from .intiles import InTiles
@@ -137,13 +135,13 @@ class Stitch:
         logger.debug(msg)
 
         loc = ~intiles.segtile.skip
-        infiles = intiles.file.loc[loc]
+        infiles = intiles.infile.loc[loc]
         row = intiles.segtile.r.loc[loc]
         col = intiles.segtile.c.loc[loc]
         group = intiles.segtile.ipred.loc[loc]
 
         loc = ~segtiles.skip
-        predfiles = segtiles.file.loc[loc]
+        predfiles = segtiles.infile.loc[loc]
         n_missing = np.sum(loc)
         n_total = len(segtiles)
 

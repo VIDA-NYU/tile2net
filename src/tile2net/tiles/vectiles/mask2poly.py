@@ -21,7 +21,7 @@ from pandas import Series
 from shapely.geometry import shape
 
 from tile2net.raster.tile_utils.geodata_utils import _check_skimage_im_load
-from tile2net.tiles.logger import logger
+from tile2net.tiles.cfg.logger import logger
 from ..benchmark import benchmark
 from ..cfg import cfg
 from ..fixed import GeoDataFrameFixed

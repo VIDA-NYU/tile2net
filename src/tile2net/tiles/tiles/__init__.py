@@ -1,2 +1,0 @@
-
-from .tiles import Tiles

@@ -75,7 +75,7 @@ class RelaxedBoundaryLossToTensor:
     Boundary Relaxation
     """
     if False:
-        from tile2net.tiles.tiles import Tiles
+        from tile2net.tiles.tiles.tiles import  Tiles
 
     def __init__(self, tiles: 'Tiles', ignore_id, num_classes, ):
         self.ignore_id = ignore_id

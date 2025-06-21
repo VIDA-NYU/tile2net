@@ -1,16 +1,12 @@
 from __future__ import annotations
 from ..benchmark import benchmark
-from functools import cached_property
 from ..cfg import cfg
 from ..explore import explore
-from tile2net.tiles.logger import logger
 
 from typing import *
 
 import geopandas as gpd
-import numpy as np
 import shapely
-from centerline.geometry import Centerline
 
 from ..fixed import GeoDataFrameFixed
 
