@@ -616,7 +616,7 @@ class Raster(Grid):
         None
         """
         with (
-            ThreadPoolExecutor(max_workers=5) as threads,
+            ThreadPoolExecutor() as threads,
             requests.Session() as session,
         ):
             if not self.source:
