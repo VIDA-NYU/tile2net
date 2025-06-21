@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ..tiles import tile, file
 import PIL.Image
 import imageio.v3 as iio
 import numpy as np
@@ -90,6 +91,44 @@ def __get__(
     return result
 
 
+class File(
+    file.File
+):
+    tiles: SegTiles
+
+    @property
+    def infile(self) -> pd.Series:
+        """
+        A file for each segmentation tile: the stitched input tiles.
+        Stitches input files when segtiles.file is accessed
+        """
+        tiles = self.tiles
+        key = 'file.infile'
+        if key in tiles:
+            return tiles[key]
+        tiles[key] = tiles.intiles.outdir.segtiles.files()
+        if not tiles.intiles.outdir.segtiles.skip().all():
+            tiles.stitch()
+        return tiles[key]
+
+    @property
+    def prediction(self) -> pd.Series:
+        """
+        A file for each segmentation tile: the stitched input tiles.
+        Stitches input files when segtiles.file is accessed
+        """
+        tiles = self.tiles
+        key = 'file.prediction'
+        if key in tiles:
+            return tiles[key]
+        tiles[key] = tiles.intiles.outdir.prediction.files()
+        if not tiles.intiles.outdir.prediction.skip().all():
+            tiles.predict()
+
+
+        return tiles[key]
+
+
 class SegTiles(
     Tiles,
 ):
@@ -119,21 +158,17 @@ class SegTiles(
         )
         result = self.predict.to_outdir()
 
-    def stitch(
-            self
-    ):
+    def stitch(self):
         intiles = self.intiles
         segtiles = self
 
-        # loc = ~intiles.segtile.skip
-        loc = np.ones_like(intiles.infile, dtype=bool)
-        infiles = intiles.infile.loc[loc]
+        loc = ~intiles.segtile.skip
+        infiles = intiles.file.infile.loc[loc]
         row = intiles.segtile.r.loc[loc]
         col = intiles.segtile.c.loc[loc]
-        group = intiles.segtile.ipred.loc[loc]
+        group = intiles.segtile.infile.loc[loc]
 
-        # loc = ~segtiles.skip
-        loc = np.ones_like(segtiles.infile, dtype=bool)
+        loc = ~segtiles.skip
         predfiles = segtiles.infile.loc[loc]
         n_missing = np.sum(loc)
         n_total = len(segtiles)
@@ -163,22 +198,19 @@ class SegTiles(
 
         executor = ThreadPoolExecutor()
         imwrite = imageio.v3.imwrite
-        it = zip(loader, predfiles)
+        it = loader
         it = tqdm(it, 'stitching', n_missing, unit=' mosaic')
 
-        writes = [
-            executor.submit(imwrite, outfile, array)
-            for array, outfile in it
-        ]
-
+        writes = []
+        for path, array in it:
+            future = executor.submit(imwrite, path, array)
+            writes.append(future)
         for w in writes:
             w.result()
 
         executor.shutdown(wait=True)
-
         del segtiles.skip
         assert segtiles.skip.all()
-
         return intiles
 
     @tile.cached_property
@@ -218,31 +250,24 @@ class SegTiles(
     def tile(self):
         ...
 
-    @property
-    def infile(self) -> pd.Series:
-        """
-        A file for each segmentation tile: the stitched input tiles.
-        Stitches input files when segtiles.file is accessed
-        """
-        key = 'infile'
-        if key in self:
-            return self[key]
-        self[key] = self.intiles.outdir.segtiles.files()
-        if not self.intiles.outdir.segtiles.skip().all():
-            self.stitch()
-        return self[key]
-
+    @File
+    def file(self):
+        ...
 
     @property
     def segtiles(self) -> Self:
         return self
+
     def preview(
             self,
             maxdim: int = 2048,
             divider: Optional[str] = None,
     ) -> PIL.Image.Image:
 
-        files: pd.Series = self.infile
+        for k, g in self.reset_index().groupby('gw'):
+            print(type(g))
+
+        files: pd.Series = self.file.infile
         R: pd.Series = self.r  # 0-based row id
         C: pd.Series = self.c  # 0-based col id
 
@@ -284,3 +309,11 @@ class SegTiles(
                 mosaic.paste(Image.fromarray(arr), (x0, y0))
 
         return mosaic
+
+    @property
+    def skip(self):
+        key = 'skip'
+        if key in self:
+            return self[key]
+        self[key] = self.intiles.outdir.segtiles.skip()
+        return self[key]

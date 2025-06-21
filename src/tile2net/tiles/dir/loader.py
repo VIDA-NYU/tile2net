@@ -74,7 +74,10 @@ class Loader:
             pass
         return None
 
-    def __iter__(self) -> Iterator[np.ndarray]:
+    def __iter__(self) -> Iterator[tuple[
+        str,
+        np.ndarray
+    ]]:
         with ThreadPoolExecutor() as pool:
             for g in self.unique_groups:
                 mask = self.group == g
@@ -120,5 +123,6 @@ class Loader:
                     :
                     ] = img
 
-                yield out
+                yield g, out
+                # yield out
 

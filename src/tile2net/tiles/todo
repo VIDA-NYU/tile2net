@@ -35,11 +35,11 @@ pred.xtile
 out.xtile
 
 padded inherits from
-
 each tile subclass should get its own self.static so it can get self.static.black
 
 predict.py
 mask2poly.py
+
 minibatch.py
 
 todo: segtiles.stitch() -> vectiles requires padding intiles once more
@@ -63,6 +63,17 @@ predtiles stitches when files is accessed
 1   2   4   8   16
 3   4   6   10  18
 
-
 set_segmentation should by default set dimension to 1024 from cfg
 set_vectorization should determine from memory
+
+intiles.file.static
+
+segtiles.file.in
+segtiles.file.prediction
+segtiles.file.mask
+
+vectiles.file.polygon
+vectiles.file.network
+
+
+todo: use groupby during prediction instead of the esoteric cached iterators

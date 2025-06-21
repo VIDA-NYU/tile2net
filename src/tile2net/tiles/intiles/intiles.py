@@ -41,7 +41,7 @@ from .. import util
 from ..cfg import Cfg
 from ..segtiles import SegTiles
 from ..tiles.tiles import Tiles
-from ..tiles import tile
+from ..tiles import tile, file
 from ..vectiles import VecTiles
 
 
@@ -62,6 +62,23 @@ class Tile(
         return 1
 
 
+class File(
+    file.File
+):
+    tiles: InTiles
+
+    @tile.cached_property
+    def infile(self) -> pd.Series:
+        tiles = self.tiles
+        key = 'file.static'
+        if key in tiles:
+            return tiles[key]
+        tiles[key] = tiles.indir.files()
+        if not tiles.indir.skip().all():
+            tiles.download()
+        return tiles[key]
+
+
 class InTiles(
     Tiles
 ):
@@ -73,14 +90,6 @@ class InTiles(
         After performing SegTiles.stitch, SegTiles.vectiles is
         available for performing inference on the stitched tiles.
         """
-
-    # @property
-    # def vectiles(self):
-    #     return self.segtiles.vectiles
-
-    # @tile.cached_property
-    # def vectiles(self) -> VecTiles:
-    #     ...
 
     @SegTiles
     def segtiles(self):
@@ -253,7 +262,7 @@ class InTiles(
             max_workers: int = 100,
     ) -> Self:
         """
-        infiles:
+        file.statics:
             Series of file path destinations
         urls:
             Series of URLs to download from
@@ -720,19 +729,6 @@ class InTiles(
     def polygons(self) -> gpd.GeoDataFrame:
         ...
 
-    @property
-    def infile(self) -> pd.Series:
-        """
-
-        """
-        key = 'infile'
-        if key in self:
-            return self[key]
-        self[key] = self.indir.files()
-        if not self.indir.skip().all():
-            self.download()
-        return self[key]
-
     # @property
     # def skip(self) -> pd.Series:
     #     key = 'skip'
@@ -802,6 +798,10 @@ class InTiles(
     def tile(self):
         ...
 
+    @File
+    def file(self):
+        ...
+
     @property
     def intiles(self) -> InTiles:
         return self
@@ -812,7 +812,7 @@ class InTiles(
             divider: Optional[str] = None,
     ) -> PIL.Image.Image:
 
-        files: pd.Series = self.infile
+        files: pd.Series = self.file.infile
         R: pd.Series = self.r  # 0-based row id
         C: pd.Series = self.c  # 0-based col id
 

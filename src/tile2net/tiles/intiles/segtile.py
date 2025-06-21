@@ -129,7 +129,7 @@ class SegTile(
         return intiles[key]
 
     @property
-    def file(self) -> pd.Series:
+    def infile(self) -> pd.Series:
         """segtiles.file broadcasted to intiles"""
         intiles = self.intiles
         key = 'mosaic.file'
@@ -147,16 +147,11 @@ class SegTile(
     def skip(self) -> pd.Series:
         """segtiles.skip broadcasted to intiles"""
         intiles = self.intiles
-        key = 'mosaic.skip'
-        if key in intiles.columns:
-            return intiles[key]
         result = (
             intiles.segtiles.skip
             .loc[self.index]
-            .values
         )
-        intiles[key] = result
-        return intiles[key]
+        return result
 
 
     def __init__(

@@ -150,7 +150,7 @@ class Tile(
     def dimension(self):
         """Tile dimension; inferred from input files"""
         try:
-            sample = next(p for p in self.tiles.infile if Path(p).is_file())
+            sample = next(p for p in self.tiles.file.infile if Path(p).is_file())
         except StopIteration:
             raise FileNotFoundError('No image files found to infer dimension.')
         return iio.imread(sample).shape[1]  # width

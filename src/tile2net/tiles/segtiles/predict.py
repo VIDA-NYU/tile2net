@@ -107,6 +107,15 @@ class Predict:
             cfg.polygon.simplify = simplify
         return self
 
+    def __call__(
+            self,
+            force=None,
+            batch_size: int = None
+
+    ):
+        self.to_outdir(force, batch_size)
+
+
     def to_outdir(
             self,
             force=None,

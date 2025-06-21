@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ..tiles import file
 from tile2net.tiles.dir.loader import Loader
 from tile2net.tiles.cfg.logger import logger
 import PIL.Image
@@ -129,6 +130,27 @@ class Tile(
         result = intiles.tile.dimension * self.length
         return result
 
+class File(
+    file.File
+):
+    tiles: VecTiles
+
+    @property
+    def infile(self) -> pd.Series:
+        """
+        A file for each segmentation tile: the stitched input tiles.
+        Stitches input files when segtiles.file is accessed
+        """
+        tiles = self.tiles
+        key = 'file.infile'
+        if key in tiles:
+            return tiles[key]
+        tiles[key] = tiles.intiles.outdir.segtiles.files()
+        if not tiles.intiles.outdir.segtiles.skip().all():
+            tiles.stitch()
+        return tiles[key]
+
+
 def __get__(
         self: VecTiles,
         instance: InTiles,
@@ -160,6 +182,11 @@ class VecTiles(
     @Tile
     def tile(self):
         ...
+
+    @File
+    def file(self):
+        ...
+
 
     @property
     def affine_params(self) -> pd.Series:
