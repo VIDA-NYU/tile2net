@@ -15,10 +15,12 @@ class VecTile(
     @property
     def r(self) -> pd.Series:
         """row within the segtile of this tile"""
+        raise NotImplementedError
 
     @property
     def c(self) -> pd.Series:
         """column within the segtile of this tile"""
+        raise NotImplementedError
 
 
 def boundary_tiles(

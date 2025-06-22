@@ -1,58 +1,24 @@
 from __future__ import annotations
 
-import hashlib
 import os
-import sys
-from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import wait
-from pathlib import Path
-from typing import *
-
-import PIL.Image
-import PIL.Image
-import imageio.v2
-import imageio.v3
-import imageio.v3
-import imageio.v3 as iio
-import numpy
-import numpy as np
-import pandas as pd
-import torch
-import torch.distributed as dist
-from PIL import Image
-from torch.nn.parallel.data_parallel import DataParallel
-from torch.utils.data import DataLoader
-from tqdm import tqdm
-from tqdm.auto import tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
-
-import tile2net.tiles.tileseg.network.ocrnet
-from tile2net.tiles.cfg.cfg import assert_and_infer_cfg
-from tile2net.tiles.cfg.logger import logger
-from tile2net.tiles.dir.loader import Loader
-from tile2net.tiles.tiles.static import Static
-from tile2net.tiles.tileseg import datasets
-from tile2net.tiles.tileseg import network
-from tile2net.tiles.tileseg.loss.optimizer import get_optimizer, restore_opt, restore_net
-from tile2net.tiles.tileseg.loss.utils import get_loss
-from tile2net.tiles.tileseg.network.ocrnet import MscaleOCR
-from tile2net.tiles.tileseg.utils.misc import AverageMeter, prep_experiment
-from ..tiles import file
-from ..tiles import tile
-from ..tiles.tiles import Tiles
-from ...tiles.util import recursion_block
-
 import os.path
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import *
 
+import PIL.Image
+import PIL.Image
+import imageio.v2
 import imageio.v2
 import imageio.v3
 import imageio.v3
+import imageio.v3
+import imageio.v3
+import imageio.v3 as iio
 import numpy as np
 import pandas as pd
 import rasterio
+from PIL import Image
 from tqdm import tqdm
 from tqdm.auto import tqdm
 
@@ -157,7 +123,7 @@ class File(
         key = 'file.stitched'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.segtiles.files(tiles)
+        files = tiles.intiles.outdir.vectiles.files(tiles)
         if (
             not tiles.stitch
             and not files.map(os.path.exists).all()
@@ -263,15 +229,15 @@ class VecTiles(
         return self
 
     @recursion_block
-    def stitch(self):
-        segtiles = self.segtiles
+    def stitch(self) -> Self:
+        segtiles = self.segtiles.broadcast
         vectiles = self
-        padded = segtiles.padded
-        loc = ~padded.vectile.stitched.map(os.path.exists)
-        infiles = padded.file.maskraw.loc[loc]
-        row = padded.vectile.r.loc[loc]
-        col = padded.vectile.c.loc[loc]
-        group = padded.vectile.stitched.loc[loc]
+
+        loc = ~segtiles.vectile.stitched.map(os.path.exists)
+        infiles = segtiles.file.maskraw.loc[loc]
+        row = segtiles.vectile.r.loc[loc]
+        col = segtiles.vectile.c.loc[loc]
+        group = segtiles.vectile.stitched.loc[loc]
 
         loc = ~vectiles.file.stitched.map(os.path.exists)
         predfiles = vectiles.file.stitched.loc[loc]
@@ -281,7 +247,7 @@ class VecTiles(
         if n_missing == 0:  # nothing to do
             msg = f'All {n_total:,} mosaics are already stitched.'
             logger.info(msg)
-            return padded
+            return segtiles
         else:
             logger.info(f'Stitching {n_missing:,} of {n_total:,} mosaics missing on disk.')
 
@@ -289,7 +255,7 @@ class VecTiles(
             files=infiles,
             row=row,
             col=col,
-            tile_shape=padded.tile.shape,
+            tile_shape=segtiles.tile.shape,
             mosaic_shape=vectiles.tile.shape,
             group=group
         )
@@ -314,7 +280,8 @@ class VecTiles(
             w.result()
 
         executor.shutdown(wait=True)
-        return padded
+        assert vectiles.file.stitched.map(os.path.exists).all()
+        return self
 
 
     @recursion_block

@@ -48,7 +48,7 @@ from ...tiles.util import recursion_block
 from . import delayed
 
 if False:
-    from .padded import  Padded
+    from .padded import Padded
     from .broadcast import Broadcast
     from ..intiles import InTiles
 
@@ -112,7 +112,6 @@ class File(
 ):
     tiles: SegTiles
 
-
     @property
     def stitched(self) -> pd.Series:
         """
@@ -133,9 +132,6 @@ class File(
         tiles[key] = files
         return tiles[key]
 
-
-
-
     @property
     def prediction(self) -> pd.Series:
         tiles = self.tiles
@@ -144,8 +140,8 @@ class File(
             return tiles[key]
         files = tiles.intiles.outdir.prediction.files(tiles)
         if (
-            not tiles.predict
-            and not files.map(os.path.exists).all()
+                not tiles.predict
+                and not files.map(os.path.exists).all()
         ):
             tiles.predict()
         tiles[key] = files
@@ -159,8 +155,8 @@ class File(
             return tiles[key]
         files = tiles.intiles.outdir.seg_results.prob.files(tiles)
         if (
-            not tiles.predict
-            and not files.map(os.path.exists).all()
+                not tiles.predict
+                and not files.map(os.path.exists).all()
         ):
             tiles.predict()
         tiles[key] = files
@@ -174,8 +170,8 @@ class File(
             return tiles[key]
         files = tiles.intiles.outdir.seg_results.error.files(tiles)
         if (
-            not tiles.predict
-            and not files.map(os.path.exists).all()
+                not tiles.predict
+                and not files.map(os.path.exists).all()
         ):
             tiles.predict()
         tiles[key] = files
@@ -189,8 +185,8 @@ class File(
             return tiles[key]
         files = tiles.intiles.outdir.seg_results.sidebyside.files(tiles)
         if (
-            not tiles.predict
-            and not files.map(os.path.exists).all()
+                not tiles.predict
+                and not files.map(os.path.exists).all()
         ):
             tiles.predict()
         tiles[key] = files
@@ -204,8 +200,8 @@ class File(
             return tiles[key]
         files = tiles.intiles.outdir.seg_results.files(tiles)
         if (
-            not tiles.predict
-            and not files.map(os.path.exists).all()
+                not tiles.predict
+                and not files.map(os.path.exists).all()
         ):
             tiles.predict()
         tiles[key] = files
@@ -219,8 +215,8 @@ class File(
             return tiles[key]
         files = tiles.intiles.outdir.submit.files(tiles)
         if (
-            not tiles.predict
-            and not files.map(os.path.exists).all()
+                not tiles.predict
+                and not files.map(os.path.exists).all()
         ):
             tiles.predict()
         tiles[key] = files
@@ -234,8 +230,8 @@ class File(
             return tiles[key]
         files = tiles.intiles.outdir.mask.files(tiles)
         if (
-            not tiles.predict
-            and not files.map(os.path.exists).all()
+                not tiles.predict
+                and not files.map(os.path.exists).all()
         ):
             tiles.predict()
         tiles[key] = files
@@ -249,8 +245,8 @@ class File(
             return tiles[key]
         files = tiles.intiles.outdir.raw.files(tiles)
         if (
-            not tiles.predict
-            and not files.map(os.path.exists).all()
+                not tiles.predict
+                and not files.map(os.path.exists).all()
         ):
             tiles.predict()
         tiles[key] = files
@@ -263,8 +259,8 @@ class File(
             return tiles[key]
         files = tiles.intiles.outdir.outputs.files(tiles, dirname)
         if (
-            not tiles.predict
-            and not files.map(os.path.exists).all()
+                not tiles.predict
+                and not files.map(os.path.exists).all()
         ):
             tiles.predict()
         tiles[key] = files
@@ -284,7 +280,7 @@ class SegTiles(
         ...
 
     @recursion_block
-    def stitch(self):
+    def stitch(self) -> Self:
         if self is not self.padded:
             return self.padded.stitch()
 
@@ -341,7 +337,7 @@ class SegTiles(
 
         executor.shutdown(wait=True)
         assert segtiles.file.stitched.map(os.path.exists).all()
-        return intiles
+        return self
 
     @tile.cached_property
     def intiles(self) -> InTiles:
@@ -393,7 +389,6 @@ class SegTiles(
             maxdim: int = 2048,
             divider: Optional[str] = None,
     ) -> PIL.Image.Image:
-
 
         files: pd.Series = self.file.stitched
         R: pd.Series = self.r  # 0-based row id
@@ -507,7 +502,12 @@ class SegTiles(
             self,
             force=None,
             batch_size=None,
-    ):
+    ) -> Self:
+        if self is not self.padded:
+            return self.padded.predict(
+                force=force,
+                batch_size=batch_size
+            )
         tiles = self
         cfg = tiles.cfg
 
@@ -656,6 +656,8 @@ class SegTiles(
             else:
                 raise ValueError(f"Unknown evaluation mode: {cfg.model.eval}. ")
 
+        return self
+
     def _validate(
             self,
             loader: DataLoader,
@@ -722,4 +724,3 @@ class SegTiles(
         for fut in futures:
             fut.result()
         futures.clear()
-

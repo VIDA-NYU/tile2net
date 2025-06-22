@@ -48,11 +48,19 @@ class VecTile(
     @tile.cached_property
     def xtile(self) -> pd.Series:
         """Tile integer X of this tile in the vectiles vectile"""
+        tiles = self.tiles
+        key = 'vectile.xtile'
+        if key in tiles:
+            return tiles[key]
         raise NotImplementedError
 
     @tile.cached_property
     def ytile(self) -> pd.Series:
         """Tile integer X of this tile in the vectiles vectile"""
+        tiles = self.tiles
+        key = 'vectile.ytile'
+        if key in tiles:
+            return tiles[key]
         raise NotImplementedError
         # todo: for each vectile origin, use array ranges to pad the tiles
 

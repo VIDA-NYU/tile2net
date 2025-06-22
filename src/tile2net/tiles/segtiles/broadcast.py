@@ -15,10 +15,41 @@ class VecTile(
     @property
     def r(self) -> pd.Series:
         """row within the segtile of this tile"""
+        tiles = self.tiles
+        key = 'vectile.r'
+        if key in tiles:
+            return tiles[key]
+        ytile = self.tiles.ytile.to_series()
+        result = (
+            ytile
+            .groupby(self.ytile.values)
+            .min()
+            .loc[self.ytile]
+            .rsub(ytile.values)
+            .values
+        )
+        tiles[key] = result
+        return tiles[key]
 
     @property
     def c(self) -> pd.Series:
         """column within the segtile of this tile"""
+        tiles = self.tiles
+        key = 'vectile.c'
+        if key in tiles:
+            return tiles[key]
+        xtile = self.tiles.xtile.to_series()
+        result = (
+            xtile
+            .groupby(self.xtile.values)
+            .min()
+            .loc[self.xtile]
+            .rsub(xtile.values)
+            .values
+        )
+        tiles[key] = result
+        return tiles[key]
+
 
 
 def boundary_tiles(
@@ -48,9 +79,8 @@ def __get__(
     elif self.__name__ in instance.attrs:
         result = instance.attrs[self.__name__]
     else:
-        # instance.vectiles.
         vectiles = instance.vectiles
-        segtiles = instance.segtiles
+        segtiles = instance.segtiles.padded
         corners = (
             vectiles
             .to_corners(segtiles.tile.scale)
@@ -58,26 +88,27 @@ def __get__(
         )
         vectile = corners.index.repeat(corners.tile.area)
         kwargs = {
-            'vectile.xtile': vectile.index.get_level_values('xtile'),
-            'vectile.ytile': vectile.index.get_level_values('ytile'),
+            'vectile.xtile': vectile.get_level_values('xtile'),
+            'vectile.ytile': vectile.get_level_values('ytile'),
         }
+
         result = (
             corners
             .to_tiles(drop_duplicates=False)
             .assign(**kwargs)
-            .pipe(segtiles.__class__)
+            .pipe(Broadcast)
         )
 
-        n = segtiles.vectile.length / segtiles.tile.length
-        n += 2
-        n *= n
-        assert len(result) == n * len(segtiles)
-
         result.attrs.update(instance.attrs)
-        result.instance = instance
         instance.attrs[self.__name__] = result
-    return result
 
+        d = vectiles.tile.scale - segtiles.tile.scale
+        expected = 2 ** (2 * d) + 4 * 2 ** d + 4
+        assert len(result) == expected * len(vectiles)
+        _ = result.vectile.r, result.vectile.c
+
+    result.instance = instance
+    return result
 
 class Broadcast(
     SegTiles
@@ -97,3 +128,4 @@ class Broadcast(
     @VecTile
     def vectile(self):
         ...
+

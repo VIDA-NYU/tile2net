@@ -21,6 +21,7 @@ class Padded(
         from . import padded
         padded = padded.Padded()
         setattr(owner, self.__name__, padded)
+        padded.__set_name__(owner, self.__name__)
         if instance is None:
             result = getattr(owner, self.__name__)
         else:
@@ -30,8 +31,5 @@ class Padded(
     def __set_name__(self, owner, name):
         self.__name__ = name
 
-    def __init__(
-            self,
-            *args,
-    ):
+    def __init__( self, *args, ):
         ...
