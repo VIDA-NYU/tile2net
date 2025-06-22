@@ -1,4 +1,5 @@
 from __future__ import annotations
+import pandas as pd
 
 import copy
 import functools
@@ -26,34 +27,40 @@ class cached_property:
 
     @functools.cached_property
     def key(self):
-        from .tiles import Tiles
-        if issubclass(self.owner, Tiles):
+        # from .tiles import Tiles
+        # if issubclass(self.owner, Tiles):
+        if issubclass(self.owner, pd.DataFrame):
             return self.__name__
         elif hasattr(self.owner, 'tiles'):
-            return f'{self.instance.tiles.__name__}.{self.__name__}'
+            return f'{self.instance.__name__}.{self.__name__}'
         else:
             raise TypeError(
                 f'Owner {self.owner} must be a Tiles subclass or have a tiles attribute.'
             )
+
+    @property
+    def cache(self) -> dict:
+        if issubclass(self.owner, pd.DataFrame):
+            cache = self.instance.attrs
+        elif hasattr(self.owner, 'tiles'):
+            cache = self.instance.tiles.attrs
+        else:
+            raise TypeError(
+                f'Owner {self.owner} must be a Tiles subclass or have a tiles attribute.'
+            )
+        return cache
 
     def __get__(
             self,
             instance,
             owner
     ):
-        from .tiles import Tiles
         self.instance = instance
         if instance is None:
             return self
         key = self.key
-        if issubclass(self.owner, Tiles):
-            cache = instance.attrs
-        elif hasattr(self.owner, 'tiles'):
-            cache = instance.tiles.attrs
-        else:
-            raise TypeError(
-                f'Owner {self.owner} must be a Tiles subclass or have a tiles attribute.'
-            )
+
+        cache = self.cache
         if key in cache:
             return cache[key]
         result = self.__wrapped__(instance)
@@ -61,31 +68,15 @@ class cached_property:
         return result
 
     def __set__(self, instance, value):
-        from .tiles import Tiles
         self.instance = instance
         key = self.key
-        if issubclass(self.owner, Tiles):
-            cache = instance.attrs
-        elif hasattr(self.owner, 'tiles'):
-            cache = instance.tiles.attrs
-        else:
-            raise TypeError(
-                f'Owner {self.owner} must be a Tiles subclass or have a tiles attribute.'
-            )
+        cache = self.cache
         cache[key] = value
 
     def __delete__(self, instance):
-        from .tiles import Tiles
         self.instance = instance
         key = self.key
-        if issubclass(self.owner, Tiles):
-            cache = instance.attrs
-        elif hasattr(self.owner, 'tiles'):
-            cache = instance.tiles.attrs
-        else:
-            raise TypeError(
-                f'Owner {self.owner} must be a Tiles subclass or have a tiles attribute.'
-            )
+        cache = self.cache
         cache.pop(key, None)
 
 
@@ -96,6 +87,27 @@ def __get__(
 ) -> Tile:
     self.tiles = instance
     return copy.copy(self)
+
+
+class sticky:
+    cached_property = cached_property
+
+
+class static:
+    class cached_prpoerty(cached_property):
+
+
+        @property
+        def cache(self) -> dict:
+            if issubclass(self.owner, pd.DataFrame):
+                cache = self.instance.__dict__
+            elif hasattr(self.owner, 'tiles'):
+                cache = self.instance.tiles.__dict__
+            else:
+                raise TypeError(
+                    f'Owner {self.owner} must be a Tiles subclass or have a tiles attribute.'
+                )
+            return cache
 
 
 class Tile(
@@ -149,3 +161,6 @@ class Tile(
 
     def __init__(self, *args):
         ...
+
+    def __set_name__(self, owner, name):
+        self.__name__ = name

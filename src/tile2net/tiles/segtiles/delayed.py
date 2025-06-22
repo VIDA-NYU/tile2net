@@ -23,7 +23,10 @@ class Padded(
         from . import padded
         padded = padded.Padded()
         setattr(owner, self.__name__, padded)
-        result = getattr(owner, self.__name__)
+        if instance is None:
+            result = getattr(owner, self.__name__)
+        else:
+            result = getattr(instance, self.__name__)
         return result
 
     def __set_name__(self, owner, name):
@@ -39,6 +42,7 @@ class Padded(
 class Broadcast(
 
 ):
+
     def __get__(
             self,
             instance,
@@ -47,7 +51,10 @@ class Broadcast(
         from . import broadcast
         broadcast = broadcast.Broadcast()
         setattr(owner, self.__name__, broadcast)
-        result = getattr(owner, self.__name__)
+        if instance is None:
+            result = getattr(owner, self.__name__)
+        else:
+            result = getattr(instance, self.__name__)
         return result
 
     def __set_name__(self, owner, name):

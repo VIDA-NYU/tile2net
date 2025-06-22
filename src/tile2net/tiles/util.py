@@ -1,4 +1,5 @@
 from __future__ import annotations
+import pandas as pd
 
 import ast
 import copy
@@ -415,3 +416,26 @@ class recursion_block:
         if self.tiles.attrs.get(self.__name__) is self:
             del self.tiles.attrs[self.__name__]
         return False
+
+
+def assert_perfect_overlap(
+    a: Tiles,
+    b: Tiles,
+):
+    scale = min(a.tile.scale, b.tile.scale)
+    needles = (
+        a
+        .to_corners(scale)
+        ['xmin ymin'.split()]
+        .pipe(pd.MultiIndex.from_frame)
+    )
+    haystack = (
+        b
+        .to_corners(scale)
+        ['xmin ymin'.split()]
+        .pipe(pd.MultiIndex.from_frame)
+        .drop_duplicates()
+    )
+    assert needles.isin(haystack).all()
+    assert haystack.isin(needles).all()
+

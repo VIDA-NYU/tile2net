@@ -5,7 +5,7 @@ import pandas as pd
 
 from . import vectile
 from .segtiles import SegTiles
-from ..tiles import tile
+from ..tiles import padded
 
 
 class VecTile(
@@ -38,48 +38,6 @@ def boundary_tiles(
 
 
 def __get__(
-        self: Index,
-        instance: Padded,
-        owner
-):
-    self.padded = instance
-    return self
-
-
-class Index(
-
-):
-    padded: Padded = None
-    locals().update(
-        __get__=__get__
-    )
-
-    def __init__(self, *args, ):
-        ...
-
-    def __set_name__(self, owner, name):
-        self.__name__ = name
-
-    @property
-    def xtile(self) -> pd.Series:
-        return self.padded[f'{self.__name__}.xtile']
-
-    @property
-    def ytile(self) -> pd.Series:
-        return self.padded[f'{self.__name__}.ytile']
-
-    @tile.cached_property
-    def index(self) -> pd.MultiIndex:
-        xtile = self.xtile
-        ytile = self.ytile
-        arrays = xtile, ytile
-        names = self.xtile.name, self.ytile.name
-        result = pd.MultiIndex.from_arrays(arrays, names=names)
-        return result
-
-
-
-def __get__(
         self: Padded,
         instance: SegTiles,
         owner,
@@ -95,22 +53,20 @@ def __get__(
             .pipe(self.__class__)
         )
         result.attrs.update(instance.attrs)
-        result.instance = instance
         instance.attrs[self.__name__] = result
+
+    result.instance = instance
     return result
 
 
 class Padded(
+    padded.Padded,
     SegTiles
 ):
     locals().update(
         __get__=__get__
     )
 
-    @property
-    def segtiles(self):
-        return self.instance.segtiles
-
-    @property
-    def vectiles(self):
-        return self.instance.vectiles
+    @VecTile
+    def vectile(self):
+        ...

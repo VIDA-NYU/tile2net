@@ -37,47 +37,6 @@ def boundary_tiles(
     return coords[mask]
 
 
-def __get__(
-        self: Index,
-        instance: Broadcast,
-        owner
-):
-    self.padded = instance
-    return self
-
-
-class Index(
-
-):
-    padded: Broadcast = None
-    locals().update(
-        __get__=__get__
-    )
-
-    def __init__(self, *args, ):
-        ...
-
-    def __set_name__(self, owner, name):
-        self.__name__ = name
-
-    @property
-    def xtile(self) -> pd.Series:
-        return self.padded[f'{self.__name__}.xtile']
-
-    @property
-    def ytile(self) -> pd.Series:
-        return self.padded[f'{self.__name__}.ytile']
-
-    @tile.cached_property
-    def index(self) -> pd.MultiIndex:
-        xtile = self.xtile
-        ytile = self.ytile
-        arrays = xtile, ytile
-        names = self.xtile.name, self.ytile.name
-        result = pd.MultiIndex.from_arrays(arrays, names=names)
-        return result
-
-
 
 def __get__(
         self: Broadcast,
@@ -89,11 +48,31 @@ def __get__(
     elif self.__name__ in instance.attrs:
         result = instance.attrs[self.__name__]
     else:
-        result = (
-            instance
+        # instance.vectiles.
+        vectiles = instance.vectiles
+        segtiles = instance.segtiles
+        corners = (
+            vectiles
+            .to_corners(segtiles.tile.scale)
             .to_padding()
-            .pipe(self.__class__)
         )
+        vectile = corners.index.repeat(corners.tile.area)
+        kwargs = {
+            'vectile.xtile': vectile.index.get_level_values('xtile'),
+            'vectile.ytile': vectile.index.get_level_values('ytile'),
+        }
+        result = (
+            corners
+            .to_tiles(drop_duplicates=False)
+            .assign(**kwargs)
+            .pipe(segtiles.__class__)
+        )
+
+        n = segtiles.vectile.length / segtiles.tile.length
+        n += 2
+        n *= n
+        assert len(result) == n * len(segtiles)
+
         result.attrs.update(instance.attrs)
         result.instance = instance
         instance.attrs[self.__name__] = result
@@ -114,3 +93,7 @@ class Broadcast(
     @property
     def vectiles(self):
         return self.instance.vectiles
+
+    @VecTile
+    def vectile(self):
+        ...

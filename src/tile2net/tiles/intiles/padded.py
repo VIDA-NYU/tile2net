@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ..tiles import padded
 
 from .intiles import InTiles
 
@@ -26,19 +27,11 @@ def __get__(
         instance.attrs[self.__name__] = result
     return result
 
+
 class Padded(
-    InTiles
+    padded.Padded,
+    InTiles,
 ):
-
-
     locals().update(
         __get__=__get__
     )
-
-    @property
-    def segtiles(self):
-        return self.instance.segtiles
-
-    @property
-    def vectiles(self):
-        return self.instance.vectiles

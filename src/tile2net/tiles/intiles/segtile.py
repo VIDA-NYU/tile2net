@@ -34,10 +34,10 @@ class SegTile(
     # @tile.cached_property
     @property
     def length(self):
-        """Number of tiles in one dimension of the segtile"""
+        """Number of static tiles in one dimension of the segtile"""
         return self.intiles.segtiles.tile.length
 
-    @tile.cached_property
+    @tile.static.cached_prpoerty
     def index(self):
         arrays = self.xtile, self.ytile
         names = self.xtile.name, self.ytile.name
@@ -52,7 +52,7 @@ class SegTile(
         if key in intiles.columns:
             return intiles[key]
 
-        segtiles = intiles.segtiles
+        segtiles = intiles.segtiles.padded
         result = intiles.xtile // intiles.segtile.length
 
         msg = 'All segtile.xtile must be in segtiles.xtile!'
@@ -68,7 +68,7 @@ class SegTile(
         if key in intiles.columns:
             return intiles[key]
 
-        segtiles = intiles.segtiles
+        segtiles = intiles.segtiles.padded
         result = intiles.ytile // intiles.segtile.length
 
         msg = 'All segtile.ytile must be in segtiles.ytile!'
@@ -121,7 +121,7 @@ class SegTile(
         arrays = self.xtile, self.ytile
         loc = pd.MultiIndex.from_arrays(arrays)
         result = (
-            intiles.segtiles.ipred
+            intiles.segtiles.padded.ipred
             .loc[loc]
             .values
         )
@@ -136,7 +136,8 @@ class SegTile(
         if key in intiles.columns:
             return intiles[key]
         result = (
-            intiles.segtiles.file.stitched
+            # intiles.segtiles.file.stitched
+            intiles.segtiles.padded.file.stitched
             .loc[self.index]
             .values
         )
@@ -145,3 +146,6 @@ class SegTile(
 
     def __init__(self, *args):
         ...
+
+    def __set_name__(self, owner, name):
+        self.__name__ = name

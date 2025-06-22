@@ -351,21 +351,11 @@ class Tiles(
 
     def to_padding(self, pad: int = 1) -> Self:
         """ Pad each tile by `pad` tiles in each direction. """
-        scale = self.tile.scale
-        corners = self.corners(scale)
-        xmin = corners.xmin - pad
-        ymin = corners.ymin - pad
-        xmax = corners.xmax + pad
-        ymax = corners.ymax + pad
-
-        def drop_duplicates(frame: pd.DataFrame) -> pd.DataFrame:
-            loc = ~frame.index.duplicated()
-            return frame.loc[loc]
-
         padded = (
             self
-            .from_ranges(xmin, ymin, xmax, ymax, scale=scale)
-            .pipe(drop_duplicates)
+            .to_corners(self.tile.scale)
+            .to_padding(pad)
+            .to_tiles()
             .pipe(self.__class__)
             .sort_index()
         )
@@ -505,22 +495,17 @@ class Tiles(
 
         return scale
 
-    def corners(self, scale: int = None) -> Corners:
+    def to_corners(self, scale: int = None) -> Corners:
         if scale is None:
             scale = self.tile.scale
 
         length = 2 ** (self.tile.scale - scale)
-
-        ymin = self.ytile.values // length
-        xmin = self.xtile.values // length
-        ymax = ymin + 1
-        xmax = xmin + 1
-
-        data = dict(
-            xmin=xmin,
-            xmax=xmax,
-            ymin=ymin,
-            ymax=ymax,
+        result = Corners.from_data(
+            xmin=self.xtile.values // length,
+            ymin=self.ytile.values // length,
+            xmax=(self.xtile.values + 1) // length,
+            ymax=(self.ytile.values + 1) // length,
+            scale=scale,
+            index=self.index,
         )
-        result = Corners(data, index=self.index)
         return result

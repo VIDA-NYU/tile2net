@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ..util import  assert_perfect_overlap
 from . import delayed
 
 import os
@@ -285,6 +286,13 @@ class InTiles(
         force:
             redownload the tiles even if they already exist
         """
+        if self is not self.padded:
+            return self.download(
+                retry=retry,
+                force=force,
+                max_workers=max_workers,
+            )
+
         paths = self.file.infile
         urls = self.source.urls
 
@@ -679,6 +687,10 @@ class InTiles(
 
         area = 4 ** (self.tile.scale - scale)
         assert len(intiles) == len(segtiles) * area
+        assert_perfect_overlap(segtiles, intiles)
+
+        assert segtiles.index.difference(intiles.segtile.index).empty
+
         return intiles
 
     def set_vectorization(

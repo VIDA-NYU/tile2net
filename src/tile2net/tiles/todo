@@ -105,3 +105,13 @@ scales to largest, adds padding=1 using corners, scales back
 infiles padded with segtiles.scale
 segtiles padded with segtiles.scale
 
+for broadcasting:
+
+vectiles.corners.to_scale(segtiles.scale)
+
+so we need:
+    corners.ntiles -> corners.tile.area
+    corners.to_scale(scale)
+
+corners.to_tiles()
+

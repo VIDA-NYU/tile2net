@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ..util import assert_perfect_overlap
 
 import hashlib
 import os
@@ -48,6 +49,7 @@ from . import delayed
 
 if False:
     from .padded import  Padded
+    from .broadcast import Broadcast
     from ..intiles import InTiles
 
 
@@ -283,8 +285,11 @@ class SegTiles(
 
     @recursion_block
     def stitch(self):
-        intiles = self.intiles
-        segtiles = self
+        if self is not self.padded:
+            return self.padded.stitch()
+
+        intiles = self.intiles.padded
+        segtiles = self.padded
 
         loc = ~intiles.segtile.stitched.map(os.path.exists)
         infiles = intiles.file.infile.loc[loc]
@@ -292,11 +297,13 @@ class SegTiles(
         col = intiles.segtile.c.loc[loc]
         group = intiles.segtile.stitched.loc[loc]
 
+        intiles.segtile.stitched.map(os.path.exists).all()
+        segtiles.padded.file.stitched.map(os.path.exists).all()
+
         loc = ~segtiles.file.stitched.map(os.path.exists)
-        predfiles = segtiles.file.stitched.loc[loc]
+        stitched = segtiles.file.stitched.loc[loc]
         n_missing = np.sum(loc)
         n_total = len(segtiles)
-
         if n_missing == 0:  # nothing to do
             msg = f'All {n_total:,} mosaics are already stitched.'
             logger.info(msg)
@@ -314,7 +321,7 @@ class SegTiles(
         )
 
         seen = set()
-        for f in predfiles:
+        for f in stitched:
             d = Path(f).parent
             if d not in seen:  # avoids extra mkdir syscalls
                 d.mkdir(parents=True, exist_ok=True)
@@ -333,7 +340,7 @@ class SegTiles(
             w.result()
 
         executor.shutdown(wait=True)
-        assert segtiles.skip.all()
+        assert segtiles.file.stitched.map(os.path.exists).all()
         return intiles
 
     @tile.cached_property
@@ -491,6 +498,9 @@ class SegTiles(
     def padded(self) -> Padded:
         ...
 
+    @delayed.Broadcast
+    def broadcast(self) -> Broadcast:
+        ...
 
     @recursion_block
     def predict(
