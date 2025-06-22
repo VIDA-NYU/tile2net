@@ -123,7 +123,7 @@ class Tile(
         return self.intiles.tile.zoom
 
     @cached_property
-    def scale(self):
+    def scale(self) -> int:
         """
         Tile scale; the XYZ scale of the tiles.
         Higher value means smaller area.

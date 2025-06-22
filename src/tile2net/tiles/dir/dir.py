@@ -290,8 +290,11 @@ class Dir:
             msg = f'Cannot determine trace for {self.__name__}'
             raise ValueError(msg)
 
-    def files(self, dirname='') -> pd.Series:
-        tiles = self.tiles
+    def files(
+            self,
+            tiles: Tiles,
+            dirname=''
+    ) -> pd.Series:
         if dirname:
             key = f'{self._trace}.{dirname}'
         else:
@@ -318,25 +321,21 @@ class Dir:
         result = tiles[key]
         return result
 
-    @BatchIterator
-    def iterator(self, dirname=''):
-        return self.files(dirname)
-
-    def skip(self, dirname=''):
-        tiles = self.tiles
-        if dirname:
-            key = f'{self._trace}.{dirname}.skip'
-        else:
-            key = f'{self._trace}.skip'
-        if key not in tiles:
-            files = self.files(dirname)
-            if self.intiles.cfg.force:
-                result = False
-            else:
-                result = files.apply(os.path.exists)
-            tiles[key] = result
-        return tiles[key]
-
+    # def skip(self, dirname=''):
+    #     tiles = self.tiles
+    #     if dirname:
+    #         key = f'{self._trace}.{dirname}.skip'
+    #     else:
+    #         key = f'{self._trace}.skip'
+    #     if key not in tiles:
+    #         files = self.files(dirname)
+    #         if self.intiles.cfg.force:
+    #             result = False
+    #         else:
+    #             result = files.apply(os.path.exists)
+    #         tiles[key] = result
+    #     return tiles[key]
+    #
 
 class UsesInTiles(
     Dir

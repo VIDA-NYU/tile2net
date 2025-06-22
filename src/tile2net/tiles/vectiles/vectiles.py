@@ -157,7 +157,7 @@ class File(
         key = 'file.stitched'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.segtiles.files()
+        files = tiles.intiles.outdir.segtiles.files(tiles)
         if (
             not tiles.stitch
             and not files.map(os.path.exists).all()
@@ -172,7 +172,7 @@ class File(
         key = 'file.network'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.network.files()
+        files = tiles.intiles.outdir.network.files(tiles)
         if (
                 not tiles.vectorize
                 and not files.map(os.path.exists).all()
@@ -187,7 +187,7 @@ class File(
         key = 'file.polygons'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.polygons.files()
+        files = tiles.intiles.outdir.polygons.files(tiles)
         if (
                 not tiles.vectorize
                 and not files.map(os.path.exists).all()
@@ -214,6 +214,7 @@ def __get__(
         )
         raise ValueError(msg) from e
     result.intiles = instance
+    result.instance = instance
 
     return result
 

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from . import delayed
 
 import os
 import os.path
@@ -38,6 +39,8 @@ from ..tiles import tile, file
 from ..tiles.tiles import Tiles
 from ..vectiles import VecTiles
 from ...tiles.util import recursion_block
+if False:
+    from .padded import Padded
 
 
 class Tile(
@@ -81,7 +84,7 @@ class File(
         key = 'file.static'
         if key in tiles:
             return tiles[key]
-        files = tiles.indir.files()
+        files = tiles.indir.files(tiles)
         tiles[key] = files
         if (
                 not tiles.download
@@ -673,7 +676,6 @@ class InTiles(
         assert segtiles.tile.scale == scale
         assert len(segtiles) <= len(intiles)
         assert len(self) <= len(intiles)
-        # 1 4 16
 
         area = 4 ** (self.tile.scale - scale)
         assert len(intiles) == len(segtiles) * area
@@ -739,6 +741,7 @@ class InTiles(
         segtiles = intiles.segtiles
         vectiles = intiles.vectiles
 
+
         assert len(self) <= len(intiles)
         assert len(vectiles) <= len(segtiles) <= len(intiles)
         area = 4 ** (self.tile.scale - scale)
@@ -778,7 +781,7 @@ class InTiles(
     def preview(
             self,
             maxdim: int = 2048,
-            divider: Optional[str] = None,
+            divider: Optional[str] = 'red',
     ) -> PIL.Image.Image:
 
         files: pd.Series = self.file.infile
@@ -823,3 +826,7 @@ class InTiles(
                 mosaic.paste(Image.fromarray(arr), (x0, y0))
 
         return mosaic
+
+    @delayed.Padded
+    def padded(self) -> Padded:
+        ...

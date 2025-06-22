@@ -101,6 +101,7 @@ def __get__(
         )
         raise ValueError(msg) from e
     result.intiles = instance
+    result.instance = instance
     return result
 
 
@@ -120,7 +121,7 @@ class File(
         key = 'file.stitched'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.segtiles.files()
+        files = tiles.intiles.outdir.segtiles.files(tiles)
         tiles[key] = files
         if (
                 not tiles.stitch
@@ -139,7 +140,7 @@ class File(
         key = 'file.prediction'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.prediction.files()
+        files = tiles.intiles.outdir.prediction.files(tiles)
         if (
             not tiles.predict
             and not files.map(os.path.exists).all()
@@ -154,7 +155,7 @@ class File(
         key = 'file.probability'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.seg_results.prob.files()
+        files = tiles.intiles.outdir.seg_results.prob.files(tiles)
         if (
             not tiles.predict
             and not files.map(os.path.exists).all()
@@ -169,7 +170,7 @@ class File(
         key = 'file.error'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.seg_results.error.files()
+        files = tiles.intiles.outdir.seg_results.error.files(tiles)
         if (
             not tiles.predict
             and not files.map(os.path.exists).all()
@@ -184,7 +185,7 @@ class File(
         key = 'file.sidebyside'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.seg_results.sidebyside.files()
+        files = tiles.intiles.outdir.seg_results.sidebyside.files(tiles)
         if (
             not tiles.predict
             and not files.map(os.path.exists).all()
@@ -199,7 +200,7 @@ class File(
         key = 'file.segresults'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.seg_results.files()
+        files = tiles.intiles.outdir.seg_results.files(tiles)
         if (
             not tiles.predict
             and not files.map(os.path.exists).all()
@@ -214,7 +215,7 @@ class File(
         key = 'file.submit'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.submit.files()
+        files = tiles.intiles.outdir.submit.files(tiles)
         if (
             not tiles.predict
             and not files.map(os.path.exists).all()
@@ -229,7 +230,7 @@ class File(
         key = 'file.mask'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.mask.files()
+        files = tiles.intiles.outdir.mask.files(tiles)
         if (
             not tiles.predict
             and not files.map(os.path.exists).all()
@@ -244,7 +245,7 @@ class File(
         key = 'file.maskraw'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.raw.files()
+        files = tiles.intiles.outdir.raw.files(tiles)
         if (
             not tiles.predict
             and not files.map(os.path.exists).all()
@@ -258,7 +259,7 @@ class File(
         key = f'file.output.{dirname}'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.outputs.files(dirname)
+        files = tiles.intiles.outdir.outputs.files(tiles, dirname)
         if (
             not tiles.predict
             and not files.map(os.path.exists).all()

@@ -92,8 +92,16 @@ We can use something like the majority vote + confidence mask to force the label
 
 from_slice
 
-
 downscale to segtile.scale
 [x-1, y-1, x+1, y+1]
 
 frame.corners(scale=segtile.scale)
+
+we must figure out how to pad
+
+infiles.padded
+scales to largest, adds padding=1 using corners, scales back
+
+infiles padded with segtiles.scale
+segtiles padded with segtiles.scale
+

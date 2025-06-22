@@ -39,7 +39,7 @@ def boundary_tiles(
 
 def __get__(
         self: Index,
-        instance: Padded,
+        instance: Broadcast,
         owner
 ):
     self.padded = instance
@@ -49,7 +49,7 @@ def __get__(
 class Index(
 
 ):
-    padded: Padded = None
+    padded: Broadcast = None
     locals().update(
         __get__=__get__
     )
@@ -80,10 +80,10 @@ class Index(
 
 
 def __get__(
-        self: Padded,
+        self: Broadcast,
         instance: SegTiles,
         owner,
-) -> Padded:
+) -> Broadcast:
     if instance is None:
         result = self
     elif self.__name__ in instance.attrs:
@@ -100,7 +100,7 @@ def __get__(
     return result
 
 
-class Padded(
+class Broadcast(
     SegTiles
 ):
     locals().update(

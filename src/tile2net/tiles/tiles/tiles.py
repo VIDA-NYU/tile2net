@@ -42,6 +42,10 @@ class Tiles(
     def intiles(self) -> InTiles:
         ...
 
+    @tile.cached_property
+    def instance(self) -> InTiles:
+        ...
+
     @property
     def segtiles(self) -> SegTiles:
         return self.intiles.segtiles
@@ -345,6 +349,29 @@ class Tiles(
         self.static.hrnet_checkpoint = ...
         self.static.snapshot = ...
 
+    def to_padding(self, pad: int = 1) -> Self:
+        """ Pad each tile by `pad` tiles in each direction. """
+        scale = self.tile.scale
+        corners = self.corners(scale)
+        xmin = corners.xmin - pad
+        ymin = corners.ymin - pad
+        xmax = corners.xmax + pad
+        ymax = corners.ymax + pad
+
+        def drop_duplicates(frame: pd.DataFrame) -> pd.DataFrame:
+            loc = ~frame.index.duplicated()
+            return frame.loc[loc]
+
+        padded = (
+            self
+            .from_ranges(xmin, ymin, xmax, ymax, scale=scale)
+            .pipe(drop_duplicates)
+            .pipe(self.__class__)
+            .sort_index()
+        )
+        padded.attrs.update(self.attrs)
+        return padded
+
     def to_scale(
             self,
             scale: int,
@@ -489,6 +516,11 @@ class Tiles(
         ymax = ymin + 1
         xmax = xmin + 1
 
-        data = dict(xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax )
+        data = dict(
+            xmin=xmin,
+            xmax=xmax,
+            ymin=ymin,
+            ymax=ymax,
+        )
         result = Corners(data, index=self.index)
         return result
