@@ -75,5 +75,25 @@ segtiles.file.mask
 vectiles.file.polygon
 vectiles.file.network
 
-
 todo: use groupby during prediction instead of the esoteric cached iterators
+we need a "trial" loader to instantiate all the file columns once
+
+if intiles.download:
+    ...
+
+with self.download:
+    ...
+
+with self.stitch:
+    ...
+
+
+We can use something like the majority vote + confidence mask to force the labels of the pixels with low confidence into the same label as their neighbors starting from like 50 pixels away from the edge
+
+from_slice
+
+
+downscale to segtile.scale
+[x-1, y-1, x+1, y+1]
+
+frame.corners(scale=segtile.scale)

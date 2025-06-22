@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import ast
+import copy
 import inspect
 import json
 import os
 import textwrap
 from functools import singledispatch
+from functools import update_wrapper
 from typing import *
 from weakref import WeakKeyDictionary
 
@@ -18,6 +22,7 @@ from toolz import curried, pipe
 from tile2net.tiles.cfg.logger import logger
 
 if False:
+    from ..tiles.tiles.tiles import Tiles
     import folium
 
 
@@ -356,3 +361,57 @@ def look_at(file: object):
 if __name__ == '__main__':
     print(name_from_location('New York, NY, USA'))
     print(name_from_location([1.22456789, 2.3456789, 3.456789, 4.56789]))
+
+
+class recursion_block:
+    """
+    returns True if the function is currently being executed
+    """
+    __wrapped__: Callable[..., Any] = None
+    tiles: Tiles = None
+    block: recursion_block = None
+
+    def __init__(self, func: Callable[..., Any]):
+        update_wrapper(self, func)
+
+    def __bool__(self):
+        return self.tiles.attrs.get(self.__name__) is not None
+
+    def __set_name__(self, owner, name):
+        self.__name__ = name
+
+    def __get__(
+            self,
+            instance: Tiles,
+            owner
+    ):
+        if instance is None:
+            result = self
+        elif self.__name__ in instance.attrs:
+            result = copy.copy(instance.attrs[self.__name__])
+        else:
+            result = copy.copy(self)
+
+        result.tiles = instance
+        return result
+
+    def __call__(
+            self,
+            *args: Any,
+            **kwargs: Any
+    ):
+        with self:
+            return (
+                self.__wrapped__
+                .__get__(self.tiles, self.__class__)
+                (*args, **kwargs)
+            )
+
+    def __enter__(self):
+        self.tiles.attrs.setdefault(self.__name__, self)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.tiles.attrs.get(self.__name__) is self:
+            del self.tiles.attrs[self.__name__]
+        return False

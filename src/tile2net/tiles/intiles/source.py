@@ -156,6 +156,23 @@ class cls_attr(
     def __eq__(self, other):
         return self.name == other.name
 
+def __get__(
+        self: Source,
+        instance: InTiles,
+        owner: type[InTiles],
+) -> Source:
+    """Return the source object for the tiles instance."""
+    try:
+        result = instance.attrs[self.__name__]
+        result.intiles = instance
+        result.InTiles = owner
+    except KeyError as e:
+        msg = (
+            f'Source has not yet been set. To set the source, you '
+            f'must call `InTiles.with_source()`.'
+        )
+        raise KeyError(msg) from e
+    return result
 
 # noinspection PyMethodParameters
 class Source(
@@ -163,6 +180,9 @@ class Source(
 ):
     intiles: InTiles
     catalog: dict[str, type[Source]] = {}
+    locals().update(
+        __get__=__get__,
+    )
 
     """
     Catalog of all sources available in the package.
@@ -232,23 +252,6 @@ class Source(
     def template(cls) -> str:
         """Template for formatting the URL of the tiles."""
 
-    def __get__(
-            self,
-            instance: InTiles,
-            owner: type[InTiles],
-    ) -> Self:
-        """Return the source object for the tiles instance."""
-        try:
-            result = instance.attrs[self.__name__]
-            result.intiles = instance
-            result.InTiles = owner
-        except KeyError as e:
-            msg = (
-                f'Source has not yet been set. To set the source, you '
-                f'must call `InTiles.with_source()`.'
-            )
-            raise KeyError(msg) from e
-        return result
 
     def __set__(
             self,
@@ -280,7 +283,7 @@ class Source(
         ...
 
     @property
-    def urls(self) -> pd.Series[str]:
+    def urls(self) -> pd.Series:
         """Given some tiles, return the URL for the images"""
         tiles = self.intiles
         temp = self.template

@@ -1,62 +1,71 @@
 from __future__ import annotations
-from ..tiles import file
-from tile2net.tiles.dir.loader import Loader
-from tile2net.tiles.cfg.logger import logger
-import PIL.Image
-import imageio.v3 as iio
-import numpy as np
-import pandas as pd
-import pyproj
-import shapely
-from PIL import Image
 
-import PIL.Image
-import imageio.v3 as iio
-
+import hashlib
 import os
-import shutil
-import tempfile
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import partial
+import sys
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import wait
 from pathlib import Path
 from typing import *
 
-import certifi
-import geopandas as gpd
+import PIL.Image
+import PIL.Image
+import imageio.v2
 import imageio.v3
 import imageio.v3
-import math
+import imageio.v3 as iio
+import numpy
 import numpy as np
 import pandas as pd
-import requests
-from requests.adapters import HTTPAdapter
+import torch
+import torch.distributed as dist
+from PIL import Image
+from torch.nn.parallel.data_parallel import DataParallel
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 from tqdm.auto import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 
+import tile2net.tiles.tileseg.network.ocrnet
+from tile2net.tiles.cfg.cfg import assert_and_infer_cfg
+from tile2net.tiles.cfg.logger import logger
+from tile2net.tiles.dir.loader import Loader
+from tile2net.tiles.tiles.static import Static
+from tile2net.tiles.tileseg import datasets
+from tile2net.tiles.tileseg import network
+from tile2net.tiles.tileseg.loss.optimizer import get_optimizer, restore_opt, restore_net
+from tile2net.tiles.tileseg.loss.utils import get_loss
+from tile2net.tiles.tileseg.network.ocrnet import MscaleOCR
+from tile2net.tiles.tileseg.utils.misc import AverageMeter, prep_experiment
+from ..tiles import file
+from ..tiles import tile
+from ..tiles.tiles import Tiles
+from ...tiles.util import recursion_block
+
+import os.path
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import *
 
 import imageio.v2
-import numpy as np
-import pandas as pd
-from tqdm import tqdm
-
-
-from ..dir import BatchIterator
-from typing import *
-
+import imageio.v3
+import imageio.v3
 import numpy as np
 import pandas as pd
 import rasterio
+from tqdm import tqdm
+from tqdm.auto import tqdm
 
+from tile2net.tiles.cfg.logger import logger
+from tile2net.tiles.dir.loader import Loader
+from ..dir import BatchIterator
+from ..tiles import file
 from ..tiles import tile
-
 from ..tiles.tiles import Tiles
+from ...tiles.util import recursion_block
 
 if False:
-    from ..segtiles import SegTiles
     from ..intiles import InTiles
-
 
 
 def __get__(
@@ -104,6 +113,7 @@ class Padding(
     def gs(self) -> pd.Series:
         ...
 
+
 class Tile(
     tile.Tile
 ):
@@ -111,10 +121,15 @@ class Tile(
 
     @tile.cached_property
     def length(self) -> int:
-        """How many input tiles comprise a segmentation tile"""
+        """
+        How many input tiles comprise a segmentation tile.
+        This is a multiple of the segmentation tile length.
+        """
         vectiles = self.tiles
         intiles = vectiles.intiles
-        result = 2 ** (intiles.tile.scale - self.scale) + 2 * self.padding
+        segtiles = self.segtiles
+        result = 2 ** (intiles.tile.scale - self.scale)
+        result += 2 * self.padding * segtiles.tile.length
         return result
 
     @tile.cached_property
@@ -130,24 +145,55 @@ class Tile(
         result = intiles.tile.dimension * self.length
         return result
 
+
 class File(
     file.File
 ):
     tiles: VecTiles
 
     @property
-    def infile(self) -> pd.Series:
-        """
-        A file for each segmentation tile: the stitched input tiles.
-        Stitches input files when segtiles.file is accessed
-        """
+    def stitched(self) -> pd.Series:
         tiles = self.tiles
-        key = 'file.infile'
+        key = 'file.stitched'
         if key in tiles:
             return tiles[key]
-        tiles[key] = tiles.intiles.outdir.segtiles.files()
-        if not tiles.intiles.outdir.segtiles.skip().all():
+        files = tiles.intiles.outdir.segtiles.files()
+        if (
+            not tiles.stitch
+            and not files.map(os.path.exists).all()
+        ):
             tiles.stitch()
+        tiles[key] = files
+        return tiles[key]
+
+    @property
+    def network(self) -> pd.Series:
+        tiles = self.tiles
+        key = 'file.network'
+        if key in tiles:
+            return tiles[key]
+        files = tiles.intiles.outdir.network.files()
+        if (
+                not tiles.vectorize
+                and not files.map(os.path.exists).all()
+        ):
+            tiles.vectorize()
+        tiles[key] = files
+        return tiles[key]
+
+    @property
+    def polygons(self) -> pd.Series:
+        tiles = self.tiles
+        key = 'file.polygons'
+        if key in tiles:
+            return tiles[key]
+        files = tiles.intiles.outdir.polygons.files()
+        if (
+                not tiles.vectorize
+                and not files.map(os.path.exists).all()
+        ):
+            tiles.vectorize()
+        tiles[key] = files
         return tiles[key]
 
 
@@ -171,6 +217,7 @@ def __get__(
 
     return result
 
+
 class VecTiles(
     Tiles
 ):
@@ -186,7 +233,6 @@ class VecTiles(
     @File
     def file(self):
         ...
-
 
     @property
     def affine_params(self) -> pd.Series:
@@ -212,39 +258,22 @@ class VecTiles(
         return self.affine_params
 
     @property
-    def skip(self):
-        key = 'skip'
-        if key in self:
-            return  self[key]
-        self[key] = self.intiles.outdir.vectiles.skip()
-        return self[key]
-
-    @property
-    def file(self):
-        key = 'file'
-        if key in self:
-            return self[key]
-        self[key] = self.intiles.outdir.vectiles.files()
-        return self[key]
-
-    @property
     def vectiles(self) -> Self:
         return self
 
-    def stitch( self ):
-        intiles = self.intiles
+    @recursion_block
+    def stitch(self):
         segtiles = self.segtiles
-        padded = segtiles.padded
         vectiles = self
-
-        loc = ~padded.vectile.skip
-        infiles = padded.infile.loc[loc]
+        padded = segtiles.padded
+        loc = ~padded.vectile.stitched.map(os.path.exists)
+        infiles = padded.file.maskraw.loc[loc]
         row = padded.vectile.r.loc[loc]
         col = padded.vectile.c.loc[loc]
-        group = padded.vectile.ipred.loc[loc]
+        group = padded.vectile.stitched.loc[loc]
 
-        loc = ~vectiles.skip
-        predfiles = vectiles.infile.loc[loc]
+        loc = ~vectiles.file.stitched.map(os.path.exists)
+        predfiles = vectiles.file.stitched.loc[loc]
         n_missing = np.sum(loc)
         n_total = len(vectiles)
 
@@ -273,21 +302,69 @@ class VecTiles(
 
         executor = ThreadPoolExecutor()
         imwrite = imageio.v3.imwrite
-        it = zip(loader, predfiles)
+        it = loader
         it = tqdm(it, 'stitching', n_missing, unit=' mosaic')
 
-        writes = [
-            executor.submit(imwrite, outfile, array)
-            for array, outfile in it
-        ]
-
+        writes = []
+        for path, array in it:
+            future = executor.submit(imwrite, path, array)
+            writes.append(future)
         for w in writes:
             w.result()
 
         executor.shutdown(wait=True)
-
-        del vectiles.skip
-        assert vectiles.skip.all()
-
         return padded
 
+
+    @recursion_block
+    def vectorize(self):
+        ...
+
+    def view(
+            self,
+            maxdim: int = 2048,
+            divider: Optional[str] = None,
+    ) -> PIL.Image.Image:
+
+        files = self.file.stitched
+        R: pd.Series = self.r  # 0-based row id
+        C: pd.Series = self.c  # 0-based col id
+
+        dim = self.tile.dimension  # original tile side length
+        n_rows = int(R.max()) + 1
+        n_cols = int(C.max()) + 1
+        div_px = 1 if divider else 0
+
+        # full mosaic size before optional down-scaling
+        full_w0 = n_cols * dim + div_px * (n_cols - 1)
+        full_h0 = n_rows * dim + div_px * (n_rows - 1)
+
+        scale = 1.0
+        if max(full_w0, full_h0) > maxdim:
+            scale = maxdim / max(full_w0, full_h0)
+
+        tile_w = max(1, int(round(dim * scale)))
+        tile_h = tile_w  # square tiles
+        full_w = n_cols * tile_w + div_px * (n_cols - 1)
+        full_h = n_rows * tile_h + div_px * (n_rows - 1)
+
+        canvas_col = divider if divider else (0, 0, 0)
+        mosaic = Image.new('RGB', (full_w, full_h), color=canvas_col)
+
+        def load(idx: int) -> tuple[int, int, np.ndarray]:
+            arr = iio.imread(files.iat[idx])
+            if scale != 1.0:
+                arr = np.asarray(
+                    Image.fromarray(arr).resize(
+                        (tile_w, tile_h), Image.Resampling.LANCZOS
+                    )
+                )
+            return R.iat[idx], C.iat[idx], arr
+
+        with ThreadPoolExecutor() as pool:
+            for r, c, arr in pool.map(load, range(len(files))):
+                x0 = c * (tile_w + div_px)
+                y0 = r * (tile_h + div_px)
+                mosaic.paste(Image.fromarray(arr), (x0, y0))
+
+        return mosaic

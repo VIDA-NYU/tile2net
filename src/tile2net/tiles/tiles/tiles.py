@@ -1,4 +1,6 @@
 from __future__ import annotations
+from .corners import Corners
+import math
 
 from concurrent.futures import ThreadPoolExecutor
 from functools import cached_property
@@ -133,6 +135,61 @@ class Tiles(
         return result
 
     @classmethod
+    def from_ranges(
+            cls,
+            xmin: pd.Series | pd.Index | np.ndarray,
+            ymin: pd.Series | pd.Index | np.ndarray,
+            xmax: pd.Series | pd.Index | np.ndarray,
+            ymax: pd.Series | pd.Index | np.ndarray,
+            scale: int,
+    ) -> Self:
+        """
+        Construct Tiles from ranges of tile numbers.
+        Generates every (xtile, ytile) pair within each [xmin‥xmax] × [ymin‥ymax] extent
+        and delegates to `from_integers`.
+        """
+        for name, arr in (
+                ('xmin', xmin),
+                ('ymin', ymin),
+                ('xmax', xmax),
+                ('ymax', ymax),
+        ):
+            if not isinstance(arr, (pd.Series, pd.Index, np.ndarray)):
+                raise TypeError(f'{name} must be a Series, Index, or ndarray')
+
+        xmin_arr = np.asarray(xmin, dtype='uint32')
+        ymin_arr = np.asarray(ymin, dtype='uint32')
+        xmax_arr = np.asarray(xmax, dtype='uint32')
+        ymax_arr = np.asarray(ymax, dtype='uint32')
+
+        if not (xmin_arr.shape == ymin_arr.shape == xmax_arr.shape == ymax_arr.shape):
+            raise ValueError('xmin, ymin, xmax, ymax must have identical shapes')
+
+        if (xmin_arr > xmax_arr).any():
+            raise ValueError('xmin must be ≤ xmax element-wise')
+        if (ymin_arr > ymax_arr).any():
+            raise ValueError('ymin must be ≤ ymax element-wise')
+
+        xtiles: list[np.ndarray] = []
+        ytiles: list[np.ndarray] = []
+
+        for x0, y0, x1, y1 in zip(xmin_arr, ymin_arr, xmax_arr, ymax_arr):
+            xs = np.arange(x0, x1, dtype='uint32')
+            ys = np.arange(y0, y1, dtype='uint32')
+            gx, gy = np.meshgrid(xs, ys)  # shape (len(ys), len(xs))
+            xtiles.append(gx.ravel())
+            ytiles.append(gy.ravel())
+
+        xtile_all = np.concatenate(xtiles)
+        ytile_all = np.concatenate(ytiles)
+
+        return cls.from_integers(
+            xtile=xtile_all,
+            ytile=ytile_all,
+            scale=scale,
+        )
+
+    @classmethod
     def from_rescale(
             cls,
             tiles: Tiles,
@@ -187,7 +244,7 @@ class Tiles(
             raise TypeError('Tiles.name must be a string')
         self.cfg.name = value
 
-    def visualize(
+    def explore(
             self,
             *args,
             loc=None,
@@ -244,14 +301,6 @@ class Tiles(
 
         folium.LayerControl().add_to(m)
         return m
-
-    @property
-    def infile(self) -> pd.Series:
-        raise NotImplementedError
-
-    @property
-    def skip(self) -> pd.Series:
-        raise NotImplementedError
 
     @ColorMap
     def colormap(self):
@@ -370,4 +419,76 @@ class Tiles(
 
         result.attrs.update(self.attrs)
         result.tile.scale = scale
+        return result
+
+    def _to_scale(
+            self,
+            dimension: int = None,
+            length: int = None,
+            mosaic: int = None,
+            scale: int = None,
+    ) -> int:
+
+        n = sum(
+            arg is not None
+            for arg in (dimension, mosaic, scale, length)
+        )
+        if n != 1:
+            msg = (
+                'You must specify exactly one of dimension, length, mosaic, or scale '
+                'to set the inference tiles.'
+            )
+            raise ValueError(msg)
+
+        """get scale from dimension, length, or mosaic"""
+        if dimension:
+
+            if (
+                    not isinstance(dimension, int)
+                    or dimension <= 0
+                    or (dimension & (dimension - 1)) != 0
+            ):
+                raise ValueError('Dimension must be a positive power of 2.')
+            dscale = int(math.log2(dimension / self.tile.dimension))
+            scale = self.tile.scale + dscale
+
+        elif length:
+            if (
+                    not isinstance(length, int)
+                    or length <= 0
+                    or (length & (length - 1)) != 0
+            ):
+                raise ValueError('Length must be a positive power of 2.')
+            scale = self.tile.scale - int(math.log2(length))
+
+        elif mosaic:
+            if (
+                    not isinstance(mosaic, int)
+                    or mosaic <= 0
+                    or (mosaic & (mosaic - 1)) != 0
+            ):
+                raise ValueError('Mosaic must be a positive power of 2.')
+            marea = int(math.log2(mosaic))
+            dscale = int(math.sqrt(marea))
+            scale = self.tile.scale - dscale
+
+        else:
+            msg = 'You must specify either dimension, length, or mosaic to set the scale.'
+            raise ValueError(msg)
+
+        return scale
+
+    def corners(self, scale: int = None) -> Corners:
+        if scale is None:
+            scale = self.tile.scale
+
+        length = 2 ** (self.tile.scale - scale)
+
+        ymin = self.ytile.values // length
+        xmin = self.xtile.values // length
+        ymax = ymin + 1
+        xmax = xmin + 1
+
+        data = dict(xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax )
+        result = Corners(data, index=self.index)
         return result

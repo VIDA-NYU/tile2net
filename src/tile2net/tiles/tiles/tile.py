@@ -7,7 +7,7 @@ from pathlib import Path
 import imageio.v3 as iio
 
 if False:
-    from tile2net.tiles.tiles.tiles import  Tiles
+    from tile2net.tiles.tiles.tiles import Tiles
 
 
 class cached_property:
@@ -94,7 +94,6 @@ def __get__(
         instance: Tiles,
         owner: type[Tiles],
 ) -> Tile:
-    from .tiles import Tiles
     self.tiles = instance
     return copy.copy(self)
 
@@ -123,13 +122,6 @@ class Tile(
     def zoom(self):
         return self.intiles.tile.zoom
 
-    def __init__(
-            self,
-            *args,
-            **kwargs,
-    ):
-        ...
-
     @cached_property
     def scale(self):
         """
@@ -137,23 +129,10 @@ class Tile(
         Higher value means smaller area.
         """
 
-    # @cached_property
-    # def zoom(self) -> int:
-    #     """Tile zoom level"""
-    #     result = self.tiles.cfg.zoom
-    #     if not result:
-    #         msg = 'Zoom not set in configuration'
-    #         raise ValueError(msg)
-    #     return result
-
     @cached_property
-    def dimension(self):
+    def dimension(self) -> int:
         """Tile dimension; inferred from input files"""
-        try:
-            sample = next(p for p in self.tiles.file.infile if Path(p).is_file())
-        except StopIteration:
-            raise FileNotFoundError('No image files found to infer dimension.')
-        return iio.imread(sample).shape[1]  # width
+        return self.intiles.tile.dimension * self.length
 
     @property
     def shape(self) -> tuple[int, int, int]:
@@ -167,3 +146,6 @@ class Tile(
     @cached_property
     def area(self):
         return self.length ** 2
+
+    def __init__(self, *args):
+        ...

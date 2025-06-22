@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from concurrent.futures import Future, ThreadPoolExecutor
-from concurrent.futures import wait
+from concurrent.futures import ThreadPoolExecutor, Future
 from dataclasses import dataclass
 from dataclasses import field
 from functools import cached_property
@@ -9,7 +8,6 @@ from typing import *
 from typing import Optional
 
 import cv2
-import geopandas as gpd
 import numpy as np
 import torch
 import torchvision.transforms as standard_transforms
@@ -20,6 +18,7 @@ from tile2net.tileseg.utils.misc import AverageMeter
 from tile2net.tileseg.utils.misc import fast_hist, fmt_scale
 
 if False:
+    from .segtiles import SegTiles
     from tile2net.tiles import Tiles
 
 
@@ -43,7 +42,9 @@ class MiniBatch(
     predictions: np.ndarray
     iou_acc: np.ndarray
     gt_images: torch.Tensor
-    tiles: Tiles
+    # tiles: Tiles
+    tiles: SegTiles
+    threads: ThreadPoolExecutor
     output: dict[str, torch.Tensor] = field(default_factory=dict)
     prob_mask: Optional[torch.Tensor] = None
     error_mask: Optional[np.ndarray] = None
@@ -57,6 +58,7 @@ class MiniBatch(
             criterion: torch.nn.Module,
             val_loss: AverageMeter,
             tiles: Tiles,
+            threads: ThreadPoolExecutor,
     ):
         """
         Evaluate a single minibatch of images.
@@ -175,6 +177,7 @@ class MiniBatch(
             error_mask=err_mask,
             input_images=images,
             gt_images=gt_image,
+            threads=threads
         )
         return result
 
@@ -247,33 +250,15 @@ class MiniBatch(
         return result.astype(int)
 
     @cached_property
-    def threads(self) -> ThreadPoolExecutor:
-        return ThreadPoolExecutor()
-
-    @cached_property
-    def futures(self) -> list[Future]:
-        return []
-
-    @cached_property
     def dump_percent(self) -> int:
         return 100
 
-    def await_all(self) -> Self:
-        wait(self.futures)
-        for fut in self.futures:
-            fut.result()
-        self.futures.clear()
-        return self
-
-    def submit_all(self) -> Self:
-        self.submit_probability()
-        self.submit_error()
-        self.submit_sidebyside()
-        self.submit_output()
-        self.submit_raw()
-        # self.submit_mask()
-        # self.submit_polygons()
-        return self
+    def submit_all(self) -> Iterator[Future]:
+        yield from self.submit_probability()
+        yield from self.submit_sidebyside()
+        yield from self.submit_output()
+        yield from self.submit_raw()
+        yield from self.submit_mask()
 
     def submit_probability(self):
         if self.prob_mask is None:
@@ -283,13 +268,10 @@ class MiniBatch(
             .__mul__(255)
             .astype(np.uint8)
         )
-        files = next(self.tiles.outdir.seg_results.prob.iterator())
-        # len(list(self.tiles.outdir.seg_results.prob.iterator()))
-        # len(self.tiles.outdir.seg_results.files())
-        # len(arrays)
+        files = self.tiles.file.probability
         for array, file in zip(arrays, files):
             future = self.threads.submit(cv2.imwrite, file, array)
-            self.futures.append(future)
+            yield future
 
     def submit_error(self):
         if self.error_mask is None:
@@ -309,7 +291,8 @@ class MiniBatch(
             .Normalize(mean=inv_mean, std=inv_std)
             (self.input_images)
         )
-        files = next(self.tiles.outdir.seg_results.sidebyside.iterator())
+        # files = next(self.tiles.outdir.seg_results.sidebyside.iterator())
+        files = self.tiles.file.sidebyside
         it = zip(INPUT_IMAGE, self.predictions, files)
         for input_image, prediction, file in it:
             self.dump_percent += cfg.dump_percent
@@ -327,18 +310,18 @@ class MiniBatch(
             composited.paste(input_image, (0, 0))
             composited.paste(prediction_pil, (prediction_pil.width, 0))
             future = self.threads.submit(composited.save, file)
-            self.futures.append(future)
+            yield future
 
     def submit_output(self):
         colorize = self.tiles.colormap
         it = to_numpy(self.output).items()
         for dirname, arrays in it:
-            files = next(self.tiles.outdir.outputs.iterator(dirname))
+            files = self.tiles.file.output(dirname)
             if 'pred_' in dirname:
                 arrays = colorize(arrays)
             for array, file in zip(arrays, files):
                 future = self.threads.submit(cv2.imwrite, file, array)
-                self.futures.append(future)
+                yield future
 
     def submit_raw(self):
         """
@@ -347,23 +330,24 @@ class MiniBatch(
         if self.predictions is None:
             return
         arrays = to_numpy(self.predictions)
-        files = next(self.tiles.outdir.raw.iterator())
+        files  =self.tiles.file.maskraw
         for array, file in zip(arrays, files):
             future = self.threads.submit(cv2.imwrite, file, array)
-            self.futures.append(future)
-    #
-    # def submit_mask(self):
-    #     """
-    #     Colorized segmentation mask where different classes (road, sidewalk, crosswalk) are represented by different colors according to a predefined color palette
-    #     """
-    #     if self.predictions is None:
-    #         return
-    #     arrays = to_numpy(self.predictions)
-    #     arrays = self.tiles.colormap(arrays)
-    #     files = next(self.tiles.outdir.mask.iterator())
-    #     for array, file in zip(arrays, files):
-    #         future = self.threads.submit(cv2.imwrite, file, array)
-    #         self.futures.append(future)
+            yield future
+
+    def submit_mask(self):
+        """
+        Colorized segmentation mask where different classes (road, sidewalk, crosswalk) are represented by different colors according to a predefined color palette
+        """
+        if self.predictions is None:
+            return
+        arrays = to_numpy(self.predictions)
+        arrays = self.tiles.colormap(arrays)
+        files = self.tiles.file.mask
+        for array, file in zip(arrays, files):
+            yield self.threads.submit(cv2.imwrite, file, array)
+
+
     #
     # def submit_polygons(self):
     #     affines = next(self.tiles.segtiles.affine_iterator())

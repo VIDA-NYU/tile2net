@@ -1,15 +1,29 @@
 from __future__ import annotations
 
+from distutils.command.install_egg_info import install_egg_info
+
 import numpy as np
 import pandas as pd
 
-from .vectile import VecTile
+from . import vectile
+from .segtiles import SegTiles
 from ..tiles import tile
-from ..tiles.tiles import Tiles
 
 if False:
     from tile2net.tiles.vectiles.vectiles import VecTiles
-    from .segtiles import  SegTiles
+
+
+class VecTile(
+    vectile.VecTile
+):
+
+    @property
+    def r(self) -> pd.Series:
+        """row within the segtile of this tile"""
+
+    @property
+    def c(self) -> pd.Series:
+        """column within the segtile of this tile"""
 
 
 def boundary_tiles(
@@ -80,28 +94,44 @@ def __get__(
         result = instance.attrs[self.__name__]
     else:
         segtiles = instance.segtiles
-        length = segtiles.vectile.length
+        vectiles = segtiles.vectiles
+        length = vectiles.tile.length // segtiles.tile.length
+
+        scale = segtiles.tile.scale
+        corners = vectiles.corners(scale)
+        xmin = corners.xmin - 1
+        ymin = corners.ymin - 1
+        xmax = corners.xmax + 1
+        ymax = corners.ymax + 1
+        padded = segtiles.from_ranges(xmin, ymin, xmax, ymax, scale=scale)
+        area = length ** 2
+        assert len(padded) == len(segtiles) * area
+        vectile_xtile = vectiles.xtile.repeat(area)
+        vectile_ytile = vectiles.ytile.repeat(area)
+
+
         shape = length, length
         boundary = boundary_tiles(shape)
         repeat = len(boundary)
 
+        vectiles.to_scale(segtiles.tile.scale)
+
         dx: np.ndarray
         dy: np.ndarray
         dx, dy = boundary.T
-        length = instance.segtiles.vectile.length
-        xorigin = instance.xtile // length * length
-        yorigin = instance.ytile // length * length
+        length = vectiles.segtiles.vectile.length
+        xorigin = vectiles.xtile // length * length
+        yorigin = vectiles.ytile // length * length
         xo = xorigin.values[:, None]
         yo = yorigin.values[:, None]
 
         pred_xtile = (xo + dx).ravel()
         pred_ytile = (yo + dy).ravel()
-
         r = np.broadcast_to(dx + 1, xo.shape).ravel()
         c = np.broadcast_to(dy + 1, xo.shape).ravel()
 
-        out_xtile = instance.xtile.repeat(repeat)
-        out_ytile = instance.ytile.repeat(repeat)
+        out_xtile = vectiles.xtile.repeat(repeat)
+        out_ytile = vectiles.ytile.repeat(repeat)
 
         arrays = pred_xtile, pred_ytile
         names = 'xtile ytile'.split()
@@ -118,31 +148,23 @@ def __get__(
             .pipe(self.__class__)
         )
         result.attrs.update(segtiles.attrs)
-        instance.attrs[self.__name__] = result
+        vectiles.attrs[self.__name__] = result
 
     result.vectiles = instance
     return result
 
 
 class Padded(
-    Tiles,
+    SegTiles,
 ):
     __name__ = 'padded'
-
-    # @property
-    # def segtiles(self):
-    #     return self.segtiles.segtiles
-    #
-    # @property
-    # def intiles(self):
-    #     return self
+    locals().update(
+        __get__=__get__,
+    )
 
     @tile.cached_property
     def segtiles(self) -> SegTiles:
         ...
-
-
-
 
     @Index
     def out(self):
@@ -151,4 +173,3 @@ class Padded(
     @VecTile
     def vectile(self):
         ...
-

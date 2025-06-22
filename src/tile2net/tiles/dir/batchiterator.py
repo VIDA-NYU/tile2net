@@ -15,6 +15,7 @@ def __get__(
         instance: Dir | Tiles,
         owner
 ) -> BatchIterator:
+    from .dir import  Dir
     if instance is None:
         return self
     if isinstance(instance, Dir):

@@ -34,7 +34,7 @@ class SegTile(
     # @tile.cached_property
     @property
     def length(self):
-        """Number of tiles in one dimension of the mosaic"""
+        """Number of tiles in one dimension of the segtile"""
         return self.intiles.segtiles.tile.length
 
     @tile.cached_property
@@ -46,8 +46,8 @@ class SegTile(
 
     @property
     def xtile(self) -> pd.Series:
-        """Tile integer X of this tile in the segtiles mosaic"""
-        key = 'mosaic.xtile'
+        """Tile integer X of this tile in the segtiles segtile"""
+        key = 'segtile.xtile'
         intiles = self.intiles
         if key in intiles.columns:
             return intiles[key]
@@ -55,15 +55,15 @@ class SegTile(
         segtiles = intiles.segtiles
         result = intiles.xtile // intiles.segtile.length
 
-        msg = 'All mosaic.xtile must be in segtiles.xtile!'
+        msg = 'All segtile.xtile must be in segtiles.xtile!'
         assert result.isin(segtiles.xtile).all(), msg
         intiles[key] = result
         return result
 
     @property
     def ytile(self) -> pd.Series:
-        """Tile integer X of this tile in the segtiles mosaic"""
-        key = 'mosaic.ytile'
+        """Tile integer X of this tile in the segtiles segtile"""
+        key = 'segtile.ytile'
         intiles = self.intiles
         if key in intiles.columns:
             return intiles[key]
@@ -71,16 +71,16 @@ class SegTile(
         segtiles = intiles.segtiles
         result = intiles.ytile // intiles.segtile.length
 
-        msg = 'All mosaic.ytile must be in segtiles.ytile!'
+        msg = 'All segtile.ytile must be in segtiles.ytile!'
         assert result.isin(segtiles.ytile).all(), msg
         intiles[key] = result
         return result
 
     @property
     def r(self) -> pd.Series:
-        """row within the mosaic of this tile"""
+        """row within the segtile of this tile"""
         intiles = self.intiles
-        key = 'mosaic.r'
+        key = 'segtile.r'
         if key in intiles.columns:
             return intiles[key]
         result = (
@@ -96,9 +96,9 @@ class SegTile(
 
     @property
     def c(self) -> pd.Series:
-        """column within the mosaic of this tile"""
+        """column within the segtile of this tile"""
         intiles = self.intiles
-        key = 'mosaic.c'
+        key = 'segtile.c'
         if key in intiles.columns:
             return intiles[key]
         result = (
@@ -115,7 +115,7 @@ class SegTile(
     @property
     def ipred(self) -> pd.Series:
         intiles = self.intiles
-        key = 'mosaic.ipred'
+        key = 'segtile.ipred'
         if key in intiles.columns:
             return intiles[key]
         arrays = self.xtile, self.ytile
@@ -129,34 +129,19 @@ class SegTile(
         return intiles[key]
 
     @property
-    def infile(self) -> pd.Series:
+    def stitched(self) -> pd.Series:
         """segtiles.file broadcasted to intiles"""
         intiles = self.intiles
-        key = 'mosaic.file'
+        key = 'segtile.file'
         if key in intiles.columns:
             return intiles[key]
         result = (
-            intiles.segtiles.infile
+            intiles.segtiles.file.stitched
             .loc[self.index]
             .values
         )
         intiles[key] = result
         return intiles[key]
 
-    @property
-    def skip(self) -> pd.Series:
-        """segtiles.skip broadcasted to intiles"""
-        intiles = self.intiles
-        result = (
-            intiles.segtiles.skip
-            .loc[self.index]
-        )
-        return result
-
-
-    def __init__(
-            self,
-            *args,
-            **kwargs
-    ):
+    def __init__(self, *args):
         ...

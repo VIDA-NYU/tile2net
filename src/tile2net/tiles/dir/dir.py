@@ -304,8 +304,6 @@ class Dir:
             .lstrip(os.sep)
         )
         format = os.path.join(self.dir, dirname, suffix)
-        dir = os.path.dirname(format)
-        os.makedirs(dir, exist_ok=True)
         zoom = tiles.tile.zoom
         it = zip(tiles.ytile, tiles.xtile)
         data = [

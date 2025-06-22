@@ -1,16 +1,7 @@
 from __future__ import annotations
-import PIL.Image
-import imageio.v3 as iio
-import numpy as np
-import pandas as pd
-import pyproj
-import shapely
-from PIL import Image
-
-import PIL.Image
-import imageio.v3 as iio
 
 import os
+import os.path
 import shutil
 import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -18,31 +9,35 @@ from functools import partial
 from pathlib import Path
 from typing import *
 
+import PIL.Image
+import PIL.Image
 import certifi
 import geopandas as gpd
 import imageio.v3
 import imageio.v3
-import math
+import imageio.v3 as iio
 import numpy as np
 import pandas as pd
 import requests
+from PIL import Image
 from requests.adapters import HTTPAdapter
 from tqdm.auto import tqdm
 
 from tile2net.raster import util
 from tile2net.tiles.cfg import cfg
+from tile2net.tiles.cfg.logger import logger
 from tile2net.tiles.dir.dir import Dir
 from tile2net.tiles.dir.indir import Indir
 from tile2net.tiles.dir.outdir import Outdir
-from tile2net.tiles.cfg.logger import logger
 from .segtile import SegTile
 from .source import Source, SourceNotFound
 from .. import util
 from ..cfg import Cfg
 from ..segtiles import SegTiles
-from ..tiles.tiles import Tiles
 from ..tiles import tile, file
+from ..tiles.tiles import Tiles
 from ..vectiles import VecTiles
+from ...tiles.util import recursion_block
 
 
 class Tile(
@@ -61,6 +56,19 @@ class Tile(
     def length(self):
         return 1
 
+    @tile.cached_property
+    def dimension(self) -> int:
+        """Tile dimension; inferred from input files"""
+        try:
+            sample = next(
+                p
+                for p in self.tiles.file.infile
+                if Path(p).is_file()
+            )
+        except StopIteration:
+            raise FileNotFoundError('No image files found to infer dimension.')
+        return iio.imread(sample).shape[1]  # width
+
 
 class File(
     file.File
@@ -73,8 +81,12 @@ class File(
         key = 'file.static'
         if key in tiles:
             return tiles[key]
-        tiles[key] = tiles.indir.files()
-        if not tiles.indir.skip().all():
+        files = tiles.indir.files()
+        tiles[key] = files
+        if (
+                not tiles.download
+                and not files.map(os.path.exists).all()
+        ):
             tiles.download()
         return tiles[key]
 
@@ -253,10 +265,9 @@ class InTiles(
             self.segtile.c,
         )
 
+    @recursion_block
     def download(
             self,
-            paths: pd.Series = None,
-            urls: pd.Series = None,
             retry: bool = True,
             force: bool = False,
             max_workers: int = 100,
@@ -271,10 +282,8 @@ class InTiles(
         force:
             redownload the tiles even if they already exist
         """
-        if paths is None:
-            paths = self.indir.files()
-        if urls is None:
-            urls = self.source.urls
+        paths = self.file.infile
+        urls = self.source.urls
 
         if paths.empty or urls.empty:
             return
@@ -679,19 +688,33 @@ class InTiles(
             scale: int = None,
             fill: bool = True,
     ) -> Self:
+        """
+        dimension:
+            dimension in pixels of each vectorization tile,
+            including padding
+        length:
+            length in segmentation tiles of each vectorization tile,
+            including padding
+        scale:
+
+        """
         # todo: if all are None, determine dimension using RAM
         from ..vectiles import VecTiles
+        segtiles = self.segtiles
         if dimension:
-            dimension -= 2 * self.segtiles.tile.dimension
+            dimension -= 2 * segtiles.tile.dimension
         elif length:
+            assert length >= 3
             length -= 2
+            # length *= segtiles.tile.length
         elif mosaic:
+            raise NotImplementedError
             mosaic **= 1 / 2
             mosaic -= 2
             mosaic **= 2
             mosaic = int(mosaic)
 
-        scale = self._to_scale(dimension, length, mosaic, scale)
+        scale = self.segtiles._to_scale(dimension, length, mosaic, scale)
 
         msg = 'Padding InTiles to align with VecTiles'
         logger.debug(msg)
@@ -700,6 +723,7 @@ class InTiles(
             .to_scale(scale, fill=fill)
             .to_scale(self.tile.scale, fill=fill)
         )
+        assert intiles.tile.scale == self.intiles.tile.scale
         msg = 'Padding SegTiles to align with VecTiles'
         logger.debug(msg)
         segtiles = (
@@ -707,6 +731,7 @@ class InTiles(
             .to_scale(scale, fill=fill)
             .to_scale(self.segtiles.tile.scale, fill=fill)
         )
+        assert segtiles.tile.scale == self.segtiles.tile.scale
         vectiles = VecTiles.from_rescale(intiles, scale, fill=fill)
 
         intiles.segtiles = segtiles
@@ -737,62 +762,6 @@ class InTiles(
     #     self[key] = self.indir.skip()
     #     return self[key]
 
-    def _to_scale(
-            self,
-            dimension: int = None,
-            length: int = None,
-            mosaic: int = None,
-            scale: int = None,
-    ) -> int:
-
-        n = sum(
-            arg is not None
-            for arg in (dimension, mosaic, scale, length)
-        )
-        if n != 1:
-            msg = (
-                'You must specify exactly one of dimension, length, mosaic, or scale '
-                'to set the inference tiles.'
-            )
-            raise ValueError(msg)
-
-        """get scale from dimension, length, or mosaic"""
-        if dimension:
-
-            if (
-                    not isinstance(dimension, int)
-                    or dimension <= 0
-                    or (dimension & (dimension - 1)) != 0
-            ):
-                raise ValueError('Dimension must be a positive power of 2.')
-            dscale = int(math.log2(dimension / self.dimension))
-            scale = self.tile.scale + dscale
-
-        elif length:
-            if (
-                    not isinstance(length, int)
-                    or length <= 0
-                    or (length & (length - 1)) != 0
-            ):
-                raise ValueError('Length must be a positive power of 2.')
-            scale = self.tile.scale - int(math.log2(length))
-
-        elif mosaic:
-            if (
-                    not isinstance(mosaic, int)
-                    or mosaic <= 0
-                    or (mosaic & (mosaic - 1)) != 0
-            ):
-                raise ValueError('Mosaic must be a positive power of 2.')
-            marea = int(math.log2(mosaic))
-            dscale = int(math.sqrt(marea))
-            scale = self.tile.scale - dscale
-
-        else:
-            msg = 'You must specify either dimension, length, or mosaic to set the scale.'
-            raise ValueError(msg)
-
-        return scale
 
     @Tile
     def tile(self):

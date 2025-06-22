@@ -3,6 +3,12 @@ from __future__ import annotations
 if False:
     from tile2net.tiles.segtiles import padded
 
+"""
+Padded inherits from SegTiles, but we want define `SegTiles.padded` 
+(causes circular dependency)
+This allows us to swap-in the real subclass after SegTiles has been defined.
+"""
+
 
 class Padded(
 
@@ -22,10 +28,7 @@ class Padded(
         self.__name__ = name
 
     def __init__(
-        self,
-        *args,
+            self,
+            *args,
     ):
         ...
-
-
-

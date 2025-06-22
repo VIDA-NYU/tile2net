@@ -44,6 +44,7 @@ from .base_loader import BaseLoader
 from tile2net.tiles.cfg import cfg
 
 if False:
+    from ...segtiles import SegTiles
     from ...tiles import Tiles
 
 
@@ -54,7 +55,7 @@ class LoaderBundle(NamedTuple):
 
 
 def setup_loaders(
-        tiles: Tiles
+        tiles: SegTiles
 ) -> LoaderBundle:
     """
     Setup Data Loaders[Currently supports Cityscapes, Mapillary and ADE20kin]

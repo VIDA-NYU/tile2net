@@ -23,7 +23,9 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 Mapillary Dataset Loader
 """
+from __future__ import annotations
 import itertools
+import os.path
 
 import pandas as pd
 
@@ -35,6 +37,7 @@ from tile2net.tiles.tileseg.datasets import uniform
 
 if False:
     from tile2net.tiles import Tiles
+    from ...segtiles import SegTiles
 
 Label = namedtuple('Label', [
 
@@ -90,7 +93,7 @@ class Loader(BaseLoader):
     def __init__(
             self,
             mode: str,
-            tiles: 'Tiles',
+            tiles: SegTiles,
             quality: str = 'semantic',
             joint_transform_list=None,
             img_transform=None,
@@ -110,10 +113,8 @@ class Loader(BaseLoader):
         self.trainid_to_name = trainId2name
         self.fill_colormap()
 
-        files: pd.Series = tiles.segtiles.indir.files()
-        if not cfg.force:
-            loc = ~tiles.segtiles.outdir.skip
-            files = files.loc[loc]
+        files = tiles.file.stitched
+        import os
         it = zip(files.tolist(), itertools.repeat(''))
         imgs = list(it)
         self.all_imgs = imgs
@@ -130,6 +131,7 @@ class Loader(BaseLoader):
         self.build_epoch()
 
     def fill_colormap(self) -> None:
+
         palette = [
             0, 0, 255,
             0, 128, 0,
