@@ -436,14 +436,13 @@ class SegTiles(
     def view(
             self,
             maxdim: int = 2048,
-            divider: Optional[str] = None,
+            divider: Optional[str] = 'grey',
             file: str = 'mask'
     ) -> PIL.Image.Image:
 
         files = getattr(self.file, file)
         R: pd.Series = self.r  # 0-based row id
         C: pd.Series = self.c  # 0-based col id
-        self.intiles.tile.dimension
 
         dim = self.tile.dimension  # original tile side length
         n_rows = int(R.max()) + 1

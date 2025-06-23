@@ -27,7 +27,6 @@ def __get__(
     elif self.__name__ in instance.__dict__:
         result = instance.__dict__[self.__name__]
     else:
-        # note: can't checkpoint stubs because it's iterative
         lines = instance
         edges = lines.edges
         nodes = lines.nodes

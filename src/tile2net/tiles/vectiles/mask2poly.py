@@ -94,33 +94,6 @@ class Mask2Poly(
         return cls.from_array(array, affine)
 
     @classmethod
-    def from_parquets(
-            cls,
-            files: Iterable[str | Path],
-            *,
-            threads: int | None = None,
-    ) -> Self:
-        paths = [str(Path(p)) for p in files]
-        if not paths:
-            return cls()
-        max_workers = threads or min(32, len(paths))
-        msg = (
-            f'Reading {len(paths)} parquet files into '
-            f'{cls.__name__} using {max_workers} thread(s)'
-        )
-        logger.debug(msg)
-
-        with ThreadPoolExecutor(max_workers=max_workers) as pool:
-            frames = list(pool.map(gpd.read_parquet, paths))
-        logger.debug(f"Concatenating {len(frames)} frame(s)")
-        result = (
-            pd.concat(frames)
-            .pipe(GeoDataFrame, geometry='geometry', crs=4326)
-            .pipe(cls)
-        )
-        return result
-
-    @classmethod
     def from_parquets(cls, files: Iterable[str | Path], ) -> Self:
         paths = [str(Path(p)) for p in files]
         if not paths:
@@ -159,7 +132,7 @@ class Mask2Poly(
             cls,
             array: np.ndarray,
             affine: Affine,
-            crs=3857,
+            crs=4326,
     ) -> Self:
         # todo: check over where the crs whould be what, and to support user input
         """
@@ -175,8 +148,11 @@ class Mask2Poly(
         ARRAY = array
         concat: list[gpd.GeoDataFrame] = []
         label2id = cfg.label2id
+        if array.ndim == 3:
+            array = array[..., 0]  # assuming single channel for simplicity
+
         for label, id in label2id.items():
-            mask = np.array(ARRAY == id, dtype=np.uint8)
+            mask = np.array(array == id, dtype=np.uint8)
             it = rasterio.features.shapes(array, mask, transform=affine)
             geometry = [
                 shape(geom)
@@ -349,6 +325,7 @@ class Mask2Poly(
                 .make_valid()
                 .pipe(result.set_geometry)
             )
+        RESULT = result
 
         if min_poly_area is None:
             min_poly_area = cfg.polygon.min_polygon_area

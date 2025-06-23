@@ -33,10 +33,25 @@ if False:
 class Tiles(
     GeoDataFrameFixed,
 ):
-    gw: pd.Series  # geographic west bound of the tile
-    gn: pd.Series  # geographic north bound of the tile
-    ge: pd.Series  # geographic east bound of the tile
-    gs: pd.Series  # geographic south bound of the tile
+    # gw: pd.Series  # geographic west bound of the tile
+    # gn: pd.Series  # geographic north bound of the tile
+    # ge: pd.Series  # geographic east bound of the tile
+    # gs: pd.Series  # geographic south bound of the tile
+    @property
+    def ge(self) -> pd.Series:
+        return self['ge']
+
+    @property
+    def gw(self) -> pd.Series:
+        return self['gw']
+
+    @property
+    def gn(self) -> pd.Series:
+        return self['gn']
+
+    @property
+    def gs(self) -> pd.Series:
+        return self['gs']
 
     @tile.cached_property
     def intiles(self) -> InTiles:

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ..cfg import cfg
 
 from functools import *
 from typing import Self
@@ -32,67 +33,53 @@ def __get__(
     elif self.__name__ in instance.__dict__:
         result = instance.__dict__[self.__name__]
     else:
-        checkpoint = None
-        if instance.checkpoint:
-            checkpoint = instance.checkpoint / 'center.parquet'
-        if checkpoint and checkpoint.exists():
+        union = instance.union
+        geometry = union.geometry
+
+        warn = (
+            f'High variance in polygon areas may cause progress-rate '
+            f'fluctuations for centerline computation. '
+        )
+        logger.debug(warn)
+
+        msg = 'Computing centerlines'
+        with benchmark(msg):
+            centers = []
+            it = tqdm(
+                enumerate(geometry),
+                total=len(geometry),
+                desc='Centerlines',
+                leave=False
+            )
+            for i, poly in it:
+                try:
+                    item = Centerline(poly).geometry
+                    centers.append(item)
+                except Exception as e:
+                    err = f'Centerline computation failed for index {i}: {e}'
+                    tqdm.write(err)
+
+        multilines = np.asarray(centers, dtype=object)
+        repeat = shapely.get_num_geometries(multilines)
+        lines = shapely.get_parts(multilines)
+        iloc = np.arange(len(repeat)).repeat(repeat)
+
+        msg = f'Resolving interstitial centerlines'
+        with benchmark(msg):
             result = (
-                gpd.read_parquet(checkpoint)
-                .pipe(self.__class__)
+                union
+                .iloc[iloc]
+                .set_geometry(lines)
+                .pipe(Lines.from_frame)
+                .drop2nodes
+                .pipe(Center)
             )
-        else:
-            union = instance.union
-            geometry = union.geometry
 
-            warn = (
-                f'High variance in polygon areas may cause progress-rate '
-                f'fluctuations for centerline computation. '
-            )
-            logger.debug(warn)
-
-            msg = 'Computing centerlines'
-            with benchmark(msg):
-                centers = []
-                it = tqdm(
-                    enumerate(geometry),
-                    total=len(geometry),
-                    desc='Centerlines',
-                    leave=False
-                )
-                for i, poly in it:
-                    try:
-                        item = Centerline(poly).geometry
-                        centers.append(item)
-                    except Exception as e:
-                        err = f'Centerline computation failed for index {i}: {e}'
-                        tqdm.write(err)
-
-            multilines = np.asarray(centers, dtype=object)
-            repeat = shapely.get_num_geometries(multilines)
-            lines = shapely.get_parts(multilines)
-            iloc = np.arange(len(repeat)).repeat(repeat)
-
-            msg = f'Resolving interstitial centerlines'
-            with benchmark(msg):
-                result = (
-                    union
-                    .iloc[iloc]
-                    .set_geometry(lines)
-                    .pipe(Lines.from_frame)
-                    .drop2nodes
-                    .pipe(Center)
-                )
-
-            msg = f'Simplifying centerlines with tolerance 0.01'
-            with benchmark(msg):
-                lines = shapely.simplify(result.geometry, .01)
-            result = result.set_geometry(lines)
-            result.index.name = 'icent'
-
-            if checkpoint:
-                msg = f'Saving centerlines to {checkpoint}'
-                logger.debug(msg)
-                result.to_parquet(checkpoint)
+        msg = f'Simplifying centerlines with tolerance 0.01'
+        with benchmark(msg):
+            lines = shapely.simplify(result.geometry, .01)
+        result = result.set_geometry(lines)
+        result.index.name = 'icent'
 
         instance.__dict__[self.__name__] = result
 
@@ -125,6 +112,25 @@ class Center(
         return result
 
     @cached_property
+    def clipped(self) -> Self:
+        msg = 'Clipping centerlines to the features'
+
+        features = self.instance.features
+        loc = ~features.feature.isin(cfg.polygon.borders)
+        mutex = features.mutex.loc[loc]
+
+        with benchmark(msg):
+            geometry = (
+                mutex
+                .intersection(self.pruned.union_all())
+                .explode()
+            )
+            result = Center(geometry=geometry)
+
+        result.instance = self.instance
+        return result
+
+    @cached_property
     def lines(self) -> Lines:
         center = self
         lines = Lines.from_frame(center)
@@ -147,19 +153,6 @@ class Center(
     def pruned(
             self,
     ) -> Self:
-        checkpoint = (
-            self.instance.checkpoint / 'pruned.parquet'
-            if self.instance.checkpoint
-            else None
-        )
-        if checkpoint and checkpoint.exists():
-            center = (
-                gpd.read_parquet(checkpoint)
-                .pipe(self.__class__)
-            )
-            center.instance = self.instance
-            center.lines.pednet = self.instance
-            return center
 
         lines = self.lines
         center = self
@@ -185,11 +178,6 @@ class Center(
                 center.instance = self.instance
                 lines.pednet = self.instance
             logger.debug(f'Pruning centerlines completed after {i} iterations')
-
-        if checkpoint:
-            checkpoint.parent.mkdir(parents=True, exist_ok=True)
-            with benchmark(f'Saving pruned centerlines to {checkpoint}'):
-                center.to_parquet(checkpoint)
 
         return center
 

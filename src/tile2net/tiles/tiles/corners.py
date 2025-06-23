@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ..util import num2deg, deg2num
 import copy
 import functools
 
@@ -90,6 +91,10 @@ class Corners(
     ymin: pd.Series
     xmax: pd.Series
     ymax: pd.Series
+    gw: pd.Series
+    gn: pd.Series
+    ge: pd.Series
+    gs: pd.Series
 
     @property
     def xtile(self) -> pd.Index:
@@ -121,11 +126,18 @@ class Corners(
             scale: int,
             index: pd.MultiIndex,
     ) -> Self:
+        gw, gn = num2deg(xmin, ymin, scale)
+        ge, gs = num2deg(xmax, ymax, scale)
+
         data = dict(
             xmin=xmin,
             ymin=ymin,
             xmax=xmax,
             ymax=ymax,
+            gw=gw,
+            gn=gn,
+            ge=ge,
+            gs=gs,
         )
         result = cls(data, index=index)
         result.tile.scale = scale

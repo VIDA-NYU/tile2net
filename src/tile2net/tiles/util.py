@@ -80,6 +80,24 @@ def _(
     return x.astype(int), y.astype(int)
 
 
+@num2deg.register
+def _(
+        x: pd.Series,
+        y: pd.Series,
+        zoom: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    return num2deg(x.to_numpy(), y.to_numpy(), zoom)
+
+
+@deg2num.register
+def _(
+        lon: pd.Series,
+        lat: pd.Series,
+        zoom: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    return deg2num(lon.to_numpy(), lat.to_numpy(), zoom)
+
+
 def import_folium() -> 'folium':
     # When debugging, importing folium seems to cause AttributeError: module 'posixpath' has no attribute 'sep'
     import posixpath
@@ -419,8 +437,8 @@ class recursion_block:
 
 
 def assert_perfect_overlap(
-    a: Tiles,
-    b: Tiles,
+        a: Tiles,
+        b: Tiles,
 ):
     scale = min(a.tile.scale, b.tile.scale)
     needles = (
@@ -438,4 +456,3 @@ def assert_perfect_overlap(
     )
     assert needles.isin(haystack).all()
     assert haystack.isin(needles).all()
-

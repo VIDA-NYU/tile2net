@@ -27,7 +27,6 @@ def __get__(
     elif self.__name__ in instance.__dict__:
         result = instance.__dict__[self.__name__]
     else:
-        # note: can't checkpoint mintrees because it's iterative
         stubs = instance.stubs
         edges = stubs.edges
         nodes = stubs.nodes

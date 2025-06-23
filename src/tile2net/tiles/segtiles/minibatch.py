@@ -324,9 +324,22 @@ class MiniBatch(
                 yield future
 
     def submit_raw(self):
+        print('⚠️AI GENERATED🤖')
+        if self.predictions is None:
+            return
+        arrays = to_numpy(self.predictions)
+        for array, file in zip(arrays, self.tiles.file.maskraw):
+            if array.ndim == 3:  # one-hot or logits → class map
+                array = array.argmax(axis=-1)
+            future = self.threads.submit(
+                cv2.imwrite, file, array.astype('uint8'))
+            yield future
+
+    def submit_raw(self):
         """
         Raw segmentation mask without colorization, containing class IDs as pixel values.
         """
+        # todo: chck previous submit raw and see if necessary to drop dim
         if self.predictions is None:
             return
         arrays = to_numpy(self.predictions)
@@ -334,6 +347,7 @@ class MiniBatch(
         for array, file in zip(arrays, files):
             future = self.threads.submit(cv2.imwrite, file, array)
             yield future
+
 
     def submit_mask(self):
         """

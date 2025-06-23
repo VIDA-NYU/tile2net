@@ -34,7 +34,6 @@ class PedNet(
             distance: float = .5,
             crs: int = 3857,
             save_original: bool = False,
-            checkpoint: str = None,
     ) -> Self:
         logger.debug(f"Creating {cls.__name__} from {len(gdf)} polygon(s) at CRS {crs}")
         result = (
@@ -43,19 +42,7 @@ class PedNet(
             .pipe(cls)
         )
         original = result
-        CHECKPOINT = checkpoint
-        result.checkpoint = checkpoint
 
-        if result.checkpoint:
-            checkpoint = result.checkpoint / 'pednet.parquet'
-            if checkpoint.exists():
-                msg = f'Loading preprocessed PedNet polygons from {checkpoint}'
-                logger.debug(msg)
-                result = (
-                    gpd.read_parquet(checkpoint)
-                    .pipe(cls)
-                )
-                return result
 
         if distance:
 
@@ -119,19 +106,11 @@ class PedNet(
                 .pipe(gpd.GeoSeries)
             )
             result = cls(geometry=geometry)
-            result.checkpoint = CHECKPOINT
 
         if save_original:
             msg = f'Dissolving the original polygons by feature'
             logger.debug(msg)
             result.features.original = original.dissolve(level='feature').geometry
-
-        if result.checkpoint:
-            checkpoint = result.checkpoint / 'pednet.parquet'
-            checkpoint.parent.mkdir(parents=True, exist_ok=True)
-            msg = f'Saving {len(result)} polygons to {checkpoint}'
-            logger.debug(msg)
-            result.to_parquet(checkpoint)
 
         return result
 
@@ -141,7 +120,6 @@ class PedNet(
             path: Union[str, Path],
             distance: float = .5,
             crs=3857,
-            checkpoint: str = None,
             save_original: bool = False,
     ) -> Self:
         """
@@ -153,7 +131,6 @@ class PedNet(
                 cls.from_polygons,
                 crs=crs,
                 distance=distance,
-                checkpoint=checkpoint,
                 save_original=save_original,
             )
         )
@@ -211,14 +188,3 @@ class PedNet(
         import folium
         folium.LayerControl().add_to(m)
         return m
-
-    @property
-    def checkpoint(self) -> Path:
-        return self.attrs.setdefault('checkpoint', None)
-
-    @checkpoint.setter
-    def checkpoint(self, value: str | Path | None):
-        if value is None:
-            self.attrs.pop('checkpoint', None)
-        else:
-            self.attrs['checkpoint'] = Path(value).resolve()

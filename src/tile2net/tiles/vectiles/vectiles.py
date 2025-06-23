@@ -1,83 +1,118 @@
 from __future__ import annotations
 
+import shapely
+
+from ...tiles.explore import explore
+
+import copy
+import logging
 import os
 import os.path
+from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import ThreadPoolExecutor
+from functools import cached_property
 from pathlib import Path
 from typing import *
 
 import PIL.Image
-import PIL.Image
+import geopandas as gpd
 import imageio.v2
-import imageio.v2
-import imageio.v3
-import imageio.v3
-import imageio.v3
 import imageio.v3
 import imageio.v3 as iio
 import numpy as np
 import pandas as pd
 import rasterio
+import rasterio.features
+import rasterio.features
 from PIL import Image
+from affine import Affine
 from tqdm import tqdm
 from tqdm.auto import tqdm
 
 from tile2net.tiles.cfg.logger import logger
 from tile2net.tiles.dir.loader import Loader
-from ..dir import BatchIterator
+from .mask2poly import Mask2Poly
+from ..dir.outdir import VecTiles
+from ..pednet import PedNet
 from ..tiles import file
 from ..tiles import tile
+from ..tiles.corners import Corners
 from ..tiles.tiles import Tiles
 from ...tiles.util import recursion_block
 
 if False:
+    import folium
     from ..intiles import InTiles
 
 
 def __get__(
-        self: Padding,
+        self: Feature,
         instance: VecTiles,
-        owner,
-) -> Padding:
-    self.vectiles = instance
-    return self
+        owner
+) -> Feature:
+    self.tiles = instance
+    return copy.copy(self)
 
 
-class Padding(
+# class GeomType(
+#
+# ):
+#     instance: VecTiles
+#
+#     def __set_name__(self, owner, name):
+#         self.__name__ = name
+#
+#     def __init__(self, *args, ):
+#         ...
+#
+#     @property
+#     def sidewalk(self) -> gpd.GeoSeries:
+#         return self.instance[f'sidewalk.{self.__name__}']
+#
+#     @property
+#     def crosswalk(self) -> gpd.GeoSeries:
+#         return self.instance[f'crosswalk.{self.__name__}']
+#
+#     @property
+#     def road(self) -> gpd.GeoSeries:
+#         return self.instance[f'road.{self.__name__}']
+
+class Feature(
 
 ):
-    vectiles: VecTiles = None
-    locals().update(
-        __get__=__get__,
-    )
+    locals().update(__get__=__get__)
+    tiles: VecTiles
 
-    @property
-    def gw(self) -> pd.Series:
-        vectiles = self.vectiles
-        padded = vectiles.padded
-        haystack = padded.vectile.index
-        index = vectiles.index
-        top_left = np.zeros_like((len(index), 2))
-        needles = pd.MultiIndex.append(index, top_left)
-        result = (
-            padded
-            .set_axis(haystack)
-            .loc[needles, 'gw']
-            .values
-        )
-        raise NotImplementedError
+    def __set_name__(self, owner, name):
+        self.__name__ = name
 
-    @property
-    def gn(self) -> pd.Series:
+    def __init__(self, *args, ):
         ...
 
-    @property
-    def ge(self) -> pd.Series:
-        ...
+    def _ensure_network_column(self, key: str):
+        if key not in self.tiles:
+            self.tiles[key] = gpd.GeoSeries(
+                [None] * len(self.tiles),
+                index=self.tiles.index,
+                crs=getattr(self.tiles, 'geometry', None).crs if 'geometry' in self.tiles else None,
+                name=key,
+            )
 
     @property
-    def gs(self) -> pd.Series:
-        ...
+    def polygons(self) -> gpd.GeoSeries:
+        key = f'{self.__name__}.polygons'
+        if key not in self.tiles:
+            self.tiles._load_network()
+            self._ensure_network_column(key)
+        return self.tiles[key]
+
+    @property
+    def lines(self) -> gpd.GeoSeries:
+        key = f'{self.__name__}.lines'
+        if key not in self.tiles:
+            self.tiles._load_network()
+            self._ensure_network_column(key)
+        return self.tiles[key]
 
 
 class Tile(
@@ -125,8 +160,8 @@ class File(
             return tiles[key]
         files = tiles.intiles.outdir.vectiles.files(tiles)
         if (
-            not tiles.stitch
-            and not files.map(os.path.exists).all()
+                not tiles.stitch
+                and not files.map(os.path.exists).all()
         ):
             tiles.stitch()
         tiles[key] = files
@@ -202,29 +237,6 @@ class VecTiles(
         ...
 
     @property
-    def affine_params(self) -> pd.Series:
-        key = 'affine_params'
-        if key in self:
-            return self[key]
-
-        dim = self.tile.dimension
-        self: pd.DataFrame
-        col = 'gw gs ge gn'.split()
-        it = self[col].itertuples(index=False)
-        data = [
-            rasterio.transform
-            .from_bounds(gw, gs, ge, gn, dim, dim)
-            for gw, gs, ge, gn in it
-        ]
-        result = pd.Series(data, index=self.index, name=key)
-        self[key] = result
-        return self[key]
-
-    @BatchIterator
-    def affine_iterator(self):
-        return self.affine_params
-
-    @property
     def vectiles(self) -> Self:
         return self
 
@@ -283,10 +295,94 @@ class VecTiles(
         assert vectiles.file.stitched.map(os.path.exists).all()
         return self
 
+    @staticmethod
+    def _vectorize_submit(
+            infile: str,
+            affine: Affine,
+            xmin: float,
+            ymin: float,
+            xmax: float,
+            ymax: float,
+            polygons_file: str,
+            network_file: str,
+    ):
+        polys = (
+            Mask2Poly
+            .from_path(infile, affine)
+            .postprocess()
+        )
+
+        if polys.empty:
+            logging.warning(f'No polygons generated for {infile}')
+            return
+
+        net = PedNet.from_polygons(polys)
+        clipped = net.center.clipped.to_crs(4326)
+        polys = polys.to_crs(4326)
+
+        polys = polys.cx[xmin:xmax, ymin:ymax]
+        polys['geometry'] = polys.geometry.clip_by_rect(xmin, ymin, xmax, ymax)
+        clipped = clipped.cx[xmin:xmax, ymin:ymax]
+        clipped['geometry'] = clipped.geometry.clip_by_rect(xmin, ymin, xmax, ymax)
+
+        Path(polygons_file).parent.mkdir(parents=True, exist_ok=True)
+        Path(network_file).parent.mkdir(parents=True, exist_ok=True)
+        polys.to_parquet(polygons_file)
+        clipped.to_parquet(network_file)
 
     @recursion_block
     def vectorize(self):
-        ...
+
+        it = zip(
+            self.file.stitched,
+            self.affine_params,
+            self.file.network,
+            self.file.polygons,
+            self.gw,
+            self.gs,
+            self.ge,
+            self.gn,
+        )
+        with (
+            ProcessPoolExecutor(max_workers=os.cpu_count()) as ex,
+            self.intiles.cfg,
+        ):
+            futures = []
+            for (
+                    infile,
+                    affine,
+                    network_file,
+                    polygons_file,
+                    xmin,
+                    ymin,
+                    xmax,
+                    ymax,
+            ) in it:
+                # future = self._vectorize_submit(
+                #     infile,
+                #     affine,
+                #     xmin,
+                #     ymin,
+                #     xmax,
+                #     ymax,
+                #     polygons_file,
+                #     network_file,
+                # )
+                future = ex.submit(
+                    self._vectorize_submit,
+                    infile,
+                    affine,
+                    xmin,
+                    ymin,
+                    xmax,
+                    ymax,
+                    polygons_file,
+                    network_file,
+                )
+                futures.append(future)
+
+            for fut in futures:
+                fut.result()
 
     def view(
             self,
@@ -336,3 +432,402 @@ class VecTiles(
                 mosaic.paste(Image.fromarray(arr), (x0, y0))
 
         return mosaic
+
+    @cached_property
+    def padding(self) -> Corners:
+        result = (
+            self
+            .to_corners(self.segtiles.tile.scale)
+            .to_padding()
+        )
+        return result
+
+    @property
+    def affine_params(self) -> pd.Series:
+        key = 'affine_params'
+        if key in self:
+            return self[key]
+
+        dim = self.tile.dimension
+        padding = self.padding
+        col = 'gw gs ge gn'.split()
+
+        it = padding[col].itertuples(index=False)
+        data = [
+            rasterio.transform
+            .from_bounds(gw, gs, ge, gn, dim, dim)
+            for gw, gs, ge, gn in it
+        ]
+        self[key] = data
+        return self[key]
+
+    def _load_network(self) -> gpd.GeoDataFrame:
+        idx_names = list(self.index.names)
+
+        def _read(idx_path):
+            idx, path, src = idx_path
+            gdf = gpd.read_parquet(path).reset_index(names='feature')
+            idx_tuple = idx if isinstance(idx, tuple) else (idx,)
+            if len(idx_tuple) != len(idx_names):
+                raise ValueError(f'Index length mismatch: {idx_tuple}')
+            for name, val in zip(idx_names, idx_tuple):
+                gdf[name] = val
+            gdf['src'] = src
+            return gdf
+
+        tasks = (
+                [(i, p, 'lines') for i, p in self.file.network.items()] +
+                [(i, p, 'polygons') for i, p in self.file.polygons.items()]
+        )
+
+        with ThreadPoolExecutor() as ex:
+            frames = list(ex.map(_read, tasks))
+
+        merged = pd.concat(frames, ignore_index=True, copy=False)
+
+        dissolved = merged.dissolve(
+            by=idx_names + ['feature', 'src'],
+            as_index=False
+        )
+
+        table = dissolved.pivot_table(
+            values='geometry',
+            index=idx_names,
+            columns=['feature', 'src'],
+            aggfunc='first'
+        )
+
+        table.columns = [f'{f}.{s}' for f, s in table.columns]
+        table = table.reindex(self.index).pipe(gpd.GeoDataFrame, crs=4326)
+
+        table.columns
+        self.columns
+        self[table.columns] = table.reindex(self.index)
+        return self
+
+    def _load_network(self) -> gpd.GeoDataFrame:
+        print('⚠️AI GENERATED🤖')
+        import geopandas as gpd
+        import pandas as pd
+        from concurrent.futures import ThreadPoolExecutor
+        idx_names = list(self.index.names)
+
+        def _read(idx_path):
+            idx, path, src = idx_path
+            gdf = gpd.read_parquet(path).reset_index(names='feature')
+            idx_tuple = idx if isinstance(idx, tuple) else (idx,)
+            for name, val in zip(idx_names, idx_tuple):
+                gdf[name] = val
+            gdf['src'] = src
+            return gdf
+
+        tasks = (
+                [(i, p, 'lines') for i, p in self.file.network.items()] +
+                [(i, p, 'polygons') for i, p in self.file.polygons.items()]
+        )
+
+        with ThreadPoolExecutor() as ex:
+            frames = list(ex.map(_read, tasks))
+
+        merged = pd.concat(frames, ignore_index=True, copy=False)
+
+        dissolved = merged.dissolve(
+            by=idx_names + ['feature', 'src'],
+            as_index=False
+        )
+
+        table = dissolved.pivot_table(
+            values='geometry',
+            index=idx_names,
+            columns=['feature', 'src'],
+            aggfunc='first'
+        )
+
+        table.columns = [f'{f}.{s}' for f, s in table.columns]
+        table = table.reindex(self.index)
+        gdf = gpd.GeoDataFrame(table, crs=4326)
+
+        if getattr(self, 'crs', None) and self.crs != 4326:
+            for col in gdf.columns:
+                if isinstance(gdf[col].dtype, gpd.array.GeometryDtype):
+                    gdf[col] = gdf[col].to_crs(self.crs)
+
+        self[gdf.columns] = gdf
+        return self
+
+    def _load_network(self):
+        print('⚠️AI GENERATED🤖')
+        import geopandas as gpd
+        import pandas as pd
+        from geopandas.array import GeometryDtype
+        from concurrent.futures import ThreadPoolExecutor
+
+        idx_names = list(self.index.names)
+
+        def _read(idx_path):
+            idx, path, src = idx_path
+            gdf = gpd.read_parquet(path).reset_index(names='feature')
+            if not isinstance(idx, tuple):
+                idx = (idx,)
+            for name, val in zip(idx_names, idx):
+                gdf[name] = val
+            gdf['src'] = src
+            return gdf
+
+        tasks = (
+                [(i, p, 'lines') for i, p in self.file.network.items()] +
+                [(i, p, 'polygons') for i, p in self.file.polygons.items()]
+        )
+
+        with ThreadPoolExecutor() as ex:
+            frames = list(ex.map(_read, tasks))
+
+        merged = pd.concat(frames, ignore_index=True, copy=False)
+
+        dissolved = merged.dissolve(
+            by=idx_names + ['feature', 'src'],
+            as_index=False
+        )
+
+        table = (
+            dissolved
+            .pivot_table(
+                values='geometry',
+                index=idx_names,
+                columns=['feature', 'src'],
+                aggfunc='first'
+            )
+            .reindex(self.index)
+        )
+
+        gdf = gpd.GeoDataFrame(table)
+
+        try:
+            target_crs = self.crs
+        except AttributeError:
+            target_crs = None
+
+        for col in gdf.columns:
+            if isinstance(gdf[col].dtype, GeometryDtype):
+                gdf[col].set_crs(4326, inplace=True, allow_override=True)
+                if target_crs and target_crs != 4326:
+                    gdf[col] = gdf[col].to_crs(target_crs)
+
+        self[gdf.columns] = gdf
+
+        return self
+
+    def _load_network(self):
+        print('⚠️AI GENERATED🤖')
+        import geopandas as gpd
+        import pandas as pd
+        from geopandas.array import GeometryDtype
+        from concurrent.futures import ThreadPoolExecutor
+
+        idx_names = list(self.index.names)
+
+        def _read(idx_path):
+            idx, path, src = idx_path
+            gdf = gpd.read_parquet(path).reset_index(names='feature')
+            if not isinstance(idx, tuple):
+                idx = (idx,)
+            for name, val in zip(idx_names, idx):
+                gdf[name] = val
+            gdf['src'] = src
+            return gdf
+
+        tasks = (
+                [(i, p, 'lines') for i, p in self.file.network.items()] +
+                [(i, p, 'polygons') for i, p in self.file.polygons.items()]
+        )
+
+        with ThreadPoolExecutor() as ex:
+            frames = list(ex.map(_read, tasks))
+
+        merged = pd.concat(frames, ignore_index=True, copy=False)
+
+        dissolved = merged.dissolve(
+            by=idx_names + ['feature', 'src'],
+            as_index=False
+        )
+
+        table = (
+            dissolved
+            .pivot_table(
+                values='geometry',
+                index=idx_names,
+                columns=['feature', 'src'],
+                aggfunc='first'
+            )
+            .reindex(self.index)
+        )
+
+        # flatten MultiIndex columns -> 'feature.src'
+        table.columns = [f'{feat}.{src}' for feat, src in table.columns]
+
+        gdf = gpd.GeoDataFrame(table)
+
+        try:
+            target_crs = self.crs
+        except AttributeError:
+            target_crs = None
+
+        for col in gdf.columns:
+            if isinstance(gdf[col].dtype, GeometryDtype):
+                gdf[col].set_crs(4326, inplace=True, allow_override=True)
+                if target_crs and target_crs != 4326:
+                    gdf[col] = gdf[col].to_crs(target_crs)
+
+        self[gdf.columns] = gdf
+        return self
+
+    @Feature
+    def road(self):
+        ...
+
+    @Feature
+    def crosswalk(self):
+        ...
+
+    @Feature
+    def sidewalk(self):
+        ...
+
+    def explore(
+            self,
+            *args,
+            tiles='cartodbdark_matter',
+            m=None,
+            road_color: str = 'green',
+            crosswalk_color: str = 'blue',
+            sidewalk_color: str = 'red',
+            simplify: float = None,
+            dash='5, 20',
+            attr: str = None,
+            **kwargs,
+    ) -> folium.Map:
+        import folium
+        _ = self.road.polygons, self.road.lines
+
+        # m = explore(
+        #     self,
+        #     geometry='road.polygons',
+        #     *args,
+        #     color=road_color,
+        #     name=f'road.polygons',
+        #     tiles=tiles,
+        #     simplify=simplify,
+        #     m=m,
+        #     style_kwds=dict(
+        #         fill=True,
+        #         fillColor=road_color,
+        #         fillOpacity=0.05,
+        #         weight=0,  # no stroke
+        #     ),
+        #     highlight=False,
+        #     **kwargs,
+        # )
+        # m = explore(
+        #     self,
+        #     geometry='sidewalk.polygons',
+        #     *args,
+        #     color=sidewalk_color,
+        #     name=f'sidewalk.polygons',
+        #     tiles=tiles,
+        #     simplify=simplify,
+        #     m=m,
+        #     style_kwds=dict(
+        #         fill=True,
+        #         fillColor=sidewalk_color,
+        #         fillOpacity=0.05,
+        #         weight=0,  # no stroke
+        #     ),
+        #     highlight=False,
+        #     **kwargs,
+        # )
+        # m = explore(
+        #     self,
+        #     geometry='crosswalk.polygons',
+        #     *args,
+        #     color=crosswalk_color,
+        #     name=f'crosswalk.polygons',
+        #     tiles=tiles,
+        #     simplify=simplify,
+        #     m=m,
+        #     style_kwds=dict(
+        #         fill=True,
+        #         fillColor=crosswalk_color,
+        #         fillOpacity=0.05,
+        #         weight=0,  # no stroke
+        #     ),
+        #     highlight=False,
+        #     **kwargs,
+        # )
+
+        # m = explore(
+        #     self,
+        #     geometry='road.lines',
+        #     *args,
+        #     color=road_color,
+        #     name=f'road.lines',
+        #     tiles=tiles,
+        #     simplify=simplify,
+        #     m=m,
+        #     **kwargs,
+        # )
+        # m = explore(
+        #     self,
+        #     geometry='sidewalk.lines',
+        #     *args,
+        #     color=sidewalk_color,
+        #     name=f'sidewalk.lines',
+        #     tiles=tiles,
+        #     simplify=simplify,
+        #     m=m,
+        #     **kwargs,
+        # )
+
+        m = explore(
+            self.geometry,
+            *args,
+            color='grey',
+            name=f'tiles',
+            tiles=tiles,
+            simplify=simplify,
+            style_kwds=dict(
+                fill=False,
+                dashArray=dash,
+            ),
+            m=m,
+            **kwargs,
+        )
+        m = explore(
+            # self,
+            # geometry='crosswalk.lines',
+            self.crosswalk.lines.explode().rename('geometry'),
+            *args,
+            color=crosswalk_color,
+            name=f'crosswalk.lines',
+            tiles=tiles,
+            simplify=simplify,
+            m=m,
+            **kwargs,
+        )
+
+        m = explore(
+            # self.geometry.explode(),
+            self.sidewalk.lines.explode().rename('geometry'),
+            *args,
+            color=sidewalk_color,
+            name=f'sidewalk.lines',
+            tiles=tiles,
+            simplify=simplify,
+            m=m,
+            **kwargs,
+        )
+
+        folium.LayerControl().add_to(m)
+        # self.crosswalk.lines
+        # shapely.get_num_geometries(self)
+        return m
+

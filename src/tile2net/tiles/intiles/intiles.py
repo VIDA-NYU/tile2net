@@ -761,13 +761,13 @@ class InTiles(
 
         return intiles
 
-    @property
-    def network(self) -> gpd.GeoDataFrame:
-        ...
-
-    @property
-    def polygons(self) -> gpd.GeoDataFrame:
-        ...
+    # @cached.
+    # def network(self) -> gpd.GeoDataFrame:
+    #     ...
+    #
+    # @property
+    # def polygons(self) -> gpd.GeoDataFrame:
+    #     ...
 
     # @property
     # def skip(self) -> pd.Series:

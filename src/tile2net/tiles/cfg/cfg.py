@@ -847,12 +847,9 @@ class Cfg(
         Mapping from label names to IDs
         """
         return dict(
-            # crosswalk=0,
-            # road=1,
-            # sidewalk=2,
-            crosswalk=2,
-            road=1,
             sidewalk=0,
+            road=1,
+            crosswalk=2,
         )
 
     @cmdline.property
