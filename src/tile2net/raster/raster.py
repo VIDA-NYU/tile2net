@@ -724,6 +724,9 @@ class Raster(Grid):
             .values
         )
         predicate = 'intersects'
+        # vector = vector[~vector.geometry.type.isin(['Point', 'MultiPoint'])].copy()
+        loc = vector.area != 0
+        vector = vector.loc[loc]
         iright, ileft = vector.sindex.query(
             self.frame.geometry,
             predicate=predicate,
@@ -736,12 +739,14 @@ class Raster(Grid):
         )
         vector = vector.iloc[ileft]
         geometry = vector.geometry.intersection(tiles.geometry, align=False)
+        loc = geometry.area != 0
         size = tiles['size'].values
         clippeds = vector.assign(
             geometry=geometry,
             size=size,
             idd=idd,
         )
+        clippeds = clippeds.loc[loc]
         tiles = self.frame
         outfiles = (
             self.frame
