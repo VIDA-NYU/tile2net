@@ -1,32 +1,18 @@
 from __future__ import annotations
-import shapely
-from ..explore import explore
-from tile2net.tiles.cfg.logger import logger
-from ..cfg import cfg
 
-from typing import *
-
+import geopandas as gpd
+import numpy as np
 import pandas as pd
-from geopandas import GeoSeries
-from shapely import *
+import shapely
+from scipy.spatial import cKDTree
 
+from ..cfg import cfg
+from ..explore import explore
 from ..fixed import GeoDataFrameFixed
 
 if False:
     from .intiles import InTiles
     import folium
-
-"""
-How to reconnect lines?
-
-decompose
-find all points on borders
-generate pairs based on nearest neighbors
-compute centroid of pairs
-snap to centroids
-regenerate line geometries
-"""
-
 
 def __get__(
         self: Lines,
@@ -38,34 +24,90 @@ def __get__(
     elif self.__name__ in instance.__dict__:
         result = instance.__dict__[self.__name__]
     else:
-        borders = instance.vectiles.geometry
 
-        geometry = self.intiles.vectiles.lines
-        # geom_cols = [c for c in gdf.columns if gdf[c].dtype.name == 'geometry']
-        # geocols = [
-        #     c for c in geometry.columns
-        #     if geometry[c].dtype.name == 'geometry'
-        # ]
-        #
-        loc = geometry.dtypes
+        lines: gpd.GeoDataFrame = instance.vectiles.lines.copy()
+        lines.columns = lines.columns.str.removeprefix('lines.')
+        cols = lines.dtypes == 'geometry'
+        result: gpd.GeoDataFrame = (
+            lines
+            .loc[:, cols]
+            .stack(future_stack=True)
+            .rename('geometry')
+            .dropna()
+            .explode()
+            .reset_index()
+            .rename(columns=dict(level_2='feature', ))
+            .pipe(self.__class__)
+        )
+        instance.__dict__[self.__name__] = result
 
-        #
-        # coords = shapely.get_coordinates(geometry)
-        # repeat = shapely.get_num_points(geometry)
-        # index = geometry.index.repeat(repeat)
-        # result = pd.DataFrame(coords, index, 'x y'.split())
+        COORDS = shapely.get_coordinates(result.geometry)
+        repeat = shapely.get_num_points(result.geometry)
+        indices = iline = result.index.repeat(repeat)
+
+        unique, ifirst, repeat = np.unique(
+            iline,
+            return_counts=True,
+            return_index=True
+        )
+
+        borders = instance.vectiles.exterior.union_all()
+        istop = ifirst + repeat
+        ilast = istop - 1
+
+        iend = np.concatenate([ifirst, ilast])
+        iline = iline[iend]
+        frame = result.loc[iline].reset_index()
+        coords = COORDS[iend]
+        geometry = shapely.points(coords)
+        borders = instance.vectiles.exterior.union_all()
+        loc = shapely.intersects(geometry, borders)
+        iend = iend[loc]
+        coords = COORDS[iend]
+        frame = frame.loc[loc]
+
+        tree = cKDTree(coords)
+        ileft = np.arange(len(coords))
+        dists, iright = tree.query(coords, 2, workers=-1)
+        iright = iright[:, 1]
+        arange = np.arange(len(coords))
+        arrays = arange, iright
+
+        needles = pd.MultiIndex.from_arrays(arrays)
+        haystack = needles.swaplevel()
+
+        loc = frame.xtile.values[ileft] != frame.xtile.values[iright]
+        loc |= frame.ytile.values[ileft] != frame.ytile.values[iright]
+        loc &= needles.isin(haystack)
+        ileft = ileft[loc]
+        iright = iright[loc]
+        left = coords[ileft]
+        right = coords[iright]
+        mean = (left + right) / 2
+        ileft = iend[ileft]
+        iright = iend[iright]
+        COORDS[ileft] = mean
+        COORDS[iright] = mean
+
+        geometry = shapely.linestrings(COORDS, indices=indices)
+
+        geometry = (
+            result
+            .set_geometry(geometry)
+            .dissolve('feature')
+            .line_merge()
+            .explode()
+        )
+        result = self.__class__(geometry=geometry)
 
 
     result.intiles = instance
-    return result
-
     return result
 
 
 class Lines(
     GeoDataFrameFixed
 ):
-
     __name__ = 'lines'
     intiles: InTiles
     locals().update(
@@ -80,132 +122,48 @@ class Lines(
             road_color: str = 'green',
             crosswalk_color: str = 'blue',
             sidewalk_color: str = 'red',
+            tile_color='grey',
             simplify: float = None,
             dash='5, 20',
             attr: str = None,
             **kwargs,
     ) -> folium.Map:
         import folium
-        _ = self.road.polygons, self.road.lines
+        feature2color = cfg.label2color
+        if tile_color:
+            m = explore(
+                self.intiles.vectiles.boundary,
+                *args,
+                color='grey',
+                name=f'tiles',
+                tiles=tiles,
+                simplify=simplify,
+                style_kwds=dict(
+                    fill=False,
+                    dashArray=dash,
+                ),
+                m=m,
+                **kwargs,
+            )
 
-        # m = explore(
-        #     self,
-        #     geometry='road.polygons',
-        #     *args,
-        #     color=road_color,
-        #     name=f'road.polygons',
-        #     tiles=tiles,
-        #     simplify=simplify,
-        #     m=m,
-        #     style_kwds=dict(
-        #         fill=True,
-        #         fillColor=road_color,
-        #         fillOpacity=0.05,
-        #         weight=0,  # no stroke
-        #     ),
-        #     highlight=False,
-        #     **kwargs,
-        # )
-        # m = explore(
-        #     self,
-        #     geometry='sidewalk.polygons',
-        #     *args,
-        #     color=sidewalk_color,
-        #     name=f'sidewalk.polygons',
-        #     tiles=tiles,
-        #     simplify=simplify,
-        #     m=m,
-        #     style_kwds=dict(
-        #         fill=True,
-        #         fillColor=sidewalk_color,
-        #         fillOpacity=0.05,
-        #         weight=0,  # no stroke
-        #     ),
-        #     highlight=False,
-        #     **kwargs,
-        # )
-        # m = explore(
-        #     self,
-        #     geometry='crosswalk.polygons',
-        #     *args,
-        #     color=crosswalk_color,
-        #     name=f'crosswalk.polygons',
-        #     tiles=tiles,
-        #     simplify=simplify,
-        #     m=m,
-        #     style_kwds=dict(
-        #         fill=True,
-        #         fillColor=crosswalk_color,
-        #         fillOpacity=0.05,
-        #         weight=0,  # no stroke
-        #     ),
-        #     highlight=False,
-        #     **kwargs,
-        # )
-
-        # m = explore(
-        #     self,
-        #     geometry='road.lines',
-        #     *args,
-        #     color=road_color,
-        #     name=f'road.lines',
-        #     tiles=tiles,
-        #     simplify=simplify,
-        #     m=m,
-        #     **kwargs,
-        # )
-        # m = explore(
-        #     self,
-        #     geometry='sidewalk.lines',
-        #     *args,
-        #     color=sidewalk_color,
-        #     name=f'sidewalk.lines',
-        #     tiles=tiles,
-        #     simplify=simplify,
-        #     m=m,
-        #     **kwargs,
-        # )
-
-        m = explore(
-            self.geometry,
-            *args,
-            color='grey',
-            name=f'tiles',
-            tiles=tiles,
-            simplify=simplify,
-            style_kwds=dict(
-                fill=False,
-                dashArray=dash,
-            ),
-            m=m,
-            **kwargs,
-        )
-        m = explore(
-            # self,
-            # geometry='crosswalk.lines',
-            self.crosswalk.lines.explode().rename('geometry'),
-            *args,
-            color=crosswalk_color,
-            name=f'crosswalk.lines',
-            tiles=tiles,
-            simplify=simplify,
-            m=m,
-            **kwargs,
-        )
-
-        m = explore(
-            # self.geometry.explode(),
-            self.sidewalk.lines.explode().rename('geometry'),
-            *args,
-            color=sidewalk_color,
-            name=f'sidewalk.lines',
-            tiles=tiles,
-            simplify=simplify,
-            m=m,
-            **kwargs,
-        )
+        lines = self
+        if attr:
+            lines = getattr(lines, attr)
+        lines = lines.reset_index()
+        if 'feature' in lines.columns:
+            it = lines.groupby('feature', observed=False)
+            for feature, frame in it:
+                color = feature2color[feature]
+                m = explore(
+                    frame,
+                    *args,
+                    color=color,
+                    name=feature,
+                    tiles=tiles,
+                    simplify=simplify,
+                    m=m,
+                    **kwargs,
+                )
 
         folium.LayerControl().add_to(m)
-        # self.crosswalk.lines
-        # shapely.get_num_geometries(self)
         return m

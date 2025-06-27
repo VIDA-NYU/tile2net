@@ -117,3 +117,4 @@ corners.to_tiles()
 
 check if polygon simplification is a necessary step
 
+lines.explode()

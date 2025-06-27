@@ -72,10 +72,14 @@ class Feature(
 
     def _ensure_network_column(self, key: str):
         if key not in self.tiles:
+            if 'geometry' in self.tiles:
+                crs = getattr(self.tiles.geometry, 'crs', None)
+            else:
+                crs = None
             self.tiles[key] = gpd.GeoSeries(
                 [None] * len(self.tiles),
                 index=self.tiles.index,
-                crs=getattr(self.tiles, 'geometry', None).crs if 'geometry' in self.tiles else None,
+                crs=crs,
                 name=key,
             )
 
@@ -83,7 +87,7 @@ class Feature(
     def polygons(self) -> gpd.GeoSeries:
         key = f'polygons.{self.__name__}'
         if key not in self.tiles:
-            self.tiles._load_network()
+            self.tiles._load_polygons()
             self._ensure_network_column(key)
         return self.tiles[key]
 
@@ -91,7 +95,7 @@ class Feature(
     def lines(self) -> gpd.GeoSeries:
         key = f'lines.{self.__name__}'
         if key not in self.tiles:
-            self.tiles._load_network()
+            self.tiles._load_lines()
             self._ensure_network_column(key)
         return self.tiles[key]
 

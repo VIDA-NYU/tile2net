@@ -19,6 +19,14 @@ def explore(
     import folium
     self = self.copy()
     _ = self.geometry
+    if isinstance(self, gpd.GeoSeries):
+        self = (
+            self
+            .rename('geometry')
+            .reset_index()
+        )
+        geometry = 'geometry'
+
     if isinstance(self, pd.Series):
         # noinspection PyTypeChecker
         self = (
