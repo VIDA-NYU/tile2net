@@ -642,7 +642,6 @@ class Raster(Grid):
                     logger.error(f"Request to {url} failed: {e}")
                     return -1
 
-            # futures = threads.map(lambda url: session.head(url).status_code, urls)
             futures = threads.map(head, urls)
             codes = np.fromiter(futures, dtype=np.int32, count=len(urls))
             loc = codes == 404

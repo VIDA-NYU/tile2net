@@ -1,4 +1,8 @@
 from __future__ import annotations
+import geopandas as gpd
+import pandas as pd
+from geopandas.array import GeometryDtype
+from concurrent.futures import ThreadPoolExecutor
 
 import shapely
 
@@ -54,29 +58,6 @@ def __get__(
     return copy.copy(self)
 
 
-# class GeomType(
-#
-# ):
-#     instance: VecTiles
-#
-#     def __set_name__(self, owner, name):
-#         self.__name__ = name
-#
-#     def __init__(self, *args, ):
-#         ...
-#
-#     @property
-#     def sidewalk(self) -> gpd.GeoSeries:
-#         return self.instance[f'sidewalk.{self.__name__}']
-#
-#     @property
-#     def crosswalk(self) -> gpd.GeoSeries:
-#         return self.instance[f'crosswalk.{self.__name__}']
-#
-#     @property
-#     def road(self) -> gpd.GeoSeries:
-#         return self.instance[f'road.{self.__name__}']
-
 class Feature(
 
 ):
@@ -100,7 +81,7 @@ class Feature(
 
     @property
     def polygons(self) -> gpd.GeoSeries:
-        key = f'{self.__name__}.polygons'
+        key = f'polygons.{self.__name__}'
         if key not in self.tiles:
             self.tiles._load_network()
             self._ensure_network_column(key)
@@ -108,7 +89,7 @@ class Feature(
 
     @property
     def lines(self) -> gpd.GeoSeries:
-        key = f'{self.__name__}.lines'
+        key = f'lines.{self.__name__}'
         if key not in self.tiles:
             self.tiles._load_network()
             self._ensure_network_column(key)
@@ -168,9 +149,9 @@ class File(
         return tiles[key]
 
     @property
-    def network(self) -> pd.Series:
+    def lines(self) -> pd.Series:
         tiles = self.tiles
-        key = 'file.network'
+        key = 'file.lines'
         if key in tiles:
             return tiles[key]
         files = tiles.intiles.outdir.network.files(tiles)
@@ -336,7 +317,7 @@ class VecTiles(
         it = zip(
             self.file.stitched,
             self.affine_params,
-            self.file.network,
+            self.file.lines,
             self.file.polygons,
             self.gw,
             self.gs,
@@ -461,123 +442,20 @@ class VecTiles(
         self[key] = data
         return self[key]
 
-    def _load_network(self) -> gpd.GeoDataFrame:
+    def _load_lines(self):
         idx_names = list(self.index.names)
 
         def _read(idx_path):
-            idx, path, src = idx_path
-            gdf = gpd.read_parquet(path).reset_index(names='feature')
-            idx_tuple = idx if isinstance(idx, tuple) else (idx,)
-            if len(idx_tuple) != len(idx_names):
-                raise ValueError(f'Index length mismatch: {idx_tuple}')
-            for name, val in zip(idx_names, idx_tuple):
-                gdf[name] = val
-            gdf['src'] = src
-            return gdf
-
-        tasks = (
-                [(i, p, 'lines') for i, p in self.file.network.items()] +
-                [(i, p, 'polygons') for i, p in self.file.polygons.items()]
-        )
-
-        with ThreadPoolExecutor() as ex:
-            frames = list(ex.map(_read, tasks))
-
-        merged = pd.concat(frames, ignore_index=True, copy=False)
-
-        dissolved = merged.dissolve(
-            by=idx_names + ['feature', 'src'],
-            as_index=False
-        )
-
-        table = dissolved.pivot_table(
-            values='geometry',
-            index=idx_names,
-            columns=['feature', 'src'],
-            aggfunc='first'
-        )
-
-        table.columns = [f'{f}.{s}' for f, s in table.columns]
-        table = table.reindex(self.index).pipe(gpd.GeoDataFrame, crs=4326)
-
-        table.columns
-        self.columns
-        self[table.columns] = table.reindex(self.index)
-        return self
-
-    def _load_network(self) -> gpd.GeoDataFrame:
-        print('⚠️AI GENERATED🤖')
-        import geopandas as gpd
-        import pandas as pd
-        from concurrent.futures import ThreadPoolExecutor
-        idx_names = list(self.index.names)
-
-        def _read(idx_path):
-            idx, path, src = idx_path
-            gdf = gpd.read_parquet(path).reset_index(names='feature')
-            idx_tuple = idx if isinstance(idx, tuple) else (idx,)
-            for name, val in zip(idx_names, idx_tuple):
-                gdf[name] = val
-            gdf['src'] = src
-            return gdf
-
-        tasks = (
-                [(i, p, 'lines') for i, p in self.file.network.items()] +
-                [(i, p, 'polygons') for i, p in self.file.polygons.items()]
-        )
-
-        with ThreadPoolExecutor() as ex:
-            frames = list(ex.map(_read, tasks))
-
-        merged = pd.concat(frames, ignore_index=True, copy=False)
-
-        dissolved = merged.dissolve(
-            by=idx_names + ['feature', 'src'],
-            as_index=False
-        )
-
-        table = dissolved.pivot_table(
-            values='geometry',
-            index=idx_names,
-            columns=['feature', 'src'],
-            aggfunc='first'
-        )
-
-        table.columns = [f'{f}.{s}' for f, s in table.columns]
-        table = table.reindex(self.index)
-        gdf = gpd.GeoDataFrame(table, crs=4326)
-
-        if getattr(self, 'crs', None) and self.crs != 4326:
-            for col in gdf.columns:
-                if isinstance(gdf[col].dtype, gpd.array.GeometryDtype):
-                    gdf[col] = gdf[col].to_crs(self.crs)
-
-        self[gdf.columns] = gdf
-        return self
-
-    def _load_network(self):
-        print('⚠️AI GENERATED🤖')
-        import geopandas as gpd
-        import pandas as pd
-        from geopandas.array import GeometryDtype
-        from concurrent.futures import ThreadPoolExecutor
-
-        idx_names = list(self.index.names)
-
-        def _read(idx_path):
-            idx, path, src = idx_path
+            idx, path = idx_path
             gdf = gpd.read_parquet(path).reset_index(names='feature')
             if not isinstance(idx, tuple):
                 idx = (idx,)
             for name, val in zip(idx_names, idx):
                 gdf[name] = val
-            gdf['src'] = src
+            gdf['src'] = 'lines'
             return gdf
 
-        tasks = (
-                [(i, p, 'lines') for i, p in self.file.network.items()] +
-                [(i, p, 'polygons') for i, p in self.file.polygons.items()]
-        )
+        tasks = [(i, p) for i, p in self.file.lines.items()]
 
         with ThreadPoolExecutor() as ex:
             frames = list(ex.map(_read, tasks))
@@ -600,12 +478,10 @@ class VecTiles(
             .reindex(self.index)
         )
 
-        gdf = gpd.GeoDataFrame(table)
+        table.columns = [f'lines.{feat}' for feat, _ in table.columns]
 
-        try:
-            target_crs = self.crs
-        except AttributeError:
-            target_crs = None
+        gdf = gpd.GeoDataFrame(table)
+        target_crs = getattr(self, 'crs', None)
 
         for col in gdf.columns:
             if isinstance(gdf[col].dtype, GeometryDtype):
@@ -614,32 +490,22 @@ class VecTiles(
                     gdf[col] = gdf[col].to_crs(target_crs)
 
         self[gdf.columns] = gdf
-
         return self
 
-    def _load_network(self):
-        print('⚠️AI GENERATED🤖')
-        import geopandas as gpd
-        import pandas as pd
-        from geopandas.array import GeometryDtype
-        from concurrent.futures import ThreadPoolExecutor
-
+    def _load_polygons(self):
         idx_names = list(self.index.names)
 
         def _read(idx_path):
-            idx, path, src = idx_path
+            idx, path = idx_path
             gdf = gpd.read_parquet(path).reset_index(names='feature')
             if not isinstance(idx, tuple):
                 idx = (idx,)
             for name, val in zip(idx_names, idx):
                 gdf[name] = val
-            gdf['src'] = src
+            gdf['src'] = 'polygons'
             return gdf
 
-        tasks = (
-                [(i, p, 'lines') for i, p in self.file.network.items()] +
-                [(i, p, 'polygons') for i, p in self.file.polygons.items()]
-        )
+        tasks = [(i, p) for i, p in self.file.polygons.items()]
 
         with ThreadPoolExecutor() as ex:
             frames = list(ex.map(_read, tasks))
@@ -662,15 +528,10 @@ class VecTiles(
             .reindex(self.index)
         )
 
-        # flatten MultiIndex columns -> 'feature.src'
-        table.columns = [f'{feat}.{src}' for feat, src in table.columns]
+        table.columns = [f'polygon.{feat}' for feat, _ in table.columns]
 
         gdf = gpd.GeoDataFrame(table)
-
-        try:
-            target_crs = self.crs
-        except AttributeError:
-            target_crs = None
+        target_crs = getattr(self, 'crs', None)
 
         for col in gdf.columns:
             if isinstance(gdf[col].dtype, GeometryDtype):
@@ -692,6 +553,24 @@ class VecTiles(
     @Feature
     def sidewalk(self):
         ...
+
+    @property
+    def lines(self) -> Self:
+        cols: list[str] = [
+            self.sidewalk.lines.name,
+            self.crosswalk.lines.name,
+            self.road.lines.name,
+        ]
+        return self[cols]
+
+    @property
+    def polygons(self) -> Self:
+        cols: list[str] = [
+            self.sidewalk.polygons.name,
+            self.crosswalk.polygons.name,
+            self.road.polygons.name,
+        ]
+        return self[cols]
 
     def explore(
             self,
@@ -830,4 +709,3 @@ class VecTiles(
         # self.crosswalk.lines
         # shapely.get_num_geometries(self)
         return m
-

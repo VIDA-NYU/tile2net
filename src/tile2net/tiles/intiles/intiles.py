@@ -1,4 +1,6 @@
 from __future__ import annotations
+from .polygons import Polygons
+from .lines import  Lines
 from ..util import  assert_perfect_overlap
 from . import delayed
 
@@ -138,6 +140,14 @@ class InTiles(
 
     @Outdir
     def outdir(self):
+        ...
+
+    @Lines
+    def lines(self):
+        ...
+
+    @Polygons
+    def polygons(self):
         ...
 
     @classmethod
