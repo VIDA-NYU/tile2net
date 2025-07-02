@@ -121,3 +121,7 @@ lines.explode()
 
 how to keep segtiles.padded?
 
+
+pass the cfg dict  during vectorize iteration
+
+https://tiles.arcgis.com/tiles/hGdibHYSPO59RG1h/arcgis/rest/services/USGS_Orthos_2019/MapServer/tile/19/194127/158491

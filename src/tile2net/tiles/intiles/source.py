@@ -441,7 +441,6 @@ class Source(
         return NotImplemented
 
 
-
 # noinspection PyMethodParameters
 class ArcGis(
     Source,
@@ -739,15 +738,15 @@ class SanFrancisco2024(SanFranciscoBase):
 
 
 class MaineOrthoBase(
-        ArcGis,
-        ABC
+    ArcGis,
+    ABC
 ):
     """
     Shared config for Maine GeoLibrary statewide imagery.
     (Everything else—coverage, zoom, template—comes from ArcGis.)
     """
     keyword: str = "Maine"
-    extension: str = "jpeg"      # ArcGIS ImageServer delivers JPEG by default
+    extension: str = "jpeg"  # ArcGIS ImageServer delivers JPEG by default
 
 
 class Maine2021(MaineOrthoBase):
@@ -755,9 +754,9 @@ class Maine2021(MaineOrthoBase):
         "https://gis.maine.gov/arcgis/rest/services/"
         "imageryBaseMapsEarthCover/orthoRegional2021/ImageServer"
     )
-    name:  str = "me2021"
-    year:  int = 2021
-    outdated: bool = True        # superseded by 2022 imagery
+    name: str = "me2021"
+    year: int = 2021
+    outdated: bool = True  # superseded by 2022 imagery
 
 
 class Maine2022(MaineOrthoBase):
@@ -765,9 +764,41 @@ class Maine2022(MaineOrthoBase):
         "https://gis.maine.gov/arcgis/rest/services/"
         "imageryBaseMapsEarthCover/orthoRegional2022/ImageServer"
     )
-    name:  str = "me2022"
-    year:  int = 2022
-    outdated: bool = False       # current statewide layer
+    name: str = "me2022"
+    year: int = 2022
+    outdated: bool = False  # current statewide layer
+    tilesize: int = 512
+    extension: str = "jpeg"
+    zoom=19
+
+    # ArcGIS ExportImage template – bbox in Web-Mercator metres
+    template: str = (
+        "https://gis.maine.gov/arcgis/rest/services/"
+        "imageryBaseMapsEarthCover/orthoRegional2022/ImageServer"
+        "/exportImage?f=image"
+        "&bbox={left}%2C{bottom}%2C{right}%2C{top}"
+        "&bboxSR=102100&imageSR=102100"
+        "&size=256%2C256"
+    )
+
+    @property
+    def urls(self) -> pd.Series:
+        # project tile geometries to EPSG 102100, then build URLs
+        item = self.intiles
+        bounds = item.to_crs(102100).bounds
+        tmpl = self.template
+
+        urls = [
+            tmpl.format(
+                left=minx, bottom=miny,
+                right=maxx, top=maxy,
+            )
+            for minx, miny, maxx, maxy in zip(
+                bounds.minx, bounds.miny, bounds.maxx, bounds.maxy
+            )
+        ]
+        result = pd.Series(urls, index=item.index, name="url")
+        return result
 
 
 if __name__ == '__main__':
@@ -787,4 +818,3 @@ if __name__ == '__main__':
     assert Source.from_inferred('Oakland, California') == AlamedaCounty
     assert Source.from_inferred('San Francisco, California') == SanFrancisco2024
     assert Source.from_inferred('Bangor, Maine') == Maine2022
-

@@ -1,13 +1,7 @@
 from __future__ import annotations
-import geopandas as gpd
-import pandas as pd
-from geopandas.array import GeometryDtype
-from concurrent.futures import ThreadPoolExecutor
 
-import shapely
-
-from ...tiles.explore import explore
-
+import concurrent.futures as cf
+import contextlib
 import copy
 import logging
 import os
@@ -30,6 +24,7 @@ import rasterio.features
 import rasterio.features
 from PIL import Image
 from affine import Affine
+from geopandas.array import GeometryDtype
 from tqdm import tqdm
 from tqdm.auto import tqdm
 
@@ -42,6 +37,7 @@ from ..tiles import file
 from ..tiles import tile
 from ..tiles.corners import Corners
 from ..tiles.tiles import Tiles
+from ...tiles.explore import explore
 from ...tiles.util import recursion_block
 
 if False:
@@ -232,7 +228,6 @@ class VecTiles(
         segtiles = self.segtiles.broadcast
         vectiles = self
 
-
         loc = ~segtiles.vectile.stitched.map(os.path.exists)
         infiles = segtiles.file.maskraw.loc[loc]
         row = segtiles.vectile.r.loc[loc]
@@ -293,71 +288,191 @@ class VecTiles(
             ymax: float,
             polygons_file: str,
             network_file: str,
+            cfg: Optional[dict] = None,
     ):
-        polys = (
-            Mask2Poly
-            .from_path(infile, affine)
-            .postprocess()
-        )
+        try:
 
-        if polys.empty:
-            logging.warning(f'No polygons generated for {infile}')
-            return
+            import tile2net.tiles.cfg
+            tile2net.tiles.cfg.update(cfg)
+            polys = (
+                Mask2Poly
+                .from_path(infile, affine)
+                .postprocess()
+            )
 
-        net = PedNet.from_polygons(polys)
-        clipped = net.center.clipped.to_crs(4326)
-        polys = polys.to_crs(4326)
+            if polys.empty:
+                logging.warning(f'No polygons generated for {infile}')
+                return
 
-        polys = polys.cx[xmin:xmax, ymin:ymax]
-        polys['geometry'] = polys.geometry.clip_by_rect(xmin, ymin, xmax, ymax)
-        clipped = clipped.cx[xmin:xmax, ymin:ymax]
-        clipped['geometry'] = clipped.geometry.clip_by_rect(xmin, ymin, xmax, ymax)
+            net = PedNet.from_polygons(polys)
+            clipped = net.center.clipped.to_crs(4326)
+            polys = polys.to_crs(4326)
 
-        Path(polygons_file).parent.mkdir(parents=True, exist_ok=True)
-        Path(network_file).parent.mkdir(parents=True, exist_ok=True)
-        polys.to_parquet(polygons_file)
-        clipped.to_parquet(network_file)
+            polys = polys.cx[xmin:xmax, ymin:ymax]
+            polys['geometry'] = polys.geometry.clip_by_rect(xmin, ymin, xmax, ymax)
+            clipped = clipped.cx[xmin:xmax, ymin:ymax]
+            clipped['geometry'] = clipped.geometry.clip_by_rect(xmin, ymin, xmax, ymax)
+
+            Path(polygons_file).parent.mkdir(parents=True, exist_ok=True)
+            Path(network_file).parent.mkdir(parents=True, exist_ok=True)
+            polys.to_parquet(polygons_file)
+            clipped.to_parquet(network_file)
+        except Exception as e:
+            msg = f'Error vectorizing {infile!r}: {e}'
+            raise RuntimeError(msg) from e
+
+    # @recursion_block
+    # def vectorize(self):
+    #
+    #     it = zip(
+    #         self.file.stitched,
+    #         self.affine_params,
+    #         self.file.lines,
+    #         self.file.polygons,
+    #         self.gw,
+    #         self.gs,
+    #         self.ge,
+    #         self.gn,
+    #     )
+    #     with (
+    #         ProcessPoolExecutor(max_workers=os.cpu_count()) as ex,
+    #         self.intiles.cfg,
+    #     ):
+    #         futures = []
+    #         for (
+    #                 infile,
+    #                 affine,
+    #                 network_file,
+    #                 polygons_file,
+    #                 xmin,
+    #                 ymin,
+    #                 xmax,
+    #                 ymax,
+    #         ) in it:
+    #             future = ex.submit(
+    #                 self._vectorize_submit,
+    #                 infile,
+    #                 affine,
+    #                 xmin,
+    #                 ymin,
+    #                 xmax,
+    #                 ymax,
+    #                 polygons_file,
+    #                 network_file,
+    #             )
+    #             futures.append(future)
+    #
+    #         for fut in futures:
+    #             fut.result()
+    #
+
+    @staticmethod
+    def _silence_logging() -> None:
+        """
+        Disable *all* log records below ERROR **and** swallow bare prints.
+        """
+        # ❶ Kill log noise (anything < ERROR vanishes)
+        logging.disable(logging.ERROR)
+
+        # ❷ Black-hole stdout / stderr
+        devnull = open(os.devnull, "w")
+        contextlib.redirect_stdout(devnull).__enter__()
+        contextlib.redirect_stderr(devnull).__enter__()
+
+
+    # @recursion_block
+    # def vectorize(self) -> None:
+    #
+    #     iterable = zip(
+    #         self.file.stitched,
+    #         self.affine_params,
+    #         self.file.lines,
+    #         self.file.polygons,
+    #         self.gw,
+    #         self.gs,
+    #         self.ge,
+    #         self.gn,
+    #     )
+    #     total = len(self.file.stitched)  # progress bar length
+    #
+    #     with (
+    #         ProcessPoolExecutor(
+    #             max_workers=os.cpu_count(),
+    #             initializer=self._silence_logging,  # quiet children
+    #         ) as ex,
+    #         self.intiles.cfg as cfg,
+    #     ):
+    #         _cfg = dict(cfg)
+    #         futures = [
+    #             ex.submit(
+    #                 self._vectorize_submit,
+    #                 infile,
+    #                 affine,
+    #                 xmin,
+    #                 ymin,
+    #                 xmax,
+    #                 ymax,
+    #                 polygons_file,
+    #                 network_file,
+    #             )
+    #             for (
+    #                 infile,
+    #                 affine,
+    #                 network_file,
+    #                 polygons_file,
+    #                 xmin,
+    #                 ymin,
+    #                 xmax,
+    #                 ymax,
+    #             ) in iterable
+    #         ]
+    #
+    #         for fut in tqdm(
+    #                 as_completed(futures),
+    #                 total=total,
+    #                 desc="Vectorizing",
+    #                 unit="tile",
+    #         ):
+    #             fut.result()  # re-raise worker exceptions
 
     @recursion_block
-    def vectorize(self):
+    def vectorize(  # noqa: D401 – no docstrings per user pref
+            self,
+    ) -> None:
+        """
+        Parallel vectorisation with live progress and bounded memory.
+        """
+        print('⚠️AI GENERATED🤖')
 
-        it = zip(
-            self.file.stitched,
-            self.affine_params,
-            self.file.lines,
-            self.file.polygons,
-            self.gw,
-            self.gs,
-            self.ge,
-            self.gn,
-        )
-        with (
-            ProcessPoolExecutor(max_workers=os.cpu_count()) as ex,
-            self.intiles.cfg,
-        ):
-            futures = []
-            for (
-                    infile,
-                    affine,
-                    network_file,
-                    polygons_file,
-                    xmin,
-                    ymin,
-                    xmax,
-                    ymax,
-            ) in it:
-                # future = self._vectorize_submit(
-                #     infile,
-                #     affine,
-                #     xmin,
-                #     ymin,
-                #     xmax,
-                #     ymax,
-                #     polygons_file,
-                #     network_file,
-                # )
-                future = ex.submit(
-                    self._vectorize_submit,
+        # ------------------------------------------------------------------ #
+        # Build *lazy* iterable ⇢ no up-front list allocation
+        # ------------------------------------------------------------------ #
+        def _tile_iter() -> Iterable[
+            tuple[
+                str,  # infile
+                tuple[float, ...],  # affine
+                float,  # xmin
+                float,  # ymin
+                float,  # xmax
+                float,  # ymax
+                str,  # polygons_file
+                str,  # network_file
+                dict,  # cfg
+            ]
+        ]:
+            _cfg = dict(self.intiles.cfg)
+            it = zip(
+                self.file.stitched,
+                self.affine_params,
+                self.file.lines,
+                self.file.polygons,
+                self.gw,
+                self.gs,
+                self.ge,
+                self.gn,
+            )
+            yield from (
+                (
                     infile,
                     affine,
                     xmin,
@@ -366,11 +481,58 @@ class VecTiles(
                     ymax,
                     polygons_file,
                     network_file,
+                    _cfg,
                 )
-                futures.append(future)
+                for (infile,
+                     affine,
+                     network_file,  # <- order now matches call-site
+                     polygons_file,
+                     xmin,
+                     ymin,
+                     xmax,
+                     ymax)
+                in it
+            )
 
-            for fut in futures:
-                fut.result()
+        total_tiles: int = len(self)
+        max_workers: int = os.cpu_count()
+        window: int = max_workers * 2  # outstanding futures ≤ 4×cores
+
+        with self.intiles.cfg as cfg_cm, ProcessPoolExecutor(
+                max_workers=window,
+                initializer=self._silence_logging,       # ← HERE
+        ) as pool, tqdm(
+                total=total_tiles,
+                desc="Vectorizing",
+                unit="tile",
+                smoothing=0.01,
+        ) as pbar:
+            _cfg = dict(cfg_cm)  # materialise once, if needed
+
+            it = iter(_tile_iter())  # → yields argument tuples
+
+            # prime the pool
+            running: set[cf.Future] = {
+                pool.submit(self._vectorize_submit, *args)
+                for _, args in zip(range(window), it)
+            }
+
+            while running:
+                # ① wait until at least one worker finishes
+                done, _ = cf.wait(running, return_when=cf.FIRST_COMPLETED)
+
+                # ② handle the finished futures
+                for fut in done:
+                    running.remove(fut)
+                    fut.result()  # re-raise if needed
+                    pbar.update()
+
+                    try:  # ③ refill the pipeline
+                        args = next(it)
+                    except StopIteration:
+                        continue
+                    future = pool.submit(self._vectorize_submit, *args)
+                    running.add(future)
 
     def view(
             self,
@@ -579,7 +741,7 @@ class VecTiles(
         ]
         return self[cols]
 
-    def explore(
+    def explore_lines(
             self,
             *args,
             tiles='cartodbdark_matter',

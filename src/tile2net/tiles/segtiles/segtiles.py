@@ -293,9 +293,6 @@ class SegTiles(
         col = intiles.segtile.c.loc[loc]
         group = intiles.segtile.stitched.loc[loc]
 
-        intiles.segtile.stitched.map(os.path.exists).all()
-        segtiles.padded.file.stitched.map(os.path.exists).all()
-
         loc = ~segtiles.file.stitched.map(os.path.exists)
         stitched = segtiles.file.stitched.loc[loc]
         n_missing = np.sum(loc)
@@ -337,6 +334,7 @@ class SegTiles(
 
         executor.shutdown(wait=True)
         assert segtiles.file.stitched.map(os.path.exists).all()
+        assert segtiles.file.stitched.map(os.path.exists).any()
         return self
 
     @tile.cached_property
@@ -514,6 +512,13 @@ class SegTiles(
             cfg.force = force
         if batch_size is not None:
             cfg.model.bs_val = batch_size
+        if not cfg.force:
+            loc = ~tiles.file.prediction.apply(os.path.exists)
+            tiles: SegTiles = tiles.loc[loc].copy()
+            if not np.any(loc):
+                msg = 'All segmentation tiles are on disk.'
+                logger.info(msg)
+                return tiles
 
         with cfg:
             if cfg.dump_percent:
@@ -621,10 +626,6 @@ class SegTiles(
                 net.module.init_mods()
             torch.cuda.empty_cache()
 
-            if not cfg.force:
-                loc = ~tiles.file.prediction.apply(os.path.exists)
-                tiles: SegTiles = tiles.loc[loc].copy()
-
             _ = (
                 tiles.file.prediction,
                 tiles.file.stitched,
@@ -692,14 +693,47 @@ class SegTiles(
         futures = []
         batch_size = cfg.model.bs_val
 
+        # with logging_redirect_tqdm():
+        #     it = enumerate(tqdm(loader))
+        #     for i, (input_images, labels, img_names, scale_float) in it:
+        #         start = i * batch_size
+        #         tiles = TILES.iloc[start: start + len(input_images)]
+        #         if i % 20 == 0:
+        #             msg = f'Inference [Iter: {i + 1} / {len(loader)}]'
+        #             logger.debug(msg)
+        #
+        #         batch = MiniBatch.from_data(
+        #             images=input_images,
+        #             net=net,
+        #             gt_image=labels,
+        #             criterion=criterion,
+        #             val_loss=val_loss,
+        #             tiles=tiles,
+        #             threads=threads
+        #         )
+        #         futures.extend(batch.submit_all())
+        #
+        #         iou_acc += batch.iou_acc
+        #         if (
+        #                 cfg.options.test_mode
+        #                 and i >= 5
+        #         ):
+        #             break
+
         with logging_redirect_tqdm():
-            it = enumerate(tqdm(loader))
-            for i, (input_images, labels, img_names, scale_float) in it:
+            pbar = tqdm(
+                total=len(TILES),  # one tick per tile
+                desc="Inference",
+                unit="tile",
+                dynamic_ncols=True,
+            )
+
+            for (
+                    i,
+                    (input_images, labels, img_names, scale_float)
+            ) in enumerate(loader):
                 start = i * batch_size
                 tiles = TILES.iloc[start: start + len(input_images)]
-                if i % 20 == 0:
-                    msg = f'Inference [Iter: {i + 1} / {len(loader)}]'
-                    logger.debug(msg)
 
                 batch = MiniBatch.from_data(
                     images=input_images,
@@ -708,16 +742,20 @@ class SegTiles(
                     criterion=criterion,
                     val_loss=val_loss,
                     tiles=tiles,
-                    threads=threads
+                    threads=threads,
                 )
                 futures.extend(batch.submit_all())
 
                 iou_acc += batch.iou_acc
+                pbar.update(len(input_images))
+
                 if (
                         cfg.options.test_mode
                         and i >= 5
                 ):
                     break
+
+            pbar.close()
 
         wait(futures)
         for fut in futures:

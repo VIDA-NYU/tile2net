@@ -257,7 +257,7 @@ class MiniBatch(
         yield from self.submit_probability()
         yield from self.submit_sidebyside()
         yield from self.submit_output()
-        yield from self.submit_raw()
+        yield from self.submit_prediction()
         yield from self.submit_mask()
 
     def submit_probability(self):
@@ -323,8 +323,8 @@ class MiniBatch(
                 future = self.threads.submit(cv2.imwrite, file, array)
                 yield future
 
-    def submit_raw(self):
-        print('⚠️AI GENERATED🤖')
+    def submit_prediction(self):
+        # print('⚠️AI GENERATED🤖')
         if self.predictions is None:
             return
         arrays = to_numpy(self.predictions)
@@ -335,19 +335,19 @@ class MiniBatch(
                 cv2.imwrite, file, array.astype('uint8'))
             yield future
 
-    def submit_raw(self):
-        """
-        Raw segmentation mask without colorization, containing class IDs as pixel values.
-        """
-        # todo: chck previous submit raw and see if necessary to drop dim
-        if self.predictions is None:
-            return
-        arrays = to_numpy(self.predictions)
-        files  =self.tiles.file.maskraw
-        for array, file in zip(arrays, files):
-            future = self.threads.submit(cv2.imwrite, file, array)
-            yield future
-
+    # def submit_raw(self):
+    #     """
+    #     Raw segmentation mask without colorization, containing class IDs as pixel values.
+    #     """
+    #     # todo: chck previous submit raw and see if necessary to drop dim
+    #     if self.predictions is None:
+    #         return
+    #     arrays = to_numpy(self.predictions)
+    #     files  =self.tiles.file.maskraw
+    #     for array, file in zip(arrays, files):
+    #         future = self.threads.submit(cv2.imwrite, file, array)
+    #         yield future
+    #
 
     def submit_mask(self):
         """

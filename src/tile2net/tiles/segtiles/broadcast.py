@@ -102,7 +102,6 @@ def __get__(
         result.attrs.update(instance.attrs)
         instance.attrs[self.__name__] = result
 
-        # d = vectiles.tile.scale - segtiles.tile.scale
         d = segtiles.tile.scale - vectiles.tile.scale
         expected = 2 ** (2 * d) + 4 * 2 ** d + 4
         assert len(result) == expected * len(vectiles)
@@ -130,3 +129,6 @@ class Broadcast(
     def vectile(self):
         ...
 
+    @property
+    def padded(self):
+        return self.instance.padded

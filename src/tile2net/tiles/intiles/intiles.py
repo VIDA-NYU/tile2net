@@ -1,31 +1,32 @@
 from __future__ import annotations
-from .polygons import Polygons
-from .lines import  Lines
-from ..util import  assert_perfect_overlap
-from . import delayed
+import threading
+from contextlib import contextmanager
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+# thread-local store
+tls = threading.local()
 
 import os
 import os.path
 import shutil
 import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import partial
 from pathlib import Path
 from typing import *
 
 import PIL.Image
-import PIL.Image
 import certifi
 import geopandas as gpd
-import imageio.v3
-import imageio.v3
 import imageio.v3 as iio
 import numpy as np
 import pandas as pd
 import requests
 from PIL import Image
 from requests.adapters import HTTPAdapter
+from tqdm import tqdm
 from tqdm.auto import tqdm
+from urllib3.util.retry import Retry
 
 from tile2net.raster import util
 from tile2net.tiles.cfg import cfg
@@ -33,6 +34,9 @@ from tile2net.tiles.cfg.logger import logger
 from tile2net.tiles.dir.dir import Dir
 from tile2net.tiles.dir.indir import Indir
 from tile2net.tiles.dir.outdir import Outdir
+from . import delayed
+from .lines import Lines
+from .polygons import Polygons
 from .segtile import SegTile
 from .source import Source, SourceNotFound
 from .. import util
@@ -40,8 +44,10 @@ from ..cfg import Cfg
 from ..segtiles import SegTiles
 from ..tiles import tile, file
 from ..tiles.tiles import Tiles
+from ..util import assert_perfect_overlap
 from ..vectiles import VecTiles
 from ...tiles.util import recursion_block
+
 if False:
     from .padded import Padded
 
@@ -297,7 +303,7 @@ class InTiles(
             redownload the tiles even if they already exist
         """
         if self is not self.padded:
-            return self.download(
+            return self.padded.download(
                 retry=retry,
                 force=force,
                 max_workers=max_workers,
@@ -307,147 +313,150 @@ class InTiles(
         urls = self.source.urls
 
         if paths.empty or urls.empty:
-            return
+            return self
         if len(paths) != len(urls):
             raise ValueError('paths and urls must be equal length')
 
-            # ensure directories exist
-        for p in paths.unique():
-            Path(p).parent.mkdir(parents=True, exist_ok=True)
+        # ensure directories exist
+        for p in {Path(p).parent for p in paths}:
+            p.mkdir(parents=True, exist_ok=True)
 
         PATHS = paths.array
         URLS = urls.array
 
-        if not force:
-            exists_mask = np.fromiter(
-                (Path(p).exists() for p in PATHS),
-                dtype=bool,
-                count=len(PATHS),
-            )
-            if exists_mask.all():
-                logger.info('All tiles already on disk.')
-                return
-            PATHS = PATHS[~exists_mask]
-            URLS = URLS[~exists_mask]
+        exists = (
+            paths
+            .map(os.path.exists)
+            .to_numpy(dtype=bool)
+        )
+        if exists.all() and not force:
+            logger.info('All tiles already on disk.')
+            return self
 
-        max_workers = min(max_workers, len(URLS))  # or higher if your system/network allows
-        pool_size = max_workers  # keep-alive sockets you want
+        if not force:
+            # Only download files that do not already exist
+            PATHS = paths[~exists].array
+            URLS = urls[~exists].array
+        mapping = dict(zip(PATHS, URLS))
+
+        pool_size = min(max_workers, len(mapping))
+        download_ok = np.ones(len(mapping), dtype=bool)
+
+        retry = Retry(
+            total=3,
+            backoff_factor=0.4,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods=['HEAD', 'GET'],
+        )
 
         with (
-            ThreadPoolExecutor(max_workers=max_workers) as pool,
-            requests.Session() as session
+            ThreadPoolExecutor(
+                max_workers=pool_size,
+                initializer=self._init_net_worker,
+            ) as net_pool,
+            ThreadPoolExecutor(max_workers=min(32, pool_size)) as disk_pool,
+            # requests.Session() as session
         ):
 
-            adapter = HTTPAdapter(pool_connections=pool_size, pool_maxsize=pool_size)
-            session.mount('https://', adapter)
-            session.headers.update({'User-Agent': 'tiles'})
-            session.verify = certifi.where()
-
-            def head(url: str) -> int:
-                try:
-                    return session.head(url, timeout=10).status_code
-                except requests.exceptions.RequestException:
-                    return -1
-
-            # Only check URLs whose files do not already exist
-            it = map(os.path.exists, PATHS)
-            exists = np.fromiter(it, bool, count=len(PATHS))
-            if exists.all():
-                return
-
-            PATHS = PATHS[~exists]
-            URLS = URLS[~exists]
-
-            if len(URLS):
-                msg = f'Checking {len(URLS):,} URLs...'
-                logger.info(msg)
-
+            head = self._head
+            msg = f'HEADing {len(mapping):,} tiles.'
+            logger.info(msg)
             it = tqdm(
-                pool.map(head, URLS),
-                total=len(URLS),
-                desc='Checking status codes'
+                mapping.items(),
+                total=len(mapping),
+                desc="HEAD submit",
+                unit="tile",
             )
-            codes = np.fromiter(
-                it,
-                dtype=np.int16,
-                count=len(URLS)
-            )
-
-            # not_ok = (codes != 200) & (codes != 404)
-            not_ok = codes != 200
-            not_ok &= codes != 404
-            if np.any(not_ok):
-                logger.warning(f'Unexpected status codes: {np.unique(codes[not_ok])}')
-
-            not_found = codes == 404
-
-            n = np.sum(not_found)
-            N = len(PATHS)
-            if np.any(not_found):
-                if n == N:
-                    msg = f'All {n:,} requested tiles returned 404.'
-                    raise FileNotFoundError(msg)
-                msg = f'{n:,} out of {N:,} tiles returned 404.'
-                logger.warning(msg)
-
-            paths = PATHS[~not_found]
-            urls = URLS[~not_found]
-
-            if not len(paths):
-                return
-
-            submit_get = partial(session.get, timeout=20)
-            desc = f"Downloading {len(paths):,} tiles to {self.indir.format}"
-            it = tqdm(
-                zip(urls, paths),
-                total=len(paths),
-                desc=desc
-            )
-
-            futures = {
-                pool.submit(submit_get, url): Path(path)
-                for url, path in it
+            head_futs = {
+                net_pool.submit(head, url): path
+                for path, url in it
             }
 
-            def write(path: Path, data: bytes) -> Path | None:
-                path.write_bytes(data)
-                try:
-                    imageio.v3.imread(path)
-                except ValueError:
-                    path.unlink(missing_ok=True)
-                    return path
-                return None
+            it = tqdm(
+                as_completed(head_futs),
+                total=len(head_futs),
+                desc="HEAD pass"
+            )
+            status_codes = {
+                head_futs[fut]: fut.result()
+                for fut in it
+            }
 
-            writes = []
-            for fut in tqdm(as_completed(futures), total=len(futures), desc='Writing...'):
+            bad = {
+                p
+                for p, c in status_codes.items()
+                if c not in (200, 404, 405, 501)
+            }
+            if bad:
+                logger.warning(
+                    "Unexpected status codes: %s",
+                    {status_codes[p] for p in bad},
+                )
+
+            not_found = {p for p, c in status_codes.items() if c == 404}
+            if not_found:
+                n, N = len(not_found), len(mapping)
+                msg = f"{n:,} / {N:,} tiles returned 404."
+                if n == N:
+                    raise FileNotFoundError(msg)
+                logger.warning(msg)
+
+            # ── pruning
+            todo = {
+                p: u
+                for p, u in mapping.items()
+                if p not in not_found
+            }
+
+            if not todo:
+                return self
+
+            # ── GET + write
+            submit = self._stream_get
+            get_futs = {
+                net_pool.submit(submit, url): path
+                for path, url in todo.items()
+            }
+
+            write_futs = []
+            submit = self._atomic_write
+            it = tqdm(
+                as_completed(get_futs),
+                total=len(get_futs),
+                desc="Downloading"
+            )
+            for fut in it:
+                path = get_futs[fut]
                 resp = fut.result()
-                path = futures[fut]
-                try:
-                    resp.raise_for_status()
-                except requests.exceptions.HTTPError:
+                if resp.status_code != 200:
                     continue
-                w = pool.submit(write, path, resp.content)
+                f = disk_pool.submit(submit, path, resp)
+                write_futs.append(f)
+
+
+            it = tqdm(
+                as_completed(write_futs),
+                total=len(write_futs),
+                desc="Writing"
+            )
             failed = [
                 f.result()
-                for f in as_completed(writes)
-                if f.result()
+                for f in it
+                if f.result() is not None
             ]
 
             if failed:
                 if retry:
-                    msg = f'{len(failed):,} failed tiles; retrying once.'
-                    logger.error(msg)
-                    self.download(
-                        paths=pd.Series(failed, dtype=object),
-                        urls=pd.Series(
-                            [urls.iloc[paths.eq(p).argmax()] for p in failed],
-                            dtype=object,
-                        ),
+                    logger.error("%d failed tiles; retrying once.", len(failed))
+                    # failed_urls = pd.Series([mapping[p] for p in failed], dtype=object)
+                    # self.file = self.file.assign(infile=pd.Series(failed))
+                    # self.source = self.source.assign(urls=failed_urls)
+                    return self.download(
                         retry=False,
-                        force=force,
+                        force=False,
+                        max_workers=max_workers,
                     )
-                else:
-                    raise FileNotFoundError(f'{len(failed):,} tiles failed: {failed[:3]}')
+                raise FileNotFoundError(f"{len(failed):,} tiles failed.")
 
             def _link_or_copy(src, dst):
                 try:
@@ -471,6 +480,131 @@ class InTiles(
 
             logger.info('All requested tiles are on disk.')
 
+        return self
+
+    @recursion_block
+    def download(
+            self,
+            retry: bool = True,
+            force: bool = False,
+            max_workers: int = 32,  # ⇣ lower default ⇣ avoids port-exhaustion
+    ) -> Self:
+        print('⚠️AI GENERATED🤖')
+
+        if self is not self.padded:
+            return self.padded.download(
+                retry=retry,
+                force=force,
+                max_workers=max_workers,
+            )
+
+        paths = self.file.infile
+        urls = self.source.urls
+        if paths.empty or urls.empty:
+            return self
+        if len(paths) != len(urls):
+            raise ValueError("paths and urls must be equal length")
+
+        # ── ensure directories exist
+        for p in {Path(p).parent for p in paths}:
+            p.mkdir(parents=True, exist_ok=True)
+
+        exists = paths.map(os.path.exists).to_numpy(bool)
+        if exists.all() and not force:
+            logger.info("All tiles already on disk.")
+            return self
+
+        if not force:
+            paths = paths[~exists]
+            urls = urls[~exists]
+
+        mapping = dict(zip(paths.array, urls.array))
+        if not mapping:
+            return self
+
+        pool_size = min(max_workers, len(mapping))
+        not_found: list[Path] = []
+        failed: list[Path] = []
+
+        # ── helper that both downloads *and* writes inside the same thread
+        def _fetch_write(
+                path: Path,
+                url: str,
+        ) -> None:
+            resp = tls.session.get(url, stream=True, timeout=(3, 30))
+            status = resp.status_code
+            if status == 404:
+                not_found.append(path)
+                resp.close()
+                return
+            if status != 200:
+                failed.append(path)
+                resp.close()
+                return
+
+            # atomic write
+            tmp = Path(
+                tempfile.mkstemp(
+                    dir=path.parent,
+                    suffix=".part",
+                )[1]
+            )
+            with tmp.open("wb") as fh:
+                for chunk in resp.iter_content(1 << 15):
+                    fh.write(chunk)
+            resp.close()
+
+            # quick sanity check + move
+            try:
+                iio.imread(tmp)
+            except ValueError:
+                tmp.unlink(missing_ok=True)
+                failed.append(path)
+                return
+            shutil.move(tmp, path)
+
+        # ── threaded execution
+        with ThreadPoolExecutor(
+                max_workers=pool_size,
+                initializer=self._init_net_worker,  # one Session per thread
+        ) as pool:
+
+            # submit *all* jobs up front (cheap) …
+            futures = {
+                pool.submit(_fetch_write, Path(p), u)
+                for p, u in mapping.items()
+            }
+
+            # … and drive a single tqdm on completion
+            for fut in tqdm(
+                    as_completed(futures),
+                    total=len(futures),
+                    desc="Downloading",
+                    unit="tile",
+            ):
+                fut.result()
+
+                # ── handle 404s (link black placeholder)
+        if not_found:
+            black = self.static.black
+            logger.warning("%d tiles returned 404 – linking placeholder.", len(not_found))
+            for p in not_found:
+                try:
+                    os.symlink(black, p)
+                except (OSError, NotImplementedError):
+                    shutil.copy2(black, p)
+
+        if failed:
+            if retry:
+                logger.error("%d failed; retrying once.", len(failed))
+                return self.download(
+                    retry=False,
+                    force=False,
+                    max_workers=max_workers,
+                )
+            raise FileNotFoundError(f"{len(failed):,} tiles failed.")
+
+        logger.info("All requested tiles are on disk.")
         return self
 
     def set_source(
@@ -694,6 +828,9 @@ class InTiles(
         intiles.segtiles = segtiles
         segtiles = intiles.segtiles
 
+        assert intiles.padded.segtile.index.isin(segtiles.padded.index).all()
+        assert segtiles.padded.index.isin(intiles.padded.segtile.index).all()
+
         assert segtiles.tile.scale == scale
         assert len(segtiles) <= len(intiles)
         assert len(self) <= len(intiles)
@@ -766,6 +903,11 @@ class InTiles(
 
         intiles.segtiles = segtiles
 
+        assert intiles.padded.segtile.index.isin(segtiles.padded.index).all()
+        assert segtiles.padded.index.isin(intiles.padded.segtile.index).all()
+
+        segtiles.padded
+        intiles.padded
         intiles.segtile.xtile
         assert segtiles.tile.scale == self.segtiles.tile.scale
         vectiles = VecTiles.from_rescale(intiles, scale, fill=fill)
@@ -773,7 +915,6 @@ class InTiles(
         intiles.vectiles = vectiles
         segtiles = intiles.segtiles
         vectiles = intiles.vectiles
-
 
         assert len(self) <= len(intiles)
         assert len(vectiles) <= len(segtiles) <= len(intiles)
@@ -797,7 +938,6 @@ class InTiles(
     #         return self[key]
     #     self[key] = self.indir.skip()
     #     return self[key]
-
 
     @Tile
     def tile(self):
@@ -863,3 +1003,121 @@ class InTiles(
     @delayed.Padded
     def padded(self) -> Padded:
         ...
+
+    def _make_session(
+            self,
+            *,
+            pool: int,
+            retry: Retry,
+    ) -> requests.Session:
+        s = requests.Session()
+        s.mount(
+            "https://",
+            HTTPAdapter(
+                pool_connections=pool,
+                pool_maxsize=pool,
+                max_retries=retry,
+            ),
+        )
+        s.headers.update({"User-Agent": "tiles"})
+        s.verify = certifi.where()
+        return s
+
+    def _init_net_worker(self) -> None:
+        retry_head = Retry(
+            total=3,
+            backoff_factor=0.2,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods=["HEAD"],
+        )
+        retry_get = Retry(
+            total=3,
+            backoff_factor=0.4,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods=["GET"],
+        )
+        tls.s_head = self._make_session(pool=2, retry=retry_head)  # HEAD burst
+        tls.s_get = self._make_session(pool=8, retry=retry_get)  # one stream at a time
+
+    def _make_session(
+            self,
+            *,
+            pool: int,
+            retry: Retry,
+    ) -> requests.Session:
+        """
+        One reusable Session with a bounded socket-pool.
+        `pool_block=True` ⇒ if all connections are busy the thread *waits*
+        instead of opening a new source port (prevents TIME_WAIT storms).
+        """
+        s = requests.Session()
+        adapter = HTTPAdapter(
+            pool_connections=pool,
+            pool_maxsize=pool,
+            pool_block=True,  # ← back-pressure, not more sockets
+            max_retries=retry,
+        )
+        s.mount("https://", adapter)
+        s.mount("http://", adapter)
+        s.headers.update({"User-Agent": "tiles"})
+        s.verify = certifi.where()
+        return s
+
+    def _init_net_worker(self) -> None:
+        """
+        Run once per thread → attach one Session to thread-local storage.
+        Only a GET Session is needed now that the HEAD phase is gone.
+        """
+        retry_get = Retry(
+            total=3,
+            backoff_factor=0.4,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods=["GET"],
+        )
+        tls.session = self._make_session(pool=8, retry=retry_get)
+
+    @staticmethod
+    def _head(url: str) -> int:  # signature unchanged
+        try:
+            return (
+                tls.s_head
+                .head(url, timeout=(3, 10))
+                .status_code
+            )
+        except requests.RequestException:
+            return -1
+
+    @staticmethod
+    def _stream_get(url: str) -> requests.Response:
+        return tls.s_get.get(url, stream=True, timeout=(3, 30))
+
+    @staticmethod
+    def _atomic_write(
+            path: Path,
+            resp: requests.Response,
+            /,
+            chunk: int = 8192,
+    ) -> Path | None:  # returns failed path or None
+
+        with tempfile.NamedTemporaryFile(
+                dir=path.parent,
+                suffix=".tmp",
+                delete=False,
+        ) as tmp:
+            for block in resp.iter_content(chunk):
+                tmp.write(block)
+            tmp_path = Path(tmp.name)
+
+        hdr_len = int(resp.headers.get("Content-Length", -1))
+        if hdr_len > 0 and tmp_path.stat().st_size != hdr_len:
+            tmp_path.unlink(missing_ok=True)
+            return path  # size mismatch ➜ fail
+
+        try:
+            iio.imread(tmp_path)  # quick validity check
+        except ValueError:
+            tmp_path.unlink(missing_ok=True)
+            return path
+
+        shutil.move(tmp_path, path)
+        return None

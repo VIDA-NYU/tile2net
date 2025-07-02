@@ -1456,6 +1456,7 @@ class Cfg(
         cfg = g['cfg']
         g['cfg'].data = self.data
         self._backup = cfg
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         globals()['cfg'].data = self._backup
