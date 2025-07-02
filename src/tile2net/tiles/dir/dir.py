@@ -216,9 +216,15 @@ class Dir:
     def __set__(self, instance: 'Tiles', value: str | PathLike):
         if value is None:
             raise NotImplementedError
-        if isinstance(value, Path):
-            value = str(value)
-        value = os.path.normpath(value)
+        # if isinstance(value, Path):
+        #     value = str(value)
+        # value = os.path.normpath(value)
+        value = (
+            Path(value)
+            .expanduser()
+            .resolve()
+            .__str__()
+        )
 
         indir = self.from_format(value)
 

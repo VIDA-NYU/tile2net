@@ -794,9 +794,9 @@ class InTiles(
         except ValueError:
             retry = os.path.join(outdir, 'z', 'x_y.png')
             result.outdir = retry
-            logger.info(f'Setting output directory to \n\t{retry}')
+            logger.info(f'Setting output directory to \n\t{result.outdir.format}')
         else:
-            logger.info(f'Setting output directory to \n\t{outdir}')
+            logger.info(f'Setting output directory to \n\t{result.outdir.format}')
 
         return result
 
