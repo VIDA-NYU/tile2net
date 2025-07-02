@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+# ── San Francisco orthophoto catalogue ─────────────────────────────────────────
+from shapely.geometry import box
+
 import functools
 import json
 import pathlib
 import warnings
-from abc import ABC
-from functools import *
-from typing import *
-from typing import Optional
+from abc import ABC, ABCMeta
+from functools import cached_property, wraps
+from typing import Iterator, Optional, Type
 from typing import TypeVar
 from weakref import WeakKeyDictionary
 
@@ -47,8 +49,6 @@ class Coverage:
             instance,
             owner: type[Source]
     ):
-        ...
-
         if self.file.exists():
             coverage = gpd.read_feather(self.file)
             # if not coverage.index.symmetric_difference(owner.catalog.keys()):
@@ -62,6 +62,8 @@ class Coverage:
                 return coverage.geometry
         coverages: list[GeoSeries] = []
         for source in owner.catalog.values():
+            if source.outdated:
+                continue
             try:
                 axis = pd.Index([source.name] * len(source.coverage), name='source')
                 coverage = (
@@ -156,6 +158,7 @@ class cls_attr(
     def __eq__(self, other):
         return self.name == other.name
 
+
 def __get__(
         self: Source,
         instance: InTiles,
@@ -174,12 +177,15 @@ def __get__(
         raise KeyError(msg) from e
     return result
 
+
 # noinspection PyMethodParameters
 class Source(
     ABC,
 ):
     intiles: InTiles
     catalog: dict[str, type[Source]] = {}
+
+    outdated: bool = False
     locals().update(
         __get__=__get__,
     )
@@ -251,7 +257,6 @@ class Source(
     @cls_attr
     def template(cls) -> str:
         """Template for formatting the URL of the tiles."""
-
 
     def __set__(
             self,
@@ -424,6 +429,17 @@ class Source(
             if cls.name in cls.catalog:
                 raise ValueError(f'{cls} name {cls.name} already in use')
             cls.catalog[cls.name] = cls
+
+    def __eq__(self, other):
+        if (
+                isinstance(other, Source)
+                or issubclass(other, Source)
+        ):
+            return self.name == other.name
+        if isinstance(other, str):
+            return self.name == other
+        return NotImplemented
+
 
 
 # noinspection PyMethodParameters
@@ -639,3 +655,136 @@ class AlamedaCounty(
             )
         ], crs='EPSG:4326')
         return res
+
+
+class SanFranciscoBase(
+    Source,
+    ABC
+):
+    # static attributes
+    outdated: bool = True
+    extension: str = "png"
+    keyword: tuple[str, str] = ("San Francisco", "California")
+    zoom: int = 20
+    dimension: int = 512  # tile size in px
+    server: str
+
+    # ── lazily-computed class attributes (cached via cls_attr) ────────────────
+    @cls_attr
+    def metadata(cls) -> str:  # noqa: D401  (no docstrings requested)
+        return f"{cls.server}/tiles.json"
+
+    @cls_attr
+    def template(cls) -> str:
+        return f"{cls.server}/{{z}}/{{x}}/{{y}}.png"
+
+    @cls_attr
+    def coverage(cls) -> GeoSeries:
+        return (
+            GeoSeries(
+                [
+                    box(
+                        -122.514926,  # xmin (W)
+                        37.708075,  # ymin (S)
+                        -122.356779,  # xmax (E)
+                        37.832371  # ymax (N)
+                    )
+                ],
+                crs="EPSG:4326",
+            )
+        )
+
+
+class SanFrancisco2014(SanFranciscoBase):
+    name: str = "sf2014"
+    year: int = 2014
+    server: str = "https://tile.sf.gov/api/tiles/p2014_rgb8cm"
+
+
+class SanFrancisco2017(SanFranciscoBase):
+    name: str = "sf2017"
+    year: int = 2017
+    server: str = "https://tile.sf.gov/api/tiles/p2017_rgb8cm"
+
+
+class SanFrancisco2018(SanFranciscoBase):
+    name: str = "sf2018"
+    year: int = 2018
+    server: str = "https://tile.sf.gov/api/tiles/p2018_rgb8cm"
+
+
+class SanFrancisco2019(SanFranciscoBase):
+    name: str = "sf2019"
+    year: int = 2019
+    server: str = "https://tile.sf.gov/api/tiles/p2019_rgb8cm"
+
+
+class SanFrancisco2020(SanFranciscoBase):
+    name: str = "sf2020"
+    year: int = 2020
+    server: str = "https://tile.sf.gov/api/tiles/p2020_rgb8cm"
+
+
+class SanFrancisco2023(SanFranciscoBase):
+    name: str = "sf2023"
+    year: int = 2023
+    server: str = "https://tile.sf.gov/api/tiles/p2023_rgb8cm"
+
+
+class SanFrancisco2024(SanFranciscoBase):
+    name: str = "sf2024"
+    year: int = 2024
+    server: str = "https://tile.sf.gov/api/tiles/p2024_rgb8cm"
+    outdated: bool = False  # mark most-recent layer as current
+
+
+class MaineOrthoBase(
+        ArcGis,
+        ABC
+):
+    """
+    Shared config for Maine GeoLibrary statewide imagery.
+    (Everything else—coverage, zoom, template—comes from ArcGis.)
+    """
+    keyword: str = "Maine"
+    extension: str = "jpeg"      # ArcGIS ImageServer delivers JPEG by default
+
+
+class Maine2021(MaineOrthoBase):
+    server: str = (
+        "https://gis.maine.gov/arcgis/rest/services/"
+        "imageryBaseMapsEarthCover/orthoRegional2021/ImageServer"
+    )
+    name:  str = "me2021"
+    year:  int = 2021
+    outdated: bool = True        # superseded by 2022 imagery
+
+
+class Maine2022(MaineOrthoBase):
+    server: str = (
+        "https://gis.maine.gov/arcgis/rest/services/"
+        "imageryBaseMapsEarthCover/orthoRegional2022/ImageServer"
+    )
+    name:  str = "me2022"
+    year:  int = 2022
+    outdated: bool = False       # current statewide layer
+
+
+if __name__ == '__main__':
+    assert Source.from_inferred('New Brunswick, New Jersey') == NewJersey
+    assert Source.from_inferred('New York City') == NewYorkCity
+    assert Source.from_inferred('New York') in (NewYorkCity, NewYork)
+    assert Source.from_inferred('Massachusetts') == Massachusetts
+    assert Source.from_inferred('King County, Washington') == KingCountyWashington
+    assert Source.from_inferred('Washington, DC') == WashingtonDC
+    assert Source.from_inferred('Los Angeles') == LosAngeles
+    assert Source.from_inferred('Jersey City') == NewJersey
+    assert Source.from_inferred('Hoboken') == NewJersey
+    assert Source.from_inferred("Spring Hill, TN") == SpringHillTN
+    assert Source.from_inferred('Virginia') == Virginia
+    assert Source.from_inferred('Berkeley, California') == AlamedaCounty
+    assert Source.from_inferred('Fremont, California') == AlamedaCounty
+    assert Source.from_inferred('Oakland, California') == AlamedaCounty
+    assert Source.from_inferred('San Francisco, California') == SanFrancisco2024
+    assert Source.from_inferred('Bangor, Maine') == Maine2022
+

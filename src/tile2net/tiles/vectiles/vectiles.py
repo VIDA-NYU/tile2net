@@ -227,8 +227,11 @@ class VecTiles(
 
     @recursion_block
     def stitch(self) -> Self:
+        self.intiles.segtile.xtile
+        self.intiles.segtile.ytile
         segtiles = self.segtiles.broadcast
         vectiles = self
+
 
         loc = ~segtiles.vectile.stitched.map(os.path.exists)
         infiles = segtiles.file.maskraw.loc[loc]

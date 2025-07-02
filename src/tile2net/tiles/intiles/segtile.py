@@ -53,10 +53,19 @@ class SegTile(
             return intiles[key]
 
         segtiles = intiles.segtiles.padded
+        # unpadded = inti.unpadded.index.isin(segtiles.index)
+        intiles.segtiles
         result = intiles.xtile // intiles.segtile.length
 
         msg = 'All segtile.xtile must be in segtiles.xtile!'
+        loc = ~result.isin(segtiles.xtile)
+
+        result.isin(segtiles.xtile).any()
+        result.isin(segtiles.ytile)
         assert result.isin(segtiles.xtile).all(), msg
+        result.min() in segtiles.xtile.values
+        import numpy as np
+        np.unique(result[~result.isin(segtiles.xtile)] )
         intiles[key] = result
         return result
 

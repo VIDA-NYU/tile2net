@@ -46,16 +46,17 @@ def __get__(
 ) -> Padded:
     if instance is None:
         result = self
-    elif self.__name__ in instance.attrs:
-        result = instance.attrs[self.__name__]
+    elif self.__name__ in instance.__dict__:
+        result = instance.__dict__[self.__name__]
     else:
         result = (
             instance
             .to_padding()
             .pipe(self.__class__)
         )
-        result.attrs.update(instance.attrs)
-        instance.attrs[self.__name__] = result
+        assert instance.index.isin(result.index).all()
+        result.__dict__.update(instance.__dict__)
+        instance.__dict__[self.__name__] = result
 
     result.instance = instance
     return result

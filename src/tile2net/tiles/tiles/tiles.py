@@ -37,6 +37,7 @@ class Tiles(
     # gn: pd.Series  # geographic north bound of the tile
     # ge: pd.Series  # geographic east bound of the tile
     # gs: pd.Series  # geographic south bound of the tile
+
     @property
     def ge(self) -> pd.Series:
         return self['ge']
@@ -374,6 +375,12 @@ class Tiles(
             .pipe(self.__class__)
             .sort_index()
         )
+        assert self.xtile.min() - pad == padded.xtile.min()
+        assert self.ytile.min() - pad == padded.ytile.min()
+        assert self.xtile.max() + pad == padded.xtile.max()
+        assert self.ytile.max() + pad == padded.ytile.max()
+        if pad >= 0:
+            assert self.index.isin(padded.index).all()
         padded.attrs.update(self.attrs)
         return padded
 

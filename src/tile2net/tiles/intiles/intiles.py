@@ -680,6 +680,9 @@ class InTiles(
         # todo: if all are None, determine dimension using VRAM
         scale = self._to_scale(dimension, length, mosaic, scale)
 
+        if bs_val:
+            self.cfg.model.bs_val = bs_val
+
         msg = 'Padding InTiles to align with SegTiles'
         logger.debug(msg)
         intiles = (
@@ -747,6 +750,7 @@ class InTiles(
             .to_scale(scale, fill=fill)
             .to_scale(self.tile.scale, fill=fill)
         )
+
         assert intiles.tile.scale == self.intiles.tile.scale
         msg = 'Padding SegTiles to align with VecTiles'
         logger.debug(msg)
@@ -755,10 +759,17 @@ class InTiles(
             .to_scale(scale, fill=fill)
             .to_scale(self.segtiles.tile.scale, fill=fill)
         )
+
+        segtiles.segtiles.xtile
+        self.segtile.xtile
+        self.segtiles.ytile
+
+        intiles.segtiles = segtiles
+
+        intiles.segtile.xtile
         assert segtiles.tile.scale == self.segtiles.tile.scale
         vectiles = VecTiles.from_rescale(intiles, scale, fill=fill)
 
-        intiles.segtiles = segtiles
         intiles.vectiles = vectiles
         segtiles = intiles.segtiles
         vectiles = intiles.vectiles

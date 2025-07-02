@@ -135,7 +135,7 @@ class Lines(
                 self.intiles.vectiles.boundary,
                 *args,
                 color='grey',
-                name=f'tiles',
+                name='tile',
                 tiles=tiles,
                 simplify=simplify,
                 style_kwds=dict(

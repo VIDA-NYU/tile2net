@@ -11,8 +11,8 @@ def __get__(
 ) -> Padded:
     if instance is None:
         result = self
-    elif self.__name__ in instance.attrs:
-        result = instance.attrs[self.__name__]
+    elif self.__name__ in instance.__dict__:
+        result = instance.__dict__[self.__name__]
     else:
         segtiles = instance.segtiles
         result = (
@@ -22,9 +22,9 @@ def __get__(
             .to_scale(instance.tile.scale)
             .pipe(self.__class__)
         )
-        result.attrs.update(instance.attrs)
+        result.__dict__.update(instance.__dict__)
         result.instance = instance
-        instance.attrs[self.__name__] = result
+        instance.__dict__[self.__name__] = result
     return result
 
 
