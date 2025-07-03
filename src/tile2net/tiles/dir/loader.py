@@ -1,28 +1,17 @@
 
 from __future__ import annotations
 
-import dataclasses
-import functools
 import os
-import re
-from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import cached_property
-from os import PathLike
-from os import fspath
 from pathlib import Path
 from typing import Iterator
-from typing import Self
 
 import imageio.v3 as iio
 import numpy as np
 import pandas as pd
 from numpy import ndarray
-from toolz import curried, curry as cur, pipe
 
-from tile2net.tiles.tiles.tiles import  Tiles
-from tile2net.tiles.util import returns_or_assigns
-from .batchiterator import BatchIterator
+
 class Loader:
     def __init__(
             self,

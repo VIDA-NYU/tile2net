@@ -496,7 +496,7 @@ class VecTiles(
 
         total_tiles: int = len(self)
         max_workers: int = os.cpu_count()
-        window: int = max_workers * 2  # outstanding futures ≤ 4×cores
+        window: int = max_workers * 2  # outstanding futures ≤ 2×cores
 
         with self.intiles.cfg as cfg_cm, ProcessPoolExecutor(
                 max_workers=window,
