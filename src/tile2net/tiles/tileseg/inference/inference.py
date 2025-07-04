@@ -113,7 +113,7 @@ class Inference:
         if num_gpus > 1:
             if args.model.eval == 'test':
                 # Single GPU setup
-                logger.info('Using a single GPU.')
+                logger.debug('Using a single GPU.')
                 args.local_rank = 0
                 torch.cuda.set_device(args.local_rank)
             else:
@@ -132,11 +132,10 @@ class Inference:
             # Single GPU setup
             args.local_rank = 0
             torch.cuda.set_device(args.local_rank)
-            logger.info('Using a single GPU.')
+            logger.debug('Using a single GPU.')
         else:
             # CPU setup
-            # print('Using CPU.')
-            logger.info('Using CPU. This is not recommended for inference.')
+            logger.warning('Using CPU. This is not recommended for inference.')
             args.local_rank = -1  # Indicating CPU usage
 
         assert args.result_dir is not None, 'need to define result_dir arg'

@@ -103,7 +103,7 @@ def load_weights(net, optimizer, snapshot_file, restore_optimizer_bool=False):
     Load weights from snapshot file
     """
     # logger.debug("Loading weights from model {}".format(snapshot_file))
-    logger.info("Loading weights from model {}".format(snapshot_file))
+    logger.debug("Loading weights from model {}".format(snapshot_file))
     net, optimizer = restore_snapshot(net, optimizer, snapshot_file, restore_optimizer_bool)
     return net, optimizer
 

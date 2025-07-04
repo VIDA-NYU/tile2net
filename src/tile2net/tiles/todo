@@ -49,43 +49,9 @@ segtiles.stitch() -> intiles
 
 add cfg.stitch.dimension to cfg
 
-segtiles.predict
-.vectiles.vectorize
-
-if intiles:
-    dimension is from sample
 
 Tile descriptor has possibly bug if it's accessed for another class while in it
 return a copy
-
-predtiles stitches when files is accessed
-
-1   2   4   8   16
-3   4   6   10  18
-
-set_segmentation should by default set dimension to 1024 from cfg
-set_vectorization should determine from memory
-
-intiles.file.static
-
-segtiles.file.in
-segtiles.file.prediction
-segtiles.file.mask
-
-vectiles.file.polygon
-vectiles.file.network
-
-todo: use groupby during prediction instead of the esoteric cached iterators
-we need a "trial" loader to instantiate all the file columns once
-
-if intiles.download:
-    ...
-
-with self.download:
-    ...
-
-with self.stitch:
-    ...
 
 
 We can use something like the majority vote + confidence mask to force the labels of the pixels with low confidence into the same label as their neighbors starting from like 50 pixels away from the edge
@@ -122,6 +88,18 @@ lines.explode()
 how to keep segtiles.padded?
 
 
-pass the cfg dict  during vectorize iteration
 
-https://tiles.arcgis.com/tiles/hGdibHYSPO59RG1h/arcgis/rest/services/USGS_Orthos_2019/MapServer/tile/19/194127/158491
+compare
+
+add a changelog
+shapely.errors.GEOSException: TopologyException: unable to assign free hole to a shell at -7921395.5664562527 5199966.2301127482
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/arstneio/.local/share/uv/python/cpython-3.11.12-linux-x86_64-gnu/lib/python3.11/concurrent/futures/process.py", line 261, in _process_worker
+    r = call_item.fn(*call_item.args, **call_item.kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/arstneio/PycharmProjects/tile2net/src/tile2net/tiles/vectiles/vectiles.py", line 326, in _vectorize_submit
+    raise RuntimeError(msg) from e
+RuntimeError: Error vectorizing '/home/arstneio/PycharmProjects/tile2net/src/boston/vectiles/19/4953_6065.png': TopologyException: unable to assign free hole to a shell at -7921395.5664562527 5199966.2301127482

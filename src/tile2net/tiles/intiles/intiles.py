@@ -217,48 +217,48 @@ class InTiles(
         result = cls.from_integers(tx, ty, scale=zoom)
         return result
 
-    @classmethod
-    def from_config(
-            cls,
-            args
-    ):
-        from tile2net.tiles.cfg import Cfg
-        cfg = vars(args)
-        cfg = Cfg(cfg)
-
-        tiles = Tiles.from_location(
-            location=cfg.location,
-            zoom=cfg.zoom,
-        )
-
-        if cfg.source:
-            # use specified source
-            tiles = tiles.set_source(
-                source=cfg.source,
-                indir=cfg.input_dir,
-            )
-        elif cfg.input_dir:
-            # use local files
-            tiles = tiles.set_indir(
-                indir=cfg.input_dir,
-            )
-        else:
-            # infer source from location
-            tiles = tiles.set_source(
-                indir=cfg.input_dir,
-            )
-
-        pad = cfg.padding
-        stitch = tiles.stitch
-        if cfg.stitch.dimension:
-            tiles = stitch.to_dimension(cfg.stitch.dimension, pad)
-        elif cfg.stitch.mosaic:
-            tiles = stitch.to_mosaic(cfg.stitch.mosaic, pad)
-        elif cfg.stitch.scale:
-            tiles = stitch.to_scale(cfg.stitch.scale, pad)
-
-        tiles.predict(cfg.output_dir)
-        raise NotImplemented
+    # @classmethod
+    # def from_config(
+    #         cls,
+    #         args
+    # ):
+    #     from tile2net.tiles.cfg import Cfg
+    #     cfg = vars(args)
+    #     cfg = Cfg(cfg)
+    #
+    #     tiles = Tiles.from_location(
+    #         location=cfg.location,
+    #         zoom=cfg.zoom,
+    #     )
+    #
+    #     if cfg.source:
+    #         # use specified source
+    #         tiles = tiles.set_source(
+    #             source=cfg.source,
+    #             indir=cfg.input_dir,
+    #         )
+    #     elif cfg.input_dir:
+    #         # use local files
+    #         tiles = tiles.set_indir(
+    #             indir=cfg.input_dir,
+    #         )
+    #     else:
+    #         # infer source from location
+    #         tiles = tiles.set_source(
+    #             indir=cfg.input_dir,
+    #         )
+    #
+    #     pad = cfg.padding
+    #     stitch = tiles.stitch
+    #     if cfg.segtile.dimension:
+    #         tiles = stitch.to_dimension(cfg.segtile.dimension, pad)
+    #     elif cfg.segtile.mosaic:
+    #         tiles = stitch.to_mosaic(cfg.segtile.mosaic, pad)
+    #     elif cfg.segtile.scale:
+    #         tiles = stitch.to_scale(cfg.segtile.scale, pad)
+    #
+    #     tiles.predict(cfg.output_dir)
+    #     raise NotImplemented
 
     @Cfg
     def cfg(self):

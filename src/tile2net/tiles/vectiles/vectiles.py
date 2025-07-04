@@ -190,11 +190,30 @@ def __get__(
         result: VecTiles = instance.attrs[self.__name__]
     except KeyError as e:
         msg = (
-            f'VecTiles must be stitched using `SegTiles.stitch` for '
-            f'example `SegTiles.stitch.to_dimension(2048)` or '
-            f'`SegTiles.stitch.to_cluster(16)`'
+            f'intiles.{self.__name__} has not been set. You may '
+            f'customize the vectorization functionality by using '
+            f'`Intiles.set_vectorization`'
         )
-        raise ValueError(msg) from e
+        logger.info(msg)
+        cfg = instance.cfg
+
+        scale = cfg.vectile.scale
+        length = cfg.vectile.length
+        dimension = cfg.vectile.dimension
+
+        if scale:
+            instance = instance.set_segmentation(scale=scale)
+        elif length:
+            instance = instance.set_segmentation(length=length)
+        elif dimension:
+            instance = instance.set_segmentation(dimension=dimension)
+        else:
+            raise ValueError(
+                'You must set at least one of the following '
+                'segmentation parameters: vectile.scale, vectile.length, or vectile.dimension.'
+            )
+        result = instance.vectiles
+
     result.intiles = instance
     result.instance = instance
 
@@ -228,8 +247,12 @@ class VecTiles(
         segtiles = self.segtiles.broadcast
         vectiles = self
 
+        # preemptively predict so logging appears more sequential
+        # else you get "now stitching" before "now predicting"
+        _ = segtiles.file.prediction
+
         loc = ~segtiles.vectile.stitched.map(os.path.exists)
-        infiles = segtiles.file.maskraw.loc[loc]
+        infiles = segtiles.file.prediction.loc[loc]
         row = segtiles.vectile.r.loc[loc]
         col = segtiles.vectile.c.loc[loc]
         group = segtiles.vectile.stitched.loc[loc]
@@ -321,50 +344,6 @@ class VecTiles(
             msg = f'Error vectorizing {infile!r}: {e}'
             raise RuntimeError(msg) from e
 
-    # @recursion_block
-    # def vectorize(self):
-    #
-    #     it = zip(
-    #         self.file.stitched,
-    #         self.affine_params,
-    #         self.file.lines,
-    #         self.file.polygons,
-    #         self.gw,
-    #         self.gs,
-    #         self.ge,
-    #         self.gn,
-    #     )
-    #     with (
-    #         ProcessPoolExecutor(max_workers=os.cpu_count()) as ex,
-    #         self.intiles.cfg,
-    #     ):
-    #         futures = []
-    #         for (
-    #                 infile,
-    #                 affine,
-    #                 network_file,
-    #                 polygons_file,
-    #                 xmin,
-    #                 ymin,
-    #                 xmax,
-    #                 ymax,
-    #         ) in it:
-    #             future = ex.submit(
-    #                 self._vectorize_submit,
-    #                 infile,
-    #                 affine,
-    #                 xmin,
-    #                 ymin,
-    #                 xmax,
-    #                 ymax,
-    #                 polygons_file,
-    #                 network_file,
-    #             )
-    #             futures.append(future)
-    #
-    #         for fut in futures:
-    #             fut.result()
-    #
 
     @staticmethod
     def _silence_logging() -> None:
@@ -379,62 +358,6 @@ class VecTiles(
         contextlib.redirect_stdout(devnull).__enter__()
         contextlib.redirect_stderr(devnull).__enter__()
 
-
-    # @recursion_block
-    # def vectorize(self) -> None:
-    #
-    #     iterable = zip(
-    #         self.file.stitched,
-    #         self.affine_params,
-    #         self.file.lines,
-    #         self.file.polygons,
-    #         self.gw,
-    #         self.gs,
-    #         self.ge,
-    #         self.gn,
-    #     )
-    #     total = len(self.file.stitched)  # progress bar length
-    #
-    #     with (
-    #         ProcessPoolExecutor(
-    #             max_workers=os.cpu_count(),
-    #             initializer=self._silence_logging,  # quiet children
-    #         ) as ex,
-    #         self.intiles.cfg as cfg,
-    #     ):
-    #         _cfg = dict(cfg)
-    #         futures = [
-    #             ex.submit(
-    #                 self._vectorize_submit,
-    #                 infile,
-    #                 affine,
-    #                 xmin,
-    #                 ymin,
-    #                 xmax,
-    #                 ymax,
-    #                 polygons_file,
-    #                 network_file,
-    #             )
-    #             for (
-    #                 infile,
-    #                 affine,
-    #                 network_file,
-    #                 polygons_file,
-    #                 xmin,
-    #                 ymin,
-    #                 xmax,
-    #                 ymax,
-    #             ) in iterable
-    #         ]
-    #
-    #         for fut in tqdm(
-    #                 as_completed(futures),
-    #                 total=total,
-    #                 desc="Vectorizing",
-    #                 unit="tile",
-    #         ):
-    #             fut.result()  # re-raise worker exceptions
-
     @recursion_block
     def vectorize(  # noqa: D401 – no docstrings per user pref
             self,
@@ -442,11 +365,11 @@ class VecTiles(
         """
         Parallel vectorisation with live progress and bounded memory.
         """
-        print('⚠️AI GENERATED🤖')
+        # preemptively stitch so logging appears more sequential
+        # else you get "now vectorizing" before "now stitching"
+        _ = self.file.stitched
 
-        # ------------------------------------------------------------------ #
         # Build *lazy* iterable ⇢ no up-front list allocation
-        # ------------------------------------------------------------------ #
         def _tile_iter() -> Iterable[
             tuple[
                 str,  # infile
@@ -483,14 +406,16 @@ class VecTiles(
                     network_file,
                     _cfg,
                 )
-                for (infile,
-                     affine,
-                     network_file,  # <- order now matches call-site
-                     polygons_file,
-                     xmin,
-                     ymin,
-                     xmax,
-                     ymax)
+                for (
+                infile,
+                affine,
+                network_file,  # <- order now matches call-site
+                polygons_file,
+                xmin,
+                ymin,
+                xmax,
+                ymax
+            )
                 in it
             )
 
@@ -500,12 +425,12 @@ class VecTiles(
 
         with self.intiles.cfg as cfg_cm, ProcessPoolExecutor(
                 max_workers=window,
-                initializer=self._silence_logging,       # ← HERE
+                initializer=self._silence_logging,  # ← HERE
         ) as pool, tqdm(
-                total=total_tiles,
-                desc="Vectorizing",
-                unit="tile",
-                smoothing=0.01,
+            total=total_tiles,
+            desc="Vectorizing",
+            unit="tile",
+            smoothing=0.01,
         ) as pbar:
             _cfg = dict(cfg_cm)  # materialise once, if needed
 

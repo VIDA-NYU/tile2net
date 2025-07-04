@@ -674,18 +674,35 @@ class Model(cmdline.Namespace):
         ...
 
 
-class Stitch(cmdline.Namespace):
+class SegTile(cmdline.Namespace):
     @cmdline.property
     def dimension(self) -> int:
-        ...
+        return 1024
 
     @cmdline.property
-    def mosaic(self) -> int:
+    def length(self) -> int:
         ...
 
     @cmdline.property
     def scale(self) -> int:
         ...
+
+
+
+class VecTile(cmdline.Namespace):
+    @cmdline.property
+    def dimension(self) -> int:
+        ...
+
+    @cmdline.property
+    def length(self) -> int:
+        ...
+
+    @cmdline.property
+    def scale(self) -> int:
+        ...
+
+
 
 
 class Loss(cmdline.Namespace):
@@ -833,8 +850,12 @@ class Cfg(
     def model(self):
         ...
 
-    @Stitch
-    def stitch(self):
+    @SegTile
+    def segtile(self):
+        ...
+
+    @VecTile
+    def vectile(self):
         ...
 
     @Polygon

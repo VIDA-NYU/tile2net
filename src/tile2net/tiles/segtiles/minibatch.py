@@ -328,7 +328,7 @@ class MiniBatch(
         if self.predictions is None:
             return
         arrays = to_numpy(self.predictions)
-        for array, file in zip(arrays, self.tiles.file.maskraw):
+        for array, file in zip(arrays, self.tiles.file.prediction):
             if array.ndim == 3:  # one-hot or logits → class map
                 array = array.argmax(axis=-1)
             future = self.threads.submit(

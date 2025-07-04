@@ -24,7 +24,7 @@ def get_net(criterion: _Loss) -> torch.nn.Module:
         criterion=criterion
     )
     num_params = sum([param.nelement() for param in net.parameters()])
-    logger.info('Model params = {:2.1f}M'.format(num_params / 1000000))
+    logger.debug('Model params = {:2.1f}M'.format(num_params / 1000000))
 
     net = net.cuda()
     return net

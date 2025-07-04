@@ -29,56 +29,6 @@ from ..fixed import GeoDataFrameFixed
 os.environ['USE_PYGEOS'] = '0'
 
 
-# else:
-#     if testing:
-#         file = tiles.outdir.polygons.file
-#         if os.path.exists(file):
-#             logger.debug(f'Loading existing polygons: \n\t{file}')
-#             net = PedNet.from_parquet(
-#                 file,
-#                 checkpoint='./checkpoint'
-#             )
-#         else:
-#             msg = f'Polygons file not found: {file}. '
-#             logger.debug(msg)
-#             msg = f'Postprocessing segmentation polygons'
-#             logger.info(msg)
-#             polys = (
-#                 tiles.outdir.polygons.files()
-#                 .pipe(Mask2Poly.from_parquets)
-#                 .postprocess()
-#             )
-#             msg = (
-#                 f'Done. Writing polygons to '
-#                 f'\n\t{tiles.outdir.polygons.file}'
-#             )
-#             logger.info(msg)
-#             _ = (
-#                 polys
-#                 .to_crs(4326)
-#                 .to_parquet(tiles.outdir.polygons.file)
-#             )
-#
-#             msg = f'Polygons file not written! {file}'
-#             assert os.path.exists(file), msg
-#             if polys.empty:
-#                 logging.warning('No polygons were generated during the session.')
-#             net = PedNet.from_polygons(
-#                 polys,
-#                 checkpoint='./checkpoint'
-#             )
-#
-#         msg = f'Generating network from polygons'
-#         logger.info(msg)
-#         clipped = net.center.clipped
-#
-#         msg = f'Writing network to\n\t{tiles.outdir.network.file}'
-#         logger.info(msg)
-#         _ = (
-#             clipped
-#             .to_crs(4326)
-#             .to_parquet(tiles.outdir.network.file)
-#         )
 
 class Mask2Poly(
     GeoDataFrameFixed,

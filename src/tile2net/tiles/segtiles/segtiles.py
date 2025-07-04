@@ -88,22 +88,41 @@ class Tile(
 
 def __get__(
         self: SegTiles,
-        instance: Tiles,
+        instance: InTiles,
         owner: type[Tiles],
 ) -> SegTiles:
     if instance is None:
         return self
     try:
         result = instance.attrs[self.__name__]
+        result.intiles = instance
+        result.instance = instance
     except KeyError as e:
         msg = (
-            f'InTiles must be segtiles using `InTiles.stitch` for '
-            f'example `InTiles.stitch.to_resolution(2048)` or '
-            f'`InTiles.stitch.to_cluster(16)`'
+            f'intiles.{self.__name__} has not been set. You may '
+            f'customize the segmentation functionality by using '
+            f'`Intiles.set_segmentation`'
         )
-        raise ValueError(msg) from e
-    result.intiles = instance
-    result.instance = instance
+        logger.info(msg)
+        cfg = instance.cfg
+
+        scale = cfg.segtile.scale
+        length = cfg.segtile.length
+        dimension = cfg.segtile.dimension
+
+        if scale:
+            instance = instance.set_segmentation(scale=scale)
+        elif length:
+            instance = instance.set_segmentation(length=length)
+        elif dimension:
+            instance = instance.set_segmentation(dimension=dimension)
+        else:
+            raise ValueError(
+                'You must set at least one of the following '
+                'segmentation parameters: segtile.scale, segtile.length, or segtile.dimension.'
+            )
+        result = instance.segtiles
+
     return result
 
 
@@ -237,20 +256,20 @@ class File(
         tiles[key] = files
         return tiles[key]
 
-    @property
-    def maskraw(self) -> pd.Series:
-        tiles = self.tiles
-        key = 'file.maskraw'
-        if key in tiles:
-            return tiles[key]
-        files = tiles.intiles.outdir.raw.files(tiles)
-        if (
-                not tiles.predict
-                and not files.map(os.path.exists).all()
-        ):
-            tiles.predict()
-        tiles[key] = files
-        return tiles[key]
+    # @property
+    # def maskraw(self) -> pd.Series:
+    #     tiles = self.tiles
+    #     key = 'file.maskraw'
+    #     if key in tiles:
+    #         return tiles[key]
+    #     files = tiles.intiles.outdir.raw.files(tiles)
+    #     if (
+    #             not tiles.predict
+    #             and not files.map(os.path.exists).all()
+    #     ):
+    #         tiles.predict()
+    #     tiles[key] = files
+    #     return tiles[key]
 
     def output(self, dirname: str) -> pd.Series:
         tiles = self.tiles
@@ -302,7 +321,8 @@ class SegTiles(
             logger.info(msg)
             return intiles
         else:
-            logger.info(f'Stitching {n_missing:,} of {n_total:,} mosaics missing on disk.')
+            msg = f'Stitching {n_missing:,} of {n_total:,} segtiles missing on disk.'
+            logger.info(msg)
 
         loader = Loader(
             files=infiles,
@@ -508,6 +528,10 @@ class SegTiles(
         tiles = self
         cfg = tiles.cfg
 
+        # preemptively stitch so logging apears more sequential
+        # otherwise you get "now predicting" before "now stitching"
+        _ = self.file.stitched
+
         if force is not None:
             cfg.force = force
         if batch_size is not None:
@@ -599,7 +623,7 @@ class SegTiles(
 
             cfg.restore_net = True
             msg = "Loading weights \n\t{}".format(cfg.model.snapshot)
-            logger.info(msg)
+            logger.debug(msg)
             if cfg.model.snapshot != Static.snapshot:
                 msg = (
                     f'Weights are being loaded using weights_only=False. '
@@ -633,7 +657,6 @@ class SegTiles(
                 tiles.file.sidebyside,
                 tiles.file.segresults,
                 tiles.file.error,
-                tiles.file.maskraw,
                 tiles.file.mask,
                 tiles.file.submit,
             )
@@ -692,33 +715,6 @@ class SegTiles(
         threads = ThreadPoolExecutor()
         futures = []
         batch_size = cfg.model.bs_val
-
-        # with logging_redirect_tqdm():
-        #     it = enumerate(tqdm(loader))
-        #     for i, (input_images, labels, img_names, scale_float) in it:
-        #         start = i * batch_size
-        #         tiles = TILES.iloc[start: start + len(input_images)]
-        #         if i % 20 == 0:
-        #             msg = f'Inference [Iter: {i + 1} / {len(loader)}]'
-        #             logger.debug(msg)
-        #
-        #         batch = MiniBatch.from_data(
-        #             images=input_images,
-        #             net=net,
-        #             gt_image=labels,
-        #             criterion=criterion,
-        #             val_loss=val_loss,
-        #             tiles=tiles,
-        #             threads=threads
-        #         )
-        #         futures.extend(batch.submit_all())
-        #
-        #         iou_acc += batch.iou_acc
-        #         if (
-        #                 cfg.options.test_mode
-        #                 and i >= 5
-        #         ):
-        #             break
 
         with logging_redirect_tqdm():
             pbar = tqdm(

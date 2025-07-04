@@ -84,7 +84,7 @@ class ImageBasedCrossEntropyLoss2d(nn.Module):
     ):
         super(ImageBasedCrossEntropyLoss2d, self).__init__()
         # logger.debug("Using Per Image based weighted loss")
-        logger.info("Using Per Image based weighted loss")
+        logger.debug("Using Per Image based weighted loss")
         self.num_classes = classes
 
         if ignore_index is None:
@@ -143,8 +143,7 @@ class CrossEntropyLoss2d(nn.Module):
             reduction='mean'
     ):
         super(CrossEntropyLoss2d, self).__init__()
-        # logger.debug("Using Cross Entropy Loss")
-        logger.info("Using Cross Entropy Loss")
+        logger.debug("Using Cross Entropy Loss")
 
         if ignore_index is None:
             ignore_index = cfg.DATASET.IGNORE_LABEL
