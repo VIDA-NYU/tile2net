@@ -263,10 +263,10 @@ class Stitch:
             mosaic_shape = stitched.dimension, stitched.dimension, 3
 
             loader = Loader(
-                files=files_sub,
+                infiles=files_sub,
                 row=row_sub,
                 col=col_sub,
-                group=group_sub,
+                outfiles=group_sub,
                 tile_shape=tile_shape,
                 mosaic_shape=mosaic_shape,
             )
@@ -288,7 +288,7 @@ class Stitch:
 
             executor.shutdown(wait=True)
 
-            files: pd.Series[str] = stitched.stitched
+            files: pd.Series[str] = stitched.prediction
             assert all(map(os.path.exists, files))
 
         return tiles

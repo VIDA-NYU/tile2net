@@ -1,5 +1,4 @@
 from __future__ import annotations
-from ..util import assert_perfect_overlap
 
 import hashlib
 import os
@@ -10,9 +9,7 @@ from pathlib import Path
 from typing import *
 
 import PIL.Image
-import PIL.Image
 import imageio.v2
-import imageio.v3
 import imageio.v3
 import imageio.v3 as iio
 import numpy
@@ -30,7 +27,6 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 import tile2net.tiles.tileseg.network.ocrnet
 from tile2net.tiles.cfg.cfg import assert_and_infer_cfg
 from tile2net.tiles.cfg.logger import logger
-from tile2net.tiles.dir.loader import Loader
 from tile2net.tiles.tiles.static import Static
 from tile2net.tiles.tileseg import datasets
 from tile2net.tiles.tileseg import network
@@ -38,14 +34,13 @@ from tile2net.tiles.tileseg.loss.optimizer import get_optimizer, restore_opt, re
 from tile2net.tiles.tileseg.loss.utils import get_loss
 from tile2net.tiles.tileseg.network.ocrnet import MscaleOCR
 from tile2net.tiles.tileseg.utils.misc import AverageMeter, prep_experiment
+from . import delayed
 from .minibatch import MiniBatch
 from .vectile import VecTile
 from ..tiles import file
 from ..tiles import tile
 from ..tiles.tiles import Tiles
 from ...tiles.util import recursion_block
-# from .padded import Padded
-from . import delayed
 
 if False:
     from .padded import Padded
@@ -62,7 +57,6 @@ def sha256sum(path):
 
 
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
-AutoResume = None
 
 
 class Tile(
@@ -132,22 +126,22 @@ class File(
     tiles: SegTiles
 
     @property
-    def stitched(self) -> pd.Series:
+    def infile(self) -> pd.Series:
         """
         A file for each segmentation tile: the stitched input tiles.
         Stitches input files when segtiles.file is accessed
         """
         tiles = self.tiles
-        key = 'file.stitched'
+        key = 'file.infile'
         if key in tiles:
             return tiles[key]
         files = tiles.intiles.outdir.segtiles.files(tiles)
         tiles[key] = files
         if (
-                not tiles.stitch
+                not tiles.stitch_infile
                 and not files.map(os.path.exists).all()
         ):
-            tiles.stitch()
+            tiles.stitch_infile()
         tiles[key] = files
         return tiles[key]
 
@@ -165,6 +159,22 @@ class File(
             tiles.predict()
         tiles[key] = files
         return tiles[key]
+
+    # @property
+    # def infile(self) -> pd.Series:
+    #     tiles = self.tiles
+    #     key = 'file.infile'
+    #     if key in tiles:
+    #         return tiles[key]
+    #     files = tiles.intiles.outdir.vectiles.infile.files(tiles)
+    #     if (
+    #             not tiles.predict
+    #             and not files.map(os.path.exists).all()
+    #     ):
+    #         tiles.predict()
+    #     tiles[key] = files
+    #     return tiles[key]
+    #
 
     @property
     def probability(self) -> pd.Series:
@@ -299,23 +309,23 @@ class SegTiles(
         ...
 
     @recursion_block
-    def stitch(self) -> Self:
+    def stitch_infile(self) -> Self:
         if self is not self.padded:
-            return self.padded.stitch()
+            return self.padded.stitch_infile()
 
         intiles = self.intiles.padded
         segtiles = self.padded
 
-        loc = ~intiles.segtile.stitched.map(os.path.exists)
+        loc = ~intiles.segtile.infile.map(os.path.exists)
         infiles = intiles.file.infile.loc[loc]
         row = intiles.segtile.r.loc[loc]
         col = intiles.segtile.c.loc[loc]
-        group = intiles.segtile.stitched.loc[loc]
+        outfiles: pd.Series = intiles.segtile.infile.loc[loc]
 
-        loc = ~segtiles.file.stitched.map(os.path.exists)
-        stitched = segtiles.file.stitched.loc[loc]
+        stitched = outfiles.drop_duplicates()
+        loc = ~stitched.map(os.path.exists)
         n_missing = np.sum(loc)
-        n_total = len(segtiles)
+        n_total = len(stitched)
         if n_missing == 0:  # nothing to do
             msg = f'All {n_total:,} mosaics are already stitched.'
             logger.info(msg)
@@ -325,12 +335,12 @@ class SegTiles(
             logger.info(msg)
 
         loader = Loader(
-            files=infiles,
+            infiles=infiles,
             row=row,
             col=col,
             tile_shape=intiles.tile.shape,
             mosaic_shape=segtiles.tile.shape,
-            group=group
+            outfiles=outfiles
         )
 
         seen = set()
@@ -353,8 +363,78 @@ class SegTiles(
             w.result()
 
         executor.shutdown(wait=True)
-        assert segtiles.file.stitched.map(os.path.exists).all()
-        assert segtiles.file.stitched.map(os.path.exists).any()
+        assert segtiles.file.infile.map(os.path.exists).all()
+        assert segtiles.file.infile.map(os.path.exists).any()
+        return self
+
+    @recursion_block
+    def stitch_infile(
+            self,
+    ) -> "Self":  # noqa: E821  (quotes to avoid forward ref import)
+        """
+        Entry-point.  Delegates all heavy-lifting to :class:`Loader`.
+        """
+
+        if self is not self.padded:
+            return self.padded.stitch_infile()
+
+        intiles = self.intiles.padded
+        segtiles = self.padded
+
+        # --------------------------------------------------------------------- #
+        #  Figure out what we still need to make                                #
+        # --------------------------------------------------------------------- #
+
+        to_build_mask = ~segtiles.file.infile.map(os.path.exists)
+
+        if not to_build_mask.any():
+            n_total = len(segtiles)
+            logger.info(f'All {n_total:,} mosaics already stitched.')
+            return self
+
+        # gather per-tile information for the *missing* mosaics only
+        loc = ~intiles.segtile.infile.map(os.path.exists)
+        loader = Loader(
+            infiles=intiles.file.infile.loc[loc],
+            outfiles=intiles.segtile.infile.loc[loc],
+            row=intiles.segtile.r.loc[loc],
+            col=intiles.segtile.c.loc[loc],
+            tile_shape=intiles.tile.shape,
+            mosaic_shape=segtiles.tile.shape,
+        )
+
+        n_missing = to_build_mask.sum()
+        n_total = len(segtiles)
+        logger.info(f'Stitching {n_missing:,} of {n_total:,} segtiles.')
+
+        loader.run(max_workers=os.cpu_count())
+
+        # Post-conditions
+        assert segtiles.file.infile.map(os.path.exists).all(), \
+            'Some mosaics still missing after stitching'
+
+        return self
+
+    @recursion_block
+    def stitch_infile(
+            self,
+    ) -> "Self":  # noqa: E821  (quotes to avoid forward ref import)
+
+        if self is not self.padded:
+            return self.padded.stitch_infile()
+
+        intiles = self.intiles.padded
+        segtiles = self.padded
+
+        self._stitch(
+            intiles=intiles,
+            outtiles= segtiles,
+            r= intiles.segtile.r,
+            c= intiles.segtile.c,
+            infiles= intiles.file.infile,
+            outfiles=intiles.segtile.infile,
+        )
+
         return self
 
     @tile.cached_property
@@ -408,7 +488,7 @@ class SegTiles(
             divider: Optional[str] = None,
     ) -> PIL.Image.Image:
 
-        files: pd.Series = self.file.stitched
+        files: pd.Series = self.file.infile
         R: pd.Series = self.r  # 0-based row id
         C: pd.Series = self.c  # 0-based col id
 
@@ -530,7 +610,7 @@ class SegTiles(
 
         # preemptively stitch so logging apears more sequential
         # otherwise you get "now predicting" before "now stitching"
-        _ = self.file.stitched
+        _ = self.file.infile
 
         if force is not None:
             cfg.force = force
@@ -652,7 +732,7 @@ class SegTiles(
 
             _ = (
                 tiles.file.prediction,
-                tiles.file.stitched,
+                tiles.file.infile,
                 tiles.file.probability,
                 tiles.file.sidebyside,
                 tiles.file.segresults,

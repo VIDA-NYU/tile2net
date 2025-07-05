@@ -93,7 +93,7 @@ class File(
         key = 'file.static'
         if key in tiles:
             return tiles[key]
-        files = tiles.indir.files(tiles)
+        files = tiles.indir.infile.files(tiles)
         tiles[key] = files
         if (
                 not tiles.download

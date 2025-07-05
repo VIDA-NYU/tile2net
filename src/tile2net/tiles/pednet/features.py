@@ -28,6 +28,8 @@ def __get__(
     else:
         result = (
             instance
+            # .make_valid()
+            # .to_frame(name='geometry')
             .dissolve(by='feature')
             .pipe(Features)
         )
@@ -112,8 +114,6 @@ class Features(
         if key in self:
             return self[key]
 
-        # logger.debug('Computing %s for %s', key, self.__name__)
-        msg = f'Computing the u'
         data = (
             self._pednet
             .union_all()

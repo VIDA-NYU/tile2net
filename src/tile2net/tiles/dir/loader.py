@@ -15,18 +15,18 @@ from numpy import ndarray
 class Loader:
     def __init__(
             self,
-            files: pd.Series,
-            group: pd.Series,
+            infiles: pd.Series,
+            outfiles: pd.Series,
             row: pd.Series,
             col: pd.Series,
             tile_shape: tuple[int, int, int],
             mosaic_shape: tuple[int, int, int],
     ):
-        if not (len(files) == len(group) == len(row) == len(col)):
+        if not (len(infiles) == len(outfiles) == len(row) == len(col)):
             raise ValueError('files, group, row, and col must be the same length')
 
-        self.files = files.reset_index(drop=True)
-        self.group = group.reset_index(drop=True)
+        self.files = infiles.reset_index(drop=True)
+        self.group = outfiles.reset_index(drop=True)
         self.row = row.reset_index(drop=True)
         self.col = col.reset_index(drop=True)
 

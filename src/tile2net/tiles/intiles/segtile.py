@@ -138,15 +138,15 @@ class SegTile(
         return intiles[key]
 
     @property
-    def stitched(self) -> pd.Series:
+    def infile(self) -> pd.Series:
         """segtiles.file broadcasted to intiles"""
         intiles = self.intiles
-        key = 'segtile.file'
+        key = 'segtile.infile'
         if key in intiles.columns:
             return intiles[key]
         result = (
             # intiles.segtiles.file.stitched
-            intiles.segtiles.padded.file.stitched
+            intiles.segtiles.padded.file.infile
             .loc[self.index]
             .values
         )

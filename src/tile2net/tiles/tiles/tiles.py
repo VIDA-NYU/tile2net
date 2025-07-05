@@ -1,27 +1,31 @@
 from __future__ import annotations
-from .corners import Corners
-import math
 
+import os
 from concurrent.futures import ThreadPoolExecutor
 from functools import cached_property
+from pathlib import Path
 from typing import *
 
-import PIL.Image
-import imageio.v3 as iio
+import imageio.v2
+import imageio.v3
+import math
 import numpy as np
 import pandas as pd
 import pyproj
 import shapely
-from PIL import Image
+from tqdm.auto import tqdm
 
 from tile2net.raster import util
 from tile2net.tiles import util
+from tile2net.tiles.cfg.logger import logger
 from tile2net.tiles.explore import explore
 from tile2net.tiles.fixed import GeoDataFrameFixed
+from . import tile
 from .colormap import ColorMap
+from .corners import Corners
+from .loader import Loader
 from .static import Static
 from .tile import Tile
-from . import tile
 
 if False:
     import folium
@@ -531,3 +535,44 @@ class Tiles(
             index=self.index,
         )
         return result
+
+    def _stitch(
+        self,
+        infiles: pd.Series,
+        outfiles: pd.Series,
+        intiles: Tiles,
+        outtiles: Tiles,
+        r: pd.Series,
+        c: pd.Series,
+    ):
+
+        loc = ~outfiles.map(os.path.exists)
+        infiles = infiles.loc[loc]
+        row = r.loc[loc]
+        col = c.loc[loc]
+        outfiles: pd.Series = outfiles.loc[loc]
+
+        stitched = outfiles.drop_duplicates()
+        loc = ~stitched.map(os.path.exists)
+        n_missing = np.sum(loc)
+        n_total = len(stitched)
+        if n_missing == 0:  # nothing to do
+            msg = f'All {n_total:,} mosaics are already stitched.'
+            logger.info(msg)
+        else:
+            msg = f'Stitching {n_missing:,} of {n_total:,} segtiles missing on disk.'
+            logger.info(msg)
+
+        loader = Loader(
+            infiles=infiles,
+            row=row,
+            col=col,
+            tile_shape=intiles.tile.shape,
+            mosaic_shape=outtiles.tile.shape,
+            outfiles=outfiles
+        )
+        loader.run(max_workers=os.cpu_count())
+
+        assert outfiles.map(os.path.exists).all(), (
+            'Not all stitched mosaics were written to disk.'
+        )

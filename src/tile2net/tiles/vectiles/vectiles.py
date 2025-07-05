@@ -1,4 +1,11 @@
 from __future__ import annotations
+import os
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
+
+import numpy as np
+import imageio.v3 as iio
+from tqdm import tqdm
 
 import concurrent.futures as cf
 import contextlib
@@ -134,17 +141,62 @@ class File(
     tiles: VecTiles
 
     @property
-    def stitched(self) -> pd.Series:
+    def prediction(self) -> pd.Series:
         tiles = self.tiles
-        key = 'file.stitched'
+        key = 'file.prediction'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.vectiles.files(tiles)
+        files = tiles.intiles.outdir.vectiles.prediction.files(tiles)
         if (
-                not tiles.stitch
+                not tiles._stitch_prediction
                 and not files.map(os.path.exists).all()
         ):
-            tiles.stitch()
+            tiles._stitch_prediction()
+        tiles[key] = files
+        return tiles[key]
+
+    @property
+    def mask(self) -> pd.Series:
+        tiles = self.tiles
+        key = 'file.mask'
+        if key in tiles:
+            return tiles[key]
+        files = tiles.intiles.outdir.vectiles.mask.files(tiles)
+        if (
+                not tiles._stitch_mask
+                and not files.map(os.path.exists).all()
+        ):
+            tiles._stitch_mask()
+        tiles[key] = files
+        return tiles[key]
+
+    @property
+    def infile(self) -> pd.Series:
+        tiles = self.tiles
+        key = 'file.infile'
+        if key in tiles:
+            return tiles[key]
+        files = tiles.intiles.outdir.vectiles.infile.files(tiles)
+        if (
+                not tiles._stitch_infile
+                and not files.map(os.path.exists).all()
+        ):
+            tiles._stitch_infile()
+        tiles[key] = files
+        return tiles[key]
+
+    @property
+    def overlay(self) -> pd.Series:
+        tiles = self.tiles
+        key = 'file.overlay'
+        if key in tiles:
+            return tiles[key]
+        files = tiles.intiles.outdir.vectiles.overlay.files(tiles)
+        if (
+                not tiles._overlay
+                and not files.map(os.path.exists).all()
+        ):
+            tiles._overlay()
         tiles[key] = files
         return tiles[key]
 
@@ -241,9 +293,7 @@ class VecTiles(
         return self
 
     @recursion_block
-    def stitch(self) -> Self:
-        self.intiles.segtile.xtile
-        self.intiles.segtile.ytile
+    def _stitch_prediction(self) -> Self:
         segtiles = self.segtiles.broadcast
         vectiles = self
 
@@ -251,31 +301,32 @@ class VecTiles(
         # else you get "now stitching" before "now predicting"
         _ = segtiles.file.prediction
 
-        loc = ~segtiles.vectile.stitched.map(os.path.exists)
+        loc = ~segtiles.vectile.prediction.map(os.path.exists)
         infiles = segtiles.file.prediction.loc[loc]
         row = segtiles.vectile.r.loc[loc]
         col = segtiles.vectile.c.loc[loc]
-        group = segtiles.vectile.stitched.loc[loc]
+        group = segtiles.vectile.prediction.loc[loc]
 
-        loc = ~vectiles.file.stitched.map(os.path.exists)
-        predfiles = vectiles.file.stitched.loc[loc]
+        loc = ~vectiles.file.prediction.map(os.path.exists)
+        predfiles = vectiles.file.prediction.loc[loc]
         n_missing = np.sum(loc)
         n_total = len(vectiles)
 
         if n_missing == 0:  # nothing to do
-            msg = f'All {n_total:,} mosaics are already stitched.'
+            msg = f'All {n_total:,} stitched predictions on file.'
             logger.info(msg)
             return segtiles
         else:
-            logger.info(f'Stitching {n_missing:,} of {n_total:,} mosaics missing on disk.')
+            msg = f'{n_missing:,} of {n_total:,} stitched predictions missing on disk.'
+            logger.info(msg)
 
         loader = Loader(
-            files=infiles,
+            infiles=infiles,
             row=row,
             col=col,
             tile_shape=segtiles.tile.shape,
             mosaic_shape=vectiles.tile.shape,
-            group=group
+            outfiles=group
         )
 
         seen = set()
@@ -298,8 +349,196 @@ class VecTiles(
             w.result()
 
         executor.shutdown(wait=True)
-        assert vectiles.file.stitched.map(os.path.exists).all()
+        assert vectiles.file.prediction.map(os.path.exists).all()
         return self
+
+    @recursion_block
+    def _stitch_mask(self) -> Self:
+        segtiles = self.segtiles.broadcast
+        vectiles = self
+
+        # preemptively predict so logging appears more sequential
+        # else you get "now stitching" before "now predicting"
+        _ = segtiles.file.mask
+
+        loc = ~segtiles.vectile.mask.map(os.path.exists)
+        infiles = segtiles.file.mask.loc[loc]
+        row = segtiles.vectile.r.loc[loc]
+        col = segtiles.vectile.c.loc[loc]
+        group = segtiles.vectile.mask.loc[loc]
+
+        loc = ~vectiles.file.mask.map(os.path.exists)
+        predfiles = vectiles.file.mask.loc[loc]
+        n_missing = np.sum(loc)
+        n_total = len(vectiles)
+
+        if n_missing == 0:  # nothing to do
+            msg = f'All {n_total:,} stitched masks on file.'
+            logger.info(msg)
+            return segtiles
+        else:
+            msg = f'{n_missing:,} of {n_total:,} stitched masks missing on disk.'
+            logger.info(msg)
+
+        loader = Loader(
+            infiles=infiles,
+            row=row,
+            col=col,
+            tile_shape=segtiles.tile.shape,
+            mosaic_shape=vectiles.tile.shape,
+            outfiles=group
+        )
+
+        seen = set()
+        for f in predfiles:
+            d = Path(f).parent
+            if d not in seen:  # avoids extra mkdir syscalls
+                d.mkdir(parents=True, exist_ok=True)
+                seen.add(d)
+
+        executor = ThreadPoolExecutor()
+        imwrite = imageio.v3.imwrite
+        it = loader
+        it = tqdm(it, 'stitching', n_missing, unit=' mosaic')
+
+        writes = []
+        for path, array in it:
+            future = executor.submit(imwrite, path, array)
+            writes.append(future)
+        for w in writes:
+            w.result()
+
+        executor.shutdown(wait=True)
+        assert vectiles.file.mask.map(os.path.exists).all()
+        return self
+
+    @recursion_block
+    def _stitch_infile(self) -> Self:
+        segtiles = self.segtiles.broadcast
+        vectiles = self
+
+        # preemptively predict so logging appears more sequential
+        # else you get "now stitching" before "now predicting"
+        _ = segtiles.file.infile
+
+        loc = ~segtiles.vectile.infile.map(os.path.exists)
+        infiles = segtiles.file.infile.loc[loc]
+        row = segtiles.vectile.r.loc[loc]
+        col = segtiles.vectile.c.loc[loc]
+        group = segtiles.vectile.infile.loc[loc]
+
+        loc = ~vectiles.file.infile.map(os.path.exists)
+        predfiles = vectiles.file.infile.loc[loc]
+        n_missing = np.sum(loc)
+        n_total = len(vectiles)
+
+        if n_missing == 0:  # nothing to do
+            msg = f'All {n_total:,} stitched infiles on file.'
+            logger.info(msg)
+            return segtiles
+        else:
+            msg = f'{n_missing:,} of {n_total:,} stitched infiles missing on disk.'
+            logger.info(msg)
+
+        loader = Loader(
+            infiles=infiles,
+            row=row,
+            col=col,
+            tile_shape=segtiles.tile.shape,
+            mosaic_shape=vectiles.tile.shape,
+            outfiles=group
+        )
+
+        seen = set()
+        for f in predfiles:
+            d = Path(f).parent
+            if d not in seen:  # avoids extra mkdir syscalls
+                d.mkdir(parents=True, exist_ok=True)
+                seen.add(d)
+
+        executor = ThreadPoolExecutor()
+        imwrite = imageio.v3.imwrite
+        it = loader
+        it = tqdm(it, 'stitching', n_missing, unit=' infile')
+
+        writes = []
+        for path, array in it:
+            future = executor.submit(imwrite, path, array)
+            writes.append(future)
+        for w in writes:
+            w.result()
+
+        executor.shutdown(wait=True)
+        assert vectiles.file.infile.map(os.path.exists).all()
+        return self
+
+    @recursion_block
+    def _overlay(self) -> Self:          # noqa: C901
+        print('⚠️AI GENERATED🤖')
+        vectiles = self
+
+        prediction = self.file.mask
+        infile = self.file.infile
+        overlay = self.file.overlay
+
+        loc = ~overlay.map(os.path.exists)
+        pred_files = prediction.loc[loc]
+        in_files = infile.loc[loc]
+        out_files = overlay.loc[loc]
+
+        n_missing = np.sum(loc)
+        n_total = len(vectiles)
+
+        if n_missing == 0:
+            logger.info(f'All {n_total:,} overlay files on disk.')
+            return self
+        logger.info(f'{n_missing:,} of {n_total:,} overlay files missing on disk.')
+
+        # make sure output dirs exist (skip redundant mkdirs)
+        seen_dirs = set()
+        for f in out_files:
+            d = Path(f).parent
+            if d not in seen_dirs:
+                d.mkdir(parents=True, exist_ok=True)
+                seen_dirs.add(d)
+
+        def _overlay_single(
+                in_path: str | Path,
+                pred_path: str | Path,
+                out_path: str | Path,
+        ) -> None:
+            base = iio.imread(str(in_path))            # inbound infile image
+            pred = iio.imread(str(pred_path))          # prediction image
+
+            # treat pure-black RGB triplets as transparent pixels
+            if pred.ndim == 2:                         # greyscale guard
+                mask = pred == 0
+            else:
+                mask = np.all(pred[..., :3] == 0, axis=-1)
+
+            result = base.copy()
+            result[~mask] = pred[~mask]
+            iio.imwrite(str(out_path), result)
+
+        executor = ThreadPoolExecutor()
+        tasks = [
+            executor.submit(_overlay_single, i, p, o)
+            for i, p, o in tqdm(
+                zip(in_files, pred_files, out_files),
+                desc='overlay',
+                total=n_missing,
+                unit=' infile',
+            )
+        ]
+        for t in tasks:
+            t.result()
+        executor.shutdown(wait=True)
+
+        assert overlay.map(os.path.exists).all()
+        return self
+
+
+
 
     @staticmethod
     def _vectorize_submit(
@@ -314,20 +553,17 @@ class VecTiles(
             cfg: Optional[dict] = None,
     ):
         try:
+            if cfg:
+                import tile2net.tiles.cfg
+                tile2net.tiles.cfg.update(cfg)
 
-            import tile2net.tiles.cfg
-            tile2net.tiles.cfg.update(cfg)
-            polys = (
-                Mask2Poly
-                .from_path(infile, affine)
-                .postprocess()
-            )
+            polys = Mask2Poly.from_path(infile, affine)
 
             if polys.empty:
                 logging.warning(f'No polygons generated for {infile}')
                 return
 
-            net = PedNet.from_polygons(polys)
+            net = PedNet.from_mask2poly(polys)
             clipped = net.center.clipped.to_crs(4326)
             polys = polys.to_crs(4326)
 
@@ -340,10 +576,17 @@ class VecTiles(
             Path(network_file).parent.mkdir(parents=True, exist_ok=True)
             polys.to_parquet(polygons_file)
             clipped.to_parquet(network_file)
-        except Exception as e:
-            msg = f'Error vectorizing {infile!r}: {e}'
-            raise RuntimeError(msg) from e
 
+        except RuntimeError as e:
+            msg = (
+                'Error vectorizing:\n'
+                f'affine={affine!r}\n'
+                f'infile={infile!r}\n'
+                f'{e}'
+            )
+            raise RuntimeError(msg) from e
+            # msg = f'Error vectorizing {infile!r}: {e}'
+            # raise RuntimeError(msg) from e
 
     @staticmethod
     def _silence_logging() -> None:
@@ -367,7 +610,7 @@ class VecTiles(
         """
         # preemptively stitch so logging appears more sequential
         # else you get "now vectorizing" before "now stitching"
-        _ = self.file.stitched
+        _ = self.file.prediction, self.file.mask
 
         # Build *lazy* iterable ⇢ no up-front list allocation
         def _tile_iter() -> Iterable[
@@ -383,16 +626,20 @@ class VecTiles(
                 dict,  # cfg
             ]
         ]:
-            _cfg = dict(self.intiles.cfg)
+            tiles = self
+            loc = self.file.prediction.str.endswith('4953_6066.png')
+            tiles = tiles.loc[loc]
+
+            _cfg = dict(tiles.intiles.cfg)
             it = zip(
-                self.file.stitched,
-                self.affine_params,
-                self.file.lines,
-                self.file.polygons,
-                self.gw,
-                self.gs,
-                self.ge,
-                self.gn,
+                tiles.file.prediction,
+                tiles.affine_params,
+                tiles.file.lines,
+                tiles.file.polygons,
+                tiles.gw,
+                tiles.gs,
+                tiles.ge,
+                tiles.gn,
             )
             yield from (
                 (
@@ -435,8 +682,24 @@ class VecTiles(
             _cfg = dict(cfg_cm)  # materialise once, if needed
 
             it = iter(_tile_iter())  # → yields argument tuples
-
+            # mask = self.file.stitched.str.endswith('4953_6066.png')
+            # iloc = np.flatnonzero(mask.to_numpy())[0]  # → e.g. 123
+            #
+            # # corresponding MultiIndex label (xtile, ytile)
+            # idx = mask.idxmax()  # → (4953, 6066)
+            #
+            # # if you need the integer position via the index API
+            # iloc2 = mask.index.get_loc(idx)  # identical to `iloc`
+            # print(iloc, idx)V
+            #
             # prime the pool
+            it = list(it)
+            result = [
+                self._vectorize_submit(*args)
+                for _, args in zip(range(window), it)
+            ]
+
+            it = iter(_tile_iter())  # → yields argument tuples
             running: set[cf.Future] = {
                 pool.submit(self._vectorize_submit, *args)
                 for _, args in zip(range(window), it)
@@ -465,7 +728,7 @@ class VecTiles(
             divider: Optional[str] = None,
     ) -> PIL.Image.Image:
 
-        files = self.file.stitched
+        files = self.file.prediction
         R: pd.Series = self.r  # 0-based row id
         C: pd.Series = self.c  # 0-based col id
 

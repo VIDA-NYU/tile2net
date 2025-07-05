@@ -58,48 +58,27 @@ We can use something like the majority vote + confidence mask to force the label
 
 from_slice
 
-downscale to segtile.scale
-[x-1, y-1, x+1, y+1]
-
-frame.corners(scale=segtile.scale)
-
-we must figure out how to pad
-
-infiles.padded
-scales to largest, adds padding=1 using corners, scales back
-
-infiles padded with segtiles.scale
-segtiles padded with segtiles.scale
-
-for broadcasting:
-
-vectiles.corners.to_scale(segtiles.scale)
-
-so we need:
-    corners.ntiles -> corners.tile.area
-    corners.to_scale(scale)
-
-corners.to_tiles()
-
-check if polygon simplification is a necessary step
-
-lines.explode()
-
-how to keep segtiles.padded?
-
-
 
 compare
 
 add a changelog
-shapely.errors.GEOSException: TopologyException: unable to assign free hole to a shell at -7921395.5664562527 5199966.2301127482
 
-The above exception was the direct cause of the following exception:
+we should have vectiles.prediction and vectiles.mask
 
-Traceback (most recent call last):
-  File "/home/arstneio/.local/share/uv/python/cpython-3.11.12-linux-x86_64-gnu/lib/python3.11/concurrent/futures/process.py", line 261, in _process_worker
-    r = call_item.fn(*call_item.args, **call_item.kwargs)
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/arstneio/PycharmProjects/tile2net/src/tile2net/tiles/vectiles/vectiles.py", line 326, in _vectorize_submit
-    raise RuntimeError(msg) from e
-RuntimeError: Error vectorizing '/home/arstneio/PycharmProjects/tile2net/src/boston/vectiles/19/4953_6065.png': TopologyException: unable to assign free hole to a shell at -7921395.5664562527 5199966.2301127482
+we must dissolve before simplifying
+
+
+if exterior length along road < threshold
+and buffer is between two sidewalks
+and exterior length doesn't change > 90 degrees
+fill the gap
+
+
+Mask2Poly
+
+
+better tune the toleranec for simplify_covearge
+
+
+with threadpool: abotu 90 /s
+without: about 110 / s

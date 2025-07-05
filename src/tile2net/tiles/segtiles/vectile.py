@@ -96,20 +96,53 @@ class VecTile(
     #     return segtiles[key]
 
     @property
-    def stitched(self) -> pd.Series:
+    def prediction(self) -> pd.Series:
         """segtiles.file broadcasted to intiles"""
         segtiles = self.segtiles
-        key = 'segtile.file'
+        key = 'segtile.prediction'
         if key in segtiles.columns:
             return segtiles[key]
         vectiles = self.vectiles
         result = (
-            vectiles.file.stitched
+            vectiles.file.prediction
             .loc[self.index]
             .values
         )
         segtiles[key] = result
         return segtiles[key]
+
+    @property
+    def infile(self) -> pd.Series:
+        """segtiles.file broadcasted to intiles"""
+        segtiles = self.segtiles
+        key = 'segtile.infile'
+        if key in segtiles.columns:
+            return segtiles[key]
+        vectiles = self.vectiles
+        result = (
+            vectiles.file.infile
+            .loc[self.index]
+            .values
+        )
+        segtiles[key] = result
+        return segtiles[key]
+
+    @property
+    def mask(self) -> pd.Series:
+        """segtiles.file broadcasted to intiles"""
+        segtiles = self.segtiles
+        key = 'segtile.mask'
+        if key in segtiles.columns:
+            return segtiles[key]
+        vectiles = self.vectiles
+        result = (
+            vectiles.file.mask
+            .loc[self.index]
+            .values
+        )
+        segtiles[key] = result
+        return segtiles[key]
+
 
     @tile.static.cached_prpoerty
     def index(self):

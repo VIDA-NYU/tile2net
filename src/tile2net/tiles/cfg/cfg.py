@@ -751,7 +751,8 @@ class Polygon(cmdline.Namespace):
 
     @cmdline.property
     def simplify(self) -> float | dict[str, float]:
-        return 0.8
+        return 5.
+        # return 0.8
 
     @cmdline.property
     def z_order(self) -> dict[str, int]:

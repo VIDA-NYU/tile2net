@@ -113,7 +113,7 @@ class Loader(BaseLoader):
         self.trainid_to_name = trainId2name
         self.fill_colormap()
 
-        files = tiles.file.stitched
+        files = tiles.file.infile
         import os
         it = zip(files.tolist(), itertools.repeat(''))
         imgs = list(it)

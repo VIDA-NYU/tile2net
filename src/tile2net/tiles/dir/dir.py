@@ -72,14 +72,6 @@ class Dir:
     __wrapped__ = None
 
 
-    @property
-    def segtiles(self):
-        return self.intiles.segtiles
-
-    @property
-    def vectiles(self):
-        return self.intiles.vectiles
-
     def __set_name__(self, owner, name):
         self.__name__ = name
 
@@ -262,7 +254,7 @@ class Dir:
                 f'    original={self.original!r},\n'
                 f')'
             )
-        except (AttributeError):
+        except AttributeError:
             return (
                 f'{self.__class__.__name__}(\n'
                 f'    dir={self.dir!r}\n'
@@ -327,45 +319,6 @@ class Dir:
         result = tiles[key]
         return result
 
-    # def skip(self, dirname=''):
-    #     tiles = self.tiles
-    #     if dirname:
-    #         key = f'{self._trace}.{dirname}.skip'
-    #     else:
-    #         key = f'{self._trace}.skip'
-    #     if key not in tiles:
-    #         files = self.files(dirname)
-    #         if self.intiles.cfg.force:
-    #             result = False
-    #         else:
-    #             result = files.apply(os.path.exists)
-    #         tiles[key] = result
-    #     return tiles[key]
-    #
-
-class UsesInTiles(
-    Dir
-):
-    @property
-    def tiles(self):
-        return self.intiles
-
-
-class UsesVecTiles(
-    Dir
-):
-    @property
-    def tiles(self):
-        return self.intiles.vectiles
-
-
-class UsesSegTiles(
-    Dir
-):
-    @property
-    def tiles(self):
-        return self.intiles.segtiles
-
 
 class TestIndir:
     indir = Dir()
@@ -404,7 +357,6 @@ if __name__ == '__main__':
     test = TestIndir('input/dir/x_y_z.png')
     test = TestIndir('input/dir/y/x/z.png')
     test = TestIndir('input/dir/x/y.png')
-    # test = TestIndir('input/dir/x/')
 
     try:
         test = TestIndir('input/dir/x.png')
@@ -432,6 +384,3 @@ if __name__ == '__main__':
         raise AssertionError
 
     test = TestIndir('input/dir/arst_x_y_z.png')
-    test
-
-Dir.__get__

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import shapely
 
 from pathlib import Path
 from typing import *
@@ -14,6 +15,7 @@ from ..explore import explore
 from ..fixed import GeoDataFrameFixed
 
 if False:
+    from .. import Mask2Poly
     import folium
 
 
@@ -27,6 +29,25 @@ class PedNet(
         return self.index.get_level_values('feature')
 
     @classmethod
+    def from_mask2poly(
+            cls,
+            gdf: Mask2Poly,
+            *,
+            distance: float = .5,
+            crs: int = 3857,
+            save_original: bool = False,
+    ) -> Self:
+        logger.debug(f"Creating {cls.__name__} from {len(gdf)} polygon(s) at CRS {crs}")
+        polygons = gdf.postprocess(crs=crs)
+        result = cls.from_polygons(
+            polygons,
+            distance=distance,
+            crs=crs,
+            save_original=save_original,
+        )
+        return result
+
+    @classmethod
     def from_polygons(
             cls,
             gdf: gpd.GeoDataFrame,
@@ -36,6 +57,8 @@ class PedNet(
             save_original: bool = False,
     ) -> Self:
         logger.debug(f"Creating {cls.__name__} from {len(gdf)} polygon(s) at CRS {crs}")
+        import shapely
+
         result = (
             gdf
             .to_crs(crs)
@@ -43,9 +66,7 @@ class PedNet(
         )
         original = result
 
-
         if distance:
-
             loc = result.feature.isin(cfg.polygon.borders)
             border = result.loc[loc]
             ped = result.loc[~loc]
@@ -55,6 +76,7 @@ class PedNet(
                 buffer = (
                     ped
                     .dissolve(level='feature')
+                    .set_geometry('geometry')
                     .buffer(distance, cap_style='flat')
                 )
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 import os
 import hashlib
 import numpy as np
@@ -15,31 +14,29 @@ import pandas as pd
 from pandas.tseries.holiday import USPresidentsDay
 
 from .batchiterator import BatchIterator
-from .dir import Dir, UsesInTiles, UsesVecTiles, UsesSegTiles
-
+from .dir import Dir, Dir, Dir, Dir
 
 
 class Probability(
-    UsesSegTiles,
+    Dir,
 ):
     extension = 'npy'
 
 
 class Prediction(
-    UsesSegTiles
+    Dir
 ):
     extension = 'png'
 
 
 class Error(
-    UsesSegTiles
+    Dir
 ):
     extension = 'npy'
 
 
-
 class Polygons(
-    UsesVecTiles
+    Dir
 ):
     @property
     def tiles(self):
@@ -68,7 +65,7 @@ class Polygons(
 
 
 class Network(
-    UsesVecTiles
+    Dir
 ):
     @property
     def tiles(self):
@@ -94,17 +91,15 @@ class Network(
 
 
 class SideBySide(
-    UsesSegTiles
+    Dir
 ):
     ...
 
 
 class Outputs(
-    UsesSegTiles,
+    Dir,
 ):
     ...
-
-
 
     # def iterator(self, dirname: str, *args, **kwargs) -> Iterator[pd.Series]:
     #     return super(Outputs, self).iterator(dirname)
@@ -124,10 +119,8 @@ class Outputs(
     #
 
 
-
-
 class SegResults(
-    UsesSegTiles,
+    Dir,
 ):
 
     @Probability
@@ -166,36 +159,115 @@ class SegResults(
 
 
 class Submit(
-    UsesSegTiles,
+    Dir,
 ):
     ...
 
 
 class MaskRaw(
-    UsesSegTiles,
+    Dir,
 ):
     ...
 
 
 class Mask(
-    UsesSegTiles,
+    Dir,
 ):
     ...
+
+
+class VecTilesPrediction(
+    Dir
+):
+    ...
+
+
+class VecTilesMask(
+    Dir
+):
+    ...
+
+
+class VecTilesInFile(
+    Dir
+):
+    ...
+
+
+class VecTilesOverlay(
+    Dir
+):
+    ...
+
 
 
 class VecTiles(
-    UsesVecTiles
+    Dir
+):
+    @VecTilesPrediction
+    def prediction(self):
+        format = os.path.join(
+            self.dir,
+            'prediction',
+            self.suffix
+        ).replace(self.extension, 'png')
+        result = VecTilesPrediction.from_format(format)
+        return result
+
+    @VecTilesMask
+    def mask(self):
+        format = os.path.join(
+            self.dir,
+            'mask',
+            self.suffix
+        ).replace(self.extension, 'png')
+        result = VecTilesMask.from_format(format)
+        return result
+
+    @VecTilesInFile
+    def infile(self):
+        format = os.path.join(
+            self.dir,
+            'infile',
+            self.suffix
+        ).replace(self.extension, 'png')
+        result = VecTilesInFile.from_format(format)
+        return result
+
+    @VecTilesOverlay
+    def overlay(self):
+        format = os.path.join(
+            self.dir,
+            'overlay',
+            self.suffix
+        ).replace(self.extension, 'png')
+        result = VecTilesOverlay.from_format(format)
+        return result
+
+
+class SegTilesInFile(
+    Dir
 ):
     ...
 
+
 class SegTiles(
-    UsesSegTiles,
+    Dir,
 ):
-    ...
+
+    @SegTilesInFile
+    def infile(self):
+        format = os.path.join(
+            self.dir,
+            'infile',
+            self.suffix
+        ).replace(self.extension, 'png')
+        result = SegTilesInFile.from_format(format)
+        return result
 
 
 class BestImages(
-    UsesSegTiles
+    Dir
 ):
     @property
     def webpage(self):
@@ -277,20 +349,8 @@ class Outdir(
         return result
 
     @property
-    def skip(self) -> pd.Series:
-        tiles = self.intiles.segtiles
-        key = f'{self._trace}.skip'
-        if key in tiles:
-            return tiles[key]
-        else:
-            files: pd.Series = self.polygons.files()
-            if self.intiles.cfg.force:
-                data = False
-            else:
-                data = list(map(os.path.exists, files))
-            result = pd.Series(data, index=tiles.index)
-            tiles[key] = result
-            return tiles[key]
+    def exists(self, tiles, dirname) -> pd.Series:
+        return self.files(tiles, dirname).map(os.path.exists)
 
     @Network
     def network(self):

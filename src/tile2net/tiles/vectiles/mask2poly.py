@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import *
 
@@ -10,15 +9,16 @@ import numpy as np
 import pandas as pd
 import pyarrow.dataset as ds
 import rasterio.features
-import rasterio.features
 import shapely
 import shapely.wkt
 import skimage
 from affine import Affine
-from geopandas import GeoDataFrame
 from numpy import ndarray
 from pandas import Series
 from shapely.geometry import shape
+import warnings
+from PIL import Image
+import skimage.io  # assume already in deps
 
 from tile2net.raster.tile_utils.geodata_utils import _check_skimage_im_load
 from tile2net.tiles.cfg.logger import logger
@@ -29,10 +29,10 @@ from ..fixed import GeoDataFrameFixed
 os.environ['USE_PYGEOS'] = '0'
 
 
-
 class Mask2Poly(
     GeoDataFrameFixed,
 ):
+
 
     @classmethod
     def from_path(
@@ -40,8 +40,17 @@ class Mask2Poly(
             path: str | Path,
             affine: Affine,
     ) -> Self:
-        array = skimage.io.imread(str(path))
+
+        original_max = Image.MAX_IMAGE_PIXELS
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', Image.DecompressionBombWarning)
+            Image.MAX_IMAGE_PIXELS = None           # avoid the error variant
+            array = skimage.io.imread(str(path))
+
+        Image.MAX_IMAGE_PIXELS = original_max       # restore global state
         return cls.from_array(array, affine)
+
 
     @classmethod
     def from_parquets(cls, files: Iterable[str | Path], ) -> Self:
@@ -50,12 +59,22 @@ class Mask2Poly(
             return cls()
 
         logger.debug(f"Reading {len(paths)} parquet files into {cls.__name__} via pyarrow.dataset")
-        table = ds.dataset(paths, format="parquet").to_table(use_threads=True)
-        logger.debug(f"Arrow table rows={table.num_rows}, cols={table.num_columns}")
+        # table = ds.dataset(paths, format="parquet").to_table(use_threads=True)
+        # logger.debug(f"Arrow table rows={table.num_rows}, cols={table.num_columns}")
 
-        df = table.to_pandas(split_blocks=True, self_destruct=True)
-        geometry = gpd.GeoSeries.from_wkb(df.pop("geometry"), crs=4326)
-        gdf = gpd.GeoDataFrame(df, geometry=geometry, crs=4326).pipe(cls)
+        # df = table.to_pandas(split_blocks=True, self_destruct=True)
+        # geometry = gpd.GeoSeries.from_wkb(df.pop("geometry"), crs=4326)
+        # gdf = cls(df, geometry=geometry, crs=4326)
+
+        gdf = (
+            # table
+            ds.dataset(paths, format="parquet")
+            .to_table(use_threads=True)
+            .to_pandas(split_blocks=True, self_destruct=True)
+            .geometry.pipe(gpd.GeoSeries.from_wkb, crs=4326)
+            .to_frame(name='geometry')
+            .pipe(cls)
+        )
 
         logger.debug(f"GeoDataFrame assembled with {len(gdf)} row(s)")
         return gdf
@@ -101,6 +120,7 @@ class Mask2Poly(
         if array.ndim == 3:
             array = array[..., 0]  # assuming single channel for simplicity
 
+
         for label, id in label2id.items():
             mask = np.array(array == id, dtype=np.uint8)
             it = rasterio.features.shapes(array, mask, transform=affine)
@@ -117,9 +137,9 @@ class Mask2Poly(
         result = (
             pd.concat(concat)
             .pipe(cls)
-            .set_crs(crs, allow_override=True)
             .set_index('feature')
         )
+
 
         return result
 
@@ -259,30 +279,29 @@ class Mask2Poly(
         cls = self.__class__
         logger.debug("Starting postprocessing")
         msg = f'Dissolving & exploding {len(self)} polygon(s)'
+        if simplify is None:
+            simplify = cfg.polygon.simplify
         with benchmark(msg):
-            result = (
+            result: Self = (
                 self
                 .to_crs(crs)
                 .dissolve(level='feature')
+                .set_geometry('geometry')
+                .simplify_coverage(simplify)
                 .explode()
+                .to_frame('geometry')
+                .pipe(self.__class__)
             )
+            assert np.all(result.is_valid)
+
         logger.debug(f"Dissolved & exploded: {len(result)} polygon(s)")
 
-        msg = f'Validating {len(result)} polygon(s)'
-        with benchmark(msg):
-            result = (
-                result
-                .make_valid()
-                .pipe(result.set_geometry)
-            )
         RESULT = result
 
         if min_poly_area is None:
             min_poly_area = cfg.polygon.min_polygon_area
-        if simplify is None:
-            simplify = cfg.polygon.simplify
-        if grid_size is None:
-            grid_size = cfg.polygon.grid_size
+        # if grid_size is None:
+        #     grid_size = cfg.polygon.grid_size
         if max_hole_area is None:
             max_hole_area = cfg.polygon.max_hole_area
         if convexity is None:
@@ -319,35 +338,9 @@ class Mask2Poly(
             msg = f'{len(result)} out of {len(loc)} polygons remaining after area filter'
             logger.debug(msg)
 
-        if None is not simplify is not False:
-            if isinstance(simplify, dict):
-                simplify = (
-                    pd.Series(simplify)
-                    .reindex(result.index, fill_value=0.0)
-                    .values
-                )
-            elif isinstance(simplify, float):
-                simplify = np.full(len(result), simplify)
-            elif isinstance(simplify, pd.Series):
-                simplify = (
-                    simplify
-                    .reindex(result.index, fill_value=0.0)
-                    .values
-                )
-            else:
-                raise TypeError(f'Unsupported type for simplify: {type(simplify)}')
+        # if None is not grid_size is not False:
+        #     result = result.set_precision(grid_size=grid_size)
 
-            msg = f'Simplifying polygons'
-            logger.debug(msg)
-            result = (
-                result
-                .simplify(tolerance=simplify)
-                .pipe(result.set_geometry)
-            )
-            logger.debug(f"Simplified {len(result)} polygon(s)")
-
-        if None is not grid_size is not False:
-            result = result.set_precision(grid_size=grid_size)
 
         if None is not max_hole_area is not False:
             if isinstance(max_hole_area, dict):
@@ -393,3 +386,4 @@ class Mask2Poly(
 
         result = cls(result)
         return result
+
