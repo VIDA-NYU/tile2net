@@ -138,10 +138,10 @@ class File(
         files = tiles.intiles.outdir.segtiles.files(tiles)
         tiles[key] = files
         if (
-                not tiles.stitch_infile
+                not tiles._stitch_infile
                 and not files.map(os.path.exists).all()
         ):
-            tiles.stitch_infile()
+            tiles._stitch_infile()
         tiles[key] = files
         return tiles[key]
 
@@ -309,130 +309,21 @@ class SegTiles(
         ...
 
     @recursion_block
-    def stitch_infile(self) -> Self:
-        if self is not self.padded:
-            return self.padded.stitch_infile()
-
-        intiles = self.intiles.padded
-        segtiles = self.padded
-
-        loc = ~intiles.segtile.infile.map(os.path.exists)
-        infiles = intiles.file.infile.loc[loc]
-        row = intiles.segtile.r.loc[loc]
-        col = intiles.segtile.c.loc[loc]
-        outfiles: pd.Series = intiles.segtile.infile.loc[loc]
-
-        stitched = outfiles.drop_duplicates()
-        loc = ~stitched.map(os.path.exists)
-        n_missing = np.sum(loc)
-        n_total = len(stitched)
-        if n_missing == 0:  # nothing to do
-            msg = f'All {n_total:,} mosaics are already stitched.'
-            logger.info(msg)
-            return intiles
-        else:
-            msg = f'Stitching {n_missing:,} of {n_total:,} segtiles missing on disk.'
-            logger.info(msg)
-
-        loader = Loader(
-            infiles=infiles,
-            row=row,
-            col=col,
-            tile_shape=intiles.tile.shape,
-            mosaic_shape=segtiles.tile.shape,
-            outfiles=outfiles
-        )
-
-        seen = set()
-        for f in stitched:
-            d = Path(f).parent
-            if d not in seen:  # avoids extra mkdir syscalls
-                d.mkdir(parents=True, exist_ok=True)
-                seen.add(d)
-
-        executor = ThreadPoolExecutor()
-        imwrite = imageio.v3.imwrite
-        it = loader
-        it = tqdm(it, 'stitching', n_missing, unit=' mosaic')
-
-        writes = []
-        for path, array in it:
-            future = executor.submit(imwrite, path, array)
-            writes.append(future)
-        for w in writes:
-            w.result()
-
-        executor.shutdown(wait=True)
-        assert segtiles.file.infile.map(os.path.exists).all()
-        assert segtiles.file.infile.map(os.path.exists).any()
-        return self
-
-    @recursion_block
-    def stitch_infile(
-            self,
-    ) -> "Self":  # noqa: E821  (quotes to avoid forward ref import)
-        """
-        Entry-point.  Delegates all heavy-lifting to :class:`Loader`.
-        """
+    def _stitch_infile(self) -> Self:
 
         if self is not self.padded:
-            return self.padded.stitch_infile()
-
-        intiles = self.intiles.padded
-        segtiles = self.padded
-
-        # --------------------------------------------------------------------- #
-        #  Figure out what we still need to make                                #
-        # --------------------------------------------------------------------- #
-
-        to_build_mask = ~segtiles.file.infile.map(os.path.exists)
-
-        if not to_build_mask.any():
-            n_total = len(segtiles)
-            logger.info(f'All {n_total:,} mosaics already stitched.')
-            return self
-
-        # gather per-tile information for the *missing* mosaics only
-        loc = ~intiles.segtile.infile.map(os.path.exists)
-        loader = Loader(
-            infiles=intiles.file.infile.loc[loc],
-            outfiles=intiles.segtile.infile.loc[loc],
-            row=intiles.segtile.r.loc[loc],
-            col=intiles.segtile.c.loc[loc],
-            tile_shape=intiles.tile.shape,
-            mosaic_shape=segtiles.tile.shape,
-        )
-
-        n_missing = to_build_mask.sum()
-        n_total = len(segtiles)
-        logger.info(f'Stitching {n_missing:,} of {n_total:,} segtiles.')
-
-        loader.run(max_workers=os.cpu_count())
-
-        # Post-conditions
-        assert segtiles.file.infile.map(os.path.exists).all(), \
-            'Some mosaics still missing after stitching'
-
-        return self
-
-    @recursion_block
-    def stitch_infile(
-            self,
-    ) -> "Self":  # noqa: E821  (quotes to avoid forward ref import)
-
-        if self is not self.padded:
-            return self.padded.stitch_infile()
+            return self.padded._stitch_infile()
 
         intiles = self.intiles.padded
         segtiles = self.padded
 
         self._stitch(
-            intiles=intiles,
-            outtiles= segtiles,
-            r= intiles.segtile.r,
-            c= intiles.segtile.c,
-            infiles= intiles.file.infile,
-            outfiles=intiles.segtile.infile,
+            small_tiles=intiles,
+            big_tiles=segtiles,
+            r=intiles.segtile.r,
+            c=intiles.segtile.c,
+            small_files=intiles.file.infile,
+            big_files=intiles.segtile.infile,
         )
 
         return self

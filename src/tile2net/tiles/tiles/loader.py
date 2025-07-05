@@ -1,20 +1,8 @@
 from __future__ import annotations
 
-from concurrent.futures import (
-    ThreadPoolExecutor,
-    as_completed,
-)
-import os
-from pathlib import Path
-from typing import Tuple
-
-import imageio.v3 as iio
-import numpy as np
-
 from concurrent.futures import Future
 from concurrent.futures import (
     ProcessPoolExecutor,
-    ThreadPoolExecutor,
     as_completed,
 )
 from pathlib import Path
@@ -140,62 +128,6 @@ class Loader:
 
         self.unique_groups = self.group.unique()
 
-    # --------------------------------------------------------------------- #
-    #  Public API                                                            #
-    # --------------------------------------------------------------------- #
-
-    def run(
-            self,
-            *,
-            max_workers: int | None = None,
-    ) -> None:
-        """
-        Assemble and write *every* missing mosaic using a
-        :class:`~concurrent.futures.ProcessPoolExecutor`.
-        """
-
-        with ProcessPoolExecutor(max_workers=max_workers) as ex:
-
-            # ── 1️⃣  progress while we enqueue jobs ────────────────────────────
-            enqueue_bar = tqdm(
-                total=len(self.unique_groups),
-                desc='stitching',
-                unit=' segtile.file.infile',
-                position=0,
-                leave=False,
-            )
-
-            tasks: list[Future[str]] = []
-
-            for g in self.unique_groups:
-                enqueue_bar.update(1)  # update *before* the costly submit
-                enqueue_bar.refresh()  # force a redraw right now
-
-                mask = self.group == g
-                fut = ex.submit(
-                    _assemble_and_save,
-                    self.files[mask].to_list(),
-                    self.row[mask].to_numpy(),
-                    self.col[mask].to_numpy(),
-                    g,
-                    (self.tile_h, self.tile_w, self.tile_c),
-                    (self.mos_h, self.mos_w, self.mos_c),
-                    self.dtype,
-                )
-                tasks.append(fut)
-
-            enqueue_bar.close()
-
-            # ── 2️⃣  progress while the processes finish ───────────────────────
-            for fut in tqdm(
-                    as_completed(tasks),
-                    total=len(tasks),
-                    desc='stitching',
-                    unit=' mosaic',
-                    position=1,
-            ):
-                fut.result()
-
     def run(
             self,
             *,
@@ -207,20 +139,13 @@ class Loader:
         list via a single `DataFrame.groupby('outfile')` to avoid the
         per-iteration boolean mask.
         """
-        print('⚠️AI GENERATED🤖')
 
-        # ── build one tidy frame ------------------------------------------------
-        df = (
-            pd.DataFrame({
-                'file': self.files,
-                'outfile': self.group,  # one mosaic per unique *outfile*
-                'row': self.row,
-                'col': self.col,
-            })
-            .sort_values(['outfile', 'row', 'col'])
-            .reset_index(drop=True)
-        )
-
+        df = pd.DataFrame(dict(
+            file=self.files.values,
+            outfile=self.group.values,  # one mosaic per unique *outfile*
+            row=self.row.values,
+            col=self.col.values,
+        ))
         groups = df.groupby('outfile', sort=False)
 
         with ProcessPoolExecutor(max_workers=max_workers) as ex:

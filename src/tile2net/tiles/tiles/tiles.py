@@ -538,21 +538,21 @@ class Tiles(
 
     def _stitch(
         self,
-        infiles: pd.Series,
-        outfiles: pd.Series,
-        intiles: Tiles,
-        outtiles: Tiles,
+        small_files: pd.Series,
+        big_files: pd.Series,
+        small_tiles: Tiles,
+        big_tiles: Tiles,
         r: pd.Series,
         c: pd.Series,
     ):
 
-        loc = ~outfiles.map(os.path.exists)
-        infiles = infiles.loc[loc]
+        loc = ~big_files.map(os.path.exists)
+        small_files = small_files.loc[loc]
         row = r.loc[loc]
         col = c.loc[loc]
-        outfiles: pd.Series = outfiles.loc[loc]
+        big_files: pd.Series = big_files.loc[loc]
 
-        stitched = outfiles.drop_duplicates()
+        stitched = big_files.drop_duplicates()
         loc = ~stitched.map(os.path.exists)
         n_missing = np.sum(loc)
         n_total = len(stitched)
@@ -564,15 +564,15 @@ class Tiles(
             logger.info(msg)
 
         loader = Loader(
-            infiles=infiles,
+            infiles=small_files,
             row=row,
             col=col,
-            tile_shape=intiles.tile.shape,
-            mosaic_shape=outtiles.tile.shape,
-            outfiles=outfiles
+            tile_shape=small_tiles.tile.shape,
+            mosaic_shape=big_tiles.tile.shape,
+            outfiles=big_files
         )
         loader.run(max_workers=os.cpu_count())
 
-        assert outfiles.map(os.path.exists).all(), (
+        assert big_files.map(os.path.exists).all(), (
             'Not all stitched mosaics were written to disk.'
         )

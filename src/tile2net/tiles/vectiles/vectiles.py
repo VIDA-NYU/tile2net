@@ -1,4 +1,14 @@
 from __future__ import annotations
+
+from concurrent.futures import (
+    ThreadPoolExecutor,
+    wait,
+    FIRST_COMPLETED,
+)
+
+import gc
+import os
+from collections import deque
 import os
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
@@ -46,10 +56,26 @@ from ..tiles.corners import Corners
 from ..tiles.tiles import Tiles
 from ...tiles.explore import explore
 from ...tiles.util import recursion_block
+import gc
+import os
+from collections import deque
+from concurrent.futures import (
+    ThreadPoolExecutor,
+    as_completed,
+    Future,
+)
+from pathlib import Path
+from typing import Iterable, Iterator, Tuple
+
+import imageio.v3 as iio
+import numpy as np
+from tqdm.auto import tqdm
+from concurrent.futures import as_completed
 
 if False:
     import folium
     from ..intiles import InTiles
+
 
 
 def __get__(
@@ -292,253 +318,452 @@ class VecTiles(
     def vectiles(self) -> Self:
         return self
 
+    # @recursion_block
+    # def _stitch_prediction(self) -> Self:
+    #     segtiles = self.segtiles.broadcast
+    #     vectiles = self
+    #
+    #     # preemptively predict so logging appears more sequential
+    #     # else you get "now stitching" before "now predicting"
+    #     _ = segtiles.file.prediction
+    #
+    #     loc = ~segtiles.vectile.prediction.map(os.path.exists)
+    #     infiles = segtiles.file.prediction.loc[loc]
+    #     row = segtiles.vectile.r.loc[loc]
+    #     col = segtiles.vectile.c.loc[loc]
+    #     group = segtiles.vectile.prediction.loc[loc]
+    #
+    #     loc = ~vectiles.file.prediction.map(os.path.exists)
+    #     predfiles = vectiles.file.prediction.loc[loc]
+    #     n_missing = np.sum(loc)
+    #     n_total = len(vectiles)
+    #
+    #     if n_missing == 0:  # nothing to do
+    #         msg = f'All {n_total:,} stitched predictions on file.'
+    #         logger.info(msg)
+    #         return segtiles
+    #     else:
+    #         msg = f'{n_missing:,} of {n_total:,} stitched predictions missing on disk.'
+    #         logger.info(msg)
+    #
+    #     loader = Loader(
+    #         infiles=infiles,
+    #         row=row,
+    #         col=col,
+    #         tile_shape=segtiles.tile.shape,
+    #         mosaic_shape=vectiles.tile.shape,
+    #         outfiles=group
+    #     )
+    #
+    #     seen = set()
+    #     for f in predfiles:
+    #         d = Path(f).parent
+    #         if d not in seen:  # avoids extra mkdir syscalls
+    #             d.mkdir(parents=True, exist_ok=True)
+    #             seen.add(d)
+    #
+    #     executor = ThreadPoolExecutor()
+    #     imwrite = imageio.v3.imwrite
+    #     it = loader
+    #     it = tqdm(it, 'stitching', n_missing, unit=' mosaic')
+    #
+    #     writes = []
+    #     for path, array in it:
+    #         future = executor.submit(imwrite, path, array)
+    #         writes.append(future)
+    #     for w in writes:
+    #         w.result()
+    #
+    #     executor.shutdown(wait=True)
+    #     assert vectiles.file.prediction.map(os.path.exists).all()
+    #     return self
+    #
+    # @recursion_block
+    # def _stitch_mask(self) -> Self:
+    #     segtiles = self.segtiles.broadcast
+    #     vectiles = self
+    #
+    #     # preemptively predict so logging appears more sequential
+    #     # else you get "now stitching" before "now predicting"
+    #     _ = segtiles.file.mask
+    #
+    #     loc = ~segtiles.vectile.mask.map(os.path.exists)
+    #     infiles = segtiles.file.mask.loc[loc]
+    #     row = segtiles.vectile.r.loc[loc]
+    #     col = segtiles.vectile.c.loc[loc]
+    #     group = segtiles.vectile.mask.loc[loc]
+    #
+    #     loc = ~vectiles.file.mask.map(os.path.exists)
+    #     predfiles = vectiles.file.mask.loc[loc]
+    #     n_missing = np.sum(loc)
+    #     n_total = len(vectiles)
+    #
+    #     if n_missing == 0:  # nothing to do
+    #         msg = f'All {n_total:,} stitched masks on file.'
+    #         logger.info(msg)
+    #         return segtiles
+    #     else:
+    #         msg = f'{n_missing:,} of {n_total:,} stitched masks missing on disk.'
+    #         logger.info(msg)
+    #
+    #     loader = Loader(
+    #         infiles=infiles,
+    #         row=row,
+    #         col=col,
+    #         tile_shape=segtiles.tile.shape,
+    #         mosaic_shape=vectiles.tile.shape,
+    #         outfiles=group
+    #     )
+    #
+    #     seen = set()
+    #     for f in predfiles:
+    #         d = Path(f).parent
+    #         if d not in seen:  # avoids extra mkdir syscalls
+    #             d.mkdir(parents=True, exist_ok=True)
+    #             seen.add(d)
+    #
+    #     executor = ThreadPoolExecutor()
+    #     imwrite = imageio.v3.imwrite
+    #     it = loader
+    #     it = tqdm(it, 'stitching', n_missing, unit=' mosaic')
+    #
+    #     writes = []
+    #     for path, array in it:
+    #         future = executor.submit(imwrite, path, array)
+    #         writes.append(future)
+    #     for w in writes:
+    #         w.result()
+    #
+    #     executor.shutdown(wait=True)
+    #     assert vectiles.file.mask.map(os.path.exists).all()
+    #     return self
+    #
+    # @recursion_block
+    # def _stitch_infile(self) -> Self:
+    #     segtiles = self.segtiles.broadcast
+    #     vectiles = self
+    #
+    #     # preemptively predict so logging appears more sequential
+    #     # else you get "now stitching" before "now predicting"
+    #     _ = segtiles.file.infile
+    #
+    #     loc = ~segtiles.vectile.infile.map(os.path.exists)
+    #     infiles = segtiles.file.infile.loc[loc]
+    #     row = segtiles.vectile.r.loc[loc]
+    #     col = segtiles.vectile.c.loc[loc]
+    #     group = segtiles.vectile.infile.loc[loc]
+    #
+    #     loc = ~vectiles.file.infile.map(os.path.exists)
+    #     predfiles = vectiles.file.infile.loc[loc]
+    #     n_missing = np.sum(loc)
+    #     n_total = len(vectiles)
+    #
+    #     if n_missing == 0:  # nothing to do
+    #         msg = f'All {n_total:,} stitched infiles on file.'
+    #         logger.info(msg)
+    #         return segtiles
+    #     else:
+    #         msg = f'{n_missing:,} of {n_total:,} stitched infiles missing on disk.'
+    #         logger.info(msg)
+    #
+    #     loader = Loader(
+    #         infiles=infiles,
+    #         row=row,
+    #         col=col,
+    #         tile_shape=segtiles.tile.shape,
+    #         mosaic_shape=vectiles.tile.shape,
+    #         outfiles=group
+    #     )
+    #
+    #     seen = set()
+    #     for f in predfiles:
+    #         d = Path(f).parent
+    #         if d not in seen:  # avoids extra mkdir syscalls
+    #             d.mkdir(parents=True, exist_ok=True)
+    #             seen.add(d)
+    #
+    #     executor = ThreadPoolExecutor()
+    #     imwrite = imageio.v3.imwrite
+    #     it = loader
+    #     it = tqdm(it, 'stitching', n_missing, unit=' infile')
+    #
+    #     writes = []
+    #     for path, array in it:
+    #         future = executor.submit(imwrite, path, array)
+    #         writes.append(future)
+    #     for w in writes:
+    #         w.result()
+    #
+    #     executor.shutdown(wait=True)
+    #     assert vectiles.file.infile.map(os.path.exists).all()
+    #     return self
+
+    # @recursion_block
+    # def _overlay(self) -> Self:  # noqa: C901
+    #     vectiles = self
+    #
+    #     mask = self.file.mask
+    #     infile = self.file.infile
+    #     overlay = self.file.overlay
+    #
+    #     loc = ~overlay.map(os.path.exists)
+    #     pred_files = mask.loc[loc]
+    #     in_files = infile.loc[loc]
+    #     out_files = overlay.loc[loc]
+    #
+    #     n_missing = np.sum(loc)
+    #     n_total = len(vectiles)
+    #
+    #     if n_missing == 0:
+    #         logger.info(f'All {n_total:,} overlay files on disk.')
+    #         return self
+    #     logger.info(f'{n_missing:,} of {n_total:,} overlay files missing on disk.')
+    #
+    #     # make sure output dirs exist (skip redundant mkdirs)
+    #     seen_dirs = set()
+    #     for f in out_files:
+    #         d = Path(f).parent
+    #         if d not in seen_dirs:
+    #             d.mkdir(parents=True, exist_ok=True)
+    #             seen_dirs.add(d)
+    #
+    #     def _overlay_single(
+    #             in_path: str | Path,
+    #             pred_path: str | Path,
+    #             out_path: str | Path,
+    #     ) -> None:
+    #
+    #         base = iio.imread(str(in_path))
+    #         pred = iio.imread(str(pred_path))
+    #
+    #         mask = (
+    #             (pred == 0) if pred.ndim == 2
+    #             else np.all(pred[..., :3] == 0, axis=-1)
+    #         )
+    #
+    #         out = base.copy()
+    #         out[~mask] = pred[~mask]
+    #         iio.imwrite(str(out_path), out)
+    #
+    #         # be extra nice to the GC when images are huge
+    #         del base, pred, out, mask
+    #         gc.collect()
+    #
+    #     assert overlay.map(os.path.exists).all()
+    #     return self
+
     @recursion_block
-    def _stitch_prediction(self) -> Self:
-        segtiles = self.segtiles.broadcast
+    def _overlay(self) -> Self:       # noqa: C901
+        """
+        Create coloured-mask overlays for every vector tile that is still
+        missing on disk, using a memory-bounded thread pool.
+        """
         vectiles = self
 
-        # preemptively predict so logging appears more sequential
-        # else you get "now stitching" before "now predicting"
-        _ = segtiles.file.prediction
+        mask      = self.file.mask
+        infile    = self.file.infile
+        overlay   = self.file.overlay
 
-        loc = ~segtiles.vectile.prediction.map(os.path.exists)
-        infiles = segtiles.file.prediction.loc[loc]
-        row = segtiles.vectile.r.loc[loc]
-        col = segtiles.vectile.c.loc[loc]
-        group = segtiles.vectile.prediction.loc[loc]
+        loc        = ~overlay.map(os.path.exists)
+        pred_files = mask.loc[loc]
+        in_files   = infile.loc[loc]
+        out_files  = overlay.loc[loc]
 
-        loc = ~vectiles.file.prediction.map(os.path.exists)
-        predfiles = vectiles.file.prediction.loc[loc]
-        n_missing = np.sum(loc)
-        n_total = len(vectiles)
-
-        if n_missing == 0:  # nothing to do
-            msg = f'All {n_total:,} stitched predictions on file.'
-            logger.info(msg)
-            return segtiles
-        else:
-            msg = f'{n_missing:,} of {n_total:,} stitched predictions missing on disk.'
-            logger.info(msg)
-
-        loader = Loader(
-            infiles=infiles,
-            row=row,
-            col=col,
-            tile_shape=segtiles.tile.shape,
-            mosaic_shape=vectiles.tile.shape,
-            outfiles=group
-        )
-
-        seen = set()
-        for f in predfiles:
-            d = Path(f).parent
-            if d not in seen:  # avoids extra mkdir syscalls
-                d.mkdir(parents=True, exist_ok=True)
-                seen.add(d)
-
-        executor = ThreadPoolExecutor()
-        imwrite = imageio.v3.imwrite
-        it = loader
-        it = tqdm(it, 'stitching', n_missing, unit=' mosaic')
-
-        writes = []
-        for path, array in it:
-            future = executor.submit(imwrite, path, array)
-            writes.append(future)
-        for w in writes:
-            w.result()
-
-        executor.shutdown(wait=True)
-        assert vectiles.file.prediction.map(os.path.exists).all()
-        return self
-
-    @recursion_block
-    def _stitch_mask(self) -> Self:
-        segtiles = self.segtiles.broadcast
-        vectiles = self
-
-        # preemptively predict so logging appears more sequential
-        # else you get "now stitching" before "now predicting"
-        _ = segtiles.file.mask
-
-        loc = ~segtiles.vectile.mask.map(os.path.exists)
-        infiles = segtiles.file.mask.loc[loc]
-        row = segtiles.vectile.r.loc[loc]
-        col = segtiles.vectile.c.loc[loc]
-        group = segtiles.vectile.mask.loc[loc]
-
-        loc = ~vectiles.file.mask.map(os.path.exists)
-        predfiles = vectiles.file.mask.loc[loc]
-        n_missing = np.sum(loc)
-        n_total = len(vectiles)
-
-        if n_missing == 0:  # nothing to do
-            msg = f'All {n_total:,} stitched masks on file.'
-            logger.info(msg)
-            return segtiles
-        else:
-            msg = f'{n_missing:,} of {n_total:,} stitched masks missing on disk.'
-            logger.info(msg)
-
-        loader = Loader(
-            infiles=infiles,
-            row=row,
-            col=col,
-            tile_shape=segtiles.tile.shape,
-            mosaic_shape=vectiles.tile.shape,
-            outfiles=group
-        )
-
-        seen = set()
-        for f in predfiles:
-            d = Path(f).parent
-            if d not in seen:  # avoids extra mkdir syscalls
-                d.mkdir(parents=True, exist_ok=True)
-                seen.add(d)
-
-        executor = ThreadPoolExecutor()
-        imwrite = imageio.v3.imwrite
-        it = loader
-        it = tqdm(it, 'stitching', n_missing, unit=' mosaic')
-
-        writes = []
-        for path, array in it:
-            future = executor.submit(imwrite, path, array)
-            writes.append(future)
-        for w in writes:
-            w.result()
-
-        executor.shutdown(wait=True)
-        assert vectiles.file.mask.map(os.path.exists).all()
-        return self
-
-    @recursion_block
-    def _stitch_infile(self) -> Self:
-        segtiles = self.segtiles.broadcast
-        vectiles = self
-
-        # preemptively predict so logging appears more sequential
-        # else you get "now stitching" before "now predicting"
-        _ = segtiles.file.infile
-
-        loc = ~segtiles.vectile.infile.map(os.path.exists)
-        infiles = segtiles.file.infile.loc[loc]
-        row = segtiles.vectile.r.loc[loc]
-        col = segtiles.vectile.c.loc[loc]
-        group = segtiles.vectile.infile.loc[loc]
-
-        loc = ~vectiles.file.infile.map(os.path.exists)
-        predfiles = vectiles.file.infile.loc[loc]
-        n_missing = np.sum(loc)
-        n_total = len(vectiles)
-
-        if n_missing == 0:  # nothing to do
-            msg = f'All {n_total:,} stitched infiles on file.'
-            logger.info(msg)
-            return segtiles
-        else:
-            msg = f'{n_missing:,} of {n_total:,} stitched infiles missing on disk.'
-            logger.info(msg)
-
-        loader = Loader(
-            infiles=infiles,
-            row=row,
-            col=col,
-            tile_shape=segtiles.tile.shape,
-            mosaic_shape=vectiles.tile.shape,
-            outfiles=group
-        )
-
-        seen = set()
-        for f in predfiles:
-            d = Path(f).parent
-            if d not in seen:  # avoids extra mkdir syscalls
-                d.mkdir(parents=True, exist_ok=True)
-                seen.add(d)
-
-        executor = ThreadPoolExecutor()
-        imwrite = imageio.v3.imwrite
-        it = loader
-        it = tqdm(it, 'stitching', n_missing, unit=' infile')
-
-        writes = []
-        for path, array in it:
-            future = executor.submit(imwrite, path, array)
-            writes.append(future)
-        for w in writes:
-            w.result()
-
-        executor.shutdown(wait=True)
-        assert vectiles.file.infile.map(os.path.exists).all()
-        return self
-
-    @recursion_block
-    def _overlay(self) -> Self:          # noqa: C901
-        print('⚠️AI GENERATED🤖')
-        vectiles = self
-
-        prediction = self.file.mask
-        infile = self.file.infile
-        overlay = self.file.overlay
-
-        loc = ~overlay.map(os.path.exists)
-        pred_files = prediction.loc[loc]
-        in_files = infile.loc[loc]
-        out_files = overlay.loc[loc]
-
-        n_missing = np.sum(loc)
-        n_total = len(vectiles)
+        n_missing  = int(np.sum(loc))
+        n_total    = len(vectiles)
 
         if n_missing == 0:
             logger.info(f'All {n_total:,} overlay files on disk.')
             return self
+
         logger.info(f'{n_missing:,} of {n_total:,} overlay files missing on disk.')
 
-        # make sure output dirs exist (skip redundant mkdirs)
-        seen_dirs = set()
+        # ensure output directories exist (avoid redundant mkdir calls)
+        seen_dirs: set[Path] = set()
         for f in out_files:
             d = Path(f).parent
             if d not in seen_dirs:
                 d.mkdir(parents=True, exist_ok=True)
                 seen_dirs.add(d)
 
+        # ───────────────────────── helper ────────────────────────────── #
+
+
         def _overlay_single(
                 in_path: str | Path,
                 pred_path: str | Path,
                 out_path: str | Path,
+                opacity: float = .20,
         ) -> None:
-            base = iio.imread(str(in_path))            # inbound infile image
-            pred = iio.imread(str(pred_path))          # prediction image
+            """
+            Alpha-blend *pred* over *base* wherever *pred* is non-black.
 
-            # treat pure-black RGB triplets as transparent pixels
-            if pred.ndim == 2:                         # greyscale guard
-                mask = pred == 0
-            else:
-                mask = np.all(pred[..., :3] == 0, axis=-1)
+            Parameters
+            ----------
+            in_path
+            pred_path
+            out_path
+            opacity
+                Fraction of *pred* to keep in the blend (0 → invisible,
+                1 → fully replace).  Must satisfy 0 ≤ opacity ≤ 1.
+            """
 
-            result = base.copy()
-            result[~mask] = pred[~mask]
-            iio.imwrite(str(out_path), result)
+            if not 0.0 <= opacity <= 1.0:
+                raise ValueError('opacity must be within [0, 1]')
 
-        executor = ThreadPoolExecutor()
-        tasks = [
-            executor.submit(_overlay_single, i, p, o)
-            for i, p, o in tqdm(
-                zip(in_files, pred_files, out_files),
-                desc='overlay',
-                total=n_missing,
-                unit=' infile',
+            base = iio.imread(str(in_path))
+            pred = iio.imread(str(pred_path))
+
+            # harmonise channel count
+            if pred.ndim == 2:                             # greyscale → colour
+                pred = np.stack((pred,) * base.shape[2], axis=2)
+            elif pred.shape[2] > base.shape[2]:            # drop alpha
+                pred = pred[..., : base.shape[2]]
+
+            # mask = pixels in pred that are *pure* black
+            mask_arr = (
+                (pred == 0) if pred.ndim == 2
+                else np.all(pred[..., :3] == 0, axis=-1)
             )
-        ]
-        for t in tasks:
-            t.result()
-        executor.shutdown(wait=True)
 
-        assert overlay.map(os.path.exists).all()
+            out = base.copy()
+
+            # blend only where pred has content
+            m = ~mask_arr
+            if m.any():
+                # round once at the end to preserve precision
+                out[m] = np.round(
+                    (1.0 - opacity) * base[m].astype(np.float32)
+                    + opacity        * pred[m].astype(np.float32)
+                ).astype(base.dtype)
+
+            iio.imwrite(str(out_path), out)
+
+            # free memory aggressively (huge rasters)
+            del base, pred, out, mask_arr, m
+            gc.collect()
+
+
+        # ─────────────────────── scheduler ───────────────────────────── #
+
+        def overlay_many(
+                *,
+                max_inflight: int = 4,            # balance RAM vs. speed
+                pool_workers: int | None = None,
+        ) -> None:
+
+            triplets = zip(
+                in_files,
+                pred_files,
+                out_files,
+                strict=True,                     # Py ≥3.12
+            )
+
+            pending: set = set()
+
+            with ThreadPoolExecutor(max_workers=pool_workers) as exe, tqdm(
+                    total=n_missing,
+                    desc='overlay',
+                    unit=' img',
+            ) as bar:
+
+                # prime the pipeline
+                for _ in range(max_inflight):
+                    try:
+                        args = next(triplets)
+                    except StopIteration:
+                        break
+                    pending.add(exe.submit(_overlay_single, *args))
+
+                # main loop – always keep ≤ max_inflight futures alive
+                while pending:
+                    done, pending = wait(
+                        pending,
+                        return_when=FIRST_COMPLETED,
+                    )
+
+                    for fut in done:
+                        fut.result()          # re-raise if the task errored
+                        bar.update()
+
+                        try:
+                            args = next(triplets)
+                            pending.add(exe.submit(_overlay_single, *args))
+                        except StopIteration:
+                            pass
+
+        # pick a sensible default: up to 2-3 GB peak on 64-GB machines
+        max_inflight_default = max(2, min(8, os.cpu_count() // 2))
+        overlay_many(
+            max_inflight=max_inflight_default,
+            pool_workers=os.cpu_count(),
+        )
+
+        # final sanity check
+        assert overlay.map(os.path.exists).all(), 'some overlays are still missing'
+
         return self
 
 
+    @recursion_block
+    def _stitch_prediction(self) -> Self:
+        intiles = self.segtiles.broadcast
+        outtiles = self
 
+        # preemptively predict so logging appears more sequential
+        # else you get "now stitching" before "now predicting"
+        _ = intiles.file.prediction
+
+        self._stitch(
+            small_tiles=intiles,
+            big_tiles=outtiles,
+            r=intiles.vectile.r,
+            c=intiles.vectile.c,
+            small_files=intiles.file.prediction,
+            big_files=intiles.segtile.prediction,
+        )
+
+        return self
+
+    @recursion_block
+    def _stitch_infile(self) -> Self:
+        intiles = self.segtiles.broadcast
+        outtiles = self
+
+        # preemptively predict so logging appears more sequential
+        # else you get "now stitching" before "now predicting"
+        _ = intiles.file.infile
+
+        self._stitch(
+            small_tiles=intiles,
+            big_tiles=outtiles,
+            r=intiles.vectile.r,
+            c=intiles.vectile.c,
+            small_files=intiles.file.infile,
+            big_files=intiles.segtile.infile,
+        )
+
+        return self
+
+    @recursion_block
+    def _stitch_mask(self) -> Self:
+        intiles = self.segtiles.broadcast
+        outtiles = self
+
+        # preemptively predict so logging appears more sequential
+        # else you get "now stitching" before "now predicting"
+        _ = intiles.file.mask
+
+        self._stitch(
+            small_tiles=intiles,
+            big_tiles=outtiles,
+            r=intiles.vectile.r,
+            c=intiles.vectile.c,
+            small_files=intiles.file.mask,
+            big_files=intiles.segtile.mask,
+        )
+
+        return self
 
     @staticmethod
     def _vectorize_submit(
