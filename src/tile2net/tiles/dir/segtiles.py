@@ -53,16 +53,6 @@ class SegTiles(
     Dir,
 ):
 
-    @InFile
-    def infile(self):
-        format = os.path.join(
-            self.dir,
-            'infile',
-            self.suffix
-        ).replace(self.extension, 'png')
-        result = InFile.from_format(format)
-        return result
-
     @Indexed
     def indexed(self):
         format = os.path.join(
