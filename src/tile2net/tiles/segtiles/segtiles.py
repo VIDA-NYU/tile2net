@@ -89,7 +89,7 @@ def __get__(
         return self
     try:
         result = instance.attrs[self.__name__]
-        result.intiles = instance
+        result.tiles = instance
         result.instance = instance
     except KeyError as e:
         msg = (
@@ -146,12 +146,12 @@ class File(
         return tiles[key]
 
     @property
-    def prediction(self) -> pd.Series:
+    def indexed(self) -> pd.Series:
         tiles = self.tiles
-        key = 'file.prediction'
+        key = 'file.indexed'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.prediction.files(tiles)
+        files = tiles.intiles.outdir.segtiles.indexed.files(tiles)
         if (
                 not tiles.predict
                 and not files.map(os.path.exists).all()
@@ -159,22 +159,6 @@ class File(
             tiles.predict()
         tiles[key] = files
         return tiles[key]
-
-    # @property
-    # def infile(self) -> pd.Series:
-    #     tiles = self.tiles
-    #     key = 'file.infile'
-    #     if key in tiles:
-    #         return tiles[key]
-    #     files = tiles.intiles.outdir.vectiles.infile.files(tiles)
-    #     if (
-    #             not tiles.predict
-    #             and not files.map(os.path.exists).all()
-    #     ):
-    #         tiles.predict()
-    #     tiles[key] = files
-    #     return tiles[key]
-    #
 
     @property
     def probability(self) -> pd.Series:
@@ -206,35 +190,35 @@ class File(
         tiles[key] = files
         return tiles[key]
 
-    @property
-    def sidebyside(self) -> pd.Series:
-        tiles = self.tiles
-        key = 'file.sidebyside'
-        if key in tiles:
-            return tiles[key]
-        files = tiles.intiles.outdir.seg_results.sidebyside.files(tiles)
-        if (
-                not tiles.predict
-                and not files.map(os.path.exists).all()
-        ):
-            tiles.predict()
-        tiles[key] = files
-        return tiles[key]
-
-    @property
-    def segresults(self) -> pd.Series:
-        tiles = self.tiles
-        key = 'file.segresults'
-        if key in tiles:
-            return tiles[key]
-        files = tiles.intiles.outdir.seg_results.files(tiles)
-        if (
-                not tiles.predict
-                and not files.map(os.path.exists).all()
-        ):
-            tiles.predict()
-        tiles[key] = files
-        return tiles[key]
+    # @property
+    # def sidebyside(self) -> pd.Series:
+    #     tiles = self.tiles
+    #     key = 'file.sidebyside'
+    #     if key in tiles:
+    #         return tiles[key]
+    #     files = tiles.intiles.outdir.seg_results.sidebyside.files(tiles)
+    #     if (
+    #             not tiles.predict
+    #             and not files.map(os.path.exists).all()
+    #     ):
+    #         tiles.predict()
+    #     tiles[key] = files
+    #     return tiles[key]
+    #
+    # @property
+    # def segresults(self) -> pd.Series:
+    #     tiles = self.tiles
+    #     key = 'file.segresults'
+    #     if key in tiles:
+    #         return tiles[key]
+    #     files = tiles.intiles.outdir.seg_results.files(tiles)
+    #     if (
+    #             not tiles.predict
+    #             and not files.map(os.path.exists).all()
+    #     ):
+    #         tiles.predict()
+    #     tiles[key] = files
+    #     return tiles[key]
 
     @property
     def submit(self) -> pd.Series:
@@ -252,12 +236,12 @@ class File(
         return tiles[key]
 
     @property
-    def mask(self) -> pd.Series:
+    def colored(self) -> pd.Series:
         tiles = self.tiles
-        key = 'file.mask'
+        key = 'file.colored'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.mask.files(tiles)
+        files = tiles.intiles.outdir.segtiles.colored.files(tiles)
         if (
                 not tiles.predict
                 and not files.map(os.path.exists).all()
@@ -265,21 +249,6 @@ class File(
             tiles.predict()
         tiles[key] = files
         return tiles[key]
-
-    # @property
-    # def maskraw(self) -> pd.Series:
-    #     tiles = self.tiles
-    #     key = 'file.maskraw'
-    #     if key in tiles:
-    #         return tiles[key]
-    #     files = tiles.intiles.outdir.raw.files(tiles)
-    #     if (
-    #             not tiles.predict
-    #             and not files.map(os.path.exists).all()
-    #     ):
-    #         tiles.predict()
-    #     tiles[key] = files
-    #     return tiles[key]
 
     def output(self, dirname: str) -> pd.Series:
         tiles = self.tiles
@@ -305,8 +274,9 @@ class SegTiles(
     )
 
     @tile.cached_property
-    def intiles(self) -> InTiles:
+    def tiles(self) -> InTiles:
         ...
+
 
     @recursion_block
     def _stitch_infile(self) -> Self:
@@ -328,9 +298,13 @@ class SegTiles(
 
         return self
 
-    @tile.cached_property
+    # @tile.cached_property
+    # def intiles(self) -> InTiles:
+    #     """InTiles object that this SegTiles object is based on"""
+
+    @property
     def intiles(self) -> InTiles:
-        """InTiles object that this SegTiles object is based on"""
+        return self.tiles
 
     @property
     def ipred(self) -> pd.Series:
@@ -474,7 +448,7 @@ class SegTiles(
 
     @property
     def skip(self):
-        result = ~self.file.prediction.apply(os.path.exists)
+        result = ~self.file.indexed.apply(os.path.exists)
         return result
 
     @delayed.Padded
@@ -508,7 +482,7 @@ class SegTiles(
         if batch_size is not None:
             cfg.model.bs_val = batch_size
         if not cfg.force:
-            loc = ~tiles.file.prediction.apply(os.path.exists)
+            loc = ~tiles.file.indexed.apply(os.path.exists)
             tiles: SegTiles = tiles.loc[loc].copy()
             if not np.any(loc):
                 msg = 'All segmentation tiles are on disk.'
@@ -622,13 +596,13 @@ class SegTiles(
             torch.cuda.empty_cache()
 
             _ = (
-                tiles.file.prediction,
+                tiles.file.indexed,
                 tiles.file.infile,
                 tiles.file.probability,
                 tiles.file.sidebyside,
                 tiles.file.segresults,
                 tiles.file.error,
-                tiles.file.mask,
+                tiles.file.colored,
                 tiles.file.submit,
             )
 

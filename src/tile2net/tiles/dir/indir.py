@@ -1,4 +1,6 @@
 import os
+from os import PathLike
+from os import fspath
 
 import pandas as pd
 from tile2net.tiles.intiles.source import Source
@@ -11,16 +13,21 @@ class InFile(
     ...
 
 
+
 class Indir(
     Dir
 ):
+    ...
 
-    @InFile
-    def infile(self):
-        format = os.path.join(
-            self.dir,
-            'infile',
-            self.suffix,
-        )
-        result = InFile.from_format(format)
-        return result
+
+    # @InFile
+    # def infile(self):
+    #     intiles = self.intiles.outdir.intiles
+    #     format = os.path.join(
+    #         intiles.dir,
+    #         'infile',
+    #         intiles.suffix,
+    #     )
+    #     result = InFile.from_format(format)
+    #     return result
+    #

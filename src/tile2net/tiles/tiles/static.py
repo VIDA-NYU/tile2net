@@ -12,6 +12,61 @@ if False:
 
 
 def __get__(
+        self: Black,
+        instance: Static,
+        owner
+) -> Black:
+    self.static = instance
+    self.tiles = instance.tiles
+    return copy.copy(self)
+
+
+class Black(
+
+):
+
+    tiles: Tiles
+    static: Static
+    locals().update(__get__=__get__)
+    def __set_name__(self, owner, name):
+        self.__name__ = name
+
+    def __init__( self, *args, ):
+        ...
+
+    @cached_property
+    def jpg(self):
+        dim: int = self.tiles.tile.dimension
+        path: Path = self.tiles.path.joinpath(str(dim), 'black.jpg')
+
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            Image.new('RGB', (dim, dim), (0, 0, 0)).save(path)
+
+        return path
+
+    @property
+    def jpeg(self):
+        return self.jpg
+
+    @cached_property
+    def png(self):
+        dim: int = self.tiles.tile.dimension
+        path: Path = self.tiles.path.joinpath(str(dim), 'black.png')
+
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            Image.new('RGB', (dim, dim), (0, 0, 0)).save(path)
+
+        return path
+
+
+
+
+
+
+
+def __get__(
         self: Static,
         instance: Tiles,
         owner: type[Tiles]
@@ -23,6 +78,11 @@ def __get__(
 class Static:
     tiles: Tiles
     locals().update(__get__=__get__)
+
+    @Black
+    def black(self):
+        ...
+
 
     def __init__(self, *args, ):
         ...
@@ -40,7 +100,6 @@ class Static:
         url = 'https://drive.google.com/drive/folders/1cu-MATHgekWUYqj9TFr12utl6VB-XKSu'
         gdown.download_folder(
             url=url,
-            # quiet=True,
             output=self.path.__str__(),
         )
 
@@ -56,13 +115,13 @@ class Static:
         .absolute().__fspath__()
     )
 
-    @cached_property
-    def black(self) -> Path:
-        dim: int = self.tiles.tile.dimension
-        path: Path = self.path.joinpath(str(dim), 'black.png')
-
-        if not path.exists():
-            path.parent.mkdir(parents=True, exist_ok=True)
-            Image.new('RGB', (dim, dim), (0, 0, 0)).save(path)
-
-        return path
+    # @cached_property
+    # def black(self) -> Path:
+    #     dim: int = self.tiles.tile.dimension
+    #     path: Path = self.path.joinpath(str(dim), 'black.png')
+    #
+    #     if not path.exists():
+    #         path.parent.mkdir(parents=True, exist_ok=True)
+    #         Image.new('RGB', (dim, dim), (0, 0, 0)).save(path)
+    #
+    #     return path

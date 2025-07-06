@@ -104,7 +104,7 @@ class VecTile(
             return segtiles[key]
         vectiles = self.vectiles
         result = (
-            vectiles.file.prediction
+            vectiles.file.indexed
             .loc[self.index]
             .values
         )
@@ -136,7 +136,7 @@ class VecTile(
             return segtiles[key]
         vectiles = self.vectiles
         result = (
-            vectiles.file.mask
+            vectiles.file.colored
             .loc[self.index]
             .values
         )

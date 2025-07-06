@@ -324,16 +324,16 @@ class MiniBatch(
                 yield future
 
     def submit_prediction(self):
-        # print('⚠️AI GENERATED🤖')
         if self.predictions is None:
             return
         arrays = to_numpy(self.predictions)
-        for array, file in zip(arrays, self.tiles.file.prediction):
+        for array, file in zip(arrays, self.tiles.file.indexed):
             if array.ndim == 3:  # one-hot or logits → class map
                 array = array.argmax(axis=-1)
             future = self.threads.submit(
                 cv2.imwrite, file, array.astype('uint8'))
             yield future
+
 
     # def submit_raw(self):
     #     """
@@ -357,22 +357,7 @@ class MiniBatch(
             return
         arrays = to_numpy(self.predictions)
         arrays = self.tiles.colormap(arrays)
-        files = self.tiles.file.mask
+        files = self.tiles.file.colored
         for array, file in zip(arrays, files):
             yield self.threads.submit(cv2.imwrite, file, array)
 
-
-    #
-    # def submit_polygons(self):
-    #     affines = next(self.tiles.segtiles.affine_iterator())
-    #     arrays = to_numpy(self.predictions).astype(np.uint8)
-    #     files = next(self.tiles.outdir.polygons.iterator())
-    #     it = zip(arrays, affines, files)
-    #     for array, affine, file in it:
-    #         frame = (
-    #             Mask2Poly
-    #             .from_array(array=array, affine=affine)
-    #             .pipe(gpd.GeoDataFrame)
-    #         )
-    #         future = self.threads.submit(frame.to_parquet, file)
-    #         self.futures.append(future)

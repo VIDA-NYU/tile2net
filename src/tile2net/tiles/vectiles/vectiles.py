@@ -1,38 +1,28 @@
 from __future__ import annotations
-
-from concurrent.futures import (
-    ThreadPoolExecutor,
-    wait,
-    FIRST_COMPLETED,
-)
-
-import gc
-import os
-from collections import deque
-import os
-from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor
-
-import numpy as np
-import imageio.v3 as iio
-from tqdm import tqdm
+from ..tiles import tile
 
 import concurrent.futures as cf
 import contextlib
 import copy
+import gc
 import logging
 import os
 import os.path
 from concurrent.futures import ProcessPoolExecutor
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import (
+    ThreadPoolExecutor,
+)
+from concurrent.futures import (
+    wait,
+    FIRST_COMPLETED,
+)
 from functools import cached_property
 from pathlib import Path
 from typing import *
+from typing import Iterable
 
 import PIL.Image
 import geopandas as gpd
-import imageio.v2
-import imageio.v3
 import imageio.v3 as iio
 import numpy as np
 import pandas as pd
@@ -46,7 +36,6 @@ from tqdm import tqdm
 from tqdm.auto import tqdm
 
 from tile2net.tiles.cfg.logger import logger
-from tile2net.tiles.dir.loader import Loader
 from .mask2poly import Mask2Poly
 from ..dir.outdir import VecTiles
 from ..pednet import PedNet
@@ -56,26 +45,10 @@ from ..tiles.corners import Corners
 from ..tiles.tiles import Tiles
 from ...tiles.explore import explore
 from ...tiles.util import recursion_block
-import gc
-import os
-from collections import deque
-from concurrent.futures import (
-    ThreadPoolExecutor,
-    as_completed,
-    Future,
-)
-from pathlib import Path
-from typing import Iterable, Iterator, Tuple
-
-import imageio.v3 as iio
-import numpy as np
-from tqdm.auto import tqdm
-from concurrent.futures import as_completed
 
 if False:
     import folium
     from ..intiles import InTiles
-
 
 
 def __get__(
@@ -167,12 +140,12 @@ class File(
     tiles: VecTiles
 
     @property
-    def prediction(self) -> pd.Series:
+    def indexed(self) -> pd.Series:
         tiles = self.tiles
         key = 'file.prediction'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.vectiles.prediction.files(tiles)
+        files = tiles.intiles.outdir.vectiles.indexed.files(tiles)
         if (
                 not tiles._stitch_prediction
                 and not files.map(os.path.exists).all()
@@ -182,12 +155,12 @@ class File(
         return tiles[key]
 
     @property
-    def mask(self) -> pd.Series:
+    def colored(self) -> pd.Series:
         tiles = self.tiles
         key = 'file.mask'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.vectiles.mask.files(tiles)
+        files = tiles.intiles.outdir.vectiles.colored.files(tiles)
         if (
                 not tiles._stitch_mask
                 and not files.map(os.path.exists).all()
@@ -232,7 +205,7 @@ class File(
         key = 'file.lines'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.network.files(tiles)
+        files = tiles.intiles.outdir.lines.files(tiles)
         if (
                 not tiles.vectorize
                 and not files.map(os.path.exists).all()
@@ -292,7 +265,7 @@ def __get__(
             )
         result = instance.vectiles
 
-    result.intiles = instance
+    result.tiles = instance
     result.instance = instance
 
     return result
@@ -305,9 +278,8 @@ class VecTiles(
     locals().update(
         __get__=__get__,
     )
-
-    @Tile
-    def tile(self):
+    @tile.cached_property
+    def tiles(self) -> InTiles:
         ...
 
     @File
@@ -318,259 +290,26 @@ class VecTiles(
     def vectiles(self) -> Self:
         return self
 
-    # @recursion_block
-    # def _stitch_prediction(self) -> Self:
-    #     segtiles = self.segtiles.broadcast
-    #     vectiles = self
-    #
-    #     # preemptively predict so logging appears more sequential
-    #     # else you get "now stitching" before "now predicting"
-    #     _ = segtiles.file.prediction
-    #
-    #     loc = ~segtiles.vectile.prediction.map(os.path.exists)
-    #     infiles = segtiles.file.prediction.loc[loc]
-    #     row = segtiles.vectile.r.loc[loc]
-    #     col = segtiles.vectile.c.loc[loc]
-    #     group = segtiles.vectile.prediction.loc[loc]
-    #
-    #     loc = ~vectiles.file.prediction.map(os.path.exists)
-    #     predfiles = vectiles.file.prediction.loc[loc]
-    #     n_missing = np.sum(loc)
-    #     n_total = len(vectiles)
-    #
-    #     if n_missing == 0:  # nothing to do
-    #         msg = f'All {n_total:,} stitched predictions on file.'
-    #         logger.info(msg)
-    #         return segtiles
-    #     else:
-    #         msg = f'{n_missing:,} of {n_total:,} stitched predictions missing on disk.'
-    #         logger.info(msg)
-    #
-    #     loader = Loader(
-    #         infiles=infiles,
-    #         row=row,
-    #         col=col,
-    #         tile_shape=segtiles.tile.shape,
-    #         mosaic_shape=vectiles.tile.shape,
-    #         outfiles=group
-    #     )
-    #
-    #     seen = set()
-    #     for f in predfiles:
-    #         d = Path(f).parent
-    #         if d not in seen:  # avoids extra mkdir syscalls
-    #             d.mkdir(parents=True, exist_ok=True)
-    #             seen.add(d)
-    #
-    #     executor = ThreadPoolExecutor()
-    #     imwrite = imageio.v3.imwrite
-    #     it = loader
-    #     it = tqdm(it, 'stitching', n_missing, unit=' mosaic')
-    #
-    #     writes = []
-    #     for path, array in it:
-    #         future = executor.submit(imwrite, path, array)
-    #         writes.append(future)
-    #     for w in writes:
-    #         w.result()
-    #
-    #     executor.shutdown(wait=True)
-    #     assert vectiles.file.prediction.map(os.path.exists).all()
-    #     return self
-    #
-    # @recursion_block
-    # def _stitch_mask(self) -> Self:
-    #     segtiles = self.segtiles.broadcast
-    #     vectiles = self
-    #
-    #     # preemptively predict so logging appears more sequential
-    #     # else you get "now stitching" before "now predicting"
-    #     _ = segtiles.file.mask
-    #
-    #     loc = ~segtiles.vectile.mask.map(os.path.exists)
-    #     infiles = segtiles.file.mask.loc[loc]
-    #     row = segtiles.vectile.r.loc[loc]
-    #     col = segtiles.vectile.c.loc[loc]
-    #     group = segtiles.vectile.mask.loc[loc]
-    #
-    #     loc = ~vectiles.file.mask.map(os.path.exists)
-    #     predfiles = vectiles.file.mask.loc[loc]
-    #     n_missing = np.sum(loc)
-    #     n_total = len(vectiles)
-    #
-    #     if n_missing == 0:  # nothing to do
-    #         msg = f'All {n_total:,} stitched masks on file.'
-    #         logger.info(msg)
-    #         return segtiles
-    #     else:
-    #         msg = f'{n_missing:,} of {n_total:,} stitched masks missing on disk.'
-    #         logger.info(msg)
-    #
-    #     loader = Loader(
-    #         infiles=infiles,
-    #         row=row,
-    #         col=col,
-    #         tile_shape=segtiles.tile.shape,
-    #         mosaic_shape=vectiles.tile.shape,
-    #         outfiles=group
-    #     )
-    #
-    #     seen = set()
-    #     for f in predfiles:
-    #         d = Path(f).parent
-    #         if d not in seen:  # avoids extra mkdir syscalls
-    #             d.mkdir(parents=True, exist_ok=True)
-    #             seen.add(d)
-    #
-    #     executor = ThreadPoolExecutor()
-    #     imwrite = imageio.v3.imwrite
-    #     it = loader
-    #     it = tqdm(it, 'stitching', n_missing, unit=' mosaic')
-    #
-    #     writes = []
-    #     for path, array in it:
-    #         future = executor.submit(imwrite, path, array)
-    #         writes.append(future)
-    #     for w in writes:
-    #         w.result()
-    #
-    #     executor.shutdown(wait=True)
-    #     assert vectiles.file.mask.map(os.path.exists).all()
-    #     return self
-    #
-    # @recursion_block
-    # def _stitch_infile(self) -> Self:
-    #     segtiles = self.segtiles.broadcast
-    #     vectiles = self
-    #
-    #     # preemptively predict so logging appears more sequential
-    #     # else you get "now stitching" before "now predicting"
-    #     _ = segtiles.file.infile
-    #
-    #     loc = ~segtiles.vectile.infile.map(os.path.exists)
-    #     infiles = segtiles.file.infile.loc[loc]
-    #     row = segtiles.vectile.r.loc[loc]
-    #     col = segtiles.vectile.c.loc[loc]
-    #     group = segtiles.vectile.infile.loc[loc]
-    #
-    #     loc = ~vectiles.file.infile.map(os.path.exists)
-    #     predfiles = vectiles.file.infile.loc[loc]
-    #     n_missing = np.sum(loc)
-    #     n_total = len(vectiles)
-    #
-    #     if n_missing == 0:  # nothing to do
-    #         msg = f'All {n_total:,} stitched infiles on file.'
-    #         logger.info(msg)
-    #         return segtiles
-    #     else:
-    #         msg = f'{n_missing:,} of {n_total:,} stitched infiles missing on disk.'
-    #         logger.info(msg)
-    #
-    #     loader = Loader(
-    #         infiles=infiles,
-    #         row=row,
-    #         col=col,
-    #         tile_shape=segtiles.tile.shape,
-    #         mosaic_shape=vectiles.tile.shape,
-    #         outfiles=group
-    #     )
-    #
-    #     seen = set()
-    #     for f in predfiles:
-    #         d = Path(f).parent
-    #         if d not in seen:  # avoids extra mkdir syscalls
-    #             d.mkdir(parents=True, exist_ok=True)
-    #             seen.add(d)
-    #
-    #     executor = ThreadPoolExecutor()
-    #     imwrite = imageio.v3.imwrite
-    #     it = loader
-    #     it = tqdm(it, 'stitching', n_missing, unit=' infile')
-    #
-    #     writes = []
-    #     for path, array in it:
-    #         future = executor.submit(imwrite, path, array)
-    #         writes.append(future)
-    #     for w in writes:
-    #         w.result()
-    #
-    #     executor.shutdown(wait=True)
-    #     assert vectiles.file.infile.map(os.path.exists).all()
-    #     return self
-
-    # @recursion_block
-    # def _overlay(self) -> Self:  # noqa: C901
-    #     vectiles = self
-    #
-    #     mask = self.file.mask
-    #     infile = self.file.infile
-    #     overlay = self.file.overlay
-    #
-    #     loc = ~overlay.map(os.path.exists)
-    #     pred_files = mask.loc[loc]
-    #     in_files = infile.loc[loc]
-    #     out_files = overlay.loc[loc]
-    #
-    #     n_missing = np.sum(loc)
-    #     n_total = len(vectiles)
-    #
-    #     if n_missing == 0:
-    #         logger.info(f'All {n_total:,} overlay files on disk.')
-    #         return self
-    #     logger.info(f'{n_missing:,} of {n_total:,} overlay files missing on disk.')
-    #
-    #     # make sure output dirs exist (skip redundant mkdirs)
-    #     seen_dirs = set()
-    #     for f in out_files:
-    #         d = Path(f).parent
-    #         if d not in seen_dirs:
-    #             d.mkdir(parents=True, exist_ok=True)
-    #             seen_dirs.add(d)
-    #
-    #     def _overlay_single(
-    #             in_path: str | Path,
-    #             pred_path: str | Path,
-    #             out_path: str | Path,
-    #     ) -> None:
-    #
-    #         base = iio.imread(str(in_path))
-    #         pred = iio.imread(str(pred_path))
-    #
-    #         mask = (
-    #             (pred == 0) if pred.ndim == 2
-    #             else np.all(pred[..., :3] == 0, axis=-1)
-    #         )
-    #
-    #         out = base.copy()
-    #         out[~mask] = pred[~mask]
-    #         iio.imwrite(str(out_path), out)
-    #
-    #         # be extra nice to the GC when images are huge
-    #         del base, pred, out, mask
-    #         gc.collect()
-    #
-    #     assert overlay.map(os.path.exists).all()
-    #     return self
 
     @recursion_block
-    def _overlay(self) -> Self:       # noqa: C901
+    def _overlay(self) -> Self:  # noqa: C901
         """
         Create coloured-mask overlays for every vector tile that is still
         missing on disk, using a memory-bounded thread pool.
         """
         vectiles = self
 
-        mask      = self.file.mask
-        infile    = self.file.infile
-        overlay   = self.file.overlay
+        mask = self.file.colored
+        infile = self.file.infile
+        overlay = self.file.overlay
 
-        loc        = ~overlay.map(os.path.exists)
+        loc = ~overlay.map(os.path.exists)
         pred_files = mask.loc[loc]
-        in_files   = infile.loc[loc]
-        out_files  = overlay.loc[loc]
+        in_files = infile.loc[loc]
+        out_files = overlay.loc[loc]
 
-        n_missing  = int(np.sum(loc))
-        n_total    = len(vectiles)
+        n_missing = int(np.sum(loc))
+        n_total = len(vectiles)
 
         if n_missing == 0:
             logger.info(f'All {n_total:,} overlay files on disk.')
@@ -587,7 +326,6 @@ class VecTiles(
                 seen_dirs.add(d)
 
         # ───────────────────────── helper ────────────────────────────── #
-
 
         def _overlay_single(
                 in_path: str | Path,
@@ -615,9 +353,9 @@ class VecTiles(
             pred = iio.imread(str(pred_path))
 
             # harmonise channel count
-            if pred.ndim == 2:                             # greyscale → colour
+            if pred.ndim == 2:  # greyscale → colour
                 pred = np.stack((pred,) * base.shape[2], axis=2)
-            elif pred.shape[2] > base.shape[2]:            # drop alpha
+            elif pred.shape[2] > base.shape[2]:  # drop alpha
                 pred = pred[..., : base.shape[2]]
 
             # mask = pixels in pred that are *pure* black
@@ -634,7 +372,7 @@ class VecTiles(
                 # round once at the end to preserve precision
                 out[m] = np.round(
                     (1.0 - opacity) * base[m].astype(np.float32)
-                    + opacity        * pred[m].astype(np.float32)
+                    + opacity * pred[m].astype(np.float32)
                 ).astype(base.dtype)
 
             iio.imwrite(str(out_path), out)
@@ -643,12 +381,11 @@ class VecTiles(
             del base, pred, out, mask_arr, m
             gc.collect()
 
-
         # ─────────────────────── scheduler ───────────────────────────── #
 
         def overlay_many(
                 *,
-                max_inflight: int = 4,            # balance RAM vs. speed
+                max_inflight: int = 4,  # balance RAM vs. speed
                 pool_workers: int | None = None,
         ) -> None:
 
@@ -656,7 +393,7 @@ class VecTiles(
                 in_files,
                 pred_files,
                 out_files,
-                strict=True,                     # Py ≥3.12
+                strict=True,  # Py ≥3.12
             )
 
             pending: set = set()
@@ -683,7 +420,7 @@ class VecTiles(
                     )
 
                     for fut in done:
-                        fut.result()          # re-raise if the task errored
+                        fut.result()  # re-raise if the task errored
                         bar.update()
 
                         try:
@@ -704,7 +441,6 @@ class VecTiles(
 
         return self
 
-
     @recursion_block
     def _stitch_prediction(self) -> Self:
         intiles = self.segtiles.broadcast
@@ -712,15 +448,15 @@ class VecTiles(
 
         # preemptively predict so logging appears more sequential
         # else you get "now stitching" before "now predicting"
-        _ = intiles.file.prediction
+        _ = intiles.file.indexed
 
         self._stitch(
             small_tiles=intiles,
             big_tiles=outtiles,
             r=intiles.vectile.r,
             c=intiles.vectile.c,
-            small_files=intiles.file.prediction,
-            big_files=intiles.segtile.prediction,
+            small_files=intiles.file.indexed,
+            big_files=intiles.segtile.indexed,
         )
 
         return self
@@ -745,6 +481,11 @@ class VecTiles(
 
         return self
 
+
+    @property
+    def intiles(self):
+        return self.tiles
+
     @recursion_block
     def _stitch_mask(self) -> Self:
         intiles = self.segtiles.broadcast
@@ -752,15 +493,15 @@ class VecTiles(
 
         # preemptively predict so logging appears more sequential
         # else you get "now stitching" before "now predicting"
-        _ = intiles.file.mask
+        _ = intiles.file.colored
 
         self._stitch(
             small_tiles=intiles,
             big_tiles=outtiles,
             r=intiles.vectile.r,
             c=intiles.vectile.c,
-            small_files=intiles.file.mask,
-            big_files=intiles.segtile.mask,
+            small_files=intiles.file.colored,
+            big_files=intiles.segtile.colored,
         )
 
         return self
@@ -783,12 +524,14 @@ class VecTiles(
                 tile2net.tiles.cfg.update(cfg)
 
             polys = Mask2Poly.from_path(infile, affine)
+            polys.to_parquet('polys.parquet')
 
             if polys.empty:
                 logging.warning(f'No polygons generated for {infile}')
                 return
 
             net = PedNet.from_mask2poly(polys)
+            net.center.to_parquet('center.parquet')
             clipped = net.center.clipped.to_crs(4326)
             polys = polys.to_crs(4326)
 
@@ -802,16 +545,21 @@ class VecTiles(
             polys.to_parquet(polygons_file)
             clipped.to_parquet(network_file)
 
-        except RuntimeError as e:
-            msg = (
-                'Error vectorizing:\n'
-                f'affine={affine!r}\n'
-                f'infile={infile!r}\n'
-                f'{e}'
-            )
-            raise RuntimeError(msg) from e
-            # msg = f'Error vectorizing {infile!r}: {e}'
-            # raise RuntimeError(msg) from e
+        # except Exception as e:
+        #     msg = (
+        #         'Error vectorizing:\n'
+        #         f'affine={affine!r},\n'
+        #         f'infile={infile!r}\n'
+        #         f'{e}'
+        #     )
+        #     raise Exception(msg) from e
+
+        finally:
+            for name in ("polys", "clipped", "net"):
+                if name in locals():
+                    del locals()[name]
+            import gc
+            gc.collect()
 
     @staticmethod
     def _silence_logging() -> None:
@@ -835,7 +583,7 @@ class VecTiles(
         """
         # preemptively stitch so logging appears more sequential
         # else you get "now vectorizing" before "now stitching"
-        _ = self.file.prediction, self.file.mask
+        _ = self.file.indexed, self.file.colored
 
         # Build *lazy* iterable ⇢ no up-front list allocation
         def _tile_iter() -> Iterable[
@@ -852,12 +600,10 @@ class VecTiles(
             ]
         ]:
             tiles = self
-            loc = self.file.prediction.str.endswith('4953_6066.png')
-            tiles = tiles.loc[loc]
 
             _cfg = dict(tiles.intiles.cfg)
             it = zip(
-                tiles.file.prediction,
+                tiles.file.indexed,
                 tiles.affine_params,
                 tiles.file.lines,
                 tiles.file.polygons,
@@ -893,11 +639,12 @@ class VecTiles(
 
         total_tiles: int = len(self)
         max_workers: int = os.cpu_count()
-        window: int = max_workers * 2  # outstanding futures ≤ 2×cores
+        window: int = max_workers + 1
 
         with self.intiles.cfg as cfg_cm, ProcessPoolExecutor(
                 max_workers=window,
                 initializer=self._silence_logging,  # ← HERE
+                max_tasks_per_child=1,
         ) as pool, tqdm(
             total=total_tiles,
             desc="Vectorizing",
@@ -905,24 +652,6 @@ class VecTiles(
             smoothing=0.01,
         ) as pbar:
             _cfg = dict(cfg_cm)  # materialise once, if needed
-
-            it = iter(_tile_iter())  # → yields argument tuples
-            # mask = self.file.stitched.str.endswith('4953_6066.png')
-            # iloc = np.flatnonzero(mask.to_numpy())[0]  # → e.g. 123
-            #
-            # # corresponding MultiIndex label (xtile, ytile)
-            # idx = mask.idxmax()  # → (4953, 6066)
-            #
-            # # if you need the integer position via the index API
-            # iloc2 = mask.index.get_loc(idx)  # identical to `iloc`
-            # print(iloc, idx)V
-            #
-            # prime the pool
-            it = list(it)
-            result = [
-                self._vectorize_submit(*args)
-                for _, args in zip(range(window), it)
-            ]
 
             it = iter(_tile_iter())  # → yields argument tuples
             running: set[cf.Future] = {
@@ -938,6 +667,7 @@ class VecTiles(
                 for fut in done:
                     running.remove(fut)
                     fut.result()  # re-raise if needed
+                    fut.cancel()
                     pbar.update()
 
                     try:  # ③ refill the pipeline
@@ -953,7 +683,7 @@ class VecTiles(
             divider: Optional[str] = None,
     ) -> PIL.Image.Image:
 
-        files = self.file.prediction
+        files = self.file.indexed
         R: pd.Series = self.r  # 0-based row id
         C: pd.Series = self.c  # 0-based col id
 
@@ -1138,7 +868,7 @@ class VecTiles(
 
     @property
     def lines(self) -> Self:
-        cols: list[str] = [
+        cols = [
             self.sidewalk.lines.name,
             self.crosswalk.lines.name,
             self.road.lines.name,
@@ -1147,7 +877,7 @@ class VecTiles(
 
     @property
     def polygons(self) -> Self:
-        cols: list[str] = [
+        cols = [
             self.sidewalk.polygons.name,
             self.crosswalk.polygons.name,
             self.road.polygons.name,
@@ -1170,84 +900,6 @@ class VecTiles(
         import folium
         _ = self.road.polygons, self.road.lines
 
-        # m = explore(
-        #     self,
-        #     geometry='road.polygons',
-        #     *args,
-        #     color=road_color,
-        #     name=f'road.polygons',
-        #     tiles=tiles,
-        #     simplify=simplify,
-        #     m=m,
-        #     style_kwds=dict(
-        #         fill=True,
-        #         fillColor=road_color,
-        #         fillOpacity=0.05,
-        #         weight=0,  # no stroke
-        #     ),
-        #     highlight=False,
-        #     **kwargs,
-        # )
-        # m = explore(
-        #     self,
-        #     geometry='sidewalk.polygons',
-        #     *args,
-        #     color=sidewalk_color,
-        #     name=f'sidewalk.polygons',
-        #     tiles=tiles,
-        #     simplify=simplify,
-        #     m=m,
-        #     style_kwds=dict(
-        #         fill=True,
-        #         fillColor=sidewalk_color,
-        #         fillOpacity=0.05,
-        #         weight=0,  # no stroke
-        #     ),
-        #     highlight=False,
-        #     **kwargs,
-        # )
-        # m = explore(
-        #     self,
-        #     geometry='crosswalk.polygons',
-        #     *args,
-        #     color=crosswalk_color,
-        #     name=f'crosswalk.polygons',
-        #     tiles=tiles,
-        #     simplify=simplify,
-        #     m=m,
-        #     style_kwds=dict(
-        #         fill=True,
-        #         fillColor=crosswalk_color,
-        #         fillOpacity=0.05,
-        #         weight=0,  # no stroke
-        #     ),
-        #     highlight=False,
-        #     **kwargs,
-        # )
-
-        # m = explore(
-        #     self,
-        #     geometry='road.lines',
-        #     *args,
-        #     color=road_color,
-        #     name=f'road.lines',
-        #     tiles=tiles,
-        #     simplify=simplify,
-        #     m=m,
-        #     **kwargs,
-        # )
-        # m = explore(
-        #     self,
-        #     geometry='sidewalk.lines',
-        #     *args,
-        #     color=sidewalk_color,
-        #     name=f'sidewalk.lines',
-        #     tiles=tiles,
-        #     simplify=simplify,
-        #     m=m,
-        #     **kwargs,
-        # )
-
         m = explore(
             self.geometry,
             *args,
@@ -1263,8 +915,6 @@ class VecTiles(
             **kwargs,
         )
         m = explore(
-            # self,
-            # geometry='crosswalk.lines',
             self.crosswalk.lines.explode().rename('geometry'),
             *args,
             color=crosswalk_color,
@@ -1291,3 +941,8 @@ class VecTiles(
         # self.crosswalk.lines
         # shapely.get_num_geometries(self)
         return m
+
+    @Tile
+    def tile(self):
+        ...
+

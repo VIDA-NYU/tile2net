@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os.path
+
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -14,6 +16,7 @@ if False:
     from .intiles import InTiles
     import folium
 
+
 def __get__(
         self: Lines,
         instance: InTiles,
@@ -23,6 +26,13 @@ def __get__(
         result = self
     elif self.__name__ in instance.__dict__:
         result = instance.__dict__[self.__name__]
+    elif os.path.exists(instance.outdir.lines.file):
+        result = (
+            gpd.read_parquet(instance.outdir.lines.file)
+            .pipe(self.__class__)
+        )
+        result.intiles = instance
+        instance.__dict__[self.__name__] = result
     else:
 
         lines: gpd.GeoDataFrame = instance.vectiles.lines.copy()
@@ -100,7 +110,6 @@ def __get__(
         )
         result = self.__class__(geometry=geometry)
 
-
     result.intiles = instance
     return result
 
@@ -167,3 +176,10 @@ class Lines(
 
         folium.LayerControl().add_to(m)
         return m
+
+    def unlink(self):
+        """Delete the lines file."""
+        file = self.intiles.outdir.lines.file
+        if os.path.exists(file):
+            os.remove(file)
+        self.intiles.__dict__.pop(self.__name__, None)

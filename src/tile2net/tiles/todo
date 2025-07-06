@@ -1,4 +1,7 @@
+reminder about: https://shapely.readthedocs.io/en/latest/reference/shapely.remove_repeated_points.html
+
 with logging_redirect_tqdm():
+
     for i, (input_images, labels, img_names, scale_float) in enumerate(tqdm(loader)):
         if i % 20 == 0:
             logger.debug(f'Inference [Iter: {i + 1} / {len(loader)}]')
@@ -56,10 +59,6 @@ return a copy
 
 We can use something like the majority vote + confidence mask to force the labels of the pixels with low confidence into the same label as their neighbors starting from like 50 pixels away from the edge
 
-from_slice
-
-
-compare
 
 add a changelog
 
@@ -67,18 +66,15 @@ we should have vectiles.prediction and vectiles.mask
 
 we must dissolve before simplifying
 
-
 if exterior length along road < threshold
 and buffer is between two sidewalks
 and exterior length doesn't change > 90 degrees
 fill the gap
 
+allow cfging  max_workers for vectorization
 
-Mask2Poly
+set_source(outdir='./boston')
 
-
-better tune the toleranec for simplify_covearge
-
-
-with threadpool: abotu 90 /s
-without: about 110 / s
+set_indir(...)
+set_outdir(...)
+what if they want to  set outdir after setting indir?

@@ -167,7 +167,7 @@ def __get__(
     """Return the source object for the tiles instance."""
     try:
         result = instance.attrs[self.__name__]
-        result.intiles = instance
+        result.tiles = instance
         result.InTiles = owner
     except KeyError as e:
         msg = (
@@ -182,7 +182,7 @@ def __get__(
 class Source(
     ABC,
 ):
-    intiles: InTiles
+    tiles: InTiles
     catalog: dict[str, type[Source]] = {}
 
     outdated: bool = False
@@ -290,7 +290,7 @@ class Source(
     @property
     def urls(self) -> pd.Series:
         """Given some tiles, return the URL for the images"""
-        tiles = self.intiles
+        tiles = self.tiles
         temp = self.template
         zoom = tiles.tile.zoom
         it = zip(tiles.ytile, tiles.xtile)
@@ -784,7 +784,7 @@ class Maine2022(MaineOrthoBase):
     @property
     def urls(self) -> pd.Series:
         # project tile geometries to EPSG 102100, then build URLs
-        item = self.intiles
+        item = self.tiles
         bounds = item.to_crs(102100).bounds
         tmpl = self.template
 

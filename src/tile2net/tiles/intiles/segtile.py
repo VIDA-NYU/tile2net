@@ -53,7 +53,6 @@ class SegTile(
             return intiles[key]
 
         segtiles = intiles.segtiles.padded
-        # unpadded = inti.unpadded.index.isin(segtiles.index)
         intiles.segtiles
         result = intiles.xtile // intiles.segtile.length
 
@@ -123,7 +122,7 @@ class SegTile(
 
     @property
     def ipred(self) -> pd.Series:
-        intiles = self.intiles
+        intiles = self.intiles4
         key = 'segtile.ipred'
         if key in intiles.columns:
             return intiles[key]

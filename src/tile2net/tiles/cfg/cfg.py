@@ -1264,10 +1264,9 @@ class Cfg(
 
     padding.add_options(long='--nopadding')
 
-    @cmdline.property
-    def extension(self) -> str:
-        return 'png'
-
+    # @cmdline.property
+    # def extension(self) -> str:
+    #     return 'png'
     # @cmdline.property
     # def tile_step(self) -> int:
     #     return 1

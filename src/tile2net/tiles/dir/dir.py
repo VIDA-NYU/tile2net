@@ -30,42 +30,60 @@ def __get__(
     from ..intiles import InTiles
     self.instance = instance
     if isinstance(instance, InTiles):
-        self.intiles = instance
+        self.tiles = instance
     elif isinstance(instance, Dir):
-        self.intiles = instance.tiles
+        self.tiles = instance.tiles
     elif instance is None:
-        self.intiles = None
+        self.tiles = None
     else:
         raise TypeError(f'instance must be Tiles or Dir, not {type(instance).__name__}')
     try:
-        result = self.intiles.attrs[self._trace]
+        result = self.tiles.attrs[self._trace]
     except KeyError as e:
-        try:
-            dir = self.instance.dir
-        except (KeyError, AttributeError) as e:
-            msg = (
-                f'{self.__name__!r} is not set. '
-                f'See `Tiles.with_indir()` to actually set an '
-                f'input directory. See `Tiles.with_source()` to download '
-                f'tiles from a source into an input directory.'
-            )
-            raise AttributeError(msg) from e
+        # try:
+        #     dir = self.instance.dir
+        # except (KeyError, AttributeError) as e:
+        #     msg = (
+        #         f'{self.__name__!r} is not set. '
+        #         f'See `Tiles.with_indir()` to actually set an '
+        #         f'input directory. See `Tiles.with_source()` to download '
+        #         f'tiles from a source into an input directory.'
+        #     )
+        #     raise AttributeError(msg) from e
+        # else:
+        #     if self.__wrapped__:
+        #         result = self.__wrapped__(self.instance)
+        #     else:
+        #         path = os.path.join(dir, self.__name__)
+        #         result = self.__class__.from_dir(path)
+        #     self.tiles.attrs[self._trace] = result
+
+        if self.__wrapped__:
+            result = self.__wrapped__(self.instance)
         else:
-            if self.__wrapped__:
-                result = self.__wrapped__(self.instance)
+            try:
+                path = self.instance.dir
+            except (KeyError, AttributeError) as e:
+                msg = (
+                    f'{self.__name__!r} is not set. '
+                    f'See `Tiles.with_indir()` to actually set an '
+                    f'input directory. See `Tiles.with_source()` to download '
+                    f'tiles from a source into an input directory.'
+                )
+                raise AttributeError(msg) from e
             else:
-                path = os.path.join(dir, self.__name__)
+                path = os.path.join(path, self.__name__)
                 result = self.__class__.from_dir(path)
-            self.intiles.attrs[self._trace] = result
+
     result.__name__ = self.__name__
     result.instance = self.instance
-    result.intiles = self.intiles
+    result.tiles = self.tiles
     return result
 
 
 class Dir:
     instance: InTiles | Dir = None
-    intiles: InTiles = None
+    tiles: InTiles = None
     locals().update(
         __get__=__get__
     )
@@ -75,9 +93,9 @@ class Dir:
     def __set_name__(self, owner, name):
         self.__name__ = name
 
-    @property
-    def tiles(self) -> Tiles:
-        return self.intiles
+    # @property
+    # def tiles(self) -> Tiles:
+    #     return self.intiles
 
     characters = {
         c: i
@@ -132,7 +150,7 @@ class Dir:
         self.__dict__['extension'] = value
 
     @property
-    def suffix(self):
+    def suffix(self) -> str:
         try:
             return self.__dict__['suffix']
         except KeyError:
@@ -226,11 +244,11 @@ class Dir:
         indir.instance = instance
         try:
             if isinstance(instance, Tiles):
-                indir.intiles = instance
+                indir.tiles = instance
             else:
-                indir.intiles = instance.tiles
+                indir.tiles = instance.tiles
         except AttributeError:
-            indir.intiles = None
+            indir.tiles = None
 
     @cached_property
     def dir(self) -> str:

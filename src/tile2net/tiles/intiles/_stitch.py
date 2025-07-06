@@ -198,7 +198,7 @@ class Stitch:
         stitched.attrs.update(_stitched.attrs)
         setattr(stitched, 'indir', indir)
         tiles.segtiles = stitched
-        stitched.intiles = tiles
+        stitched.tiles = tiles
 
         stitched.zoom = tiles.zoom
         stitched.tscale = scale
@@ -288,7 +288,7 @@ class Stitch:
 
             executor.shutdown(wait=True)
 
-            files: pd.Series[str] = stitched.prediction
+            files: pd.Series[str] = stitched.indexed
             assert all(map(os.path.exists, files))
 
         return tiles

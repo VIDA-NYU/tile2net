@@ -10,10 +10,13 @@ from geopandas import GeoSeries
 from shapely import *
 
 from ..fixed import GeoDataFrameFixed
+import os
+import geopandas as gpd
 
 if False:
-    from .intiles import  InTiles
+    from .intiles import InTiles
     import folium
+
 
 def __get__(
         self: Polygons,
@@ -24,6 +27,15 @@ def __get__(
         result = self
     elif self.__name__ in instance.__dict__:
         result = instance.__dict__[self.__name__]
+
+    elif os.path.exists(instance.outdir.lines.file):
+        result = (
+            gpd.read_parquet(instance.outdir.lines.file)
+            .pipe(self.__class__)
+        )
+        result.intiles = instance
+        instance.__dict__[self.__name__] = result
+
     else:
         result = (
             instance
@@ -43,3 +55,10 @@ class Polygons(
     locals().update(
         __get__=__get__,
     )
+
+    def unlink(self):
+        """Delete the polygons file."""
+        file = self.intiles.outdir.polygons.file
+        if os.path.exists(file):
+            os.remove(file)
+        self.intiles.__dict__.pop(self.__name__, None)

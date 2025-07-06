@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import copy
 import threading
 from contextlib import contextmanager
 from requests.adapters import HTTPAdapter
@@ -38,6 +40,7 @@ from . import delayed
 from .lines import Lines
 from .polygons import Polygons
 from .segtile import SegTile
+from .vectile import VecTile
 from .source import Source, SourceNotFound
 from .. import util
 from ..cfg import Cfg
@@ -93,7 +96,7 @@ class File(
         key = 'file.static'
         if key in tiles:
             return tiles[key]
-        files = tiles.indir.infile.files(tiles)
+        files = tiles.indir.files(tiles)
         tiles[key] = files
         if (
                 not tiles.download
@@ -133,16 +136,40 @@ class InTiles(
         intiles = self.set_source(...)  # automatically sets the source
         intiles = self.set_source('nyc')
 
+    # @Indir
+    # def indir(self):
+    #     """
+    #     Returns the Indir class, which wraps an input directory, for
+    #     example `input/dir/x_y_z.png` or `input/dir/x/y/z.png`.
+    #     See `Tiles.with_indir()` to actually set an input directory.
+    #     """
+    #     # This code block is just semantic sugar and does not run.
+    #     # This method is how to set the input directory:
+    #     self.set_indir(...)
+
     @Indir
     def indir(self):
-        """
-        Returns the Indir class, which wraps an input directory, for
-        example `input/dir/x_y_z.png` or `input/dir/x/y/z.png`.
-        See `Tiles.with_indir()` to actually set an input directory.
-        """
-        # This code block is just semantic sugar and does not run.
-        # This method is how to set the input directory:
-        self.set_indir(...)
+        intiles = self.intiles.outdir.intiles
+        extension = self.source.extension
+        format = os.path.join(
+            intiles.dir,
+            'infile',
+            f'z/x_y.{extension}'
+        )
+        result = Indir.from_format(format)
+        return result
+
+
+    # @property
+    # def indir(self):
+    #     return self.outdir.intiles.infile
+    #
+    # @indir.setter
+    # def indir(self, indir: Union[str, Path]):
+    #     """
+    #     Set the input directory for the tiles.
+    #     """
+    #     self.outdir.intiles.infile = indir
 
     @Outdir
     def outdir(self):
@@ -283,6 +310,16 @@ class InTiles(
             self.segtile.r,
             # column of the tile within the larger mosaic
             self.segtile.c,
+        )
+
+    @VecTile
+    def vectile(self):
+        # This code block is just semantic sugar and does not run.
+        _ = (
+            # xtile of the larger mosaic
+            self.segtile.xtile,
+            # ytile of the larger mosaic
+            self.segtile.ytile,
         )
 
     @recursion_block
@@ -433,7 +470,6 @@ class InTiles(
                 f = disk_pool.submit(submit, path, resp)
                 write_futs.append(f)
 
-
             it = tqdm(
                 as_completed(write_futs),
                 total=len(write_futs),
@@ -448,9 +484,6 @@ class InTiles(
             if failed:
                 if retry:
                     logger.error("%d failed tiles; retrying once.", len(failed))
-                    # failed_urls = pd.Series([mapping[p] for p in failed], dtype=object)
-                    # self.file = self.file.assign(infile=pd.Series(failed))
-                    # self.source = self.source.assign(urls=failed_urls)
                     return self.download(
                         retry=False,
                         force=False,
@@ -465,7 +498,12 @@ class InTiles(
                     shutil.copy2(src, dst)
 
             paths = PATHS[not_found]
-            black = self.static.black
+            extension = self.indir.extension
+            try:
+                black = getattr(self.static.black, extension)
+            except AttributeError as e:
+                msg = f'No black placeholder found for extension {extension}.'
+                raise FileNotFoundError(msg) from e
 
             if len(paths):
                 msg = f'Linking or copying {len(paths):,} tiles to {black}.'
@@ -489,7 +527,6 @@ class InTiles(
             force: bool = False,
             max_workers: int = 32,  # ⇣ lower default ⇣ avoids port-exhaustion
     ) -> Self:
-        print('⚠️AI GENERATED🤖')
 
         if self is not self.padded:
             return self.padded.download(
@@ -521,6 +558,9 @@ class InTiles(
         mapping = dict(zip(paths.array, urls.array))
         if not mapping:
             return self
+
+        msg = f"Downloading {len(mapping):,} tiles."
+        logger.info(msg)
 
         pool_size = min(max_workers, len(mapping))
         not_found: list[Path] = []
@@ -607,18 +647,105 @@ class InTiles(
         logger.info("All requested tiles are on disk.")
         return self
 
+    # def set_source(
+    #         self,
+    #         source=None,
+    #         name: str = None,
+    #         outdir: Union[str, Path] = None,
+    #         max_workers: int = 100,
+    # ) -> Self:
+    #     """
+    #     Assign a source to the tiles. The tiles are downloaded from
+    #     the source and saved to an input directory.
+    #
+    #     You can pass an outdir which will be the destination the files
+    #     are saved to.
+    #     """
+    #     if source is None:
+    #         source = (
+    #             gpd.GeoSeries([self.union_all()], crs=self.crs)
+    #             .to_crs(4326)
+    #             .pipe(Source.from_inferred)
+    #         )
+    #     elif isinstance(source, Source):
+    #         ...
+    #     else:
+    #         try:
+    #             source = Source.from_inferred(source)
+    #         except SourceNotFound as e:
+    #             msg = (
+    #                 f'Unable to infer a source from {source}. '
+    #                 f'Please specify a valid source or use a '
+    #                 f'different method to set the tiles.'
+    #             )
+    #             raise ValueError(msg) from e
+    #
+    #     result = self.copy()
+    #     result.source = source
+    #     msg = (
+    #         f'Setting source to {source.__class__.__name__} '
+    #         f'({source.name})'
+    #     )
+    #     logger.info(msg)
+    #     if name:
+    #         result.name = name
+    #     if outdir:
+    #         if Dir.is_valid(outdir):
+    #             ...
+    #         else:
+    #             infile = result.outdir.intiles.infile
+    #             outdir = infile.format.replace(
+    #                 infile.extension,
+    #                 source.extension
+    #             )
+    #     else:
+    #         if result.name:
+    #             name = result.name
+    #         else:
+    #             name = result.source.name
+    #         # todo: default is outdir/intiles/infile/z/x_y.png
+    #
+    #         # args = (
+    #         #     tempfile.gettempdir(),
+    #         #     'tile2net',
+    #         #     name,
+    #         #     'z',
+    #         #     'x_y.png'
+    #         # )
+    #         # indir = (
+    #         #     Path(*args)
+    #         #     .resolve()
+    #         #     .__str__()
+    #         # )
+    #
+    #         infile = result.outdir.intiles.infile
+    #         indir = infile.format.replace(
+    #             infile.extension,
+    #             source.extension
+    #         )
+    #
+    #     result = result.set_indir(
+    #         indir,
+    #         name=name,
+    #     )
+    #
+    #     # urls = result.source.urls
+    #     # files = result.indir.files()
+    #     # result.download(files, urls, max_workers=max_workers)
+    #     # result.download(max_workers=max_workers)
+    #
+    #     return result
+
     def set_source(
             self,
             source=None,
-            name: str = None,
-            indir: Union[str, Path] = None,
-            max_workers: int = 100,
+            outdir: Union[str, Path] = None,
     ) -> Self:
         """
         Assign a source to the tiles. The tiles are downloaded from
         the source and saved to an input directory.
 
-        You can pass an indir which will be the destination the files
+        You can pass an outdir which will be the destination the files
         are saved to.
         """
         if source is None:
@@ -628,7 +755,7 @@ class InTiles(
                 .pipe(Source.from_inferred)
             )
         elif isinstance(source, Source):
-            ...
+            source = copy.copy(source)
         else:
             try:
                 source = Source.from_inferred(source)
@@ -647,53 +774,25 @@ class InTiles(
             f'({source.name})'
         )
         logger.info(msg)
-        if name:
-            result.name = name
-        if indir:
-            if Dir.is_valid(indir):
-                ...
-            else:
-                args = (
-                    indir,
-                    f'x_y_z.{source.extension}',
-                )
-                indir = (
-                    Path(*args)
-                    .resolve()
-                    .__str__()
-                )
-        else:
-            if result.name:
-                name = result.name
-            else:
-                name = result.source.name
-            args = (
-                tempfile.gettempdir(),
-                'tile2net',
-                name,
-                'z',
-                'x_y.png'
-            )
-            indir = (
-                Path(*args)
+
+        if not outdir:
+            outdir = (
+                Path(f'./{source.name}')
+                .expanduser()
                 .resolve()
                 .__str__()
             )
-        result = result.set_indir(
-            indir,
-            name=name,
-        )
+        result = result.set_outdir(outdir)
 
-        # urls = result.source.urls
-        # files = result.indir.files()
-        # result.download(files, urls, max_workers=max_workers)
-        # result.download(max_workers=max_workers)
+        # infile = result.outdir.intiles.infile
+        # indir = infile.format.replace(infile.extension, source.extension)
+        # result = result.set_indir(indir)
 
         return result
 
     def set_indir(
             self,
-            indir: str,
+            indir: str = None,
             name: str = None,
     ) -> Self:
         """
@@ -726,6 +825,7 @@ class InTiles(
             result.name = name
         try:
             result.indir = indir
+            # result.outdir.intiles.infile = indir
             indir: Indir = result.indir
             msg = f'Setting input directory to \n\t{indir.original}. '
 
@@ -740,15 +840,15 @@ class InTiles(
                 f'input/dir/x/y/z.png or input/dir/x_y_z.png.'
             )
             raise ValueError(msg) from e
-        try:
-            _ = result.outdir
-        except AttributeError:
-            msg = (
-                f'Output directory not yet set. Based on the input directory, '
-                f'setting it to a default value.'
-            )
-            logger.info(msg)
-            result = result.set_outdir()
+        # try:
+        #     _ = result.outdir
+        # except AttributeError:
+        #     msg = (
+        #         f'Output directory not yet set. Based on the input directory, '
+        #         f'setting it to a default value.'
+        #     )
+        #     logger.info(msg)
+        #     result = result.set_outdir()
         return result
 
     def set_outdir(
