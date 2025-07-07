@@ -257,8 +257,8 @@ class MiniBatch(
         yield from self.submit_probability()
         # yield from self.submit_sidebyside()
         yield from self.submit_output()
-        yield from self.submit_prediction()
-        yield from self.submit_mask()
+        yield from self.submit_indexed()
+        yield from self.submit_colored()
 
     def submit_probability(self):
         if self.prob_mask is None:
@@ -323,7 +323,7 @@ class MiniBatch(
                 future = self.threads.submit(cv2.imwrite, file, array)
                 yield future
 
-    def submit_prediction(self):
+    def submit_indexed(self):
         if self.predictions is None:
             return
         arrays = to_numpy(self.predictions)
@@ -333,6 +333,20 @@ class MiniBatch(
             future = self.threads.submit(
                 cv2.imwrite, file, array.astype('uint8'))
             yield future
+
+
+    def submit_colored(self):
+        """
+        Colorized segmentation mask where different classes (road, sidewalk, crosswalk) are represented by different colors according to a predefined color palette
+        """
+        if self.predictions is None:
+            return
+        arrays = to_numpy(self.predictions)
+        arrays = self.tiles.colormap(arrays)
+        files = self.tiles.file.colored
+        for array, file in zip(arrays, files):
+            yield self.threads.submit(cv2.imwrite, file, array)
+
 
 
     # def submit_raw(self):
@@ -348,16 +362,3 @@ class MiniBatch(
     #         future = self.threads.submit(cv2.imwrite, file, array)
     #         yield future
     #
-
-    def submit_mask(self):
-        """
-        Colorized segmentation mask where different classes (road, sidewalk, crosswalk) are represented by different colors according to a predefined color palette
-        """
-        if self.predictions is None:
-            return
-        arrays = to_numpy(self.predictions)
-        arrays = self.tiles.colormap(arrays)
-        files = self.tiles.file.colored
-        for array, file in zip(arrays, files):
-            yield self.threads.submit(cv2.imwrite, file, array)
-

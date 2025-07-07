@@ -576,6 +576,11 @@ class SegTiles(
 
             assert_and_infer_cfg(cfg)
             prep_experiment()
+
+            # loc = tiles.vectile.xtile == 4963
+            # loc &= tiles.vectiles.ytile == 6057
+            tiles = tiles.loc[loc].copy()
+
             struct = datasets.setup_loaders(tiles=tiles)
             val_loader = struct.val_loader
             criterion, criterion_val = get_loss(cfg)

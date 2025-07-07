@@ -559,7 +559,7 @@ class Tiles(
 
         stitched = big_files.drop_duplicates()
         loc = ~stitched.map(os.path.exists)
-        n_missing = np.sum(loc)
+        n_missing = len(small_files)
         n_total = len(stitched)
         if n_missing == 0:  # nothing to do
             msg = f'All {n_total:,} mosaics are already stitched.'
@@ -567,9 +567,9 @@ class Tiles(
             return
         else:
             msg = (
-                f'Stitching {n_missing:,} '
+                f'Stitching {n_missing:,} small tiles '
                 f'{small_tiles.__name__}.{small_files.name} '
-                f'into {n_total:,} '
+                f'into {n_total:,} big tiles'
                 f'{big_tiles.__name__}.{big_files.name}'
             )
             logger.info(msg)

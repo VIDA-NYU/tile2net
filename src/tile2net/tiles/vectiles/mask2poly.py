@@ -40,7 +40,6 @@ class Mask2Poly(
             path: str | Path,
             affine: Affine,
     ) -> Self:
-
         original_max = Image.MAX_IMAGE_PIXELS
 
         with warnings.catch_warnings():

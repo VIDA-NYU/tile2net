@@ -84,3 +84,10 @@ vectiles.infile and segtiles.infile must share the same extension as intiles.inf
 What if extension is passed but not xy?
 
 indir should not require extension on the files
+
+stitch loader should still use threading within a process if a lot of small tiles in the big tile
+
+
+investigat submission
+            # loc = tiles.vectile.xtile == 4963
+            # loc &= tiles.vectiles.ytile == 6057

@@ -479,7 +479,7 @@ class VecTiles(
             r=intiles.vectile.r,
             c=intiles.vectile.c,
             small_files=intiles.file.infile,
-            big_files=intiles.segtile.infile,
+            big_files=intiles.vectile.infile,
         )
         return self
 
