@@ -255,7 +255,7 @@ class MiniBatch(
 
     def submit_all(self) -> Iterator[Future]:
         yield from self.submit_probability()
-        yield from self.submit_sidebyside()
+        # yield from self.submit_sidebyside()
         yield from self.submit_output()
         yield from self.submit_prediction()
         yield from self.submit_mask()

@@ -44,7 +44,8 @@ from ..tiles import tile
 from ..tiles.corners import Corners
 from ..tiles.tiles import Tiles
 from ...tiles.explore import explore
-from ...tiles.util import recursion_block
+from ...tiles.util import RecursionBlock, recursion_block
+
 
 if False:
     import folium
@@ -291,6 +292,7 @@ class VecTiles(
         return self
 
 
+    # @RecursionBlock
     @recursion_block
     def _overlay(self) -> Self:  # noqa: C901
         """
@@ -441,6 +443,7 @@ class VecTiles(
 
         return self
 
+    # @RecursionBlock
     @recursion_block
     def _stitch_prediction(self) -> Self:
         intiles = self.segtiles.broadcast
@@ -456,7 +459,7 @@ class VecTiles(
             r=intiles.vectile.r,
             c=intiles.vectile.c,
             small_files=intiles.file.indexed,
-            big_files=intiles.segtile.indexed,
+            big_files=intiles.vectile.indexed,
         )
 
         return self
@@ -478,7 +481,6 @@ class VecTiles(
             small_files=intiles.file.infile,
             big_files=intiles.segtile.infile,
         )
-
         return self
 
 
@@ -486,6 +488,7 @@ class VecTiles(
     def intiles(self):
         return self.tiles
 
+    # @RecursionBlock
     @recursion_block
     def _stitch_mask(self) -> Self:
         intiles = self.segtiles.broadcast
@@ -501,7 +504,7 @@ class VecTiles(
             r=intiles.vectile.r,
             c=intiles.vectile.c,
             small_files=intiles.file.colored,
-            big_files=intiles.segtile.colored,
+            big_files=intiles.vectile.colored,
         )
 
         return self
@@ -545,14 +548,14 @@ class VecTiles(
             polys.to_parquet(polygons_file)
             clipped.to_parquet(network_file)
 
-        # except Exception as e:
-        #     msg = (
-        #         'Error vectorizing:\n'
-        #         f'affine={affine!r},\n'
-        #         f'infile={infile!r}\n'
-        #         f'{e}'
-        #     )
-        #     raise Exception(msg) from e
+        except Exception as e:
+            msg = (
+                'Error vectorizing:\n'
+                f'affine={affine!r},\n'
+                f'infile={infile!r}\n'
+                f'{e}'
+            )
+            raise Exception(msg) from e
 
         finally:
             for name in ("polys", "clipped", "net"):
@@ -574,6 +577,7 @@ class VecTiles(
         contextlib.redirect_stdout(devnull).__enter__()
         contextlib.redirect_stderr(devnull).__enter__()
 
+    # @RecursionBlock
     @recursion_block
     def vectorize(  # noqa: D401 – no docstrings per user pref
             self,
@@ -647,7 +651,8 @@ class VecTiles(
                 max_tasks_per_child=1,
         ) as pool, tqdm(
             total=total_tiles,
-            desc="Vectorizing",
+            # desc="Vectorizing",
+            desc=f'{self.__name__}.{self.vectorize.__name__}()',
             unit="tile",
             smoothing=0.01,
         ) as pbar:
@@ -889,12 +894,10 @@ class VecTiles(
             *args,
             tiles='cartodbdark_matter',
             m=None,
-            road_color: str = 'green',
             crosswalk_color: str = 'blue',
             sidewalk_color: str = 'red',
             simplify: float = None,
             dash='5, 20',
-            attr: str = None,
             **kwargs,
     ) -> folium.Map:
         import folium
@@ -914,6 +917,7 @@ class VecTiles(
             m=m,
             **kwargs,
         )
+
         m = explore(
             self.crosswalk.lines.explode().rename('geometry'),
             *args,
@@ -926,7 +930,6 @@ class VecTiles(
         )
 
         m = explore(
-            # self.geometry.explode(),
             self.sidewalk.lines.explode().rename('geometry'),
             *args,
             color=sidewalk_color,
@@ -938,8 +941,6 @@ class VecTiles(
         )
 
         folium.LayerControl().add_to(m)
-        # self.crosswalk.lines
-        # shapely.get_num_geometries(self)
         return m
 
     @Tile

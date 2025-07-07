@@ -1,4 +1,5 @@
 from __future__ import annotations
+import shutil
 
 import dataclasses
 import functools
@@ -16,10 +17,29 @@ from toolz import curried, curry as cur, pipe
 
 from tile2net.tiles.tiles.tiles import Tiles
 from tile2net.tiles.util import returns_or_assigns
-from .batchiterator import BatchIterator
 
 if False:
     from tile2net.tiles.intiles.intiles import InTiles
+
+
+class ExtensionNotFoundError(ValueError):
+    def __init__(
+            self,
+            path: str,
+    ):
+        super().__init__(f'No extension found in {path!r}')
+
+
+class XYNotFoundError(ValueError):
+    def __init__(
+            self,
+            path: str,
+            missing: set[str] | list[str] | tuple[str, ...],
+    ):
+        missing_fmt = ', '.join(missing)
+        super().__init__(
+            f'indir failed to parse {path!r}; missing required characters: {missing_fmt}'
+        )
 
 
 def __get__(
@@ -72,8 +92,22 @@ def __get__(
                 )
                 raise AttributeError(msg) from e
             else:
-                path = os.path.join(path, self.__name__)
-                result = self.__class__.from_dir(path)
+                # path = os.path.join(path, self.__name__)
+                #
+                # result = self.__class__.from_dir(path)
+                self.instance.suffix
+                if isinstance(self.instance, Dir):
+
+                    format = os.path.join(
+                        self.instance.dir,
+                        self.__name__,
+                        self.instance.suffix.rsplit('.')[0] + '.png'
+                    )
+
+                else:
+                    raise NotImplementedError
+
+                result = self.__class__.from_format(format)
 
     result.__name__ = self.__name__
     result.instance = self.instance
@@ -88,7 +122,6 @@ class Dir:
         __get__=__get__
     )
     __wrapped__ = None
-
 
     def __set_name__(self, owner, name):
         self.__name__ = name
@@ -176,14 +209,20 @@ class Dir:
         return indir
 
     @classmethod
-    def from_format(cls, format: str) -> Self:  # noqa: A002
-        value = os.path.normpath(format)
+    def from_format(
+            cls,
+            format: str
+    ) -> Self:  # noqa: A002
+
+        # value = os.path.normpath(format)
+        value = (
+            Path(format)
+            .expanduser()
+            .resolve()
+            .__str__()
+        )
         indir = cls()
         indir.original = value
-        try:
-            indir.extension = value.rsplit('.', 1)[1]
-        except IndexError:
-            raise ValueError(f'No extension found in {value!r}')
 
         CHARACTERS: dict[str, str] = pipe(
             re.split(r'[/_. \-\\]', value),
@@ -209,9 +248,17 @@ class Dir:
             match = indir._match(match[0], characters)
             result.appendleft(match)
 
+        try:
+            indir.extension = value.rsplit('.', 1)[1]
+        except IndexError:
+            ...
+            # raise ExtensionNotFoundError(value)
+            # raise ValueError(f'No extension found in {value!r}')
+
         failed = [c for c in 'xy' if c not in CHARACTERS]
         if failed:
-            raise ValueError(f'indir failed to parse {value!r}')
+            raise XYNotFoundError(value, failed)
+            # raise ValueError(f'indir failed to parse {value!r}')
 
         parts = []
         r = result[0]
@@ -337,6 +384,38 @@ class Dir:
         result = tiles[key]
         return result
 
+    def _cleanup(
+            self,
+            base_dir: str,
+            exclude: list[str]
+    ):
+
+        exclude_paths: set[str] = {
+            os.path.normpath(os.path.abspath(p))
+            for p in exclude
+        }
+
+        for entry in os.scandir(base_dir):
+            path: str = os.path.normpath(entry.path)
+
+            if any(
+                    path == exc or path.startswith(f"{exc}{os.sep}")
+                    for exc in exclude_paths
+            ):
+                continue
+
+            try:
+                if entry.is_dir(follow_symlinks=False):
+                    shutil.rmtree(path)
+                else:
+                    os.remove(path)
+            except FileNotFoundError:
+                # The target may have already been removed by another process
+                continue
+
+        ...
+
+
 
 class TestIndir:
     indir = Dir()
@@ -346,6 +425,7 @@ class TestIndir:
         self.zoom = 20
         self.extension = '.png'
         self.indir = indir
+
 
 
 if __name__ == '__main__':
@@ -371,6 +451,7 @@ if __name__ == '__main__':
         Tile(4, 5, 6),
         Tile(7, 8, 9),
     ]
+    test = TestIndir('input/dir.png')
     test = TestIndir('input/dir/x/y/z.png')
     test = TestIndir('input/dir/x_y_z.png')
     test = TestIndir('input/dir/y/x/z.png')

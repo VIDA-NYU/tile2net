@@ -3,6 +3,7 @@ from __future__ import annotations
 from concurrent.futures import Future
 from concurrent.futures import (
     ProcessPoolExecutor,
+    ThreadPoolExecutor,
     as_completed,
 )
 from pathlib import Path
@@ -25,53 +26,50 @@ def _assemble_and_save(  # top-level → pickle-friendly
         files: list[str],
         rows: np.ndarray,
         cols: np.ndarray,
-        out_path: str,
+        outfile: str,
         tile_shape: Tuple[int, int, int],
         mosaic_shape: Tuple[int, int, int],
         dtype: np.dtype,
 ) -> str:
     """
-    Worker routine executed in a separate process.  Reads *files*, places them
-    into their correct slots, and writes the finished mosaic to *out_path*.
-    Returns the destination path so the parent can assert success.
+    Read *files*, place them into their (row, col) slots, force transparent
+    pixels to pure black, drop α, and write the finished mosaic to *outfile*.
     """
 
     tile_h, tile_w, _ = tile_shape
-    mos_h, mos_w, mos_c = mosaic_shape
+    mos_h, mos_w, mos_c = mosaic_shape  # mos_c is **3** (RGB)
 
-    mosaic = np.zeros(mosaic_shape, dtype=dtype)
+    # ── work in RGBA (mos_c + 1) ─────────────────────────────────────────────
+    mosaic = np.zeros((mos_h, mos_w, mos_c + 1), dtype=dtype)  # RGBA
 
     for f, r, c in zip(files, rows, cols, strict=True):
-        if not Path(f).is_file():
-            # skip silently – upstream code decided the file might exist
+        if not Path(f).is_file():  # silently skip absent tiles
             continue
 
-        img = iio.imread(f)
+        img = iio.imread(f, mode='RGBA')  # always 4 channels
 
-        # harmonise channel count
-        if img.ndim == 2:  # gray → colour
-            img = np.repeat(img[..., None], mos_c, axis=2)
-        elif img.shape[2] > mos_c:  # drop alpha, etc.
-            img = img[..., :mos_c]
-        elif img.shape[2] < mos_c:  # pad missing
-            pad = np.zeros((
-                *img.shape[:2],
-                mos_c - img.shape[2],
-            ), dtype=img.dtype)
-            img = np.concatenate((img, pad), axis=2)
+        # harmonise spatial size (channel count already 4)
+        if img.ndim != 3 or img.shape[:2] != (tile_h, tile_w):
+            raise ValueError(f'{f!s}: unexpected tile shape {img.shape}')
 
-        y0 = r * tile_h
-        x0 = c * tile_w
-        mosaic[
-        y0:y0 + tile_h,
-        x0:x0 + tile_w,
-        :
-        ] = img
+        y0, x0 = r * tile_h, c * tile_w
+        mosaic[y0:y0 + tile_h, x0:x0 + tile_w, :] = img
 
-    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
-    iio.imwrite(out_path, mosaic)
+    # ── force α-transparent pixels → black in RGB ────────────────────────────
+    alpha = mosaic[..., 3] == 0  # bool mask
+    mosaic[alpha, :3] = 0  # RGB ← 0 where α == 0
 
-    return out_path
+    # ── drop α, write RGB only ───────────────────────────────────────────────
+
+    # assert outfile != '/home/arstneio/PycharmProjects/tile2net/src/boston/segtiles/infile/19/39729_48497.png'
+    # assert outfile != '/home/arstneio/PycharmProjects/tile2net/src/boston/segtiles/infile/19/39729_48502.png'
+    rgb = mosaic[..., :3]
+
+    Path(outfile).parent.mkdir(parents=True, exist_ok=True)
+
+    iio.imwrite(outfile, rgb, plugin='pillow')  # Pillow picks format from suffix
+
+    return outfile
 
 
 class Loader:
@@ -152,12 +150,11 @@ class Loader:
             tasks: list[Future[str]] = []
 
             # ── enqueue all mosaics --------------------------------------------
-            for out_path, g in tqdm(
+            for outfile, g in tqdm(
                     groups,
                     total=groups.ngroups,
                     desc='queueing',
-                    unit=' mosaic',
-                    position=0,
+                    unit=f' {self.group.name}',
                     leave=False,
             ):
                 fut = ex.submit(
@@ -165,19 +162,17 @@ class Loader:
                     g.file.tolist(),
                     g.row.to_numpy(),
                     g.col.to_numpy(),
-                    out_path,
+                    outfile,
                     (self.tile_h, self.tile_w, self.tile_c),
                     (self.mos_h, self.mos_w, self.mos_c),
                     self.dtype,
                 )
                 tasks.append(fut)
 
-            # ── wait for completion -------------------------------------------
             for fut in tqdm(
                     as_completed(tasks),
                     total=len(tasks),
                     desc='stitching',
-                    unit=' mosaic',
-                    position=1,
+                    unit=f' {self.group.name}',
             ):
                 fut.result()  # propagate failures

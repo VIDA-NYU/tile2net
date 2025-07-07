@@ -80,3 +80,7 @@ set_outdir(...)
 what if they want to  set outdir after setting indir?
 
 vectiles.infile and segtiles.infile must share the same extension as intiles.infile
+
+What if extension is passed but not xy?
+
+indir should not require extension on the files

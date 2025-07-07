@@ -382,13 +382,13 @@ if __name__ == '__main__':
     print(name_from_location([1.22456789, 2.3456789, 3.456789, 4.56789]))
 
 
-class recursion_block:
+class RecursionBlock:
     """
     returns True if the function is currently being executed
     """
     __wrapped__: Callable[..., Any] = None
     tiles: Tiles = None
-    block: recursion_block = None
+    block: RecursionBlock = None
 
     def __init__(self, func: Callable[..., Any]):
         update_wrapper(self, func)
@@ -434,6 +434,16 @@ class recursion_block:
         if self.tiles.attrs.get(self.__name__) is self:
             del self.tiles.attrs[self.__name__]
         return False
+
+
+if False:
+    def recursion_block(
+            func
+    ):
+        return func
+else:
+    recursion_block = RecursionBlock
+
 
 
 def assert_perfect_overlap(

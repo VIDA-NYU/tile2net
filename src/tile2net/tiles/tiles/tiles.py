@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import pyproj
 import shapely
+from sympy.codegen.fnodes import intent_in
 from tqdm.auto import tqdm
 
 from tile2net.raster import util
@@ -546,6 +547,10 @@ class Tiles(
         c: pd.Series,
     ):
 
+        # loc = small_tiles.segtile.xtile == 39729
+        # small_files = small_files.loc[loc]
+        # big_files = big_files.loc[loc]
+
         loc = ~big_files.map(os.path.exists)
         small_files = small_files.loc[loc]
         row = r.loc[loc]
@@ -559,9 +564,16 @@ class Tiles(
         if n_missing == 0:  # nothing to do
             msg = f'All {n_total:,} mosaics are already stitched.'
             logger.info(msg)
+            return
         else:
-            msg = f'Stitching {n_missing:,} of {n_total:,} segtiles missing on disk.'
+            msg = (
+                f'Stitching {n_missing:,} '
+                f'{small_tiles.__name__}.{small_files.name} '
+                f'into {n_total:,} '
+                f'{big_tiles.__name__}.{big_files.name}'
+            )
             logger.info(msg)
+
 
         loader = Loader(
             infiles=small_files,
@@ -571,8 +583,7 @@ class Tiles(
             mosaic_shape=big_tiles.tile.shape,
             outfiles=big_files
         )
-        loader.run(max_workers=os.cpu_count())
 
-        assert big_files.map(os.path.exists).all(), (
-            'Not all stitched mosaics were written to disk.'
-        )
+        loader.run(max_workers=os.cpu_count())
+        msg = 'Not all stitched mosaics were written to disk.'
+        assert big_files.map(os.path.exists).all(), msg

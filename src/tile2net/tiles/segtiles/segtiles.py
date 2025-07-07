@@ -40,7 +40,8 @@ from .vectile import VecTile
 from ..tiles import file
 from ..tiles import tile
 from ..tiles.tiles import Tiles
-from ...tiles.util import recursion_block
+from ..util import recursion_block
+from ...tiles.util import RecursionBlock
 
 if False:
     from .padded import Padded
@@ -135,7 +136,7 @@ class File(
         key = 'file.infile'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.segtiles.files(tiles)
+        files = tiles.intiles.outdir.segtiles.infile.files(tiles)
         tiles[key] = files
         if (
                 not tiles._stitch_infile
@@ -166,7 +167,7 @@ class File(
         key = 'file.probability'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.seg_results.prob.files(tiles)
+        files = tiles.intiles.outdir.segtiles.prob.files(tiles)
         if (
                 not tiles.predict
                 and not files.map(os.path.exists).all()
@@ -181,7 +182,7 @@ class File(
         key = 'file.error'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.seg_results.error.files(tiles)
+        files = tiles.intiles.outdir.segtiles.error.files(tiles)
         if (
                 not tiles.predict
                 and not files.map(os.path.exists).all()
@@ -222,11 +223,12 @@ class File(
 
     @property
     def submit(self) -> pd.Series:
+        raise NotImplementedError
         tiles = self.tiles
         key = 'file.submit'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.submit.files(tiles)
+        # files = tiles.intiles.outdir.segtiles.files(tiles)
         if (
                 not tiles.predict
                 and not files.map(os.path.exists).all()
@@ -255,7 +257,7 @@ class File(
         key = f'file.output.{dirname}'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.outputs.files(tiles, dirname)
+        files = tiles.intiles.outdir.segtiles.output.files(tiles, dirname)
         if (
                 not tiles.predict
                 and not files.map(os.path.exists).all()
@@ -278,22 +280,33 @@ class SegTiles(
         ...
 
 
+    # @RecursionBlock
     @recursion_block
     def _stitch_infile(self) -> Self:
-
         if self is not self.padded:
             return self.padded._stitch_infile()
 
         intiles = self.intiles.padded
         segtiles = self.padded
 
+        # loc = intiles.segtile.xtile == 39729
+        # intiles = intiles.loc[loc]
+
+        small_files = intiles.file.infile
+        big_files = intiles.segtile.infile
+        assert len(small_files) == len(intiles)
+        assert len(big_files) == len(intiles)
+
+        msg = f'Stitching into \n\t{intiles.outdir.segtiles.infile.dir}'
+        logger.debug(msg)
+
         self._stitch(
             small_tiles=intiles,
             big_tiles=segtiles,
             r=intiles.segtile.r,
             c=intiles.segtile.c,
-            small_files=intiles.file.infile,
-            big_files=intiles.segtile.infile,
+            small_files=small_files,
+            big_files=big_files,
         )
 
         return self
@@ -459,6 +472,7 @@ class SegTiles(
     def broadcast(self) -> Broadcast:
         ...
 
+    # @RecursionBlock
     @recursion_block
     def predict(
             self,
@@ -599,11 +613,11 @@ class SegTiles(
                 tiles.file.indexed,
                 tiles.file.infile,
                 tiles.file.probability,
-                tiles.file.sidebyside,
-                tiles.file.segresults,
+                # tiles.file.sidebyside,
+                # tiles.file.segresults,
                 tiles.file.error,
                 tiles.file.colored,
-                tiles.file.submit,
+                # tiles.file.submit,
             )
 
             if cfg.model.eval == 'test':
@@ -664,8 +678,8 @@ class SegTiles(
         with logging_redirect_tqdm():
             pbar = tqdm(
                 total=len(TILES),  # one tick per tile
-                desc="Inference",
-                unit="tile",
+                desc="Inferring",
+                unit=f' {self.segtiles.file.indexed.name}',
                 dynamic_ncols=True,
             )
 

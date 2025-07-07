@@ -96,10 +96,10 @@ class VecTile(
     #     return segtiles[key]
 
     @property
-    def prediction(self) -> pd.Series:
+    def indexed(self) -> pd.Series:
         """segtiles.file broadcasted to intiles"""
         segtiles = self.segtiles
-        key = 'segtile.prediction'
+        key = 'segtile.indexed'
         if key in segtiles.columns:
             return segtiles[key]
         vectiles = self.vectiles
@@ -128,10 +128,10 @@ class VecTile(
         return segtiles[key]
 
     @property
-    def mask(self) -> pd.Series:
+    def colored(self) -> pd.Series:
         """segtiles.file broadcasted to intiles"""
         segtiles = self.segtiles
-        key = 'segtile.mask'
+        key = 'segtile.colored'
         if key in segtiles.columns:
             return segtiles[key]
         vectiles = self.vectiles

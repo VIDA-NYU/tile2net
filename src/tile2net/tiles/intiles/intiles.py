@@ -6,6 +6,8 @@ from contextlib import contextmanager
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from ...raster.tile_utils.topology import extend_line
+
 # thread-local store
 tls = threading.local()
 
@@ -33,7 +35,7 @@ from urllib3.util.retry import Retry
 from tile2net.raster import util
 from tile2net.tiles.cfg import cfg
 from tile2net.tiles.cfg.logger import logger
-from tile2net.tiles.dir.dir import Dir
+from tile2net.tiles.dir.dir import Dir, ExtensionNotFoundError, XYNotFoundError
 from tile2net.tiles.dir.indir import Indir
 from tile2net.tiles.dir.outdir import Outdir
 from . import delayed
@@ -49,7 +51,7 @@ from ..tiles import tile, file
 from ..tiles.tiles import Tiles
 from ..util import assert_perfect_overlap
 from ..vectiles import VecTiles
-from ...tiles.util import recursion_block
+from ...tiles.util import RecursionBlock, recursion_block
 
 if False:
     from .padded import Padded
@@ -90,10 +92,10 @@ class File(
 ):
     tiles: InTiles
 
-    @tile.cached_property
+    @property
     def infile(self) -> pd.Series:
         tiles = self.tiles
-        key = 'file.static'
+        key = 'file.infile'
         if key in tiles:
             return tiles[key]
         files = tiles.indir.files(tiles)
@@ -154,11 +156,11 @@ class InTiles(
         format = os.path.join(
             intiles.dir,
             'infile',
-            f'z/x_y.{extension}'
+            # f'z/x_y.{extension}'
+            f'z/x_y'
         )
         result = Indir.from_format(format)
         return result
-
 
     # @property
     # def indir(self):
@@ -322,210 +324,13 @@ class InTiles(
             self.segtile.ytile,
         )
 
-    @recursion_block
-    def download(
-            self,
-            retry: bool = True,
-            force: bool = False,
-            max_workers: int = 100,
-    ) -> Self:
-        """
-        file.statics:
-            Series of file path destinations
-        urls:
-            Series of URLs to download from
-        retry:
-            serialize tiles a second time if the first time fails
-        force:
-            redownload the tiles even if they already exist
-        """
-        if self is not self.padded:
-            return self.padded.download(
-                retry=retry,
-                force=force,
-                max_workers=max_workers,
-            )
-
-        paths = self.file.infile
-        urls = self.source.urls
-
-        if paths.empty or urls.empty:
-            return self
-        if len(paths) != len(urls):
-            raise ValueError('paths and urls must be equal length')
-
-        # ensure directories exist
-        for p in {Path(p).parent for p in paths}:
-            p.mkdir(parents=True, exist_ok=True)
-
-        PATHS = paths.array
-        URLS = urls.array
-
-        exists = (
-            paths
-            .map(os.path.exists)
-            .to_numpy(dtype=bool)
-        )
-        if exists.all() and not force:
-            logger.info('All tiles already on disk.')
-            return self
-
-        if not force:
-            # Only download files that do not already exist
-            PATHS = paths[~exists].array
-            URLS = urls[~exists].array
-        mapping = dict(zip(PATHS, URLS))
-
-        pool_size = min(max_workers, len(mapping))
-        download_ok = np.ones(len(mapping), dtype=bool)
-
-        retry = Retry(
-            total=3,
-            backoff_factor=0.4,
-            status_forcelist=[500, 502, 503, 504],
-            allowed_methods=['HEAD', 'GET'],
-        )
-
-        with (
-            ThreadPoolExecutor(
-                max_workers=pool_size,
-                initializer=self._init_net_worker,
-            ) as net_pool,
-            ThreadPoolExecutor(max_workers=min(32, pool_size)) as disk_pool,
-            # requests.Session() as session
-        ):
-
-            head = self._head
-            msg = f'HEADing {len(mapping):,} tiles.'
-            logger.info(msg)
-            it = tqdm(
-                mapping.items(),
-                total=len(mapping),
-                desc="HEAD submit",
-                unit="tile",
-            )
-            head_futs = {
-                net_pool.submit(head, url): path
-                for path, url in it
-            }
-
-            it = tqdm(
-                as_completed(head_futs),
-                total=len(head_futs),
-                desc="HEAD pass"
-            )
-            status_codes = {
-                head_futs[fut]: fut.result()
-                for fut in it
-            }
-
-            bad = {
-                p
-                for p, c in status_codes.items()
-                if c not in (200, 404, 405, 501)
-            }
-            if bad:
-                logger.warning(
-                    "Unexpected status codes: %s",
-                    {status_codes[p] for p in bad},
-                )
-
-            not_found = {p for p, c in status_codes.items() if c == 404}
-            if not_found:
-                n, N = len(not_found), len(mapping)
-                msg = f"{n:,} / {N:,} tiles returned 404."
-                if n == N:
-                    raise FileNotFoundError(msg)
-                logger.warning(msg)
-
-            # ── pruning
-            todo = {
-                p: u
-                for p, u in mapping.items()
-                if p not in not_found
-            }
-
-            if not todo:
-                return self
-
-            # ── GET + write
-            submit = self._stream_get
-            get_futs = {
-                net_pool.submit(submit, url): path
-                for path, url in todo.items()
-            }
-
-            write_futs = []
-            submit = self._atomic_write
-            it = tqdm(
-                as_completed(get_futs),
-                total=len(get_futs),
-                desc="Downloading"
-            )
-            for fut in it:
-                path = get_futs[fut]
-                resp = fut.result()
-                if resp.status_code != 200:
-                    continue
-                f = disk_pool.submit(submit, path, resp)
-                write_futs.append(f)
-
-            it = tqdm(
-                as_completed(write_futs),
-                total=len(write_futs),
-                desc="Writing"
-            )
-            failed = [
-                f.result()
-                for f in it
-                if f.result() is not None
-            ]
-
-            if failed:
-                if retry:
-                    logger.error("%d failed tiles; retrying once.", len(failed))
-                    return self.download(
-                        retry=False,
-                        force=False,
-                        max_workers=max_workers,
-                    )
-                raise FileNotFoundError(f"{len(failed):,} tiles failed.")
-
-            def _link_or_copy(src, dst):
-                try:
-                    os.symlink(src, dst)
-                except (OSError, NotImplementedError):
-                    shutil.copy2(src, dst)
-
-            paths = PATHS[not_found]
-            extension = self.indir.extension
-            try:
-                black = getattr(self.static.black, extension)
-            except AttributeError as e:
-                msg = f'No black placeholder found for extension {extension}.'
-                raise FileNotFoundError(msg) from e
-
-            if len(paths):
-                msg = f'Linking or copying {len(paths):,} tiles to {black}.'
-                logger.info(msg)
-
-            if len(paths) > 64:  # thread only when worthwhile
-                with ThreadPoolExecutor() as ex:
-                    ex.map(lambda p: _link_or_copy(black, p), paths)
-            else:
-                for path in paths:
-                    _link_or_copy(black, path)
-
-            logger.info('All requested tiles are on disk.')
-
-        return self
 
     @recursion_block
     def download(
             self,
             retry: bool = True,
             force: bool = False,
-            max_workers: int = 32,  # ⇣ lower default ⇣ avoids port-exhaustion
+            max_workers: int = 64,  # ⇣ lower default ⇣ avoids port-exhaustion
     ) -> Self:
 
         if self is not self.padded:
@@ -559,7 +364,7 @@ class InTiles(
         if not mapping:
             return self
 
-        msg = f"Downloading {len(mapping):,} tiles."
+        msg = f"Downloading {len(mapping):,} tiles to {self.indir.dir}"
         logger.info(msg)
 
         pool_size = min(max_workers, len(mapping))
@@ -624,9 +429,20 @@ class InTiles(
             ):
                 fut.result()
 
-                # ── handle 404s (link black placeholder)
+        if len(not_found) + len(failed) == len(self.file.infile):
+            msg = f'All {len(not_found) + len(failed):,} tiles failed to download.'
+            raise FileNotFoundError(msg)
+
         if not_found:
-            black = self.static.black
+            # black = self.static.black
+            # black = getattr(self.static.black, self.)
+            try:
+                black = getattr(self.static.black, self.source.extension)
+            # except AttributeError as e:
+            except AttributeError as e:
+                msg = f'No black placeholder found for extension {self.source.extension}.'
+
+                raise FileNotFoundError(msg) from e
             logger.warning("%d tiles returned 404 – linking placeholder.", len(not_found))
             for p in not_found:
                 try:
@@ -646,95 +462,6 @@ class InTiles(
 
         logger.info("All requested tiles are on disk.")
         return self
-
-    # def set_source(
-    #         self,
-    #         source=None,
-    #         name: str = None,
-    #         outdir: Union[str, Path] = None,
-    #         max_workers: int = 100,
-    # ) -> Self:
-    #     """
-    #     Assign a source to the tiles. The tiles are downloaded from
-    #     the source and saved to an input directory.
-    #
-    #     You can pass an outdir which will be the destination the files
-    #     are saved to.
-    #     """
-    #     if source is None:
-    #         source = (
-    #             gpd.GeoSeries([self.union_all()], crs=self.crs)
-    #             .to_crs(4326)
-    #             .pipe(Source.from_inferred)
-    #         )
-    #     elif isinstance(source, Source):
-    #         ...
-    #     else:
-    #         try:
-    #             source = Source.from_inferred(source)
-    #         except SourceNotFound as e:
-    #             msg = (
-    #                 f'Unable to infer a source from {source}. '
-    #                 f'Please specify a valid source or use a '
-    #                 f'different method to set the tiles.'
-    #             )
-    #             raise ValueError(msg) from e
-    #
-    #     result = self.copy()
-    #     result.source = source
-    #     msg = (
-    #         f'Setting source to {source.__class__.__name__} '
-    #         f'({source.name})'
-    #     )
-    #     logger.info(msg)
-    #     if name:
-    #         result.name = name
-    #     if outdir:
-    #         if Dir.is_valid(outdir):
-    #             ...
-    #         else:
-    #             infile = result.outdir.intiles.infile
-    #             outdir = infile.format.replace(
-    #                 infile.extension,
-    #                 source.extension
-    #             )
-    #     else:
-    #         if result.name:
-    #             name = result.name
-    #         else:
-    #             name = result.source.name
-    #         # todo: default is outdir/intiles/infile/z/x_y.png
-    #
-    #         # args = (
-    #         #     tempfile.gettempdir(),
-    #         #     'tile2net',
-    #         #     name,
-    #         #     'z',
-    #         #     'x_y.png'
-    #         # )
-    #         # indir = (
-    #         #     Path(*args)
-    #         #     .resolve()
-    #         #     .__str__()
-    #         # )
-    #
-    #         infile = result.outdir.intiles.infile
-    #         indir = infile.format.replace(
-    #             infile.extension,
-    #             source.extension
-    #         )
-    #
-    #     result = result.set_indir(
-    #         indir,
-    #         name=name,
-    #     )
-    #
-    #     # urls = result.source.urls
-    #     # files = result.indir.files()
-    #     # result.download(files, urls, max_workers=max_workers)
-    #     # result.download(max_workers=max_workers)
-    #
-    #     return result
 
     def set_source(
             self,
@@ -782,6 +509,38 @@ class InTiles(
                 .resolve()
                 .__str__()
             )
+
+        try:
+            dir = Dir.from_format(outdir)
+        except ExtensionNotFoundError:
+            # dir = f'{outdir}.{source.extension}'
+            dir =  outdir
+            try:
+                dir = Dir.from_format(dir)
+            except XYNotFoundError as e:
+                # dir = f'{outdir}/z/x_y.{source.extension}'
+                dir = f'{outdir}/z/x_y'
+                dir = Dir.from_format(dir)
+
+        except XYNotFoundError as e:
+            # msg = (
+            #     f'Invalid output directory: extension included but '
+            #     f'no `x` or `y` in the format: {outdir}. '
+            # )
+            # raise ValueError(msg) from e
+            dir = f'{outdir}/z/x_y'
+            dir = Dir.from_format(dir)
+
+
+        # if result.source.extension != dir.extension:
+        #     msg = (
+        #         f'Output directory {outdir} has a different '
+        #         f'extension ({dir.extension}) than the source '
+        #         f'({result.source.extension}).'
+        #     )
+        #     raise ValueError(msg)
+        outdir = dir.original
+
         result = result.set_outdir(outdir)
 
         # infile = result.outdir.intiles.infile
@@ -860,43 +619,39 @@ class InTiles(
         The tiles are saved to the output directory.
         """
         result: Tiles = self.copy()
-        if outdir:
-            ...
-        elif cfg.output_dir:
-            outdir = cfg.output_dir
-        else:
-            if self.name:
-                name = self.name
-            elif cfg.name:
-                name = cfg.name
-            elif (
-                    self.source
-                    and self.source.name
-            ):
-                name = self.source.name
-            else:
-                msg = (
-                    f'No output directory specified, and unable to infer '
-                    f'a name for a temporary output directory. Either '
-                    f'set a name, use a source, or specify an output directory.'
-                )
-                raise ValueError(msg)
 
-            outdir = os.path.join(
-                tempfile.gettempdir(),
-                'tile2net',
-                name,
-                'outdir'
+        # if not outdir:
+        # if not outdir:
+        #     if cfg.output_dir:
+        #         outdi = cfg.output_dir
+
+        if not outdir:
+            outdir = cfg.output_dir
+
+        if not outdir:
+            raise ValueError(f'No output directory specified. ')
+
+        dir = outdir
+        try:
+            result.outdir = dir
+        except XYNotFoundError as e:
+            _dir = f'{outdir}/z/x_y'
+            msg = (
+                f'XYZ format not found in output directory: {dir}. '
+                f'Defaulting to {_dir}'
             )
+            logger.info(msg)
+            dir = _dir
 
         try:
-            result.outdir = outdir
-        except ValueError:
-            retry = os.path.join(outdir, 'z', 'x_y.png')
-            result.outdir = retry
-            logger.info(f'Setting output directory to \n\t{result.outdir.format}')
-        else:
-            logger.info(f'Setting output directory to \n\t{result.outdir.format}')
+            result.outdir = dir
+        except ExtensionNotFoundError:
+            dir = f'{dir}.png'
+
+        result.outdir = dir
+        # noinspection PyUnresolvedReferences
+        msg = f'Setting output directory to \n\t{result.outdir.original} '
+        logger.info(msg)
 
         return result
 

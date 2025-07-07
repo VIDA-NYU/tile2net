@@ -37,7 +37,7 @@ class Black(
     @cached_property
     def jpg(self):
         dim: int = self.tiles.tile.dimension
-        path: Path = self.tiles.path.joinpath(str(dim), 'black.jpg')
+        path: Path = self.static.path.joinpath(str(dim), 'black.jpg')
 
         if not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)

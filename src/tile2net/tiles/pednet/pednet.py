@@ -1,5 +1,6 @@
 from __future__ import annotations
 import shapely
+import shapely
 
 from pathlib import Path
 from typing import *
@@ -57,7 +58,6 @@ class PedNet(
             save_original: bool = False,
     ) -> Self:
         logger.debug(f"Creating {cls.__name__} from {len(gdf)} polygon(s) at CRS {crs}")
-        import shapely
 
         result = (
             gdf

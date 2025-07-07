@@ -99,28 +99,6 @@ class SideBySide(
     ...
 
 
-class Outputs(
-    Dir,
-):
-    ...
-
-    # def iterator(self, dirname: str, *args, **kwargs) -> Iterator[pd.Series]:
-    #     return super(Outputs, self).iterator(dirname)
-    #     key = self._trace
-    #     cache = self.tiles.attrs
-    #     if key in cache:
-    #         it = cache[key]
-    #     else:
-    #         files = self.files(dirname)
-    #         if not self.tiles.cfg.force:
-    #             loc = ~self.tiles.outdir.skip
-    #             files = files.loc[loc]
-    #         it = iter(files)
-    #         cache[key] = it
-    #     yield from it
-    #     del cache[key]
-    #
-
 
 # class SegResults(
 #     Dir,
@@ -201,6 +179,7 @@ class Outdir(
     #     )
     #     result = Outputs.from_format(format)
     #     return result
+
     # @Submit
     # def submit(self):
     #     format = os.path.join(
@@ -224,39 +203,33 @@ class Outdir(
 
     @VecTiles
     def vectiles(self):
-        ...
-
-        # format = os.path.join(
-        #     self.dir,
-        #     'vectiles',
-        #     self.suffix
-        # ).replace(self.extension, 'png')
-        # result = VecTiles.from_format(format)
-        # return result
+        format = os.path.join(
+            self.dir,
+            'vectiles',
+            self.suffix
+        )
+        result = VecTiles.from_format(format)
+        return result
 
     @SegTiles
     def segtiles(self):
-        ...
-
-        # format = os.path.join(
-        #     self.dir,
-        #     'segtiles',
-        #     self.suffix
-        # ).replace(self.extension, 'png')
-        # result = SegTiles.from_format(format)
-        # return result
+        format = os.path.join(
+            self.dir,
+            'segtiles',
+            self.suffix
+        )
+        result = SegTiles.from_format(format)
+        return result
 
     @InTiles
     def intiles(self):
-        ...
-
-        # format = os.path.join(
-        #     self.dir,
-        #     'intiles',
-        #     self.suffix
-        # ).replace(self.extension, self.intiles.indir.extension)
-        # result = InTiles.from_format(format)
-        # return result
+        format = os.path.join(
+            self.dir,
+            'intiles',
+            self.suffix
+        )
+        result = InTiles.from_format(format)
+        return result
 
 
     @Lines
