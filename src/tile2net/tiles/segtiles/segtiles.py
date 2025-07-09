@@ -147,12 +147,12 @@ class File(
         return tiles[key]
 
     @property
-    def indexed(self) -> pd.Series:
+    def grayscale(self) -> pd.Series:
         tiles = self.tiles
-        key = 'file.indexed'
+        key = 'file.grayscale'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.segtiles.indexed.files(tiles)
+        files = tiles.intiles.outdir.segtiles.grayscale.files(tiles)
         if (
                 not tiles.predict
                 and not files.map(os.path.exists).all()
@@ -280,7 +280,7 @@ class SegTiles(
         ...
 
 
-    # @RecursionBlock
+
     @recursion_block
     def _stitch_infile(self) -> Self:
         if self is not self.padded:
@@ -461,7 +461,7 @@ class SegTiles(
 
     @property
     def skip(self):
-        result = ~self.file.indexed.apply(os.path.exists)
+        result = ~self.file.grayscale.apply(os.path.exists)
         return result
 
     @delayed.Padded
@@ -472,7 +472,7 @@ class SegTiles(
     def broadcast(self) -> Broadcast:
         ...
 
-    # @RecursionBlock
+
     @recursion_block
     def predict(
             self,
@@ -496,7 +496,7 @@ class SegTiles(
         if batch_size is not None:
             cfg.model.bs_val = batch_size
         if not cfg.force:
-            loc = ~tiles.file.indexed.apply(os.path.exists)
+            loc = ~tiles.file.grayscale.apply(os.path.exists)
             tiles: SegTiles = tiles.loc[loc].copy()
             if not np.any(loc):
                 msg = 'All segmentation tiles are on disk.'
@@ -577,10 +577,6 @@ class SegTiles(
             assert_and_infer_cfg(cfg)
             prep_experiment()
 
-            loc = tiles.vectile.xtile == 4963
-            loc &= tiles.vectiles.ytile == 6057
-            tiles = tiles.loc[loc].copy()
-
             struct = datasets.setup_loaders(tiles=tiles)
             val_loader = struct.val_loader
             criterion, criterion_val = get_loss(cfg)
@@ -615,7 +611,7 @@ class SegTiles(
             torch.cuda.empty_cache()
 
             _ = (
-                tiles.file.indexed,
+                tiles.file.grayscale,
                 tiles.file.infile,
                 tiles.file.probability,
                 # tiles.file.sidebyside,
@@ -684,7 +680,7 @@ class SegTiles(
             pbar = tqdm(
                 total=len(TILES),  # one tick per tile
                 desc="Inferring",
-                unit=f' {self.segtiles.file.indexed.name}',
+                unit=f' {self.segtiles.file.grayscale.name}',
                 dynamic_ncols=True,
             )
 

@@ -1,6 +1,10 @@
 from __future__ import annotations
+import rasterio.features
 
+import rasterio.features as _rf
+from contextlib import contextmanager
 import os
+import warnings
 from pathlib import Path
 from typing import *
 
@@ -8,23 +12,25 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pyarrow.dataset as ds
-import rasterio.features
 import shapely
 import shapely.wkt
 import skimage
+import skimage.io  # assume already in deps
+from PIL import Image
 from affine import Affine
 from numpy import ndarray
 from pandas import Series
+from rasterio.errors import NotGeoreferencedWarning
+from rasterio.features import shapes
 from shapely.geometry import shape
-import warnings
-from PIL import Image
-import skimage.io  # assume already in deps
 
 from tile2net.raster.tile_utils.geodata_utils import _check_skimage_im_load
 from tile2net.tiles.cfg.logger import logger
 from ..benchmark import benchmark
 from ..cfg import cfg
 from ..fixed import GeoDataFrameFixed
+
+
 
 os.environ['USE_PYGEOS'] = '0'
 
@@ -95,6 +101,42 @@ class Mask2Poly(
             raise FileNotFoundError(msg)
         return cls.from_parquets(files, threads=threads, **read_parquet_kwargs)
 
+    @staticmethod
+    def shapes_strict(
+            arr: np.ndarray,
+            mask: np.ndarray | None = None,
+            transform: Affine | None = None,
+            connectivity: int = 4,
+    ) -> Iterable[tuple[dict, int]]:
+        # Fail fast if the raster lacks geotransform metadata
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                action='error',
+                category=NotGeoreferencedWarning,
+            )
+            try:
+                yield from shapes(
+                    arr,
+                    mask=mask,
+                    connectivity=connectivity,
+                    transform=transform,
+                )
+            except NotGeoreferencedWarning as exc:
+                raise RuntimeError(
+                    'Input raster is not georeferenced; aborting.'
+                ) from exc
+
+    @classmethod
+    @contextmanager
+    def shapes_strict_context(self):
+        original = _rf.shapes
+        _rf.shapes = self.shapes_strict  # <-- your wrapper defined earlier
+        try:
+            yield
+        finally:
+            _rf.shapes = original  # always restore
+
     @classmethod
     def from_array(
             cls,
@@ -123,6 +165,18 @@ class Mask2Poly(
         for label, id in label2id.items():
             mask = np.array(array == id, dtype=np.uint8)
             it = rasterio.features.shapes(array, mask, transform=affine)
+            # it = cls.shapes_strict(
+            #     array,
+            #     mask=mask,
+            #     transform=affine,
+            # )
+
+            # with cls.shapes_strict_context():
+            #     it = _rf.shapes(
+            #         ARRAY,
+            #         mask=mask,
+            #         transform=affine,
+            #     )
             geometry = [
                 shape(geom)
                 for geom, _ in it
@@ -139,22 +193,6 @@ class Mask2Poly(
             .set_index('feature')
         )
 
-
-        return result
-
-    @classmethod
-    def mask_to_poly_geojson(
-            cls,
-            source,
-            transform: Affine,
-    ) -> Self:
-        it = (
-            (shape(geom), val)
-            for geom, val in
-            rasterio.features.shapes(source, transform=transform)
-        )
-        columns = 'geometry value'.split()
-        result = gpd.GeoDataFrame.from_records(it, columns=columns)
 
         return result
 

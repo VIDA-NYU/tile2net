@@ -91,3 +91,7 @@ stitch loader should still use threading within a process if a lot of small tile
 investigat submission
             # loc = tiles.vectile.xtile == 4963
             # loc &= tiles.vectiles.ytile == 6057
+
+
+must be stitch segtiles.grayscale -> vectiles.grayscale
+

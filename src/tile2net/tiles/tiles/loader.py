@@ -30,6 +30,7 @@ def _assemble_and_save(  # top-level → pickle-friendly
         tile_shape: Tuple[int, int, int],
         mosaic_shape: Tuple[int, int, int],
         dtype: np.dtype,
+        background: int = 0
 ) -> str:
     """
     Read *files*, place them into their (row, col) slots, force transparent
@@ -39,14 +40,16 @@ def _assemble_and_save(  # top-level → pickle-friendly
     tile_h, tile_w, _ = tile_shape
     mos_h, mos_w, mos_c = mosaic_shape  # mos_c is **3** (RGB)
 
-    # ── work in RGBA (mos_c + 1) ─────────────────────────────────────────────
-    mosaic = np.zeros((mos_h, mos_w, mos_c + 1), dtype=dtype)  # RGBA
+    shape = (mos_h, mos_w, mos_c + 1)
+    mosaic = np.full(shape, background, dtype=dtype)
+    mosaic[..., 3] = 255  # α ← fully opaque
 
     for f, r, c in zip(files, rows, cols, strict=True):
         if not Path(f).is_file():  # silently skip absent tiles
             continue
 
-        img = iio.imread(f, mode='RGBA')  # always 4 channels
+        # always 4 channels
+        img = iio.imread(f, mode='RGBA')
 
         # harmonise spatial size (channel count already 4)
         if img.ndim != 3 or img.shape[:2] != (tile_h, tile_w):
@@ -57,16 +60,11 @@ def _assemble_and_save(  # top-level → pickle-friendly
 
     # ── force α-transparent pixels → black in RGB ────────────────────────────
     alpha = mosaic[..., 3] == 0  # bool mask
-    mosaic[alpha, :3] = 0  # RGB ← 0 where α == 0
+    mosaic[alpha, :3] = background  # RGB ← 0 where α == 0
 
     # ── drop α, write RGB only ───────────────────────────────────────────────
-
-    # assert outfile != '/home/arstneio/PycharmProjects/tile2net/src/boston/segtiles/infile/19/39729_48497.png'
-    # assert outfile != '/home/arstneio/PycharmProjects/tile2net/src/boston/segtiles/infile/19/39729_48502.png'
     rgb = mosaic[..., :3]
-
     Path(outfile).parent.mkdir(parents=True, exist_ok=True)
-
     iio.imwrite(outfile, rgb, plugin='pillow')  # Pillow picks format from suffix
 
     return outfile
@@ -86,7 +84,9 @@ class Loader:
             col: pd.Series,
             tile_shape: Tuple[int, int, int],
             mosaic_shape: Tuple[int, int, int],
+            background: int = 0,
     ):
+        self.background = background
 
         if not (len(infiles) == len(outfiles) == len(row) == len(col)):
             raise ValueError(
@@ -166,6 +166,7 @@ class Loader:
                     (self.tile_h, self.tile_w, self.tile_c),
                     (self.mos_h, self.mos_w, self.mos_c),
                     self.dtype,
+                    background=self.background,
                 )
                 tasks.append(fut)
 

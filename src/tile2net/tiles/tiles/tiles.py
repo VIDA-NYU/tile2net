@@ -545,11 +545,9 @@ class Tiles(
         big_tiles: Tiles,
         r: pd.Series,
         c: pd.Series,
+        background: int = 0,
     ):
 
-        # loc = small_tiles.segtile.xtile == 39729
-        # small_files = small_files.loc[loc]
-        # big_files = big_files.loc[loc]
 
         loc = ~big_files.map(os.path.exists)
         small_files = small_files.loc[loc]
@@ -564,12 +562,12 @@ class Tiles(
         if n_missing == 0:  # nothing to do
             msg = f'All {n_total:,} mosaics are already stitched.'
             logger.info(msg)
-            return
+            # return
         else:
             msg = (
-                f'Stitching {n_missing:,} small tiles '
+                f'Stitching {n_missing:,} '
                 f'{small_tiles.__name__}.{small_files.name} '
-                f'into {n_total:,} big tiles'
+                f'into {n_total:,}'
                 f'{big_tiles.__name__}.{big_files.name}'
             )
             logger.info(msg)
@@ -581,7 +579,8 @@ class Tiles(
             col=col,
             tile_shape=small_tiles.tile.shape,
             mosaic_shape=big_tiles.tile.shape,
-            outfiles=big_files
+            outfiles=big_files,
+            background=background,
         )
 
         loader.run(max_workers=os.cpu_count())

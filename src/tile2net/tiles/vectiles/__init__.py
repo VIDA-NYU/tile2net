@@ -1,1 +1,0 @@
-from .vectiles import VecTiles

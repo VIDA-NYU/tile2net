@@ -257,7 +257,7 @@ class MiniBatch(
         yield from self.submit_probability()
         # yield from self.submit_sidebyside()
         yield from self.submit_output()
-        yield from self.submit_indexed()
+        yield from self.submit_grayscale()
         yield from self.submit_colored()
 
     def submit_probability(self):
@@ -291,7 +291,6 @@ class MiniBatch(
             .Normalize(mean=inv_mean, std=inv_std)
             (self.input_images)
         )
-        # files = next(self.tiles.outdir.seg_results.sidebyside.iterator())
         files = self.tiles.file.sidebyside
         it = zip(INPUT_IMAGE, self.predictions, files)
         for input_image, prediction, file in it:
@@ -323,17 +322,20 @@ class MiniBatch(
                 future = self.threads.submit(cv2.imwrite, file, array)
                 yield future
 
-    def submit_indexed(self):
+    def submit_grayscale(self):
         if self.predictions is None:
             return
         arrays = to_numpy(self.predictions)
-        for array, file in zip(arrays, self.tiles.file.indexed):
-            if array.ndim == 3:  # one-hot or logits → class map
+        for array, file in zip(arrays, self.tiles.file.grayscale):
+
+            if array.ndim == 3:  # one-hot or logits → class map2
                 array = array.argmax(axis=-1)
             future = self.threads.submit(
-                cv2.imwrite, file, array.astype('uint8'))
+                cv2.imwrite,
+                file,
+                array.astype('uint8')
+            )
             yield future
-
 
     def submit_colored(self):
         """
@@ -345,20 +347,5 @@ class MiniBatch(
         arrays = self.tiles.colormap(arrays)
         files = self.tiles.file.colored
         for array, file in zip(arrays, files):
-            yield self.threads.submit(cv2.imwrite, file, array)
-
-
-
-    # def submit_raw(self):
-    #     """
-    #     Raw segmentation mask without colorization, containing class IDs as pixel values.
-    #     """
-    #     # todo: chck previous submit raw and see if necessary to drop dim
-    #     if self.predictions is None:
-    #         return
-    #     arrays = to_numpy(self.predictions)
-    #     files  =self.tiles.file.maskraw
-    #     for array, file in zip(arrays, files):
-    #         future = self.threads.submit(cv2.imwrite, file, array)
-    #         yield future
-    #
+            future = self.threads.submit(cv2.imwrite, file, array)
+            yield future

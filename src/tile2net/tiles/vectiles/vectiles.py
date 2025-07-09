@@ -1,5 +1,6 @@
 from __future__ import annotations
-from ..tiles import tile
+from multiprocessing import get_context
+
 
 import concurrent.futures as cf
 import contextlib
@@ -28,7 +29,6 @@ import numpy as np
 import pandas as pd
 import rasterio
 import rasterio.features
-import rasterio.features
 from PIL import Image
 from affine import Affine
 from geopandas.array import GeometryDtype
@@ -44,7 +44,8 @@ from ..tiles import tile
 from ..tiles.corners import Corners
 from ..tiles.tiles import Tiles
 from ...tiles.explore import explore
-from ...tiles.util import RecursionBlock, recursion_block
+from ...tiles.util import recursion_block
+
 
 
 if False:
@@ -141,17 +142,17 @@ class File(
     tiles: VecTiles
 
     @property
-    def indexed(self) -> pd.Series:
+    def grayscale(self) -> pd.Series:
         tiles = self.tiles
-        key = 'file.prediction'
+        key = 'file.grayscale'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.vectiles.indexed.files(tiles)
+        files = tiles.intiles.outdir.vectiles.grayscale.files(tiles)
         if (
-                not tiles._stitch_prediction
+                not tiles._stitch_greyscale
                 and not files.map(os.path.exists).all()
         ):
-            tiles._stitch_prediction()
+            tiles._stitch_greyscale()
         tiles[key] = files
         return tiles[key]
 
@@ -163,10 +164,10 @@ class File(
             return tiles[key]
         files = tiles.intiles.outdir.vectiles.colored.files(tiles)
         if (
-                not tiles._stitch_mask
+                not tiles._stitch_colored
                 and not files.map(os.path.exists).all()
         ):
-            tiles._stitch_mask()
+            tiles._stitch_colored()
         tiles[key] = files
         return tiles[key]
 
@@ -206,7 +207,7 @@ class File(
         key = 'file.lines'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.lines.files(tiles)
+        files = tiles.intiles.outdir.vectiles.lines.files(tiles)
         if (
                 not tiles.vectorize
                 and not files.map(os.path.exists).all()
@@ -221,7 +222,7 @@ class File(
         key = 'file.polygons'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.polygons.files(tiles)
+        files = tiles.intiles.outdir.vectiles.polygons.files(tiles)
         if (
                 not tiles.vectorize
                 and not files.map(os.path.exists).all()
@@ -292,7 +293,7 @@ class VecTiles(
         return self
 
 
-    # @RecursionBlock
+
     @recursion_block
     def _overlay(self) -> Self:  # noqa: C901
         """
@@ -443,23 +444,24 @@ class VecTiles(
 
         return self
 
-    # @RecursionBlock
+
     @recursion_block
-    def _stitch_prediction(self) -> Self:
+    def _stitch_greyscale(self) -> Self:
         intiles = self.segtiles.broadcast
         outtiles = self
 
         # preemptively predict so logging appears more sequential
         # else you get "now stitching" before "now predicting"
-        _ = intiles.file.indexed
+        _ = intiles.file.grayscale
 
         self._stitch(
             small_tiles=intiles,
             big_tiles=outtiles,
             r=intiles.vectile.r,
             c=intiles.vectile.c,
-            small_files=intiles.file.indexed,
-            big_files=intiles.vectile.indexed,
+            small_files=intiles.file.grayscale,
+            big_files=intiles.vectile.grayscale,
+            background=3,
         )
 
         return self
@@ -488,9 +490,9 @@ class VecTiles(
     def intiles(self):
         return self.tiles
 
-    # @RecursionBlock
+
     @recursion_block
-    def _stitch_mask(self) -> Self:
+    def _stitch_colored(self) -> Self:
         intiles = self.segtiles.broadcast
         outtiles = self
 
@@ -527,14 +529,32 @@ class VecTiles(
                 tile2net.tiles.cfg.update(cfg)
 
             polys = Mask2Poly.from_path(infile, affine)
-            polys.to_parquet('polys.parquet')
+            # return
 
             if polys.empty:
-                logging.warning(f'No polygons generated for {infile}')
+
+                empty_gdf = (
+                    gpd.GeoDataFrame(
+                        {"geometry": []},
+                        geometry="geometry",
+                        crs=4326,
+                    )
+                    .set_index(
+                        pd.Index([], name="feature"),
+                    )
+                )
+
+                # Persist the empty layers so downstream steps have concrete files
+                empty_gdf.to_parquet(polygons_file)
+                empty_gdf.to_parquet(network_file)
+
+                msg = f'No polygons generated for {infile}; wrote empty layers instead.'
+                logging.warning(msg )
                 return
 
+
             net = PedNet.from_mask2poly(polys)
-            net.center.to_parquet('center.parquet')
+            # return
             clipped = net.center.clipped.to_crs(4326)
             polys = polys.to_crs(4326)
 
@@ -555,7 +575,7 @@ class VecTiles(
                 f'infile={infile!r}\n'
                 f'{e}'
             )
-            raise Exception(msg) from e
+            raise e.__class__(msg) from e
 
         finally:
             for name in ("polys", "clipped", "net"):
@@ -577,17 +597,54 @@ class VecTiles(
         contextlib.redirect_stdout(devnull).__enter__()
         contextlib.redirect_stderr(devnull).__enter__()
 
-    # @RecursionBlock
+
     @recursion_block
     def vectorize(  # noqa: D401 – no docstrings per user pref
             self,
+            force=False,
     ) -> None:
         """
         Parallel vectorisation with live progress and bounded memory.
         """
         # preemptively stitch so logging appears more sequential
         # else you get "now vectorizing" before "now stitching"
-        _ = self.file.indexed, self.file.colored
+
+        def _submit(
+                self,
+                executor: ProcessPoolExecutor,
+                args: Tuple[
+                    str,  # infile
+                    Tuple[float, ...],  # affine
+                    float,  # xmin
+                    float,  # ymin
+                    float,  # xmax
+                    float,  # ymax
+                    str,  # polygons_file
+                    str,  # network_file
+                    dict,  # cfg
+                ],
+                running: Dict[cf.Future, str],
+        ) -> cf.Future:
+            """
+            Wrapper that remembers which infile belongs to each Future.
+            """
+            fut = executor.submit(self._vectorize_submit, *args)
+            running[fut] = args[0]  # args[0] == infile path
+            return fut
+
+        _ = self.file.grayscale, self.file.colored
+        tiles = self
+
+        if not force:
+            loc = ~tiles.file.lines.map(os.path.exists)
+            loc |= ~tiles.file.polygons.map(os.path.exists)
+            tiles = tiles.loc[loc]
+
+        if tiles.empty:
+            return
+        dest = self.intiles.outdir.vectiles.polygons.dir.rpartition(os.sep)[0]
+        msg = f'Vectorizing to {dest}'
+        logger.debug(msg)
 
         # Build *lazy* iterable ⇢ no up-front list allocation
         def _tile_iter() -> Iterable[
@@ -603,11 +660,10 @@ class VecTiles(
                 dict,  # cfg
             ]
         ]:
-            tiles = self
 
             _cfg = dict(tiles.intiles.cfg)
             it = zip(
-                tiles.file.indexed,
+                tiles.file.grayscale,
                 tiles.affine_params,
                 tiles.file.lines,
                 tiles.file.polygons,
@@ -641,46 +697,57 @@ class VecTiles(
                 in it
             )
 
-        total_tiles: int = len(self)
+        total_tiles: int = len(tiles)
         max_workers: int = os.cpu_count()
         window: int = max_workers + 1
 
-        with self.intiles.cfg as cfg_cm, ProcessPoolExecutor(
+        total_tiles: int = len(tiles)
+        workers: int = os.cpu_count() or 1
+        window: int = workers + 1
+
+        tasks = iter(_tile_iter())
+        ctx = get_context("spawn")
+        running: dict[cf.Future, str] = {}  # Future → infile map
+
+        with self.intiles.cfg, ProcessPoolExecutor(
+                mp_context=ctx,
                 max_workers=window,
-                initializer=self._silence_logging,  # ← HERE
+                initializer=self._silence_logging,
                 max_tasks_per_child=1,
         ) as pool, tqdm(
             total=total_tiles,
-            # desc="Vectorizing",
             desc=f'{self.__name__}.{self.vectorize.__name__}()',
-            unit="tile",
+            unit=f' {self.file.lines.name}',
             smoothing=0.01,
-        ) as pbar:
-            _cfg = dict(cfg_cm)  # materialise once, if needed
+        ) as bar:
 
-            it = iter(_tile_iter())  # → yields argument tuples
-            running: set[cf.Future] = {
-                pool.submit(self._vectorize_submit, *args)
-                for _, args in zip(range(window), it)
-            }
+            # prime the pipeline
+            for _, args in zip(range(window), tasks):
+                _submit(self, pool, args, running)
 
+            # main loop
             while running:
-                # ① wait until at least one worker finishes
-                done, _ = cf.wait(running, return_when=cf.FIRST_COMPLETED)
+                done, _ = wait(running, return_when=FIRST_COMPLETED)
 
-                # ② handle the finished futures
                 for fut in done:
-                    running.remove(fut)
-                    fut.result()  # re-raise if needed
-                    fut.cancel()
-                    pbar.update()
+                    infile = running.pop(fut)
+                    try:
+                        fut.result()  # ← re-raise worker errors
+                    except Exception as exc:
+                        # annotate exception with offending file path
+                        raise RuntimeError(
+                            f'Worker failed while processing {infile!r}:'
+                            f'\n\t{exc!r}'
+                        ) from exc
+                    bar.update()
 
-                    try:  # ③ refill the pipeline
-                        args = next(it)
+                    # refill the window
+                    try:
+                        _submit(self, pool, next(tasks), running)
                     except StopIteration:
-                        continue
-                    future = pool.submit(self._vectorize_submit, *args)
-                    running.add(future)
+                        pass
+
+        return
 
     def view(
             self,
@@ -688,7 +755,7 @@ class VecTiles(
             divider: Optional[str] = None,
     ) -> PIL.Image.Image:
 
-        files = self.file.indexed
+        files = self.file.grayscale
         R: pd.Series = self.r  # 0-based row id
         C: pd.Series = self.c  # 0-based col id
 

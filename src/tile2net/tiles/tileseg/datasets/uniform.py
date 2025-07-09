@@ -291,7 +291,7 @@ def build_centroids(
         if cfg.GLOBAL_RANK==0:
 
             os.makedirs(cfg.DATASET.CENTROID_ROOT, exist_ok=True)
-            # centroids is a dict (indexed by class) of lists of centroids
+            # centroids is a dict (grayscale by class) of lists of centroids
             centroids = class_centroids_all(
                 imgs,
                 num_classes,

@@ -36,28 +36,21 @@ def __get__(
         union = instance.union
         geometry = union.geometry
 
-        warn = (
-            f'High variance in polygon areas may cause progress-rate '
-            f'fluctuations for centerline computation. '
-        )
-        logger.debug(warn)
-
         msg = 'Computing centerlines'
         with benchmark(msg):
             centers = []
             it = tqdm(
                 enumerate(geometry),
                 total=len(geometry),
-                desc='Centerlines',
-                leave=False
+                desc='centerline.geometry.Centerline()',
             )
             for i, poly in it:
                 try:
                     item = Centerline(poly).geometry
                     centers.append(item)
                 except Exception as e:
-                    err = f'Centerline computation failed for index {i}: {e}'
-                    tqdm.write(err)
+                    err = f'Centerline computation failed for index {i}:\n\t{e}'
+                    logger.error(err)
 
         multilines = np.asarray(centers, dtype=object)
         repeat = shapely.get_num_geometries(multilines)

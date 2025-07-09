@@ -50,7 +50,7 @@ from ..segtiles import SegTiles
 from ..tiles import tile, file
 from ..tiles.tiles import Tiles
 from ..util import assert_perfect_overlap
-from ..vectiles import VecTiles
+from ..vectiles.vectiles import VecTiles
 from ...tiles.util import RecursionBlock, recursion_block
 
 if False:
@@ -718,7 +718,6 @@ class InTiles(
 
         """
         # todo: if all are None, determine dimension using RAM
-        from ..vectiles import VecTiles
         segtiles = self.segtiles
         if dimension:
             dimension -= 2 * segtiles.tile.dimension

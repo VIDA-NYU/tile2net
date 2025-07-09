@@ -41,16 +41,24 @@ class VecTiles(
             self.dir,
             'polygons',
             self.suffix,
-        ).replace(self.extension, 'parquet')
+        )
+        try:
+            format = format.replace(self.extension, 'parquet')
+        except AttributeError:
+            format = format + '.parquet'
         result = Polygons.from_format(format)
         return result
 
     @Network
-    def network(self):
+    def lines(self):
         format = os.path.join(
             self.dir,
-            'network',
+            'lines',
             self.suffix,
-        ).replace(self.extension, 'parquet')
+        )
+        try:
+            format = format.replace(self.extension, 'parquet')
+        except AttributeError:
+            format = format + '.parquet'
         result = Network.from_format(format)
         return result

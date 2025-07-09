@@ -288,7 +288,7 @@ class Stitch:
 
             executor.shutdown(wait=True)
 
-            files: pd.Series[str] = stitched.indexed
+            files: pd.Series[str] = stitched.grayscale
             assert all(map(os.path.exists, files))
 
         return tiles

@@ -39,30 +39,46 @@ class VecTile(
     def intiles(self):
         return self.segtiles.intiles
 
-    # @tile.cached_property
     @property
     def length(self):
         """Number of tiles in one dimension of the vectile"""
         return self.vectiles.tile.length
 
-    @tile.cached_property
+    @property
     def xtile(self) -> pd.Series:
         """Tile integer X of this tile in the vectiles vectile"""
-        tiles = self.tiles
         key = 'vectile.xtile'
-        if key in tiles:
-            return tiles[key]
-        raise NotImplementedError
+        segtiles = self.segtiles
+        if key in segtiles.columns:
+            return segtiles[key]
 
-    @tile.cached_property
+        vectiles = segtiles.vectiles
+        length = 2 ** (segtiles.tile.scale - vectiles.tile.scale)
+        result = segtiles.xtile // length
+
+        msg = 'All segtile.xtile must be in segtiles.xtile!'
+        assert result.isin(vectiles.xtile).all(),msg
+
+        segtiles[key] = result
+        return result
+
+    @property
     def ytile(self) -> pd.Series:
         """Tile integer X of this tile in the vectiles vectile"""
-        tiles = self.tiles
         key = 'vectile.ytile'
-        if key in tiles:
-            return tiles[key]
-        raise NotImplementedError
-        # todo: for each vectile origin, use array ranges to pad the tiles
+        segtiles = self.segtiles
+        if key in segtiles.columns:
+            return segtiles[key]
+
+        vectiles = segtiles.vectiles
+        length = 2 ** (segtiles.tile.scale - vectiles.tile.scale)
+        result = segtiles.ytile // length
+
+        msg = 'All segtile.ytile must be in segtiles.ytile!'
+        assert result.isin(vectiles.ytile).all(), msg
+
+        segtiles[key] = result
+        return result
 
     # @tile.cached_property
     # def frame(self) -> pd.DataFrame:
@@ -96,15 +112,15 @@ class VecTile(
     #     return segtiles[key]
 
     @property
-    def indexed(self) -> pd.Series:
+    def grayscale(self) -> pd.Series:
         """segtiles.file broadcasted to intiles"""
         segtiles = self.segtiles
-        key = 'segtile.indexed'
+        key = 'segtile.grayscale'
         if key in segtiles.columns:
             return segtiles[key]
         vectiles = self.vectiles
         result = (
-            vectiles.file.indexed
+            vectiles.file.grayscale
             .loc[self.index]
             .values
         )
