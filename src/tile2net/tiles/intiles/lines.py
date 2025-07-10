@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os.path
-
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -9,6 +7,7 @@ import shapely
 from scipy.spatial import cKDTree
 
 from ..cfg import cfg
+from ..cfg.logger import logger
 from ..explore import explore
 from ..fixed import GeoDataFrameFixed
 
@@ -16,25 +15,34 @@ if False:
     from .intiles import InTiles
     import folium
 
-
 def __get__(
         self: Lines,
         instance: InTiles,
         owner: type[InTiles]
 ) -> Lines:
+
     if instance is None:
         result = self
     elif self.__name__ in instance.__dict__:
         result = instance.__dict__[self.__name__]
-    elif os.path.exists(instance.outdir.lines.file):
-        result = (
-            gpd.read_parquet(instance.outdir.lines.file)
-            .pipe(self.__class__)
-        )
-        result.intiles = instance
-        instance.__dict__[self.__name__] = result
+    # elif os.path.exists(instance.outdir.lines.file):
+        # msg = (
+        #     f'Reading {instance.__name__}.{self.__name__} '
+        #     f'from {instance.outdir.lines.file}'
+        # )
+        # with benchmark(msg):
+        #     result = (
+        #         gpd.read_parquet(instance.outdir.lines.file)
+        #         .pipe(self.__class__)
+        #     )
+        #     result.intiles = instance
+        #     instance.__dict__[self.__name__] = result
+
+
     else:
 
+        msg = f"Stacking geometric columns into a single geometry column."
+        logger.debug(msg)
         lines: gpd.GeoDataFrame = instance.vectiles.lines.copy()
         lines.columns = lines.columns.str.removeprefix('lines.')
         cols = lines.dtypes == 'geometry'
@@ -51,6 +59,8 @@ def __get__(
         )
         instance.__dict__[self.__name__] = result
 
+        msg = "Finding coordinates that intersect tile boundaries"
+        debug = logger.debug(msg)
         COORDS = shapely.get_coordinates(result.geometry)
         repeat = shapely.get_num_points(result.geometry)
         indices = iline = result.index.repeat(repeat)
@@ -61,7 +71,6 @@ def __get__(
             return_index=True
         )
 
-        borders = instance.vectiles.exterior.union_all()
         istop = ifirst + repeat
         ilast = istop - 1
 
@@ -76,6 +85,8 @@ def __get__(
         coords = COORDS[iend]
         frame = frame.loc[loc]
 
+        msg = "Building KD-tree and finding nearest neighbors"
+        logger.debug(msg)
         tree = cKDTree(coords)
         ileft = np.arange(len(coords))
         dists, iright = tree.query(coords, 2, workers=-1)
@@ -99,16 +110,25 @@ def __get__(
         COORDS[ileft] = mean
         COORDS[iright] = mean
 
+        msg = 'Dissolving and merging lines'
+        logger.debug(msg)
         geometry = shapely.linestrings(COORDS, indices=indices)
-
-        geometry = (
+        result = (
             result
             .set_geometry(geometry)
             .dissolve('feature')
+            .set_geometry('geometry')
             .line_merge()
             .explode()
+            .to_frame('geometry')
+            .pipe(self.__class__)
         )
-        result = self.__class__(geometry=geometry)
+        instance.__dict__[self.__name__] = result
+
+        # file = instance.outdir.lines.file
+        # msg = f'Writing {instance.__name__}.{self.__name__} to {file}'
+        # logger.info(msg)
+        # result.to_parquet(file)
 
     result.intiles = instance
     return result
@@ -118,33 +138,32 @@ class Lines(
     GeoDataFrameFixed
 ):
     __name__ = 'lines'
-    intiles: InTiles
+    intiles: InTiles = None
     locals().update(
         __get__=__get__,
     )
+
 
     def explore(
             self,
             *args,
             tiles='cartodbdark_matter',
             m=None,
-            road_color: str = 'green',
-            crosswalk_color: str = 'blue',
-            sidewalk_color: str = 'red',
-            tile_color='grey',
-            simplify: float = None,
             dash='5, 20',
-            attr: str = None,
+            simplify=None,
             **kwargs,
     ) -> folium.Map:
+
         import folium
         feature2color = cfg.label2color
-        if tile_color:
+        it = self.groupby('feature', observed=False)
+        for feature, frame in it:
+            color = feature2color[feature]
             m = explore(
-                self.intiles.vectiles.boundary,
+                frame,
                 *args,
-                color='grey',
-                name='tile',
+                color=color,
+                name=feature,
                 tiles=tiles,
                 simplify=simplify,
                 style_kwds=dict(
@@ -155,31 +174,5 @@ class Lines(
                 **kwargs,
             )
 
-        lines = self
-        if attr:
-            lines = getattr(lines, attr)
-        lines = lines.reset_index()
-        if 'feature' in lines.columns:
-            it = lines.groupby('feature', observed=False)
-            for feature, frame in it:
-                color = feature2color[feature]
-                m = explore(
-                    frame,
-                    *args,
-                    color=color,
-                    name=feature,
-                    tiles=tiles,
-                    simplify=simplify,
-                    m=m,
-                    **kwargs,
-                )
-
         folium.LayerControl().add_to(m)
         return m
-
-    def unlink(self):
-        """Delete the lines file."""
-        file = self.intiles.outdir.lines.file
-        if os.path.exists(file):
-            os.remove(file)
-        self.intiles.__dict__.pop(self.__name__, None)

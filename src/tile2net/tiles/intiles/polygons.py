@@ -1,5 +1,7 @@
 from __future__ import annotations
+from ..benchmark import benchmark
 from ..explore import explore
+from ..vectiles.mask2poly import Mask2Poly
 from tile2net.tiles.cfg.logger import logger
 from ..cfg import cfg
 
@@ -28,22 +30,36 @@ def __get__(
     elif self.__name__ in instance.__dict__:
         result = instance.__dict__[self.__name__]
 
-    elif os.path.exists(instance.outdir.lines.file):
-        result = (
-            gpd.read_parquet(instance.outdir.lines.file)
-            .pipe(self.__class__)
-        )
-        result.intiles = instance
-        instance.__dict__[self.__name__] = result
+    # elif os.path.exists(instance.outdir.lines.file):
+    #     file = instance.outdir.lines.file
+    #     msg = f"Reading {self.__name__} from {file}"
+    #     logger.info(msg)
+    #     result = (
+    #         gpd.read_parquet(file)
+    #         .pipe(self.__class__)
+    #     )
+    #     result.intiles = instance
+    #     instance.__dict__[self.__name__] = result
 
     else:
+        # msg = f'Vectorizing polygons for {instance}'
+        # logger.debug(msg)
         result = (
-            instance
-            .dissolve(by='feature')
+            instance.vectiles.polygons
+            .stack(future_stack=True, )
+            .to_frame(name='geometry')
+            .dissolve(level=2)
             .explode()
+            .rename_axis('feature')
+            .pipe(Mask2Poly)
+            .postprocess()
             .pipe(Polygons)
         )
+
         instance.__dict__[self.__name__] = result
+        # file = instance.outdir.polygons.file
+        # msg = f"Writing {instance.__name__}.{self.__name__} to {file}"
+        # logger.info(msg)
 
     return result
 
@@ -62,3 +78,36 @@ class Polygons(
         if os.path.exists(file):
             os.remove(file)
         self.intiles.__dict__.pop(self.__name__, None)
+
+    def explore(
+            self,
+            *args,
+            tiles='cartodbdark_matter',
+            m=None,
+            dash='5, 20',
+            simplify=None,
+            **kwargs,
+    ) -> folium.Map:
+
+        import folium
+        feature2color = cfg.label2color
+        it = self.groupby('feature', observed=False)
+        for feature, frame in it:
+            color = feature2color[feature]
+            m = explore(
+                frame,
+                *args,
+                color=color,
+                name=feature,
+                tiles=tiles,
+                simplify=simplify,
+                style_kwds=dict(
+                    fill=False,
+                    dashArray=dash,
+                ),
+                m=m,
+                **kwargs,
+            )
+
+        folium.LayerControl().add_to(m)
+        return m

@@ -123,6 +123,9 @@ class GeoDataFrameFixed(
     def __deepcopy__(self, memo) -> Self:
         return self.copy()
 
+    def __set_name__(self, owner, name):
+        self.__name__ = name
+
     @final
     def __finalize__(self, other, method: str | None = None, **kwargs) -> Self:
         # Checking for the attr equality during concat is rarely useful
@@ -201,13 +204,13 @@ def _getattribute(self: pandas.core.generic.NDFrame, name: str):
     # calling obj.__getattr__('x').
     try:
         result = object.__getattribute__(self, name)
-    except AttributeError:
+    except AttributeError as e:
+        if hasattr(self.__class__, name):
+            raise
         result = _getattr(self, name)
     return result
 
 
-# NDFrame.__getattribute__ = __getattribute__
-# pandas.core.generic.NDFrame.__getattribute__ = _getattribute
 del pandas.core.generic.NDFrame.__getattr__
 pandas.core.generic.NDFrame.__getattribute__ = _getattribute
 

@@ -61,7 +61,6 @@ We can use something like the majority vote + confidence mask to force the label
 
 
 add a changelog
-
 we should have vectiles.prediction and vectiles.mask
 
 we must dissolve before simplifying
@@ -92,6 +91,7 @@ investigat submission
             # loc = tiles.vectile.xtile == 4963
             # loc &= tiles.vectiles.ytile == 6057
 
-
 must be stitch segtiles.grayscale -> vectiles.grayscale
 
+lines
+polygons

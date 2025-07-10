@@ -38,7 +38,8 @@ class PedNet(
             crs: int = 3857,
             save_original: bool = False,
     ) -> Self:
-        logger.debug(f"Creating {cls.__name__} from {len(gdf)} polygon(s) at CRS {crs}")
+        msg = f"Creating {cls.__name__} from {len(gdf)} polygon(s) at CRS {crs}"
+        logger.debug(msg)
         polygons = gdf.postprocess(crs=crs)
         result = cls.from_polygons(
             polygons,
