@@ -338,8 +338,6 @@ class Edges(
 
     @lines.setter
     def lines(self, value: Lines):
-        if not isinstance(value, Lines):
-            raise TypeError('lines must be an instance of Lines')
         self.attrs['lines'] = value
 
     @property
@@ -532,7 +530,7 @@ class Lines(
                 .values
             )
             self['stop_inode'] = result
-            assert self.stop_inoe.isin(self.nodes.inode.values).all()
+            assert self.stop_inode.isin(self.nodes.inode.values).all()
 
         return self['stop_inode']
 

@@ -551,16 +551,18 @@ class VecTiles(
 
             polys = (
                 polys
-                .cx[xmin:xmax, ymin:ymax]
+                # .cx[xmin:xmax, ymin:ymax]
                 .clip_by_rect(xmin, ymin, xmax, ymax)
+                .to_frame('geometry')
                 .dissolve(by='feature')
                 .explode()
             )
 
             clipped = (
                 clipped
-                .cx[xmin:xmax, ymin:ymax]
+                # .cx[xmin:xmax, ymin:ymax]
                 .clip_by_rect(xmin, ymin, xmax, ymax)
+                .to_frame('geometry')
                 .dissolve(by='feature')
                 .explode()
             )
@@ -577,7 +579,8 @@ class VecTiles(
                 f'infile={infile!r}\n'
                 f'{e}'
             )
-            raise e.__class__(msg) from e
+            logger.error(msg)
+            raise
 
         finally:
             for name in ("polys", "clipped", "net"):
@@ -631,6 +634,7 @@ class VecTiles(
             Wrapper that remembers which infile belongs to each Future.
             """
             fut = executor.submit(self._vectorize_submit, *args)
+            # self._vectorize_submit(*args)
             running[fut] = args[0]  # args[0] == infile path
             return fut
 
