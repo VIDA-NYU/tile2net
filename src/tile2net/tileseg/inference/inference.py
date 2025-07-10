@@ -23,14 +23,6 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 """
 from __future__ import annotations, absolute_import, division
-import os
-import numpy
-from geopandas import GeoDataFrame, GeoSeries
-
-import pandas as pd
-import geopandas as gpd
-
-import sys
 
 import argh
 import concurrent.futures
@@ -47,9 +39,7 @@ import torch.distributed as dist
 from geopandas import GeoDataFrame
 from torch.utils.data import DataLoader
 from typing import Optional
-import numpy as np
-from numpy.dtypes import Float16DType, Float32DType, Float64DType
-from torch.serialization import add_safe_globals, safe_globals
+
 
 import tile2net.tileseg.network.ocrnet
 from tile2net.logger import logger
@@ -62,7 +52,7 @@ from tile2net.tileseg.inference.commandline import commandline
 from tile2net.tileseg.loss.optimizer import get_optimizer, restore_opt, restore_net
 from tile2net.tileseg.loss.utils import get_loss
 from tile2net.tileseg.utils.misc import AverageMeter, prep_experiment
-from tile2net.tileseg.utils.misc import ImageDumper, ThreadedDumper
+from tile2net.tileseg.utils.misc import ThreadedDumper
 from tile2net.tileseg.utils.trnval_utils import eval_minibatch
 from tile2net.raster.project import Project
 if False:
@@ -295,13 +285,7 @@ class Inference:
                     assets=assets,
             )
             if testing:
-                # prediction = assets['predictions'][0]
-                # values, counts = np.unique(prediction, return_counts=True)
-                # pred[img_names[0]] = copy.copy(_temp)
-                #
-                # for v in range(len(values)):
-                #     pred[img_names[0]][values[v]] = counts[v]
-                #
+
                 dump = dumper.dump(dumpdict, val_idx, testing=True, grid=grid)
             else:
                 dump = dumper.dump(dumpdict, val_idx)
@@ -334,117 +318,6 @@ class Inference:
                 net = PedNet(poly=polys, project=grid.project)
                 net.convert_whole_poly2line()
 
-
-#
-#     def validate(
-#             self,
-#             val_loader: DataLoader,
-#             net: torch.nn.parallel.DataParallel,
-#             criterion: tile2net.tileseg.loss.utils.CrossEntropyLoss2d,
-#             optim: torch.optim.sgd.SGD,
-#             epoch: int,
-#             calc_metrics=True,
-#             dump_assets=False,
-#             dump_all_images=False,
-#             testing=None,
-#             grid: Raster = None,
-#             **kwargs
-#     ):
-#         """
-#         Run validation for one epoch
-#         :val_loader: data loader for validation
-#         """
-#         input_images: torch.Tensor
-#         labels: torch.Tensor
-#         img_names: tuple
-#         prediction: numpy.ndarray
-#         pred: dict
-#         values: numpy.ndarray
-#         args = self.args
-#         # todo map_feature is how Tile generates poly
-#
-#         dumper = ThreadedDumper(
-#             val_len=len(val_loader),
-#             dump_all_images=dump_all_images,
-#             dump_assets=dump_assets,
-#             args=args,
-#         )
-#
-#         net.eval()
-#         val_loss = AverageMeter()
-#         iou_acc = 0
-#         pred = dict()
-#         _temp = dict.fromkeys([i for i in range(10)], None)
-#
-#         for ibatch, batch in enumerate(grid.batches):
-#             gdfs: list[GeoDataFrame] = []
-#
-#             for val_idx, data in zip(batch, val_loader):
-#                 input_images, labels, img_names, _ = data
-#
-#                 # Run network
-#                 assets, _iou_acc = eval_minibatch(
-#                     data, net, criterion, val_loss, calc_metrics, args, val_idx,
-#                 )
-#                 iou_acc += _iou_acc
-#                 input_images, labels, img_names, _ = data
-#
-#                 dumpdict = dict(
-#                     gt_images=labels,
-#                     input_images=input_images,
-#                     img_names=img_names,
-#                     assets=assets,
-#                 )
-#                 if testing:
-#                     prediction = assets['predictions'][0]
-#                     values, counts = np.unique(prediction, return_counts=True)
-#                     pred[img_names[0]] = copy.copy(_temp)
-#
-#                     for v in range(len(values)):
-#                         pred[img_names[0]][values[v]] = counts[v]
-#
-#                     dump = dumper.dump(dumpdict, val_idx, testing=True, grid=grid)
-#                 else:
-#                     dump = dumper.dump(dumpdict, val_idx)
-#                 gdfs.extend(dump)
-#
-#                 if (
-#                         args.options.test_mode
-#                         and val_idx > 5
-#                 ):
-#                     break
-#
-#                 if val_idx % 20 == 0:
-#                     logger.debug(f'Inference [Iter: {val_idx + 1} / {len(val_loader)}]')
-#
-#
-#             if testing and grid:
-#                 # todo: for now we concate from a list of all the polygons generated during the session;
-#                 #   eventually we will serialize all the files and then use dask for batching
-#                 if not gdfs:
-#                     poly_network = gpd.GeoDataFrame()
-#                     logging.warning(
-#                         f'No polygons were dumped'
-#                     )
-#                 else:
-#                     poly_network = pd.concat(gdfs)
-#                 del gdfs
-#
-#                 grid.save_ntw_polygons(poly_network)
-#                 polys = grid.ntw_poly
-#                 path = grid.project.network.path / ibatch
-#                 net = PedNet(poly=polys, network_path=path)
-#                 path = grid.project.network.path / ibatch
-#                 net.convert_whole_poly2line(path)
-#
-#         # todo: how to concatenate
-#         # path = self.project.network.path
-#         #
-#         # path.mkdir(parents=True, exist_ok=True)
-#         # path = path.joinpath(
-#         #     f'{self.project.name}-Network-{datetime.datetime.now().strftime("%d-%m-%Y_%H")}'
-#         # )
-#
 
 
 if False:

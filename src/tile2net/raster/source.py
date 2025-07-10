@@ -356,42 +356,42 @@ Note: sometimes we get something like Spring Hill, Maury County,
 
 
 class NewYorkCity(ArcGis):
-    server = 'https://tiles.arcgis.com/tiles/yG5s3afENB5iO9fj/arcgis/rest/services/NYC_Orthos_-_2020/MapServer'
+    server = 'https://tiles.arcgis.com/tiles/yG5s3afENB5iO9fj/arcgis/rest/services/NYC_Orthos_2024/MapServer'
     name = 'nyc'
     keyword = 'New York City', 'City of New York'
-    year = 2020
+    year = 2024
 
 
 class NewYork(ArcGis):
-    server = 'https://orthos.its.ny.gov/arcgis/rest/services/wms/2020/MapServer'
+    server = 'https://orthos.its.ny.gov/arcgis/rest/services/wms/2024/MapServer'
     name = 'ny'
     keyword = 'New York'
-    year = 2020
+    year = 2024
 
 
 class Massachusetts(ArcGis):
-    server = 'https://tiles.arcgis.com/tiles/hGdibHYSPO59RG1h/arcgis/rest/services/USGS_Orthos_2019/MapServer'
+    server = 'https://tiles.arcgis.com/tiles/hGdibHYSPO59RG1h/arcgis/rest/services/orthos2021/MapServer'
     name = 'ma'
     keyword = 'Massachusetts'
     extension = 'jpg'
-    year = 2019
+    year = 2021
 
 
 class KingCountyWashington(ArcGis):
-    server = 'https://gismaps.kingcounty.gov/arcgis/rest/services/BaseMaps/KingCo_Aerial_2021/MapServer'
+    server = 'https://gismaps.kingcounty.gov/arcgis/rest/services/BaseMaps/KingCo_Aerial_2023/MapServer'
     name = 'king'
     keyword = 'King County, Washington', 'King County'
-    year = 2021
+    year = 2023
 
 
 class WashingtonDC(ArcGis):
     # ignore = True
-    server = 'https://imagery.dcgis.dc.gov/dcgis/rest/services/Ortho/Ortho_2021/ImageServer'
+    server = 'https://imagery.dcgis.dc.gov/dcgis/rest/services/Ortho/Ortho_2023/ImageServer'
     name = 'dc'
     tilesize = 512
     extension = 'jpeg'
     keyword = 'District of Columbia', 'DC'
-    year = 2021
+    year = 2023
 
     def __getitem__(self, item: Iterator[Tile]):
         for tile in item:
