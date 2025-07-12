@@ -118,45 +118,45 @@ def __get__(
             # logger.debug(msg)
             # geometry = shapely.linestrings(COORDS, indices=indices)
 
-            end = COORDS[iend]
-            haystack = pd.MultiIndex.from_arrays(end.T)
-            needles = haystack.drop_duplicates()
-            loc = (
-                pd.Series(1, haystack)
-                .groupby(level=[0, 1], sort=False)
-                .sum()
-                .loc[haystack]
-                .values
-            )
-            loc &= (
-                result.feature
-                .iloc[iend]
-                .groupby(haystack)
-                .nunique()
-                .eq(1)
-                .loc[haystack]
-                .values
-            )
-
-            matches = (
-                pd.Series(iline[iend], haystack)
-                .loc[loc]
-                .sort_index()
-                .to_numpy()
-                .reshape(-1, 2)
-            )
-
-            before = len(result)
-            ileft = matches[:, 0]
-            iright = matches[:, 1]
-            data = np.ones(len(matches), dtype=bool)
-            adj = coo_matrix((data, (ileft, iright)), shape=(before, before))
-            adj = adj + adj.T  # undirected
-            after, labels = connected_components(
-                adj,
-                directed=False,
-                return_labels=True,
-            )
+            # end = COORDS[iend]
+            # haystack = pd.MultiIndex.from_arrays(end.T)
+            # needles = haystack.drop_duplicates()
+            # loc = (
+            #     pd.Series(1, haystack)
+            #     .groupby(level=[0, 1], sort=False)
+            #     .sum()
+            #     .loc[haystack]
+            #     .values
+            # )
+            # loc &= (
+            #     result.feature
+            #     .iloc[iend]
+            #     .groupby(haystack)
+            #     .nunique()
+            #     .eq(1)
+            #     .loc[haystack]
+            #     .values
+            # )
+            #
+            # matches = (
+            #     pd.Series(iline[iend], haystack)
+            #     .loc[loc]
+            #     .sort_index()
+            #     .to_numpy()
+            #     .reshape(-1, 2)
+            # )
+            #
+            # before = len(result)
+            # ileft = matches[:, 0]
+            # iright = matches[:, 1]
+            # data = np.ones(len(matches), dtype=bool)
+            # adj = coo_matrix((data, (ileft, iright)), shape=(before, before))
+            # adj = adj + adj.T  # undirected
+            # after, labels = connected_components(
+            #     adj,
+            #     directed=False,
+            #     return_labels=True,
+            # )
 
             # todo: continue here, assign groups by indexing by iline, assigning igroup, and then giving the rest igroup.max() + arange
 
@@ -169,17 +169,17 @@ def __get__(
             # )
             # pd.Series(iend, )
 
-            # result = (
-            #     result
-            #     .set_geometry(geometry)
-            #     .dissolve('feature')
-            #     .set_geometry('geometry')
-            #     .line_merge()
-            #     .explode()
-            #     .to_frame('geometry')
-            #     .pipe(self.__class__)
-            # )
-            # instance.__dict__[self.__name__] = result
+            result = (
+                result
+                .set_geometry(geometry)
+                .dissolve('feature')
+                .set_geometry('geometry')
+                .line_merge()
+                .explode()
+                .to_frame('geometry')
+                .pipe(self.__class__)
+            )
+            instance.__dict__[self.__name__] = result
 
             # file = instance.outdir.lines.file
             # msg = f'Writing {instance.__name__}.{self.__name__} to {file}'
@@ -188,6 +188,8 @@ def __get__(
             msg = f"Writing {instance.__name__}.{self.__name__} to {file}"
             logger.info(msg)
             result.to_parquet(file)
+
+
 
     result.intiles = instance
     return result

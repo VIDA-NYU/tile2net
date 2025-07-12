@@ -11,6 +11,7 @@ from geopandas import GeoDataFrame
 from pandas import Series
 
 from ..fixed import GeoDataFrameFixed
+import pandas as pd
 
 if False:
     from .pednet import PedNet
@@ -468,6 +469,15 @@ class Edges(
         result = self[key]
         return result
 
+    @property
+    def feature(self) -> pd.Series:
+        if 'feature' in self:
+            return self['feature']
+        feature = self.lines.feature.loc[self.iline].values
+        self['feature'] = feature
+        result = self['feature']
+        return result
+
 
 class Lines(
     gpd.GeoDataFrame
@@ -493,6 +503,24 @@ class Lines(
     @Nodes
     def nodes(self):
         ...
+
+    @property
+    def feature(self) -> pd.Series:
+        try:
+            return self['feature']
+        except KeyError as e:
+            raise KeyError(
+                'Feature not set. Please set feature column '
+                'before accessing Lines.feature'
+            ) from e
+
+    @feature.setter
+    def feature(self, value: pd.Series):
+        self['feature'] = value
+
+    @feature.deleter
+    def feature(self):
+        del self['feature']
 
     @property
     def iunion(self):
@@ -602,7 +630,6 @@ class Lines(
 
     def drop2nodes(self):
         ...
-
 
     def visualize(
             self,
