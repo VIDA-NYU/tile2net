@@ -1,7 +1,4 @@
 from __future__ import annotations
-from scipy.sparse import coo_matrix
-from scipy.sparse.csgraph import connected_components
-from typing import *
 
 import io
 import os
@@ -16,6 +13,7 @@ from PIL import Image, ImageColor
 from math import ceil
 from scipy.spatial import cKDTree
 
+import tile2net.tiles.pednet.lines
 from ..cfg import cfg
 from ..cfg.logger import logger
 from ..explore import explore
@@ -50,7 +48,7 @@ def __get__(
             lines: gpd.GeoDataFrame = instance.vectiles.lines.copy()
             lines.columns = lines.columns.str.removeprefix('lines.')
             cols = lines.dtypes == 'geometry'
-            result: Self = (
+            result: Lines = (
                 lines
                 .loc[:, cols]
                 .stack(future_stack=True)
@@ -115,77 +113,23 @@ def __get__(
             COORDS[ileft] = mean
             COORDS[iright] = mean
 
-            # msg = 'Dissolving and merging lines'
-            # logger.debug(msg)
-            # geometry = shapely.linestrings(COORDS, indices=indices)
+            msg = 'Dissolving and merging lines'
+            logger.debug(msg)
+            geometry = shapely.linestrings(COORDS, indices=indices)
 
-            # end = COORDS[iend]
-            # haystack = pd.MultiIndex.from_arrays(end.T)
-            # needles = haystack.drop_duplicates()
-            # loc = (
-            #     pd.Series(1, haystack)
-            #     .groupby(level=[0, 1], sort=False)
-            #     .sum()
-            #     .loc[haystack]
-            #     .values
-            # )
-            # loc &= (
-            #     result.feature
-            #     .iloc[iend]
-            #     .groupby(haystack)
-            #     .nunique()
-            #     .eq(1)
-            #     .loc[haystack]
-            #     .values
-            # )
-            #
-            # matches = (
-            #     pd.Series(iline[iend], haystack)
-            #     .loc[loc]
-            #     .sort_index()
-            #     .to_numpy()
-            #     .reshape(-1, 2)
-            # )
-            #
-            # before = len(result)
-            # ileft = matches[:, 0]
-            # iright = matches[:, 1]
-            # data = np.ones(len(matches), dtype=bool)
-            # adj = coo_matrix((data, (ileft, iright)), shape=(before, before))
-            # adj = adj + adj.T  # undirected
-            # after, labels = connected_components(
-            #     adj,
-            #     directed=False,
-            #     return_labels=True,
-            # )
-
-            # todo: continue here, assign groups by indexing by iline, assigning igroup, and then giving the rest igroup.max() + arange
-
-
-
-
-            # igroup = (
-            #     pd.Series(np.arange(len(needles)), needles)
-            #     .loc[haystack]
-            # )
-            # pd.Series(iend, )
+            result['geometry'] = geometry
 
             result = (
                 result
-                .set_geometry(geometry)
-                .dissolve('feature')
-                .set_geometry('geometry')
-                .line_merge()
-                .explode()
-                .to_frame('geometry')
+                .pipe(tile2net.tiles.pednet.lines.Lines.from_frame)
+                .drop2nodes()
+                .set_index('feature')
+                [['geometry']]
                 .pipe(self.__class__)
             )
+
             instance.__dict__[self.__name__] = result
 
-            # file = instance.outdir.lines.file
-            # msg = f'Writing {instance.__name__}.{self.__name__} to {file}'
-            # logger.info(msg)
-            # result.to_parquet(file)
             msg = f"Writing {instance.__name__}.{self.__name__} to {file}"
             logger.info(msg)
             result.to_parquet(file)
@@ -216,7 +160,12 @@ class Lines(
 
     def unlink(self):
         """Delete the lines file."""
-        file = self.intiles.outdir.lines.file
+        file = self.file
+        msg = (
+            f'Uncaching {self.intiles.__name__}.{self.__name__} and '
+            f'deleting file:\n\t{file}'
+        )
+        logger.info(msg)
         if os.path.exists(file):
             os.remove(file)
         del self.intiles
@@ -336,7 +285,6 @@ class Lines(
             *args,
             tiles='cartodbdark_matter',
             m=None,
-            dash='5, 20',
             simplify=None,
             **kwargs,
     ) -> folium.Map:
@@ -353,10 +301,6 @@ class Lines(
                 name=feature,
                 tiles=tiles,
                 simplify=simplify,
-                style_kwds=dict(
-                    fill=False,
-                    dashArray=dash,
-                ),
                 m=m,
                 **kwargs,
             )

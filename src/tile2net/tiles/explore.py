@@ -11,7 +11,7 @@ if False:
 def explore(
         self,
         name=None,
-        geometry=None,
+        geometry='geometry',
         *args,
         **kwargs
 ) -> folium.Map:

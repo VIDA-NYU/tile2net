@@ -321,7 +321,6 @@ class Lines(
             crs=self.crs,
             data=data,
         )
-        # todo: how to include feature?
         return result
 
     def visualize(

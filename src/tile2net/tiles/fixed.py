@@ -30,6 +30,7 @@ from typing import (
 )
 from functools import cached_property
 import pandas
+from .geox import GeoX
 
 
 class GeoDataFrameFixed(
@@ -39,6 +40,10 @@ class GeoDataFrameFixed(
     Do not bother reading this class. It's just fixing some buggy code
     that has been left in (geo)pandas.
     """
+
+    @GeoX
+    def geox(self):
+        ...
 
     @final
     def __setattr__(self, name: str, value) -> None:
@@ -192,6 +197,7 @@ class GeoDataFrameFixed(
         else:
             super().__init__(*args, **kwargs)
 
+
 _getattr = pandas.core.generic.NDFrame.__getattr__
 
 
@@ -213,6 +219,7 @@ def _getattribute(self: pandas.core.generic.NDFrame, name: str):
 
 del pandas.core.generic.NDFrame.__getattr__
 pandas.core.generic.NDFrame.__getattribute__ = _getattribute
+
 
 def __finalize__(self, other, method: str | None = None, **kwargs) -> Self:
     """

@@ -95,11 +95,15 @@ class Polygons(
 
     def unlink(self):
         """Delete the polygons file."""
-        file = self.intiles.outdir.polygons.file
+        file = self.file
+        msg = (
+            f'Uncaching {self.intiles.__name__}.{self.__name__} and '
+            f'deleting file:\n\t{file}'
+        )
+        logger.info(msg)
         if os.path.exists(file):
             os.remove(file)
         del self.intiles
-        # self.intiles.__dict__.pop(self.__name__, None)
 
     def explore(
             self,
