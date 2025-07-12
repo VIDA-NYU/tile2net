@@ -400,9 +400,8 @@ class Mask2Poly(
                     .values
                 )
             if not isinstance(max_hole_area, np.ndarray):
-                raise TypeError(
-                    f'Unsupported type for max_hole_area: {type(max_hole_area)}'
-                )
+                msg = f'Unsupported type for max_hole_area: {type(max_hole_area)}'
+                raise TypeError(msg)
 
             result = cls._fill_holes(result, max_area=max_hole_area)
 
@@ -426,6 +425,9 @@ class Mask2Poly(
 
             result = cls._replace_convexhull(result, threshold=convexity)
 
-        result = cls(result)
+        result = (
+            cls(result)
+            .to_crs(self.crs)
+        )
         return result
 

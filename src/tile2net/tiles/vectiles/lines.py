@@ -1,5 +1,8 @@
 
 from __future__ import annotations
+from shapely import MultiLineString
+from ..benchmark import benchmark
+import shapely
 
 from concurrent.futures import (
     ThreadPoolExecutor,
@@ -45,44 +48,41 @@ def __get__(
             gdf['src'] = 'lines'
             return gdf
 
-        tasks = [(i, p) for i, p in instance.file.lines.items()]
+        tasks = [
+            (i, p)
+            for i, p in
+            instance.file.lines.items()
+        ]
 
         with ThreadPoolExecutor() as ex:
             frames = list(ex.map(_read, tasks))
 
-        table = (
-            pd.concat(frames, copy=False)
-            .pivot_table(
-                values='geometry',
-                index=idx_names,
-                columns=['feature', 'src'],
-                aggfunc='first'
+        msg = f'Dissolving {instance.__name__}.{self.__name__} by feature and tile'
+        cols = 'xtile ytile feature'.split()
+        with benchmark(msg):
+            result = (
+                pd.concat(frames, copy=False)
+                .pipe(gpd.GeoDataFrame)
+                .explode()
+                .groupby(cols, sort=False)
+                .geometry.agg(lambda s: MultiLineString(tuple(s)))
+                .to_frame('geometry')
+                .pivot_table(
+                    values='geometry',
+                    index='xtile ytile'.split(),
+                    columns='feature',
+                    aggfunc='first'
+                )
+                .pipe(self.__class__)
+                .reindex(instance.index)
             )
-            .reindex(instance.index)
-        )
 
-        table.columns = [f'lines.{feat}' for feat, _ in table.columns]
-
-        gdf = gpd.GeoDataFrame(table)
-        target_crs = getattr(instance, 'crs', None)
-
-        for col in gdf.columns:
-            if isinstance(gdf[col].dtype, GeometryDtype):
-                gdf[col].set_crs(4326, inplace=True, allow_override=True)
-                if target_crs and target_crs != 4326:
-                    gdf[col] = gdf[col].to_crs(target_crs)
-
-        instance[gdf.columns] = gdf
-
-        loc = instance.columns.str.startswith('lines.')
-        loc |= instance.columns == 'feature'
-        result = instance.loc[:, loc]
-
-        result = self.__class__(result)
-        regex = '^lines\\.'
-        columns = result.columns.str.replace(regex, '', regex=True)
-        result.columns = columns
-        instance.__dict__[self.__name__] = result
+        for col in result.columns:
+            result[col].set_crs(
+                4326,
+                inplace=True,
+                allow_override=True
+            )
 
     else:
         result = instance.__dict__[self.__name__]

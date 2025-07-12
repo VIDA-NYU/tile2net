@@ -61,13 +61,7 @@ def __get__(
         with ThreadPoolExecutor() as ex:
             frames = list(ex.map(_read, tasks))
 
-        msg = f'Dissolving by feature and tile'
-        nparts = cpu_count() * 2
-
-        result = (
-            pd.concat(frames, copy=False)
-            .pipe(gpd.GeoDataFrame)
-        )
+        msg = f'Dissolving {instance.__name__}.{self.__name__} by feature and tile'
 
         cols = 'xtile ytile feature'.split()
         with benchmark(msg):

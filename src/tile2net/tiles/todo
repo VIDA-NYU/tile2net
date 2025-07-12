@@ -59,7 +59,6 @@ return a copy
 
 We can use something like the majority vote + confidence mask to force the labels of the pixels with low confidence into the same label as their neighbors starting from like 50 pixels away from the edge
 
-
 add a changelog
 we should have vectiles.prediction and vectiles.mask
 we must dissolve before simplifying
@@ -84,7 +83,6 @@ What if extension is passed but not xy?
 indir should not require extension on the files
 
 stitch loader should still use threading within a process if a lot of small tiles in the big tile
-
 
 investigat submission
             # loc = tiles.vectile.xtile == 4963

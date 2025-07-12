@@ -58,6 +58,7 @@ def explore(
             and isinstance(self, GeoDataFrame)
     ):
         geometry = self._geometry_column_name
+
     if name is None:
         name = geometry
 
@@ -588,16 +589,20 @@ class Lines(
 
         return result
 
-    @cached_property
-    def drop2nodes(self) -> Self:
-        union = self.geometry.unary_union
-        multiline = shapely.ops.linemerge(union)
-        lines = shapely.get_parts(multiline)
-        result = self.__class__(
-            geometry=lines,
-            crs=self.crs,
-        )
-        return result
+    # @cached_property
+    # def drop2nodes(self) -> Self:
+    #     union = self.geometry.unary_union
+    #     multiline = shapely.ops.linemerge(union)
+    #     lines = shapely.get_parts(multiline)
+    #     result = self.__class__(
+    #         geometry=lines,
+    #         crs=self.crs,
+    #     )
+    #     return result
+
+    def drop2nodes(self):
+        ...
+
 
     def visualize(
             self,
