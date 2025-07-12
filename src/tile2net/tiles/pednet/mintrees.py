@@ -35,14 +35,14 @@ def __get__(
         logger.debug(msg)
 
         assert edges.iline.isin(stubs.iline).all()
-        assert edges.start_end.isin(edges.stop_end.values).all()
+        assert edges.start_iend.isin(edges.stop_iend.values).all()
         assert stubs.start_inode.isin(nodes.inode.values).all()
         assert edges.start_inode.isin(nodes.inode.values).all()
         assert nodes.inode.isin(edges.start_inode.values).all()
         _ = nodes.tuple
 
         icoord2cost: dict[int, float] = edges.length.to_dict()
-        icoord2icoord: dict[int, int] = edges.stop_end.to_dict()
+        icoord2icoord: dict[int, int] = edges.stop_iend.to_dict()
         icoord2inode = edges.start_inode.to_dict()
         icoord2node: dict[int, tuple[int, ...]] = (
             edges.start_tuple
@@ -71,7 +71,7 @@ def __get__(
         nodes = stubs.nodes
 
         inode2is_terminal: dict[int, bool] = is_terminal.to_dict()
-        assert edges.stop_end.isin(edges.start_end.values).all()
+        assert edges.stop_iend.isin(edges.start_iend.values).all()
         terminals = nodes.loc[is_terminal]
 
         result_icoords: set[int] = set()

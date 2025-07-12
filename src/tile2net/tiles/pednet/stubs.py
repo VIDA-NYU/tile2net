@@ -33,7 +33,7 @@ def __get__(
         _ = edges.threshold, edges.start_degree, edges.stop_degree
 
         icoord2cost: dict[int, float] = edges.length.to_dict()
-        icoord2icoord = edges.stop_end.to_dict()
+        icoord2icoord = edges.stop_iend.to_dict()
         icoord2node = edges.start_tuple.to_dict()
 
         msg = f'Computing stubs'
@@ -45,13 +45,13 @@ def __get__(
 
         stubs = set(ends.iline.values)
 
-        icoord2iline = pd.Series(edges.iline.values, index=edges.start_end).to_dict()
-        icoord2inode = pd.Series(edges.stop_inode.values, index=edges.stop_end).to_dict()
+        icoord2iline = pd.Series(edges.iline.values, index=edges.start_iend).to_dict()
+        icoord2inode = pd.Series(edges.stop_inode.values, index=edges.stop_iend).to_dict()
         inode2cost = dict.fromkeys(edges.start_inode.values, INF)
 
         it = zip(
-            ends.start_end.values,  # ifirst
-            ends.stop_end.values,  # ilast
+            ends.start_iend.values,  # ifirst
+            ends.stop_iend.values,  # ilast
             ends.length.values,  # cost
             ends.iline.values,  # iline
             ends.stop_inode.values,  # inode
@@ -105,7 +105,7 @@ def __get__(
         loc = nodes.inode.isin(stub_edges.start_inode)
         loc &= nodes.degree.values > 1
         legal_inodes = set(nodes.inode[loc])
-        legal_icoords = set(stub_edges.start_end)
+        legal_icoords = set(stub_edges.start_iend)
 
         inode2stub_length = (
             stub_edges

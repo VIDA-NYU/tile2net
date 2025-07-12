@@ -42,6 +42,7 @@ def __get__(
             msg = f"loading {instance.__name__}.{self.__name__} from {file}"
             logger.info(msg)
             result = gpd.read_parquet(file).pipe(self.__class__)
+            instance.__dict__[self.__name__] = result
         else:
 
             msg = f"Stacking geometric columns into a single geometry column."
@@ -214,8 +215,8 @@ class Lines(
         return self.intiles.outdir.lines.file
 
     def unlink(self):
-        """Delete the polygons file."""
-        file = self.intiles.outdir.polygons.file
+        """Delete the lines file."""
+        file = self.intiles.outdir.lines.file
         if os.path.exists(file):
             os.remove(file)
         del self.intiles
