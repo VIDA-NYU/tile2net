@@ -1,4 +1,7 @@
 from __future__ import annotations
+import numpy as np
+import shapely
+
 from ..benchmark import benchmark
 from ..explore import explore
 from ..vectiles.mask2poly import Mask2Poly
@@ -30,31 +33,43 @@ def __get__(
     elif self.__name__ in instance.__dict__:
         result = instance.__dict__[self.__name__]
 
-    # elif os.path.exists(instance.outdir.lines.file):
-    #     file = instance.outdir.lines.file
-    #     msg = f"Reading {self.__name__} from {file}"
-    #     logger.info(msg)
-    #     result = (
-    #         gpd.read_parquet(file)
-    #         .pipe(self.__class__)
-    #     )
-    #     result.intiles = instance
-    #     instance.__dict__[self.__name__] = result
-
     else:
-        # msg = f'Vectorizing polygons for {instance}'
-        # logger.debug(msg)
-        result = (
-            instance.vectiles.polygons
-            .stack(future_stack=True, )
-            .to_frame(name='geometry')
-            .dissolve(level=2)
-            .explode()
-            .rename_axis('feature')
-            .pipe(Mask2Poly)
-            .postprocess()
-            .pipe(Polygons)
+
+        vectiles = instance.vectiles
+        n = len(instance.vectiles.polygons)
+        grid_size = max(
+            (affine.a ** 2 + affine.e ** 2) ** .5
+            for affine in vectiles.affine_params
         )
+        # factor = 1e-1
+        # grid_size = min(
+        #     max(abs(affine.a), abs(affine.e))
+        #     for affine in vectiles.affine_params
+        # ) * factor
+        n_polygons = (
+            vectiles.polygons
+            .apply(shapely.get_num_geometries)
+            .to_numpy()
+            .sum()
+        )
+
+        n_features = len(vectiles.polygons.columns)
+        msg = (
+            f'Aggregating {n_polygons} polygons from {n} tiles and '
+            f'{n_features} features into a single vector with grid '
+            f'size {grid_size:.2e}. This may take a while.'
+        )
+
+        with benchmark(msg, level='info'):
+            result = (
+                instance.vectiles.polygons
+                .stack(future_stack=True)
+                .set_precision(grid_size=grid_size)
+                .to_frame(name='geometry')
+                .pipe(Mask2Poly)
+                .postprocess()
+                .pipe(Polygons)
+            )
 
         instance.__dict__[self.__name__] = result
         # file = instance.outdir.polygons.file

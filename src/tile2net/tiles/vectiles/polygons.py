@@ -1,4 +1,5 @@
 from __future__ import annotations
+import shapely
 
 from concurrent.futures import (
     ThreadPoolExecutor,
@@ -62,59 +63,14 @@ def __get__(
 
         msg = f'Dissolving by feature and tile'
         nparts = cpu_count() * 2
-        # Client(processes=True)
-
-        # multi2single
-        # frames[0].geom_type.unique()
-        # features = frames[0].feature.unique()
-        # instance.index.repeat(len(features))
 
         result = (
             pd.concat(frames, copy=False)
             .pipe(gpd.GeoDataFrame)
-            # .explode()
         )
-        import numpy as np
-        # np.sum(result.geom_type == 'MultiPolygon')
-        loc = result.geom_type == 'MultiPolygon'
-        result.loc[loc]
-
 
         cols = 'xtile ytile feature'.split()
-        # index = (
-        #     result[cols]
-        #     .pipe(pd.MultiIndex.from_frame)
-        #     .drop_duplicates()
-        # )
-        # multi2single = pd.Series(np.arange(len(index)), index=index)
-        # single2multi = multi2single.index
-        # loc = pd.MultiIndex.from_frame(result[cols])
-        # single = multi2single.loc[loc]
-
         with benchmark(msg):
-            # result = (
-            #     # pd.concat(frames, copy=False)
-            #     # .pipe(gpd.GeoDataFrame)
-            #     # .explode()
-            #     result
-            #     .assign(single=single.values)
-            #     .pipe(dg.from_geopandas, npartitions=nparts)
-            #     .persist()
-            #     .dissolve(
-            #         by='single',
-            #         # method='coverage',
-            #         split_out=8
-            #     )
-            #     .compute()
-            #     .pivot_table(
-            #         values='geometry',
-            #         index='xtile ytile'.split(),
-            #         columns='feature',
-            #         aggfunc='first',
-            #     )
-            #     .pipe(self.__class__)
-            # )
-            import shapely
 
             result = (
                 pd.concat(frames, copy=False)
@@ -130,6 +86,7 @@ def __get__(
                     aggfunc='first'
                 )
                 .pipe(self.__class__)
+                .reindex(instance.index)
             )
 
         for col in result.columns:

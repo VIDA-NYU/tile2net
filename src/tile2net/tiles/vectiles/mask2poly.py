@@ -276,11 +276,12 @@ class Mask2Poly(
     def _fill_holes(self, max_area: ndarray) -> Self:
         logger.debug(f"Starting hole‐filling")
         MAX_AREA = max_area
+
         max_area = MAX_AREA
         RINGS = shapely.get_rings(self.geometry)
         polygons = shapely.polygons(RINGS)
         area = shapely.area(polygons)
-        repeat = shapely.get_num_interior_rings(self.geometry) + 1
+        repeat = self.count_interior_rings() + 1
         indices = np.arange(len(repeat)).repeat(repeat)
         max_area = max_area.repeat(repeat)
         loc = area >= max_area
@@ -315,30 +316,38 @@ class Mask2Poly(
     ) -> Self:
         cls = self.__class__
         logger.debug("Starting postprocessing")
-        msg = f'Dissolving & exploding {len(self)} polygon(s)'
+        msg = f'Dissolving, simplifying, & exploding {len(self)} (Multi)Polygons'
         if simplify is None:
             simplify = cfg.polygon.simplify
+            self
+        loc = self.geometry.is_valid
+        loc |= self.geometry.isna()
+        assert np.all(loc)
+
         with benchmark(msg):
             result: Self = (
                 self
-                .to_crs(crs)
-                .dissolve(level='feature')
+                .dissolve(level='feature', method='coverage')
                 .set_geometry('geometry')
                 .simplify_coverage(simplify)
                 .explode()
                 .to_frame('geometry')
+                .to_crs(crs)
+                .make_valid(
+                    method='structure',
+                    keep_collapsed=False,
+                )
+                .explode()
+                .to_frame('geometry')
                 .pipe(self.__class__)
             )
-            assert np.all(result.is_valid)
-
-        logger.debug(f"Dissolved & exploded: {len(result)} polygon(s)")
 
         RESULT = result
 
+        assert np.all(result.geom_type == 'Polygon')
+
         if min_poly_area is None:
             min_poly_area = cfg.polygon.min_polygon_area
-        # if grid_size is None:
-        #     grid_size = cfg.polygon.grid_size
         if max_hole_area is None:
             max_hole_area = cfg.polygon.max_hole_area
         if convexity is None:
@@ -374,10 +383,6 @@ class Mask2Poly(
             result = result.loc[loc]
             msg = f'{len(result)} out of {len(loc)} polygons remaining after area filter'
             logger.debug(msg)
-
-        # if None is not grid_size is not False:
-        #     result = result.set_precision(grid_size=grid_size)
-
 
         if None is not max_hole_area is not False:
             if isinstance(max_hole_area, dict):

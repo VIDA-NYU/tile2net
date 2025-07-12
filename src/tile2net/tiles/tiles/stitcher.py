@@ -70,7 +70,7 @@ def _assemble_and_save(  # top-level → pickle-friendly
     return outfile
 
 
-class Loader:
+class Stitcher:
     """
     Process-based mosaic assembler.  One **process** per outfile.
     """
@@ -168,6 +168,16 @@ class Loader:
                     self.dtype,
                     background=self.background,
                 )
+                # _assemble_and_save(
+                #     files=g.file.tolist(),
+                #     rows=g.row.to_numpy(),
+                #     cols=g.col.to_numpy(),
+                #     outfile=outfile,
+                #     tile_shape=(self.tile_h, self.tile_w, self.tile_c),
+                #     mosaic_shape=(self.mos_h, self.mos_w, self.mos_c),
+                #     dtype=self.dtype,
+                #     background=self.background,
+                # )
                 tasks.append(fut)
 
             for fut in tqdm(

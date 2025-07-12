@@ -18,14 +18,9 @@ def explore(
     """Convenience wrapper to GeoDataFrame.explore"""
     import folium
     self = self.copy()
-    _ = self.geometry
+    getattr(self, geometry)
     if isinstance(self, gpd.GeoSeries):
-        self = (
-            self
-            .rename('geometry')
-            .reset_index()
-        )
-        geometry = 'geometry'
+        self = self.to_frame('geometry')
 
     if isinstance(self, pd.Series):
         # noinspection PyTypeChecker

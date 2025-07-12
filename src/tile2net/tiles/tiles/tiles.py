@@ -24,7 +24,7 @@ from tile2net.tiles.fixed import GeoDataFrameFixed
 from . import tile
 from .colormap import ColorMap
 from .corners import Corners
-from .loader import Loader
+from .stitcher import Stitcher
 from .static import Static
 from .tile import Tile
 
@@ -546,17 +546,18 @@ class Tiles(
         r: pd.Series,
         c: pd.Series,
         background: int = 0,
+        force=False
     ):
 
 
-        loc = ~big_files.map(os.path.exists)
-        small_files = small_files.loc[loc]
-        row = r.loc[loc]
-        col = c.loc[loc]
-        big_files: pd.Series = big_files.loc[loc]
+        if not force:
+            loc = ~big_files.map(os.path.exists)
+            small_files = small_files.loc[loc]
+            row = r.loc[loc]
+            col = c.loc[loc]
+            big_files: pd.Series = big_files.loc[loc]
 
         stitched = big_files.drop_duplicates()
-        loc = ~stitched.map(os.path.exists)
         n_missing = len(small_files)
         n_total = len(stitched)
         if n_missing == 0:  # nothing to do
@@ -573,7 +574,7 @@ class Tiles(
             logger.info(msg)
 
 
-        loader = Loader(
+        loader = Stitcher(
             infiles=small_files,
             row=row,
             col=col,

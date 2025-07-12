@@ -99,39 +99,6 @@ class Lines(
         __get__=__get__,
     )
 
-    # def explore(
-    #         self,
-    #         *args,
-    #         tiles='cartodbdark_matter',
-    #         m=None,
-    #         dash='5, 20',
-    #         simplify=None,
-    #         **kwargs,
-    # ) -> folium.Map:
-    #
-    #     import folium
-    #     feature2color = cfg.label2color
-    #     it = self.groupby('feature', observed=False)
-    #     for feature, frame in it:
-    #         color = feature2color[feature]
-    #         m = explore(
-    #             frame,
-    #             *args,
-    #             color=color,
-    #             name=feature,
-    #             tiles=tiles,
-    #             simplify=simplify,
-    #             # style_kwds=dict(
-    #             #     fill=False,
-    #             #     dashArray=dash,
-    #             # ),
-    #             m=m,
-    #             **kwargs,
-    #         )
-    #
-    #     folium.LayerControl().add_to(m)
-    #     return m
-
     def explore(
             self,
             *args,
@@ -163,6 +130,7 @@ class Lines(
                 gdf,
                 *args,
                 color=color,
+                geometry=col,
                 name=col,
                 tiles=tiles,
                 simplify=simplify,

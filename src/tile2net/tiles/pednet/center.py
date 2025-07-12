@@ -93,20 +93,6 @@ class Center(
     @cached_property
     def clipped(self) -> Self:
         msg = 'Clipping centerlines to the features'
-        with benchmark(msg):
-            result = (
-                self.pruned
-                .dissolve(level='feature')
-                .intersection(self.instance.features.mutex, align=True)
-                .explode()
-                .pipe(Center)
-            )
-        result.instance = self.instance
-        return result
-
-    @cached_property
-    def clipped(self) -> Self:
-        msg = 'Clipping centerlines to the features'
 
         features = self.instance.features
         loc = ~features.feature.isin(cfg.polygon.borders)
@@ -118,7 +104,7 @@ class Center(
                 .intersection(self.pruned.union_all())
                 .explode()
             )
-            result = Center(geometry=geometry)
+            result = Center(geometry=geometry, index=geometry.index)
 
         result.instance = self.instance
         return result

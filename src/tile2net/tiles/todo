@@ -62,7 +62,6 @@ We can use something like the majority vote + confidence mask to force the label
 
 add a changelog
 we should have vectiles.prediction and vectiles.mask
-
 we must dissolve before simplifying
 
 if exterior length along road < threshold

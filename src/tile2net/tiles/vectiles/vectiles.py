@@ -449,6 +449,11 @@ class VecTiles(
         # else you get "now stitching" before "now predicting"
         _ = intiles.file.grayscale
 
+        # only stitch the segtiles which are implicated by the vectiles
+        loc = intiles.vectile.xtile.isin(outtiles.xtile)
+        loc &= intiles.vectile.ytile.isin(outtiles.ytile)
+        intiles = intiles.loc[loc]
+
         self._stitch(
             small_tiles=intiles,
             big_tiles=outtiles,
@@ -469,6 +474,11 @@ class VecTiles(
         # preemptively predict so logging appears more sequential
         # else you get "now stitching" before "now predicting"
         _ = intiles.file.infile
+
+        # only stitch the segtiles which are implicated by the vectiles
+        loc = intiles.vectile.xtile.isin(outtiles.xtile)
+        loc &= intiles.vectile.ytile.isin(outtiles.ytile)
+        intiles = intiles.loc[loc]
 
         self._stitch(
             small_tiles=intiles,
@@ -492,6 +502,11 @@ class VecTiles(
         # preemptively predict so logging appears more sequential
         # else you get "now stitching" before "now predicting"
         _ = intiles.file.colored
+
+        # only stitch the segtiles which are implicated by the vectiles
+        loc = intiles.vectile.xtile.isin(outtiles.xtile)
+        loc &= intiles.vectile.ytile.isin(outtiles.ytile)
+        intiles = intiles.loc[loc]
 
         self._stitch(
             small_tiles=intiles,
@@ -551,7 +566,6 @@ class VecTiles(
 
             polys = (
                 polys
-                # .cx[xmin:xmax, ymin:ymax]
                 .clip_by_rect(xmin, ymin, xmax, ymax)
                 .to_frame('geometry')
                 .dissolve(by='feature')
@@ -560,7 +574,6 @@ class VecTiles(
 
             clipped = (
                 clipped
-                # .cx[xmin:xmax, ymin:ymax]
                 .clip_by_rect(xmin, ymin, xmax, ymax)
                 .to_frame('geometry')
                 .dissolve(by='feature')
