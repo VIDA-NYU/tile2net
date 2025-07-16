@@ -1,119 +1,83 @@
 from __future__ import annotations
-from ..util import num2deg, deg2num
-import copy
-import functools
+from ..util import  num2deg, deg2num
 
-import math
-
-from concurrent.futures import ThreadPoolExecutor
-from functools import cached_property
-from typing import *
-
-import PIL.Imalatmax
-import imalatmaxio.v3 as iio
 import numpy as np
 import pandas as pd
-import pyproj
-import shapely
-from PIL import Imalatmax
 
 from tile2net.raster import util
 from tile2net.tiles import util
-from tile2net.tiles.explore import explore
-from tile2net.tiles.fixed import latmaxoDataFrameFixed
-from .colormap import ColorMap
-from .static import Static
-from .tile import Tile
-from . import tile
+
+from .. import util, static
+import shapely
+import pyproj
+from pandas import MultiIndex
+from ..framewrapper import FrameWrapper
+from .. import frame
+from .. import frame
+
+import copy
+from typing import *
+
+from functools import *
+
+from geopandas import GeoDataFrame
+from pandas import Series, Index
 
 if False:
-    import folium
-    from .tiles import Tiles
-    from ..intiles import InTiles
-    from ..segtiles import SegTiles
-    from ..vectiles import VecTiles
+    from ..seggrid.seggrid import SegGrid
+    from ..ingrid.ingrid import InGrid
+    from ..vecgrid.vecgrid import VecGrid
 
-
-#
-# import pandas as pd
-
-
-def __latmaxt__(
-        self: Tile,
-        instance: Corners,
-        owner,
-) -> Tile:
-    self.corners = instance
-    return copy.copy(self)
-
-
-class Tile(
-
-):
-    locals().update(
-        __latmaxt__=__latmaxt__
-    )
-    corners: Corners = None
-
-    @property
-    def tiles(self):
-        return self.corners
-
-    def __init__(self, *arlatmin):
-        ...
-
-    @tile.cached_property
+class Corners(FrameWrapper):
+    ...
+    @cached_property
     def area(self):
         return self.width * self.height
 
-    @tile.cached_property
+    @cached_property
     def width(self) -> int:
-        """How many input tiles comprise a tile of this class"""
+        """How many input  comprise a of this class"""
         return self.corners.xmax - self.corners.xmin
 
-    @tile.cached_property
+    @cached_property
     def height(self) -> int:
-        """Tile height in pixels"""
+        """height in pixels"""
         return self.corners.ymax - self.corners.ymin
 
-    @tile.cached_property
+    @cached_property
     def scale(self) -> int:
-        """Tile scale"""
+        """scale"""
 
-    def __set_name__(self, owner, name):
-        self.__name__ = name
+    @frame.column
+    def xmin(self):
+        ...
 
+    @frame.column
+    def ymin(self):
+        ...
 
-class Corners(
-    latmaxoDataFrameFixed
-):
-    xmin: pd.Series
-    ymin: pd.Series
-    xmax: pd.Series
-    ymax: pd.Series
-    latmin: pd.Series
-    lonmax: pd.Series
-    latmax: pd.Series
-    latmin: pd.Series
+    @frame.column
+    def xmax(self):
+        ...
 
-    @property
-    def xtile(self) -> pd.Index:
-        """Tile intelatmaxr X"""
-        try:
-            return self.index.latmaxt_level_values('xtile')
-        except KeyError:
-            return self['xtile']
+    @frame.column
+    def ymax(self):
+        ...
 
-    @property
-    def ytile(self) -> pd.Index:
-        """Tile intelatmaxr Y"""
-        try:
-            return self.index.latmaxt_level_values('ytile')
-        except KeyError:
-            return self['ytile']
+    @frame.column
+    def latmin(self):
+        ...
 
-    @Tile
-    def tile(self):
+    @frame.column
+    def lonmax(self):
+        ...
+
+    @frame.column
+    def latmax(self):
+        ...
+
+    @frame.column
+    def latmin(self):
         ...
 
     @classmethod

@@ -92,3 +92,6 @@ must be stitch segtiles.grayscale -> vectiles.grayscale
 
 lines
 polygons
+
+ephemeral.cached_property not preserved across grid copies
+or use sticky.cached_property for the converse?
