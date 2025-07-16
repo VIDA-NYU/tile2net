@@ -38,26 +38,22 @@ if False:
 class Tiles(
     GeoDataFrameFixed,
 ):
-    # gw: pd.Series  # geographic west bound of the tile
-    # gn: pd.Series  # geographic north bound of the tile
-    # ge: pd.Series  # geographic east bound of the tile
-    # gs: pd.Series  # geographic south bound of the tile
 
     @property
-    def ge(self) -> pd.Series:
-        return self['ge']
+    def lonmax(self) -> pd.Series:
+        return self['lonmax']
 
     @property
-    def gw(self) -> pd.Series:
-        return self['gw']
+    def lonmin(self) -> pd.Series:
+        return self['lonmin']
 
     @property
-    def gn(self) -> pd.Series:
-        return self['gn']
+    def latmax(self) -> pd.Series:
+        return self['latmax']
 
     @property
-    def gs(self) -> pd.Series:
-        return self['gs']
+    def latmin(self) -> pd.Series:
+        return self['latmin']
 
     @tile.cached_property
     def intiles(self) -> InTiles:
@@ -143,10 +139,10 @@ class Tiles(
         geometry = shapely.box(pw, pn, pe, ps)
 
         data = dict(
-            gw=gw,
-            gn=gn,
-            ge=ge,
-            gs=gs,
+            lonmin=gw,
+            latmax=gn,
+            lonmax=ge,
+            latmin=gs,
         )
 
         result = cls(

@@ -134,10 +134,10 @@ class Corners(
             ymin=ymin,
             xmax=xmax,
             ymax=ymax,
-            gw=gw,
-            gn=gn,
-            ge=ge,
-            gs=gs,
+            lonmin=gw,
+            latmax=gn,
+            lonmax=ge,
+            latmin=gs,
         )
         result = cls(data, index=index)
         result.tile.scale = scale

@@ -686,10 +686,10 @@ class VecTiles(
                 tiles.affine_params,
                 tiles.file.lines,
                 tiles.file.polygons,
-                tiles.gw,
-                tiles.gs,
-                tiles.ge,
-                tiles.gn,
+                tiles.lonmin,
+                tiles.latmin,
+                tiles.lonmax,
+                tiles.latmax,
             )
             yield from (
                 (
@@ -830,7 +830,7 @@ class VecTiles(
 
         dim = self.tile.dimension
         padding = self.padding
-        col = 'gw gs ge gn'.split()
+        col = 'lonmin latmin lonmax latmax'.split()
 
         it = padding[col].itertuples(index=False)
         data = [

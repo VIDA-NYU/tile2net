@@ -1,14 +1,81 @@
 from __future__ import annotations
-import pandas as pd
 
 import copy
 import functools
-from pathlib import Path
 
-import imageio.v3 as iio
+import pandas as pd
+
+import tile2net.tile
 
 if False:
     from tile2net.tiles.tiles.tiles import Tiles
+
+
+def __get__(
+        self: Indexer,
+        instance: Tile,
+        owner
+):
+    self.tile = instance
+    self.tiles = instance.tiles
+    return copy.copy(self)
+
+
+class Indexer:
+    tile: Tile = None
+    tiles: Tiles = None
+    locals().update(
+        __get__=__get__,
+    )
+
+    def __init__( self, *args, ):
+        ...
+
+
+class ILoc(Indexer):
+
+    def __getitem__(self, item) -> tile2net.tile.Tile | pd.Series:
+        tiles = self.tile.tiles
+        ndframe = tiles.iloc[item]
+        if isinstance(ndframe, pd.Series):
+            ndframe = tiles.iloc[[item]]
+            result = tile2net.tile.Tile(
+                tuple=next(ndframe.itertuples()),
+                tiles=self.tile.tiles,
+            )
+        else:
+            data = [
+                tile2net.tile.Tile(
+                    tuple=row,
+                    tiles=self.tile.tiles,
+                )
+                for row in ndframe.itertuples()
+            ]
+            result = pd.Series( data, index=ndframe.index )
+
+        return result
+
+class Loc(Indexer):
+    def __getitem__(self, item) -> tile2net.tile.Tile | pd.Series:
+        tiles = self.tile.tiles
+        ndframe = tiles.loc[item]
+        if isinstance(ndframe, pd.Series):
+            ndframe = tiles.loc[[item]]
+            result = tile2net.tile.Tile(
+                tuple=next(ndframe.itertuples()),
+                tiles=self.tile.tiles,
+            )
+        else:
+            data = [
+                tile2net.tile.Tile(
+                    tuple=row,
+                    tiles=self.tile.tiles,
+                )
+                for row in ndframe.itertuples()
+            ]
+            result = pd.Series(data, index=ndframe.index)
+
+        return result
 
 
 class cached_property:
@@ -110,6 +177,9 @@ class static:
             return cache
 
 
+
+
+
 class Tile(
 
 ):
@@ -164,3 +234,15 @@ class Tile(
 
     def __set_name__(self, owner, name):
         self.__name__ = name
+
+    def __iter__(self):
+        ...
+
+    @ILoc
+    def iloc(self):
+        ...
+
+    @Loc
+    def loc(self):
+        ...
+

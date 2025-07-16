@@ -288,13 +288,11 @@ class Tile:
             mask_image = src_img
         else:
             mask_image = skimage.io.imread(os.path.join(src_img, f'{self.im_name}'))
-            # raise NotImplementedError
         # using the masks defined here, the sidewalks are blue and hence index 2(3rd position in RGB)
         # sidewalks
         tfm_ = self.tfm
         f_class = mask_image[:, :, class_id]
         has_class: bool = np.any(f_class != 0)
-        self.crs
         if has_class is not False:
             geoms_class: gpd.GeoDataFrame = self.mask_to_poly_geojson(f_class)
             if geoms_class.empty:
