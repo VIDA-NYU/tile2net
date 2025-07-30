@@ -1,5 +1,5 @@
 from __future__ import annotations
-from .segtiles import SegTiles
+from .seggrid import SegGrid
 
 import os
 import hashlib
@@ -31,8 +31,8 @@ class Network(
 
 
 
-class VecTiles(
-    SegTiles
+class VecGrid(
+    SegGrid
 ):
 
     @Polygons

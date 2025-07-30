@@ -15,8 +15,9 @@ if False:
 
 
 class column(namespace):
+
     """
-    Wraps column operations (get, set, del) for Grid.tiles
+    Wraps column operations (get, set, del) for Grid.grid
     """
     test = None
 
@@ -34,7 +35,7 @@ class column(namespace):
     ) -> Self | pd.Series:
         self.instance = instance
         self.frame = instance.frame
-        frame = self.tiles
+        frame = self.frame
         result = copy.copy(self)
         if instance is None:
             return result
@@ -53,10 +54,6 @@ class column(namespace):
         result = frame[key]
         return result
 
-    # locals().update(
-    #     __get__=__get
-    # )
-
     def __set__(
             self,
             instance,
@@ -72,7 +69,7 @@ class column(namespace):
 
     @cached_property
     def key(self):
-        from .grid import Grid
+        from .grid.grid import Grid
         instance = self.instance
         names = []
         while not isinstance(instance, Grid):

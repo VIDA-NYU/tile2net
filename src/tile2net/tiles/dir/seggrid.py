@@ -1,5 +1,5 @@
 from __future__ import annotations
-from .intiles import InTiles
+from .intiles import InGrid
 
 import os
 import os.path
@@ -72,7 +72,7 @@ class Overlay(
     ...
 
 
-class SegTiles(
+class SegGrid(
     Dir,
 ):
 

@@ -19,7 +19,7 @@ from ..explore import explore
 from ..fixed import GeoDataFrameFixed
 
 if False:
-    from .vectiles import VecGrid
+    from .vecgrid import VecGrid
     import folium
 
 
@@ -95,14 +95,14 @@ def __get__(
     else:
         result = instance.__dict__[self.__name__]
 
-    result.vectiles = instance
+    result.vecgrid = instance
     return result
 
 
 class Polygons(
     GeoDataFrameFixed
 ):
-    vectiles: VecGrid = None
+    vecgrid: VecGrid = None
     locals().update(
         __get__=__get__,
     )

@@ -37,7 +37,7 @@ from tqdm.auto import tqdm
 
 from tile2net.tiles.cfg.logger import logger
 from .mask2poly import Mask2Poly
-from ..dir.outdir import VecTiles
+from ..dir.outdir import VecGrid
 from ..pednet import PedNet
 from ..tiles import file
 from ..tiles import tile
@@ -52,7 +52,7 @@ if False:
 
 def __get__(
         self: Feature,
-        instance: VecTiles,
+        instance: VecGrid,
         owner
 ) -> Feature:
     self.tiles = instance
@@ -63,7 +63,7 @@ class Feature(
 
 ):
     locals().update(__get__=__get__)
-    tiles: VecTiles
+    tiles: VecGrid
 
     def __set_name__(self, owner, name):
         self.__name__ = name
@@ -104,7 +104,7 @@ class Feature(
 class Tile(
     tile.Tile
 ):
-    tiles: VecTiles
+    tiles: VecGrid
 
     @tile.cached_property
     def length(self) -> int:
@@ -136,7 +136,7 @@ class Tile(
 class File(
     file.File
 ):
-    tiles: VecTiles
+    tiles: VecGrid
 
     @property
     def grayscale(self) -> pd.Series:
@@ -144,7 +144,7 @@ class File(
         key = 'file.grayscale'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.vectiles.grayscale.files(tiles)
+        files = tiles.intiles.outdir.vecgrid.grayscale.files(tiles)
         if (
                 not tiles._stitch_greyscale
                 and not files.map(os.path.exists).all()
@@ -159,7 +159,7 @@ class File(
         key = 'file.mask'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.vectiles.colored.files(tiles)
+        files = tiles.intiles.outdir.vecgrid.colored.files(tiles)
         if (
                 not tiles._stitch_colored
                 and not files.map(os.path.exists).all()
@@ -174,7 +174,7 @@ class File(
         key = 'file.infile'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.vectiles.infile.files(tiles)
+        files = tiles.intiles.outdir.vecgrid.infile.files(tiles)
         if (
                 not tiles._stitch_infile
                 and not files.map(os.path.exists).all()
@@ -189,7 +189,7 @@ class File(
         key = 'file.overlay'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.vectiles.overlay.files(tiles)
+        files = tiles.intiles.outdir.vecgrid.overlay.files(tiles)
         if (
                 not tiles._overlay
                 and not files.map(os.path.exists).all()
@@ -204,7 +204,7 @@ class File(
         key = 'file.lines'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.vectiles.lines.files(tiles)
+        files = tiles.intiles.outdir.vecgrid.lines.files(tiles)
         if (
                 not tiles.vectorize
                 and not files.map(os.path.exists).all()
@@ -219,7 +219,7 @@ class File(
         key = 'file.polygons'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.vectiles.polygons.files(tiles)
+        files = tiles.intiles.outdir.vecgrid.polygons.files(tiles)
         if (
                 not tiles.vectorize
                 and not files.map(os.path.exists).all()
@@ -230,14 +230,14 @@ class File(
 
 
 def __get__(
-        self: VecTiles,
+        self: VecGrid,
         instance: InTiles,
         owner: type[Tiles],
-) -> VecTiles:
+) -> VecGrid:
     if instance is None:
         return self
     try:
-        result: VecTiles = instance.attrs[self.__name__]
+        result: VecGrid = instance.attrs[self.__name__]
     except KeyError as e:
         msg = (
             f'intiles.{self.__name__} has not been set. You may '
@@ -661,7 +661,7 @@ class VecTiles(
 
         if tiles.empty:
             return
-        dest = self.intiles.outdir.vectiles.polygons.dir.rpartition(os.sep)[0]
+        dest = self.intiles.outdir.vecgrid.polygons.dir.rpartition(os.sep)[0]
         msg = f'Vectorizing to {dest}'
         logger.debug(msg)
 

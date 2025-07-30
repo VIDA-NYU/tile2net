@@ -10,30 +10,30 @@ import imageio.v2
 import math
 import numpy as np
 import pandas as pd
-from tile2net.tiles.dir.loader import Loader
-from tile2net.tiles.cfg.logger import logger
+from tile2net.grid.dir.loader import Loader
+from tile2net.grid.cfg.logger import logger
 
 if False:
-    from .intiles import InTiles
+    from .ingrid import InGrid
 
 def __get__(
         self: Stitch,
-        instance: InTiles,
+        instance: InGrid,
         owner
 ) -> Stitch:
-    self.intiles = instance
+    self.ingrid = instance
     return self
 
 
 
 class Stitch:
-    intiles: InTiles
+    ingrid: InGrid
 
     def to_dimension(
             self,
             dimension: int = 1024,
             pad: bool = True,
-    ) -> InTiles:
+    ) -> InGrid:
         """
         resolution:
             target resolution of the stitched tiles
@@ -46,11 +46,11 @@ class Stitch:
                 tile.
 
         Returns:
-            InTiles:
-                New InTiles object with InTiles.stitched set to the stitched
+            InGrid:
+                New InGrid object with InGrid.stitched set to the stitched
                 tiles at the specified resolution.
         """
-        tiles = self.intiles
+        tiles = self.ingrid
         try:
             _ = tiles.dimension
         except KeyError as e:
@@ -70,7 +70,7 @@ class Stitch:
             self,
             mosaic: int = 16,
             pad: bool = True,
-    ) -> InTiles:
+    ) -> InGrid:
         """
         mosaic:
             Mosaic size of the stitched tiles. Must be a power of 2.
@@ -83,8 +83,8 @@ class Stitch:
                 tile.
 
         Returns:
-            InTiles:
-                New InTiles object with InTiles.stitched set to the stitched
+            InGrid:
+                New InGrid object with InGrid.stitched set to the stitched
                 tiles at the specified cluster size.
         """
         if (
@@ -93,7 +93,7 @@ class Stitch:
                 or (mosaic & (mosaic - 1)) != 0
         ):
             raise ValueError('Cluster must be a positive power of 2.')
-        tiles = self.intiles
+        tiles = self.ingrid
         marea = int(math.log2(mosaic))
         dscale = int(math.sqrt(marea))
         scale = tiles.tscale - dscale
@@ -104,7 +104,7 @@ class Stitch:
             self,
             scale: int = 17,
             pad: bool = True,
-    ) -> InTiles:
+    ) -> InGrid:
         """
         scale:
             Scale of larger slippy tiles into which smaller tiles are stitched
@@ -116,8 +116,8 @@ class Stitch:
                 Drop any tiles that cannot be stitched into a complete
                 tile.
         """
-        from .intiles import InTiles
-        TILES = self.intiles
+        from .ingrid import InGrid
+        TILES = self.ingrid
 
         tiles = TILES
 
@@ -158,9 +158,9 @@ class Stitch:
             tx = txy[:, 0]
             ty = txy[:, 1]
             assert not pd.DataFrame(dict(tx=tx, ty=ty)).duplicated().any()
-            tiles = InTiles.from_integers(tx, ty, scale=tiles.zoom)
-            tiles.attrs.update(TILES.attrs)
-            if 'source' in TILES.attrs:
+            tiles = InGrid.from_integers(tx, ty, scale=tiles.zoom)
+            tiles.__dict__.update(TILES.__dict__)
+            if 'source' in TILES.__dict__:
                 tiles = tiles.set_source(
                     source=TILES.source,
                     indir=TILES.indir.original,
@@ -193,11 +193,11 @@ class Stitch:
             'stitched',
             indir.suffix,
         )
-        _stitched = InTiles.from_integers(tx=tx, ty=ty, scale=scale)
+        _stitched = InGrid.from_integers(tx=tx, ty=ty, scale=scale)
         stitched = Stitched(_stitched)
-        stitched.attrs.update(_stitched.attrs)
+        stitched.__dict__.update(_stitched.__dict__)
         setattr(stitched, 'indir', indir)
-        tiles.segtiles = stitched
+        tiles.seggrid = stitched
         stitched.grid = tiles
 
         stitched.zoom = tiles.zoom
@@ -205,7 +205,7 @@ class Stitch:
         mlength = dscale ** 2
 
         msg = f'Tile count is not {marea}x the mosaic count.'
-        assert len(tiles) == len(tiles.segtiles) * marea, msg
+        assert len(tiles) == len(tiles.seggrid) * marea, msg
         msg = f'Not all mosaics are complete'
         assert (
             tiles
@@ -215,7 +215,7 @@ class Stitch:
             .all()
         ), msg
 
-        tiles: InTiles
+        tiles: InGrid
 
         try:
             indir = tiles.indir

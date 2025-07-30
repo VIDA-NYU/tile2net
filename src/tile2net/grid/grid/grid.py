@@ -1,72 +1,75 @@
 from __future__ import annotations
+from tile2net.tiles.cfg.logger import logger
 
-import numpy as np
-import pandas as pd
-
-from tile2net.raster import util
-from tile2net.tiles import util
-
-from .. import util, static
-import shapely
-import pyproj
-from pandas import MultiIndex
-from ..framewrapper import FrameWrapper
-from .. import frame
-
-import copy
+import threading
+from functools import *
+from pathlib import Path
 from typing import *
 
-from functools import *
-
+import imageio.v3 as iio
+import numpy as np
+import pandas as pd
+import pyproj
+import shapely
 from geopandas import GeoDataFrame
+from pandas import MultiIndex
 from pandas import Series, Index
+
+from tile2net.raster import util
+from tile2net.grid import util
+from .corners import Corners
+from .. import frame
+from .. import util
+from ..framewrapper import FrameWrapper
+from .file import File
+from ..cfg import cfg
 
 if False:
     from ..seggrid.seggrid import SegGrid
     from ..ingrid.ingrid import InGrid
     from ..vecgrid.vecgrid import VecGrid
 
+tls = threading.local()
 
 class Grid(FrameWrapper):
-
-    @property
-    def tiles(self) -> GeoDataFrame:
-        return self.frame
+    @File
+    def file(self):
+        ...
 
     @frame.column
     def lonmax(self) -> Series:
         """
-        accessor for self.tiles.lonmax
+        accessor for self.frame.lonmax
         """
 
     @frame.column
     def lonmin(self):
         """
-        accessor for self.tiles.lonmin
+        accessor for self.frame.lonmin
         """
 
     @frame.column
     def latmax(self) -> Series:
         """
-        accessor for self.tiles.latmax
+        accessor for self.frame.latmax
         """
 
     @frame.column
     def latmin(self) -> Series:
         """
-        accessor for self.tiles.latmin
+        accessor for self.frame.latmin
         """
 
     @frame.index
     def xtile(self):
         """
-        accessor for self.tiles.index.get_level_values('xtile')
+        accessor for self.frame.index.get_level_values('xtile')
         """
 
     @frame.index
     def ytile(self) -> Index | Series:
         """
-        accessor for self.tiles.index.get_level_values('ytile')
+        accessor for self.frame.index.get_level_values('ytile')
         """
 
     @cached_property
@@ -77,8 +80,25 @@ class Grid(FrameWrapper):
         """
 
     @cached_property
+    def zoom(self) -> int:
+        """
+        Zoom level of the tile.
+        """
+        return self.scale
+
+    @cached_property
     def dimension(self) -> int:
         """Tile dimension; inferred from input files"""
+        try:
+            # noinspection PyTypeChecker
+            sample = next(
+                p
+                for p in self.file.infile
+                if Path(p).is_file()
+            )
+        except StopIteration:
+            raise FileNotFoundError('No image files found to infer dimension.')
+        return iio.imread(sample).shape[1]  # width
 
     @property
     def shape(self) -> tuple[int, int, int]:
@@ -86,7 +106,7 @@ class Grid(FrameWrapper):
 
     @cached_property
     def length(self) -> int:
-        """How many input tiles comprise a tile of this class"""
+        """How many input grid comprise a tile of this class"""
         raise NotImplemented
 
     @cached_property
@@ -101,7 +121,7 @@ class Grid(FrameWrapper):
         result = (
             self.ytile
             .to_series()
-            .set_axis(self.tiles.index)
+            .set_axis(self.frame.index)
             .sub(self.ytile.min())
         )
         return result
@@ -114,12 +134,18 @@ class Grid(FrameWrapper):
         result = (
             self.xtile
             .to_series()
-            .set_axis(self.tiles.index)
+            .set_axis(self.frame.index)
             .sub(self.xtile.min())
         )
         return result
 
-    tiles: GeoDataFrame
+    @File
+    def file(self):
+        """Namespace for file attributes"""
+        # See the following:
+        _ = self.file.infile
+
+
     @cached_property
     def ingrid(self) -> InGrid:
         ...
@@ -133,6 +159,67 @@ class Grid(FrameWrapper):
         return self.ingrid.vecgrid
 
     @classmethod
+    def from_location(
+            cls,
+            location,
+            zoom: int = None,
+    ) -> Self:
+        latlon = util.geocode(location)
+        result = cls.from_bounds(
+            latlon=latlon,
+            zoom=zoom
+        )
+        return result
+
+    @classmethod
+    def from_bounds(
+            cls,
+            latlon: Union[
+                str,
+                list[float],
+            ],
+            zoom: int = None,
+    ) -> Self:
+        """
+        Create some base Grid from bounds in lat, lon format and a
+        slippy tile zoom level.
+        """
+        if zoom is None:
+            zoom = cfg.zoom
+        if isinstance(latlon, str):
+            if ', ' in latlon:
+                split = ', '
+            elif ',' in latlon:
+                split = ','
+            elif ' ' in latlon:
+                split = ' '
+            else:
+                raise ValueError(
+                    "latlon must be a string with coordinates "
+                    "separated by either ', ', ',', or ' '."
+                )
+            latlon = [
+                float(x)
+                for x in latlon.split(split)
+            ]
+        gn, gw, gs, ge = latlon
+        gn, gs = min(gn, gs), max(gn, gs)
+        gw, ge = min(gw, ge), max(gw, ge)
+        tw, tn = util.deg2num(gw, gn, zoom=zoom)
+        te, ts = util.deg2num(ge, gs, zoom=zoom)
+        te, tw = max(te, tw), min(te, tw)
+        ts, tn = max(ts, tn), min(ts, tn)
+        te += 1
+        ts += 1
+        tx = np.arange(tw, te)
+        ty = np.arange(tn, ts)
+        index = pd.MultiIndex.from_product([tx, ty])
+        tx = index.get_level_values(0)
+        ty = index.get_level_values(1)
+        result = cls.from_integers(tx, ty, scale=zoom)
+        return result
+
+    @classmethod
     def from_integers(
             cls,
             xtile: Series | Index | np.ndarray,
@@ -140,8 +227,8 @@ class Grid(FrameWrapper):
             scale: int,
     ) -> Self:
         """
-        Construct Tiles from integer tile numbers.
-        This allows for a non-rectangular grid of tiles.
+        Construct Grid from integer tile numbers.
+        This allows for a non-rectangular grid of grid.
         """
         if isinstance(ytile, (Series, Index)):
             tn = ytile.values
@@ -180,13 +267,14 @@ class Grid(FrameWrapper):
             lonmax=ge,
             latmin=gs,
         )
-        tiles = GeoDataFrame(
+        grid = GeoDataFrame(
             data=data,
             index=index,
             geometry=geometry,
             crs=3857
         )
-        result = cls(tiles=tiles, scale=scale)
+        result = cls(grid)
+        result.scale = scale
         return result
 
     @classmethod
@@ -199,7 +287,7 @@ class Grid(FrameWrapper):
             scale: int,
     ) -> Self:
         """
-        Construct Tiles from ranges of tile numbers.
+        Construct Grid from ranges of tile numbers.
         Generates every (xtile, ytile) pair within each [xmin‥xmax] × [ymin‥ymax] extent
         and delegates to `from_integers`.
         """
@@ -217,8 +305,14 @@ class Grid(FrameWrapper):
         xmax_arr = np.asarray(xmax, dtype='uint32')
         ymax_arr = np.asarray(ymax, dtype='uint32')
 
-        if not (xmin_arr.shape == ymin_arr.shape == xmax_arr.shape == ymax_arr.shape):
-            raise ValueError('xmin, ymin, xmax, ymax must have identical shapes')
+        if not (
+            xmin_arr.shape ==
+            ymin_arr.shape ==
+            xmax_arr.shape ==
+            ymax_arr.shape
+        ):
+            msg = 'xmin, ymin, xmax, ymax must have identical shapes'
+            raise ValueError(msg)
 
         if (xmin_arr > xmax_arr).any():
             raise ValueError('xmin must be ≤ xmax element-wise')
@@ -244,40 +338,114 @@ class Grid(FrameWrapper):
             scale=scale,
         )
 
-    @classmethod
-    def from_rescale(
-            cls,
-            grid: Self,
-            # tiles: Tiles,
+    def to_scale(
+            self,
             scale: int,
             fill: bool = True,
     ) -> Self:
         """
-        Rescale tiles to a new scale.
-        If the new scale is larger, the tiles are filled with zeros.
-        If the new scale is smaller, the tiles are downscaled.
+        scale:
+            new scale of tiles
+        fill:
+            if True, fills missing tiles when making larger tiles.
+            else, the larger tiles that have missing tiles are dropped.
         """
 
-        # scaled = tiles.to_scale(scale, fill=fill)
-        # xtile = scaled.xtile
-        # ytile = scaled.ytile
-        # result = cls.from_integers(
-        #     xtile=xtile,
-        #     ytile=ytile,
-        #     scale=scale,
-        # )
-        # assert result.tile.scale == scale
-        # return result
-        #
+        mosaic_length = 2 ** abs(self.scale - scale)
+        if self.scale < scale:
+            # into smaller tiles
+            smaller = self.index.to_frame()
+            topleft = smaller.mul(mosaic_length)
+            arange = np.arange(mosaic_length)
+            x, y = np.meshgrid(arange, arange, indexing='ij')
+            txy: np.ndarray = (
+                np.stack((x, y), -1)
+                .reshape(-1, 2)
+                .__add__(topleft.values[:, None, :])
+                .reshape(-1, 2)
+            )
+            xtile, ytile = txy.T
+            result = self.from_integers(
+                xtile,
+                ytile,
+                scale
+            )
+            assert len(result) == len(self) * (mosaic_length ** 2)
+            assert not result.index.duplicated().any()
+
+        elif self.scale > scale:
+            # into larger tiles
+            frame: pd.DataFrame = (
+                self.index
+                .to_frame()
+                .floordiv(mosaic_length)
+            )
+            if fill:
+                frame = frame.drop_duplicates()
+            else:
+                loc = (
+                    frame
+                    .drop_duplicates()
+                    .pipe(pd.MultiIndex.from_frame)
+                )
+                loc = (
+                    frame
+                    .groupby(frame.columns.tolist(), sort=False)
+                    .size()
+                    .eq(mosaic_length ** 2)
+                    .loc[loc]
+                )
+                frame = frame.loc[loc]
+
+            result = self.from_integers(
+                frame.xtile,
+                frame.ytile,
+                scale
+            )
+
+            assert len(self) > len(result)
+            assert not result.index.duplicated().any()
+
+        else:
+            # same scale
+            result = self.copy()
+
+        result.__dict__.update(self.__dict__)
+        result.scale = scale
+        return result
+
+
+    @classmethod
+    def from_rescale(
+            cls,
+            grid: Grid,
+            scale: int,
+            fill: bool = True,
+    ) -> Self:
+        """
+        Rescale grid to a new scale.
+        If the new scale is larger, the grid are filled with zeros.
+        If the new scale is smaller, the grid are downscaled.
+        """
+        scaled = grid.to_scale(scale, fill=fill)
+        xtile = scaled.xtile
+        ytile = scaled.ytile
+        result = cls.from_integers(
+            xtile=xtile,
+            ytile=ytile,
+            scale=scale,
+        )
+        assert result.scale == scale
+        return result
+
 
     def to_padding(self, pad: int = 1) -> Self:
         """ Pad each tile by `pad` tiles in each direction. """
         padded = (
             self
-            .to_corners(self.tile.scale)
+            .to_corners(self.scale)
             .to_padding(pad)
-            .to_tiles()
-            .pipe(self.__class__)
+            .to_grid()
             .sort_index()
         )
         assert self.xtile.min() - pad == padded.xtile.min()
@@ -286,14 +454,14 @@ class Grid(FrameWrapper):
         assert self.ytile.max() + pad == padded.ytile.max()
         if pad >= 0:
             assert self.index.isin(padded.index).all()
-        padded.attrs.update(self.attrs)
+        padded.__dict__.update(self.__dict__)
         return padded
 
     def to_corners(self, scale: int = None) -> Corners:
         if scale is None:
-            scale = self.tile.scale
+            scale = self.scale
 
-        length = 2 ** (self.tile.scale - scale)
+        length = 2 ** (self.scale - scale)
         result = Corners.from_data(
             xmin=self.xtile.values // length,
             ymin=self.ytile.values // length,
@@ -304,5 +472,41 @@ class Grid(FrameWrapper):
         )
         return result
 
+    @Cfg
+    def cfg(self):
+        # This code block is just semantic sugar and does not run.
+        # You can access the various configuration options this way:
+        _ = self.cfg.zoom
+        _ = self.cfg.model.bs_val
+        _ = self.cfg.polygon.max_hole_area
+        # Please do not set the configuration options directly,
+        # you may introduce bugs.
 
     frame: GeoDataFrame
+
+    @property
+    def index(self):
+        return self.frame.index
+
+    @property
+    def indir(self):
+        return self.ingrid.indir
+
+    @property
+    def outdir(self):
+        return self.ingrid.outdir
+
+    def __len__(self):
+        return len(self.frame)
+
+    def pipe(self, *args, **kwargs):
+        func = args[0] if args else kwargs.pop('func', None)
+        if func is None:
+            raise ValueError('func must be provided to pipe')
+        result = func(self, *args[1:], **kwargs)
+        return result
+
+
+
+
+

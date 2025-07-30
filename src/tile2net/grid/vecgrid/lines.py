@@ -1,77 +1,71 @@
+
 from __future__ import annotations
+from shapely import MultiLineString
+from ..benchmark import benchmark
 import shapely
 
 from concurrent.futures import (
     ThreadPoolExecutor,
 )
-from multiprocessing import cpu_count
-from typing import *
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
-import shapely
 from geopandas.array import GeometryDtype
 
-from ..benchmark import benchmark
 from ..cfg import cfg
-from ..cfg.logger import logger
 from ..explore import explore
 from ..fixed import GeoDataFrameFixed
 
 if False:
-    from .vectiles import VecGrid
+    from .vecgrid import VecGrid
     import folium
 
 
 def __get__(
-        self: Polygons,
+        self: Lines,
         instance: VecGrid,
         owner: type[VecGrid]
-) -> Polygons:
+) -> Lines:
+
     if instance is None:
         result = self
 
     elif self.__name__ not in instance.__dict__:
-
-        msg = f'Loading {instance.__name__}.polygons'
-        logger.debug(msg)
 
         idx_names = list(instance.index.names)
 
         def _read(idx_path):
             idx, path = idx_path
             gdf = (
-                gpd
-                .read_parquet(path)
+                gpd.read_parquet(path)
                 .reset_index(names='feature')
             )
             if not isinstance(idx, tuple):
                 idx = (idx,)
             for name, val in zip(idx_names, idx):
                 gdf[name] = val
-            gdf['src'] = 'polygons'
+            gdf['src'] = 'lines'
             return gdf
 
         tasks = [
             (i, p)
-            for i, p
-            in instance.file.polygons.items()
+            for i, p in
+            instance.file.lines.items()
         ]
 
         with ThreadPoolExecutor() as ex:
             frames = list(ex.map(_read, tasks))
 
         msg = f'Dissolving {instance.__name__}.{self.__name__} by feature and tile'
-
         cols = 'xtile ytile feature'.split()
         with benchmark(msg):
-
             result = (
                 pd.concat(frames, copy=False)
                 .pipe(gpd.GeoDataFrame)
                 .explode()
                 .groupby(cols, sort=False)
-                .geometry.agg(shapely.MultiPolygon)
+                .geometry.agg(lambda s: MultiLineString(tuple(s)))
                 .to_frame('geometry')
                 .pivot_table(
                     values='geometry',
@@ -90,40 +84,20 @@ def __get__(
                 allow_override=True
             )
 
-        instance.__dict__[self.__name__] = result
-
     else:
         result = instance.__dict__[self.__name__]
 
-    result.vectiles = instance
+    result.vecgrid = instance
     return result
 
-
-class Polygons(
+class Lines(
     GeoDataFrameFixed
 ):
-    vectiles: VecGrid = None
+    __name__ = 'lines'
+    vecgrid: VecGrid = None
     locals().update(
         __get__=__get__,
     )
-
-    sidewalk: gpd.GeoSeries
-    road: gpd.GeoSeries
-    crosswalk: gpd.GeoSeries
-
-    # @property
-    # def sidewalk(self) -> gpd.GeoSeries:
-    #     re
-    #
-    # @property
-    # def road(self) -> Self:
-    #     return self[['road']]
-    #
-    # @property
-    # def crosswalk(self) -> Self:
-    #     return self[['crosswalk']]
-
-
 
     def explore(
             self,
@@ -137,14 +111,26 @@ class Polygons(
         import folium
         feature2color = cfg.label2color
 
-        loc = self.dtypes == 'geometry'
-        for col in self.columns[loc]:
+        # detect geometry-typed columns
+        geom_cols = [
+            col
+            for col in self.columns
+            if isinstance(self[col].dtype, GeometryDtype)
+        ]
+
+        for col in geom_cols:
+            gdf = (
+                self[[col]]
+                .copy()
+                .set_geometry(col)
+            )
+
             color = feature2color.get(col)
             m = explore(
-                self,
-                geometry=col,
+                gdf,
                 *args,
                 color=color,
+                geometry=col,
                 name=col,
                 tiles=tiles,
                 simplify=simplify,

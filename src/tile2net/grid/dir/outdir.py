@@ -1,7 +1,9 @@
 from __future__ import annotations
 from .ingrid import InGrid
+
 from .vecgrid import VecGrid
-from .seggrid import   SegGrid
+from .seggrid import SegGrid
+
 import os
 import hashlib
 import numpy as np
@@ -19,7 +21,7 @@ from .batchiterator import BatchIterator
 from .dir import Dir, Dir, Dir, Dir
 
 if False:
-    import tile2net.tiles.intiles
+    import tile2net.grid.ingrid
 
 
 
@@ -48,14 +50,14 @@ class Polygons(
     @property
     def file(self) -> str:
         key = f'{self._trace}.polygons'
-        cache = self.tiles.attrs
+        cache = self.grid.__dict__
 
         if key in cache:
             return cache[key]
 
         # ───── deterministic UUID from tile indices ───── #
         # unique (x, y) pairs ensure ordering does not alter digest
-        stack = [self.tiles.xtile.to_numpy(), self.tiles.ytile.to_numpy()]
+        stack = [self.grid.xtile.to_numpy(), self.grid.ytile.to_numpy()]
         pairs = np.unique(
             np.column_stack(stack),
             axis=0,
@@ -75,12 +77,12 @@ class Lines(
     @property
     def file(self) -> str:
         key = f'{self._trace}.lines'
-        cache = self.tiles.attrs
+        cache = self.grid.__dict__
         if key in cache:
             return cache[key]
 
         pairs = np.unique(
-            np.column_stack([self.tiles.xtile.to_numpy(), self.tiles.ytile.to_numpy()]),
+            np.column_stack([self.grid.xtile.to_numpy(), self.grid.ytile.to_numpy()]),
             axis=0,
         )
         digest = hashlib.blake2b(pairs.tobytes(), digest_size=8).hexdigest()  # 16-hex UUID
@@ -166,7 +168,7 @@ class BestImages(
 class Outdir(
     Dir
 ):
-    tiles: tile2net.tiles.intiles.InTiles
+    grid: tile2net.grid.ingrid.InGrid
 
     # @Outputs
     # def outputs(self):
@@ -203,7 +205,7 @@ class Outdir(
     def vecgrid(self):
         format = os.path.join(
             self.dir,
-            'vectiles',
+            'vecgrid',
             self.suffix
         )
         result = VecGrid.from_format(format)
@@ -213,7 +215,7 @@ class Outdir(
     def seggrid(self):
         format = os.path.join(
             self.dir,
-            'segtiles',
+            'seggrid',
             self.suffix
         )
         result = SegGrid.from_format(format)
@@ -223,7 +225,7 @@ class Outdir(
     def ingrid(self):
         format = os.path.join(
             self.dir,
-            'intiles',
+            'ingrid',
             self.suffix
         )
         result = InGrid.from_format(format)
@@ -237,6 +239,10 @@ class Outdir(
     @Polygons
     def polygons(self):
         ...
+
+
+
+
 
     # def preview(self) -> str:
     #     self.seg_results.error.format

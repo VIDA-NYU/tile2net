@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-# ── San Francisco orthophoto catalogue ─────────────────────────────────────────
-from shapely.geometry import box
-
 import functools
 import json
 import pathlib
 import warnings
-from abc import ABC, ABCMeta
-from functools import cached_property, wraps
-from typing import Iterator, Optional, Type
+from abc import ABC
+from functools import cached_property
+from typing import *
+from typing import Optional
 from typing import TypeVar
 from weakref import WeakKeyDictionary
 
@@ -22,12 +20,13 @@ import shapely.ops
 from geopandas import GeoDataFrame
 from geopandas import GeoSeries
 from shapely import box
+from shapely.geometry import box
 
-from tile2net.tiles.cfg.logger import logger
+from tile2net.grid.cfg.logger import logger
 from tile2net.raster.geocode import GeoCode
 
 if False:
-    from .intiles import InTiles
+    from .ingrid import InGrid
 
 
 class SourceNotFound(Exception):
@@ -161,18 +160,18 @@ class cls_attr(
 
 def __get__(
         self: Source,
-        instance: InTiles,
-        owner: type[InTiles],
+        instance: InGrid,
+        owner: type[InGrid],
 ) -> Source:
     """Return the source object for the tiles instance."""
     try:
-        result = instance.attrs[self.__name__]
+        result = instance.__dict__[self.__name__]
         result.grid = instance
         result.InGrid = owner
     except KeyError as e:
         msg = (
             f'Source has not yet been set. To set the source, you '
-            f'must call `InTiles.with_source()`.'
+            f'must call `InGrid.with_source()`.'
         )
         raise KeyError(msg) from e
     return result
@@ -182,7 +181,7 @@ def __get__(
 class Source(
     ABC,
 ):
-    tiles: InTiles
+    tiles: InGrid
     catalog: dict[str, type[Source]] = {}
 
     outdated: bool = False
@@ -260,18 +259,18 @@ class Source(
 
     def __set__(
             self,
-            instance: InTiles,
+            instance: InGrid,
             value,
     ):
         """Set the source object for the tiles instance."""
-        instance.attrs[self.__name__] = value
+        instance.__dict__[self.__name__] = value
 
     def __set_name__(self, owner, name):
         self.__name__ = name
 
     def __delete__(
             self,
-            instance: InTiles,
+            instance: InGrid,
     ):
         """Delete the source object for the tiles instance."""
         if hasattr(instance, '_source'):
@@ -292,7 +291,7 @@ class Source(
         """Given some tiles, return the URL for the images"""
         tiles = self.tiles
         temp = self.template
-        zoom = tiles.tile.zoom
+        zoom = tiles.zoom
         it = zip(tiles.ytile, tiles.xtile)
         data = [
             temp.format(z=zoom, y=ytile, x=xtile)
@@ -508,7 +507,7 @@ class WashingtonDC(ArcGis):
         '&imageSR=102100&bboxSR=102100&size=512%2C512'
     )
 
-    def __getitem__(self, item: InTiles) -> pd.Series[str]:
+    def __getitem__(self, item: InGrid) -> pd.Series[str]:
         bounds = item.bounds
         it = zip(bounds.minx, bounds.miny, bounds.maxx, bounds.maxy)
         template = self.template

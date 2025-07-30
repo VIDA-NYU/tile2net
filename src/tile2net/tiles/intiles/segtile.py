@@ -129,7 +129,7 @@ class SegTile(
         arrays = self.xtile, self.ytile
         loc = pd.MultiIndex.from_arrays(arrays)
         result = (
-            intiles.segtiles.padded.ipred
+            intiles.seggrid.padded.ipred
             .loc[loc]
             .values
         )

@@ -110,7 +110,7 @@ class cached_property:
         if issubclass(self.owner, pd.DataFrame):
             cache = self.instance.attrs
         elif hasattr(self.owner, 'tiles'):
-            cache = self.instance.tiles.attrs
+            cache = self.instance.grid.attrs
         else:
             raise TypeError(
                 f'Owner {self.owner} must be a Tiles subclass or have a tiles attribute.'
@@ -169,7 +169,7 @@ class static:
             if issubclass(self.owner, pd.DataFrame):
                 cache = self.instance.__dict__
             elif hasattr(self.owner, 'tiles'):
-                cache = self.instance.tiles.__dict__
+                cache = self.instance.grid.__dict__
             else:
                 raise TypeError(
                     f'Owner {self.owner} must be a Tiles subclass or have a tiles attribute.'

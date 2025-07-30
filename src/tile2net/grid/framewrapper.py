@@ -1,25 +1,13 @@
 from __future__ import annotations
 
-import numpy as np
-import pandas as pd
-
-from tile2net.raster import util
-from tile2net.tiles import util
-
-from . import util, static
-import shapely
-import pyproj
-from pandas import MultiIndex
-from . import frame
-
 import copy
+from functools import *
 from typing import *
 
-from functools import *
-
-from geopandas import GeoDataFrame
-from pandas import Series, Index
 import pandas as pd
+from geopandas import GeoDataFrame
+
+from . import static
 
 
 class FrameWrapper:
@@ -75,6 +63,19 @@ class FrameWrapper:
         """
         """
 
-    if False:
-        def __getitem__(self, item) -> Self:
-            ...
+    def __delitem__(self, key):
+        del self.frame[key]
+
+    def __setitem__(self, key, value):
+        self.frame[key] = value
+
+    @classmethod
+    def from_copy(
+            cls,
+            wrapper: Self,
+            frame: pd.DataFrame
+    ) -> Self:
+        result = wrapper.copy()
+        result.frame = frame
+        return result
+

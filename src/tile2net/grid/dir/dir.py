@@ -15,11 +15,11 @@ from typing import Self
 import pandas as pd
 from toolz import curried, curry as cur, pipe
 
-from tile2net.tiles.tiles.tiles import Tiles
-from tile2net.tiles.util import returns_or_assigns
+from tile2net.grid.grid.grid import Grid
+from tile2net.grid.util import returns_or_assigns
 
 if False:
-    from tile2net.tiles.intiles.intiles import InTiles
+    from tile2net.grid.ingrid.ingrid import InGrid
 
 
 class ExtensionNotFoundError(ValueError):
@@ -44,40 +44,22 @@ class XYNotFoundError(ValueError):
 
 def __get__(
         self: Dir,
-        instance: InTiles | Dir,
+        instance: InGrid | Dir,
         owner
 ) -> Dir:
-    from ..intiles import InTiles
+    from ..ingrid import InGrid
     self.instance = instance
-    if isinstance(instance, InTiles):
-        self.tiles = instance
+    if isinstance(instance, InGrid):
+        self.grid = instance
     elif isinstance(instance, Dir):
-        self.tiles = instance.tiles
+        self.grid = instance.grid
     elif instance is None:
-        self.tiles = None
+        self.grid = None
     else:
-        raise TypeError(f'instance must be Tiles or Dir, not {type(instance).__name__}')
+        raise TypeError(f'instance must be Grid or Dir, not {type(instance).__name__}')
     try:
-        result = self.tiles.attrs[self._trace]
+        result = self.grid.__dict__[self._trace]
     except KeyError as e:
-        # try:
-        #     dir = self.instance.dir
-        # except (KeyError, AttributeError) as e:
-        #     msg = (
-        #         f'{self.__name__!r} is not set. '
-        #         f'See `Tiles.with_indir()` to actually set an '
-        #         f'input directory. See `Tiles.with_source()` to download '
-        #         f'tiles from a source into an input directory.'
-        #     )
-        #     raise AttributeError(msg) from e
-        # else:
-        #     if self.__wrapped__:
-        #         result = self.__wrapped__(self.instance)
-        #     else:
-        #         path = os.path.join(dir, self.__name__)
-        #         result = self.__class__.from_dir(path)
-        #     self.tiles.attrs[self._trace] = result
-
         if self.__wrapped__:
             result = self.__wrapped__(self.instance)
         else:
@@ -86,16 +68,12 @@ def __get__(
             except (KeyError, AttributeError) as e:
                 msg = (
                     f'{self.__name__!r} is not set. '
-                    f'See `Tiles.with_indir()` to actually set an '
-                    f'input directory. See `Tiles.with_source()` to download '
-                    f'tiles from a source into an input directory.'
+                    f'See `Grid.with_indir()` to actually set an '
+                    f'input directory. See `Grid.with_source()` to download '
+                    f'grid from a source into an input directory.'
                 )
                 raise AttributeError(msg) from e
             else:
-                # path = os.path.join(path, self.__name__)
-                #
-                # result = self.__class__.from_dir(path)
-                self.instance.suffix
                 if isinstance(self.instance, Dir):
 
                     format = os.path.join(
@@ -111,13 +89,13 @@ def __get__(
 
     result.__name__ = self.__name__
     result.instance = self.instance
-    result.tiles = self.tiles
+    result.grid = self.grid
     return result
 
 
 class Dir:
-    instance: InTiles | Dir = None
-    tiles: InTiles = None
+    instance: InGrid | Dir = None
+    grid: InGrid = None
     locals().update(
         __get__=__get__
     )
@@ -125,10 +103,6 @@ class Dir:
 
     def __set_name__(self, owner, name):
         self.__name__ = name
-
-    # @property
-    # def tiles(self) -> Tiles:
-    #     return self.intiles
 
     characters = {
         c: i
@@ -270,9 +244,12 @@ class Dir:
         indir.suffix = os.path.relpath(indir.original, indir.dir)
         return indir
 
-    def __set__(self, instance: 'Tiles', value: str | PathLike):
+    def __set__(self, instance: 'Grid', value: str | PathLike):
         if value is None:
             raise NotImplementedError
+        # if isinstance(value, Path):
+        #     value = str(value)
+        # value = os.path.normpath(value)
         value = (
             Path(value)
             .expanduser()
@@ -283,14 +260,14 @@ class Dir:
         indir = self.from_format(value)
 
         indir.__name__ = self.__name__
-        instance.attrs[self._trace] = indir
+        instance.__dict__[self._trace] = indir
 
         indir.instance = instance
         try:
-            if isinstance(instance, Tiles):
-                indir.tiles = instance
+            if isinstance(instance, Grid):
+                indir.grid = instance
             else:
-                indir.tiles = instance.tiles
+                indir.grid = instance.grid
         except AttributeError:
             indir.tiles = None
 
@@ -341,7 +318,7 @@ class Dir:
     def _trace(self):
         if (
                 self.instance is None
-                or isinstance(self.instance, Tiles)
+                or isinstance(self.instance, Grid)
         ):
             return self.__name__
         elif isinstance(self.instance, Dir):
@@ -352,7 +329,7 @@ class Dir:
 
     def files(
             self,
-            tiles: Tiles,
+            tiles: Grid,
             dirname=''
     ) -> pd.Series:
         if dirname:
@@ -367,7 +344,7 @@ class Dir:
             .lstrip(os.sep)
         )
         format = os.path.join(self.dir, dirname, suffix)
-        zoom = tiles.tile.zoom
+        zoom = tiles.zoom
         it = zip(tiles.ytile, tiles.xtile)
         data = [
             format.format(z=zoom, y=ytile, x=xtile)
@@ -410,15 +387,11 @@ class Dir:
                 # The target may have already been removed by another process
                 continue
 
-        ...
-
-
-
 class TestIndir:
     indir = Dir()
 
     def __init__(self, indir: str | PathLike):
-        self.attrs = {}
+        self.__dict__ = {}
         self.zoom = 20
         self.extension = '.png'
         self.indir = indir
@@ -430,7 +403,7 @@ if __name__ == '__main__':
         indir = Dir()
 
         def __init__(self, indir: str | PathLike):
-            self.attrs = {}
+            self.__dict__ = {}
             self.zoom = 20
             self.extension = '.png'
             self.indir = indir

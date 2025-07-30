@@ -18,14 +18,14 @@ from ..explore import explore
 from ..fixed import GeoDataFrameFixed
 
 if False:
-    from .vectiles import VecTiles
+    from .vectiles import VecGrid
     import folium
 
 
 def __get__(
         self: Lines,
-        instance: VecTiles,
-        owner: type[VecTiles]
+        instance: VecGrid,
+        owner: type[VecGrid]
 ) -> Lines:
 
     if instance is None:
@@ -94,7 +94,7 @@ class Lines(
     GeoDataFrameFixed
 ):
     __name__ = 'lines'
-    vectiles: VecTiles = None
+    vectiles: VecGrid = None
     locals().update(
         __get__=__get__,
     )
