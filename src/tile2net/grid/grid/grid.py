@@ -448,6 +448,14 @@ class Grid(FrameWrapper):
             .to_grid()
             .sort_index()
         )
+        padded = (
+            self
+            .to_corners(self.scale)
+            .to_padding(pad)
+            .to_grid()
+        )
+        padded.frame = padded.frame.sort_index()
+
         assert self.xtile.min() - pad == padded.xtile.min()
         assert self.ytile.min() - pad == padded.ytile.min()
         assert self.xtile.max() + pad == padded.xtile.max()

@@ -79,3 +79,11 @@ class FrameWrapper:
         result.frame = frame
         return result
 
+    def to_copy(
+            self,
+            **kwargs,
+    ) -> Self:
+        result = self.copy()
+        result.__dict__.update(**kwargs)
+        return result
+
