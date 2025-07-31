@@ -1,11 +1,20 @@
-
 from __future__ import annotations
+
+import copy
+import threading
+
+from ..cfg import cfg
+from ..dir.dir import Dir, ExtensionNotFoundError, XYNotFoundError
+
+# thread-local store
+tls = threading.local()
+
+import geopandas as gpd
+from ..vecgrid.vecgrid import VecGrid
 
 import threading
 
 from ..grid.grid import Grid
-
-tls = threading.local()
 
 import os
 import os.path
@@ -36,12 +45,15 @@ from typing import *
 from functools import *
 
 from ...grid.util import recursion_block
-from .polygons import Polygons
 from .vectile import VecTile
-from .lines import  Lines
-from ..seggrid.seggrid import SegGrid
+from .segtile import SegTile
 from ..grid import file
 from .source import Source
+
+tls = threading.local()
+
+if False:
+    from .padded import Padded
 
 
 class File(
@@ -52,28 +64,29 @@ class File(
     @frame.column
     def infile(self) -> pd.Series:
         grid = self.grid
-        key = 'file.infile'
-        if key in grid:
-            return grid[key]
         files = grid.indir.files(grid)
-        grid[key] = files
         if (
                 not grid.download
                 and not files.map(os.path.exists).all()
         ):
             grid.download()
-        return grid[key]
+        return files
 
 
+class InGrid(
+    Grid
+):
+    @File
+    def file(self):
+        ...
 
-class InGrid(Grid):
     @cached_property
     def dimension(self) -> int:
         """Tile dimension; inferred from input files"""
         try:
             sample = next(
                 p
-                for p in self.grid.file.infile
+                for p in self.file.infile
                 if Path(p).is_file()
             )
         except StopIteration:
@@ -103,32 +116,31 @@ class InGrid(Grid):
         ingrid = self.set_source(...)  # automatically sets the source
         ingrid = self.set_source('nyc')
 
-
     @Outdir
     def outdir(self):
         ...
 
-    @Lines
-    def lines(self):
-        ...
+    # @Lines
+    # def lines(self):
+    #     ...
+    #
+    # @Polygons
+    # def polygons(self):
+    #     ...
 
-    @Polygons
-    def polygons(self):
-        ...
-
-    @SegGrid
-    def seggrid(self):
+    @SegTile
+    def segtile(self):
         # This code block is just semantic sugar and does not run.
         # These columns are available once the grid have been stitched:
         _ = (
             # xtile of the larger mosaic
-            self.seggrid.xtile,
+            self.segtile.xtile,
             # ytile of the larger mosaic
-            self.seggrid.ytile,
+            self.segtile.ytile,
             # row of the tile within the larger mosaic
-            self.seggrid.r,
+            self.segtile.r,
             # column of the tile within the larger mosaic
-            self.seggrid.c,
+            self.segtile.c,
         )
 
     @VecTile
@@ -136,9 +148,9 @@ class InGrid(Grid):
         # This code block is just semantic sugar and does not run.
         _ = (
             # xtile of the larger mosaic
-            self.seggrid.xtile,
+            self.vectile.xtile,
             # ytile of the larger mosaic
-            self.seggrid.ytile,
+            self.vectile.ytile,
         )
 
     @recursion_block
@@ -169,7 +181,7 @@ class InGrid(Grid):
 
         exists = paths.map(os.path.exists).to_numpy(bool)
         if exists.all() and not force:
-            logger.info("All tiles already on disk.")
+            logger.info("All grid already on disk.")
             return self
 
         if not force:
@@ -180,7 +192,7 @@ class InGrid(Grid):
         if not mapping:
             return self
 
-        msg = f"Downloading {len(mapping):,} tiles to {self.indir.dir}"
+        msg = f"Downloading {len(mapping):,} grid to {self.indir.dir}"
         logger.info(msg)
 
         pool_size = min(max_workers, len(mapping))
@@ -246,7 +258,7 @@ class InGrid(Grid):
                 fut.result()
 
         if len(not_found) + len(failed) == len(self.file.infile):
-            msg = f'All {len(not_found) + len(failed):,} tiles failed to download.'
+            msg = f'All {len(not_found) + len(failed):,} grid failed to download.'
             raise FileNotFoundError(msg)
 
         if not_found:
@@ -259,7 +271,7 @@ class InGrid(Grid):
                 msg = f'No black placeholder found for extension {self.source.extension}.'
 
                 raise FileNotFoundError(msg) from e
-            logger.warning("%d tiles returned 404 – linking placeholder.", len(not_found))
+            logger.warning("%d grid returned 404 – linking placeholder.", len(not_found))
             for p in not_found:
                 try:
                     os.symlink(black, p)
@@ -274,9 +286,9 @@ class InGrid(Grid):
                     force=False,
                     max_workers=max_workers,
                 )
-            raise FileNotFoundError(f"{len(failed):,} tiles failed.")
+            raise FileNotFoundError(f"{len(failed):,} grid failed.")
 
-        logger.info("All requested tiles are on disk.")
+        logger.info("All requested grid are on disk.")
         return self
 
     @delayed.Padded
@@ -303,7 +315,7 @@ class InGrid(Grid):
         )
         s.mount("https://", adapter)
         s.mount("http://", adapter)
-        s.headers.update({"User-Agent": "tiles"})
+        s.headers.update({"User-Agent": "grid"})
         s.verify = certifi.where()
         return s
 
@@ -365,3 +377,316 @@ class InGrid(Grid):
 
         shutil.move(tmp_path, path)
         return None
+
+    @delayed.Padded
+    def padded(self) -> Padded:
+        ...
+
+    def set_source(
+            self,
+            source=None,
+            outdir: Union[str, Path] = None,
+    ) -> Self:
+        """
+        Assign a source to the grid. The grid are downloaded from
+        the source and saved to an input directory.
+
+        You can pass an outdir which will be the destination the files
+        are saved to.
+        """
+        if source is None:
+            source = (
+                gpd.GeoSeries(
+                    [self.frame.union_all()],
+                    crs=self.frame.crs
+                )
+                .to_crs(4326)
+                .pipe(Source.from_inferred)
+            )
+        elif isinstance(source, Source):
+            source = copy.copy(source)
+        else:
+            try:
+                source = Source.from_inferred(source)
+            except SourceNotFound as e:
+                msg = (
+                    f'Unable to infer a source from {source}. '
+                    f'Please specify a valid source or use a '
+                    f'different method to set the grid.'
+                )
+                raise ValueError(msg) from e
+
+        result = self.copy()
+        result.source = source
+        msg = (
+            f'Setting source to {source.__class__.__name__} '
+            f'({source.name})'
+        )
+        logger.info(msg)
+
+        if not outdir:
+            outdir = (
+                Path(f'./{source.name}')
+                .expanduser()
+                .resolve()
+                .__str__()
+            )
+
+        try:
+            dir = Dir.from_format(outdir)
+        except ExtensionNotFoundError:
+            # dir = f'{outdir}.{source.extension}'
+            dir = outdir
+            try:
+                dir = Dir.from_format(dir)
+            except XYNotFoundError as e:
+                # dir = f'{outdir}/z/x_y.{source.extension}'
+                dir = f'{outdir}/z/x_y'
+                dir = Dir.from_format(dir)
+
+        except XYNotFoundError as e:
+            # msg = (
+            #     f'Invalid output directory: extension included but '
+            #     f'no `x` or `y` in the format: {outdir}. '
+            # )
+            # raise ValueError(msg) from e
+            dir = f'{outdir}/z/x_y'
+            dir = Dir.from_format(dir)
+
+        # if result.source.extension != dir.extension:
+        #     msg = (
+        #         f'Output directory {outdir} has a different '
+        #         f'extension ({dir.extension}) than the source '
+        #         f'({result.source.extension}).'
+        #     )
+        #     raise ValueError(msg)
+        outdir = dir.original
+
+        result = result.set_outdir(outdir)
+
+        # infile = result.outdir.ingrid.infile
+        # indir = infile.format.replace(infile.extension, source.extension)
+        # result = result.set_indir(indir)
+
+        return result
+
+    def set_indir(
+            self,
+            indir: str = None,
+            name: str = None,
+    ) -> Self:
+        """
+        Assign an input directory to the grid. The directory must
+        implicate the X and Y tile numbers in the file names.
+
+        Good:
+            input/dir/x/y/z.png
+            input/dir/x/y/.png
+            input/dir/x_y_z.png
+            input/dir/x_y.png
+            input/dir/z/x_y.png
+        Bad:
+            input/dir/x.png
+            input/dir/y
+
+        This will set the input directory and format
+        self.with_indir('input/dir/x/y/z.png')
+
+        There is no format specified to, so it will default to
+        input/dir/x_y_z.png:
+        self.with_indir('input/dir')
+
+        This will fail to explicitly set the format, so it will
+        default to input/dir/x/x_y_z.png
+        self.with_indir('input/dir/x')
+        """
+        result = self.copy()
+        if name:
+            result.name = name
+        try:
+            result.indir = indir
+            # result.outdir.ingrid.infile = indir
+            indir: Indir = result.indir
+            msg = f'Setting input directory to \n\t{indir.original}. '
+
+            logger.info(msg)
+
+        except ValueError as e:
+            msg = (
+                f'Invalid input directory: {indir}. '
+                f'The directory directory must implicate the X and Y '
+                f'tile numbers by including `x` and `y` in some format, '
+                f'for example: '
+                f'input/dir/x/y/z.png or input/dir/x_y_z.png.'
+            )
+            raise ValueError(msg) from e
+        # try:
+        #     _ = result.outdir
+        # except AttributeError:
+        #     msg = (
+        #         f'Output directory not yet set. Based on the input directory, '
+        #         f'setting it to a default value.'
+        #     )
+        #     logger.info(msg)
+        #     result = result.set_outdir()
+        return result
+
+    def set_outdir(
+            self,
+            outdir: Union[str, Path] = None,
+    ) -> Self:
+        """
+        Assign an output directory to the grid.
+        The grid are saved to the output directory.
+        """
+        result: Tiles = self.copy()
+
+        # if not outdir:
+        # if not outdir:
+        #     if cfg.output_dir:
+        #         outdi = cfg.output_dir
+
+        if not outdir:
+            outdir = cfg.output_dir
+
+        if not outdir:
+            raise ValueError(f'No output directory specified. ')
+
+        dir = outdir
+        try:
+            result.outdir = dir
+        except XYNotFoundError as e:
+            _dir = f'{outdir}/z/x_y'
+            msg = (
+                f'XYZ format not found in output directory: {dir}. '
+                f'Defaulting to {_dir}'
+            )
+            logger.info(msg)
+            dir = _dir
+
+        try:
+            result.outdir = dir
+        except ExtensionNotFoundError:
+            dir = f'{dir}.png'
+
+        result.outdir = dir
+        # noinspection PyUnresolvedReferences
+        msg = f'Setting output directory to \n\t{result.outdir.original} '
+        logger.info(msg)
+
+        return result
+
+    def set_segmentation(
+            self,
+            *,
+            dimension: int = None,
+            length: int = None,
+            mosaic: int = None,
+            scale: int = None,
+            fill: bool = True,
+            bs_val: int = None,
+    ) -> Self:
+        from ..seggrid import SegGrid
+        # todo: if all are None, determine dimension using VRAM
+        scale = self._to_scale(dimension, length, mosaic, scale)
+
+        if bs_val:
+            self.cfg.model.bs_val = bs_val
+
+        msg = 'Padding InTiles to align with SegGrid'
+        logger.debug(msg)
+        ingrid = (
+            self
+            .to_scale(scale, fill=fill)
+            .to_scale(self.scale, fill=fill)
+        )
+        seggrid = SegGrid.from_rescale(ingrid, scale, fill)
+        ingrid.seggrid = seggrid
+        seggrid = ingrid.seggrid
+
+        assert ingrid.padded.segtile.index.isin(seggrid.padded.index).all()
+        assert seggrid.padded.index.isin(ingrid.padded.segtile.index).all()
+
+        assert seggrid.scale == scale
+        seggrid
+        assert len(seggrid) <= len(ingrid)
+        assert len(self) <= len(ingrid)
+
+        area = 4 ** (self.scale - scale)
+        assert len(ingrid) == len(seggrid) * area
+        assert_perfect_overlap(seggrid, ingrid)
+
+        assert seggrid.index.difference(ingrid.segtile.index).empty
+
+        return ingrid
+
+    def set_vectorization(
+            self,
+            *,
+            dimension: int = None,
+            length: int = None,
+            mosaic: int = None,
+            scale: int = None,
+            fill: bool = True,
+    ) -> Self:
+        """
+        dimension:
+            dimension in pixels of each vectorization tile,
+            including padding
+        length:
+            length in segmentation grid of each vectorization tile,
+            including padding
+        scale:
+
+        """
+        # todo: if all are None, determine dimension using RAM
+        seggrid = self.seggrid
+        if dimension:
+            dimension -= 2 * seggrid.dimension
+        elif length:
+            assert length >= 3
+            length -= 2
+            # length *= seggrid.length
+        elif mosaic:
+            raise NotImplementedError
+            mosaic **= 1 / 2
+            mosaic -= 2
+            mosaic **= 2
+            mosaic = int(mosaic)
+
+        scale = self.seggrid._to_scale(dimension, length, mosaic, scale)
+
+        msg = 'Padding InTiles to align with VecGrid'
+        logger.debug(msg)
+        ingrid = (
+            self
+            .to_scale(scale, fill=fill)
+            .to_scale(self.scale, fill=fill)
+        )
+
+        assert ingrid.scale == self.ingrid.scale
+        msg = 'Padding SegGrid to align with VecGrid'
+        logger.debug(msg)
+        seggrid = (
+            self.seggrid
+            .to_scale(scale, fill=fill)
+            .to_scale(self.seggrid.scale, fill=fill)
+        )
+
+        ingrid.seggrid = seggrid
+
+        assert ingrid.padded.segtile.index.isin(seggrid.padded.index).all()
+        assert seggrid.padded.index.isin(ingrid.padded.segtile.index).all()
+        assert seggrid.scale == self.seggrid.scale
+        vecgrid = VecGrid.from_rescale(ingrid, scale, fill=fill)
+
+        ingrid.vecgrid = vecgrid
+        seggrid = ingrid.seggrid
+        vecgrid = ingrid.vecgrid
+
+        assert len(self) <= len(ingrid)
+        assert len(vecgrid) <= len(seggrid) <= len(ingrid)
+        area = 4 ** (self.scale - scale)
+        assert len(ingrid) == len(vecgrid) * area
+
+        return ingrid

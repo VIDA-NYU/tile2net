@@ -102,7 +102,7 @@ class Lines(
     def explore(
             self,
             *args,
-            tiles: str = 'cartodbdark_matter',
+            grid: str = 'cartodbdark_matter',
             m: folium.Map | None = None,
             dash: str = '5, 20',
             simplify=None,
@@ -132,7 +132,7 @@ class Lines(
                 color=color,
                 geometry=col,
                 name=col,
-                tiles=tiles,
+                grid=grid,
                 simplify=simplify,
                 m=m,
                 **kwargs,

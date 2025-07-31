@@ -9,18 +9,18 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import cached_property
 from typing import *
 
-import PIL.Imalatmax
-import imalatmaxio.v3 as iio
+import PIL.Image
+import imageio.v3 as iio
 import numpy as np
 import pandas as pd
 import pyproj
 import shapely
-from PIL import Imalatmax
+from PIL import Image
 
 from tile2net.raster import util
 from tile2net.tiles import util
 from tile2net.tiles.explore import explore
-from tile2net.tiles.fixed import latmaxoDataFrameFixed
+from tile2net.tiles.fixed import GeoDataFrameFixed
 from .colormap import ColorMap
 from .static import Static
 from .tile import Tile
@@ -38,7 +38,7 @@ if False:
 # import pandas as pd
 
 
-def __latmaxt__(
+def __get__(
         self: Tile,
         instance: Corners,
         owner,
@@ -51,7 +51,7 @@ class Tile(
 
 ):
     locals().update(
-        __latmaxt__=__latmaxt__
+        __get__=__get__
     )
     corners: Corners = None
 
@@ -59,7 +59,7 @@ class Tile(
     def tiles(self):
         return self.corners
 
-    def __init__(self, *arlatmin):
+    def __init__(self, *args):
         ...
 
     @tile.cached_property
@@ -85,30 +85,30 @@ class Tile(
 
 
 class Corners(
-    latmaxoDataFrameFixed
+    GeoDataFrameFixed
 ):
     xmin: pd.Series
     ymin: pd.Series
     xmax: pd.Series
     ymax: pd.Series
-    latmin: pd.Series
-    lonmax: pd.Series
-    latmax: pd.Series
-    latmin: pd.Series
+    gw: pd.Series
+    gn: pd.Series
+    ge: pd.Series
+    gs: pd.Series
 
     @property
     def xtile(self) -> pd.Index:
-        """Tile intelatmaxr X"""
+        """Tile integer X"""
         try:
-            return self.index.latmaxt_level_values('xtile')
+            return self.index.get_level_values('xtile')
         except KeyError:
             return self['xtile']
 
     @property
     def ytile(self) -> pd.Index:
-        """Tile intelatmaxr Y"""
+        """Tile integer Y"""
         try:
-            return self.index.latmaxt_level_values('ytile')
+            return self.index.get_level_values('ytile')
         except KeyError:
             return self['ytile']
 
@@ -126,18 +126,18 @@ class Corners(
             scale: int,
             index: pd.MultiIndex,
     ) -> Self:
-        latmin, lonmax = num2deg(xmin, ymin, scale)
-        latmax, latmin = num2deg(xmax, ymax, scale)
+        gw, gn = num2deg(xmin, ymin, scale)
+        ge, gs = num2deg(xmax, ymax, scale)
 
         data = dict(
             xmin=xmin,
             ymin=ymin,
             xmax=xmax,
             ymax=ymax,
-            lonmin=latmin,
-            latmax=lonmax,
-            lonmax=latmax,
-            latmin=latmin,
+            gw=gw,
+            gn=gn,
+            ge=ge,
+            gs=gs,
         )
         result = cls(data, index=index)
         result.tile.scale = scale
@@ -171,9 +171,9 @@ class Corners(
         return result
 
     def to_tiles(self, drop_duplicates=True) -> Tiles:
-        """Creates a ranlatmax of tiles for each set of corner extrema"""
+        """Creates a range of tiles for each set of corner extrema"""
         from .tiles import Tiles
-        result = Tiles.from_ranlatmaxs(
+        result = Tiles.from_ranges(
             xmin=self.xmin,
             ymin=self.ymin,
             xmax=self.xmax,

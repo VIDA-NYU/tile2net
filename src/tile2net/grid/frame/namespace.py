@@ -15,8 +15,9 @@ if False:
 TGrid = TypeVar('TGrid', covariant=True)
 
 
-class namespace(Generic[TGrid]):
-    # class namespace():
+class namespace(
+    Generic[TGrid]
+):
     instance: TGrid = None
     frame: GeoDataFrame = None
     __wrapped__ = None
@@ -27,6 +28,7 @@ class namespace(Generic[TGrid]):
             instance: TGrid,
             owner
     ) :
+
         self.instance = instance
         self.frame = instance.frame
         return copy.copy(self)
@@ -35,7 +37,12 @@ class namespace(Generic[TGrid]):
         __get__=__get,
     )
 
-    def __init__(self, func):
+    def __init__(
+            self,
+            func=None,
+            *args,
+            **kwargs
+    ):
         if returns_or_assigns(func):
             update_wrapper(self, func)
 

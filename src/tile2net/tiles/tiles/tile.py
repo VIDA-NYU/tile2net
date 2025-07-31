@@ -1,81 +1,14 @@
 from __future__ import annotations
+import pandas as pd
 
 import copy
 import functools
+from pathlib import Path
 
-import pandas as pd
-
-import tile2net.tile
+import imageio.v3 as iio
 
 if False:
     from tile2net.tiles.tiles.tiles import Tiles
-
-
-def __get__(
-        self: Indexer,
-        instance: Tile,
-        owner
-):
-    self.tile = instance
-    self.tiles = instance.tiles
-    return copy.copy(self)
-
-
-class Indexer:
-    tile: Tile = None
-    tiles: Tiles = None
-    locals().update(
-        __get__=__get__,
-    )
-
-    def __init__( self, *args, ):
-        ...
-
-
-class ILoc(Indexer):
-
-    def __getitem__(self, item) -> tile2net.tile.Tile | pd.Series:
-        tiles = self.tile.tiles
-        ndframe = tiles.iloc[item]
-        if isinstance(ndframe, pd.Series):
-            ndframe = tiles.iloc[[item]]
-            result = tile2net.tile.Tile(
-                tuple=next(ndframe.itertuples()),
-                tiles=self.tile.tiles,
-            )
-        else:
-            data = [
-                tile2net.tile.Tile(
-                    tuple=row,
-                    tiles=self.tile.tiles,
-                )
-                for row in ndframe.itertuples()
-            ]
-            result = pd.Series( data, index=ndframe.index )
-
-        return result
-
-class Loc(Indexer):
-    def __getitem__(self, item) -> tile2net.tile.Tile | pd.Series:
-        tiles = self.tile.tiles
-        ndframe = tiles.loc[item]
-        if isinstance(ndframe, pd.Series):
-            ndframe = tiles.loc[[item]]
-            result = tile2net.tile.Tile(
-                tuple=next(ndframe.itertuples()),
-                tiles=self.tile.tiles,
-            )
-        else:
-            data = [
-                tile2net.tile.Tile(
-                    tuple=row,
-                    tiles=self.tile.tiles,
-                )
-                for row in ndframe.itertuples()
-            ]
-            result = pd.Series(data, index=ndframe.index)
-
-        return result
 
 
 class cached_property:
@@ -110,7 +43,7 @@ class cached_property:
         if issubclass(self.owner, pd.DataFrame):
             cache = self.instance.attrs
         elif hasattr(self.owner, 'tiles'):
-            cache = self.instance.grid.attrs
+            cache = self.instance.tiles.attrs
         else:
             raise TypeError(
                 f'Owner {self.owner} must be a Tiles subclass or have a tiles attribute.'
@@ -169,15 +102,12 @@ class static:
             if issubclass(self.owner, pd.DataFrame):
                 cache = self.instance.__dict__
             elif hasattr(self.owner, 'tiles'):
-                cache = self.instance.grid.__dict__
+                cache = self.instance.tiles.__dict__
             else:
                 raise TypeError(
                     f'Owner {self.owner} must be a Tiles subclass or have a tiles attribute.'
                 )
             return cache
-
-
-
 
 
 class Tile(
@@ -234,15 +164,3 @@ class Tile(
 
     def __set_name__(self, owner, name):
         self.__name__ = name
-
-    def __iter__(self):
-        ...
-
-    @ILoc
-    def iloc(self):
-        ...
-
-    @Loc
-    def loc(self):
-        ...
-

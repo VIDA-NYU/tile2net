@@ -1,4 +1,7 @@
 from __future__ import annotations
+import numpy as np
+from ..grid.grid import Grid
+from functools import *
 
 import hashlib
 import os
@@ -24,23 +27,22 @@ from tqdm import tqdm
 from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
-import tile2net.grid.grideg.network.ocrnet
 from tile2net.grid.cfg.cfg import assert_and_infer_cfg
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.grid.static import Static
-from tile2net.tiles.tileseg import datasets
-from tile2net.tiles.tileseg import network
-from tile2net.tiles.tileseg.loss.optimizer import get_optimizer, restore_opt, restore_net
-from tile2net.tiles.tileseg.loss.utils import get_loss
-from tile2net.tiles.tileseg.network.ocrnet import MscaleOCR
-from tile2net.tiles.tileseg.utils.misc import AverageMeter, prep_experiment
+from tile2net.grid.grideg import datasets
+from tile2net.grid.grideg import network
+from tile2net.grid.grideg.loss.optimizer import get_optimizer, restore_opt, restore_net
+from tile2net.grid.grideg.loss.utils import get_loss
+from tile2net.grid.grideg.network.ocrnet import MscaleOCR
+from tile2net.grid.grideg.utils.misc import AverageMeter, prep_experiment
 from . import delayed
 from .minibatch import MiniBatch
 from .vectile import VecTile
 from ..grid import file
 from ..util import recursion_block
 from .. import frame
-from ...tiles.util import RecursionBlock
+from ...grid.util import RecursionBlock
 
 if False:
     from .padded import Padded
@@ -59,12 +61,6 @@ def sha256sum(path):
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 
 
-class Tile(
-    tile.Tile
-):
-    tiles: SegGrid
-
-
 def __get__(
         self: SegGrid,
         instance: InGrid,
@@ -80,7 +76,7 @@ def __get__(
         msg = (
             f'ingrid.{self.__name__} has not been set. You may '
             f'customize the segmentation functionality by using '
-            f'`Intiles.set_segmentation`'
+            f'`Ingrid.set_segmentation`'
         )
         logger.info(msg)
         cfg = instance.cfg
@@ -100,7 +96,7 @@ def __get__(
                 'You must set at least one of the following '
                 'segmentation parameters: segscale, segtile.length, or segdimension.'
             )
-        result = instance.seggrid
+        result = instance.segtile
 
     return result
 
@@ -113,144 +109,96 @@ class File(
     @frame.column
     def infile(self) -> pd.Series:
         """
-        A file for each segmentation tile: the stitched input tiles.
+        A file for each segmentation tile: the stitched input grid.
         Stitches input files when seggrid.file is accessed
         """
-        # tiles = self.tiles
+        # grid = self.grid
         # key = 'file.infile'
-        # if key in tiles:
-        #     return tiles[key]
-        # files = tiles.ingrid.outdir.seggrid.infile.files(tiles)
-        # tiles[key] = files
+        # if key in grid:
+        #     return grid[key]
+        # files = grid.ingrid.outdir.seggrid.infile.files(grid)
+        # grid[key] = files
         # if (
-        #         not tiles._stitch_infile
+        #         not grid._stitch_infile
         #         and not files.map(os.path.exists).all()
         # ):
-        #     tiles._stitch_infile()
-        # tiles[key] = files
-        # return tiles[key]
+        #     grid._stitch_infile()
+        # grid[key] = files
+        # return grid[key]
 
         self.grid.ingrid.outdir.seggrid
 
     @frame.column
     def grayscale(self) -> pd.Series:
-        tiles = self.grid
-        key = 'file.grayscale'
-        if key in tiles:
-            return tiles[key]
-        files = tiles.ingrid.outdir.seggrid.grayscale.files(tiles)
+        grid = self.grid
+        files = grid.ingrid.outdir.seggrid.grayscale.files(grid)
         if (
-                not tiles.predict
+                not grid.predict
                 and not files.map(os.path.exists).all()
         ):
-            tiles.predict()
-        tiles[key] = files
-        return tiles[key]
+            grid.predict()
+        return files
 
     @frame.column
     def probability(self) -> pd.Series:
-        tiles = self.grid
-        key = 'file.probability'
-        if key in tiles:
-            return tiles[key]
-        files = tiles.ingrid.outdir.seggrid.prob.files(tiles)
+        grid = self.grid
+        files = grid.ingrid.outdir.seggrid.prob.files(grid)
         if (
-                not tiles.predict
+                not grid.predict
                 and not files.map(os.path.exists).all()
         ):
-            tiles.predict()
-        tiles[key] = files
-        return tiles[key]
+            grid.predict()
+        return files
 
     @frame.column
     def error(self) -> pd.Series:
-        tiles = self.grid
-        key = 'file.error'
-        if key in tiles:
-            return tiles[key]
-        files = tiles.ingrid.outdir.seggrid.error.files(tiles)
+        grid = self.grid
+        files = grid.ingrid.outdir.seggrid.error.files(grid)
         if (
-                not tiles.predict
+                not grid.predict
                 and not files.map(os.path.exists).all()
         ):
-            tiles.predict()
-        tiles[key] = files
-        return tiles[key]
+            grid.predict()
+        return files
 
-    # @property
-    # def sidebyside(self) -> pd.Series:
-    #     tiles = self.tiles
-    #     key = 'file.sidebyside'
-    #     if key in tiles:
-    #         return tiles[key]
-    #     files = tiles.ingrid.outdir.seg_results.sidebyside.files(tiles)
-    #     if (
-    #             not tiles.predict
-    #             and not files.map(os.path.exists).all()
-    #     ):
-    #         tiles.predict()
-    #     tiles[key] = files
-    #     return tiles[key]
-    #
-    # @property
-    # def segresults(self) -> pd.Series:
-    #     tiles = self.tiles
-    #     key = 'file.segresults'
-    #     if key in tiles:
-    #         return tiles[key]
-    #     files = tiles.ingrid.outdir.seg_results.files(tiles)
-    #     if (
-    #             not tiles.predict
-    #             and not files.map(os.path.exists).all()
-    #     ):
-    #         tiles.predict()
-    #     tiles[key] = files
-    #     return tiles[key]
-
-    @property
+    @frame.column
     def submit(self) -> pd.Series:
         raise NotImplementedError
-        tiles = self.grid
-        key = 'file.submit'
-        if key in tiles:
-            return tiles[key]
-        # files = tiles.ingrid.outdir.seggrid.files(tiles)
+        grid = self.grid
         if (
-                not tiles.predict
+                not grid.predict
                 and not files.map(os.path.exists).all()
         ):
-            tiles.predict()
-        tiles[key] = files
-        return tiles[key]
+            grid.predict()
+        grid[key] = files
+        return grid[key]
 
-    @property
+    @frame.column
     def colored(self) -> pd.Series:
-        tiles = self.grid
-        key = 'file.colored'
-        if key in tiles:
-            return tiles[key]
-        files = tiles.ingrid.outdir.seggrid.colored.files(tiles)
+        grid = self.grid
+        files = grid.ingrid.outdir.seggrid.colored.files(grid)
         if (
-                not tiles.predict
+                not grid.predict
                 and not files.map(os.path.exists).all()
         ):
-            tiles.predict()
-        tiles[key] = files
-        return tiles[key]
+            grid.predict()
+        return files
 
     def output(self, dirname: str) -> pd.Series:
-        tiles = self.grid
+        # todo: how to handle this? can't use frame.column
+        raise NotImplementedError
+        grid = self.grid
         key = f'file.output.{dirname}'
-        if key in tiles:
-            return tiles[key]
-        files = tiles.ingrid.outdir.seggrid.output.files(tiles, dirname)
+        if key in grid:
+            return grid[key]
+        files = grid.ingrid.outdir.seggrid.output.files(grid, dirname)
         if (
-                not tiles.predict
+                not grid.predict
                 and not files.map(os.path.exists).all()
         ):
-            tiles.predict()
-        tiles[key] = files
-        return tiles[key]
+            grid.predict()
+        grid[key] = files
+        return grid[key]
 
 
 class SegGrid(
@@ -263,25 +211,22 @@ class SegGrid(
 
     @cached_property
     def length(self) -> int:
-        """How many input tiles comprise a segmentation tile"""
-        ingrid = self.tiles.ingrid
+        """How many input grid comprise a segmentation tile"""
+        ingrid = self.grid.ingrid
         result = 2 ** (ingrid.scale - self.scale)
         return result
 
     @cached_property
     def dimension(self):
         """How many pixels in a inmentation tile"""
-        seggrid = self.tiles
+        seggrid = self.grid
         ingrid = seggrid.ingrid
         result = ingrid.dimension * self.length
         return result
 
-
     @cached_property
-    def tiles(self) -> InGrid:
+    def grid(self) -> InGrid:
         ...
-
-
 
     @recursion_block
     def _stitch_infile(self) -> Self:
@@ -290,9 +235,6 @@ class SegGrid(
 
         ingrid = self.ingrid.padded
         seggrid = self.padded
-
-        # loc = ingrid.segtile.xtile == 39729
-        # ingrid = ingrid.loc[loc]
 
         small_files = ingrid.file.infile
         big_files = ingrid.segtile.infile
@@ -303,8 +245,8 @@ class SegGrid(
         logger.debug(msg)
 
         self._stitch(
-            small_tiles=ingrid,
-            big_tiles=seggrid,
+            small_grid=ingrid,
+            big_grid=seggrid,
             r=ingrid.segtile.r,
             c=ingrid.segtile.c,
             small_files=small_files,
@@ -319,15 +261,11 @@ class SegGrid(
 
     @property
     def ingrid(self) -> InGrid:
-        return self.tiles
+        return self.grid
 
-    @property
-    def ipred(self) -> pd.Series:
-        key = 'ipred'
-        if key in self.columns:
-            return self[key]
-        self[key] = np.arange(len(self), dtype=np.uint32)
-        return self[key]
+    @frame.column
+    def ipred(self):
+        return np.arange(len(self), dtype=np.uint32)
 
     @property
     def outdir(self):
@@ -344,15 +282,11 @@ class SegGrid(
     @VecTile
     def vectile(self):
         # This code block is just semantic sugar and does not run.
-        # These columns are available once the tiles have been stitched:
+        # These columns are available once the grid have been stitched:
         # xtile of the vectile
         self.vecgrid.xtile = ...
         # ytile of vectile
         self.vecgrid.ytile = ...
-
-    @Tile
-    def tile(self):
-        ...
 
     @File
     def file(self):
@@ -386,7 +320,7 @@ class SegGrid(
             scale = maxdim / max(full_w0, full_h0)
 
         tile_w = max(1, int(round(dim * scale)))
-        tile_h = tile_w  # square tiles
+        tile_h = tile_w  # square grid
         full_w = n_cols * tile_w + div_px * (n_cols - 1)
         full_h = n_rows * tile_h + div_px * (n_rows - 1)
 
@@ -436,7 +370,7 @@ class SegGrid(
             scale = maxdim / max(full_w0, full_h0)
 
         tile_w = max(1, int(round(dim * scale)))
-        tile_h = tile_w  # square tiles
+        tile_h = tile_w  # square grid
         full_w = n_cols * tile_w + div_px * (n_cols - 1)
         full_h = n_rows * tile_h + div_px * (n_rows - 1)
 
@@ -474,7 +408,6 @@ class SegGrid(
     def broadcast(self) -> Broadcast:
         ...
 
-
     @recursion_block
     def predict(
             self,
@@ -486,8 +419,8 @@ class SegGrid(
                 force=force,
                 batch_size=batch_size
             )
-        tiles = self
-        cfg = tiles.cfg
+        grid = self
+        cfg = grid.cfg
 
         # preemptively stitch so logging apears more sequential
         # otherwise you get "now predicting" before "now stitching"
@@ -498,16 +431,16 @@ class SegGrid(
         if batch_size is not None:
             cfg.model.bs_val = batch_size
         if not cfg.force:
-            loc = ~tiles.file.grayscale.apply(os.path.exists)
-            tiles: SegGrid = tiles.loc[loc].copy()
+            loc = ~grid.file.grayscale.apply(os.path.exists)
+            grid: SegGrid = grid.loc[loc].copy()
             if not np.any(loc):
-                msg = 'All segmentation tiles are on disk.'
+                msg = 'All segmentation grid are on disk.'
                 logger.info(msg)
-                return tiles
+                return grid
 
         with cfg:
             if cfg.dump_percent:
-                logger.info(f'Inferencing. Segmentation results will be saved to {tiles.outdir.seg_results}')
+                logger.info(f'Inferencing. Segmentation results will be saved to {grid.outdir.seg_results}')
             else:
                 logger.info('Inferencing. Segmentation results will not be saved.')
 
@@ -519,7 +452,7 @@ class SegGrid(
                     and cfg.model.hrnet_checkpoint == Static.hrnet_checkpoint
             ):
                 logger.info('Downloading weights for segmentation, this may take a while...')
-                tiles.static.download()
+                grid.static.download()
                 logger.info('Weights downloaded successfully.')
                 expected_checksum = '745f8c099e98f112a152aedba493f61fb6d80c1761e5866f936eb5f361c7ab4d'
                 actual_checksum = sha256sum(cfg.model.snapshot)
@@ -579,7 +512,7 @@ class SegGrid(
             assert_and_infer_cfg(cfg)
             prep_experiment()
 
-            struct = datasets.setup_loaders(tiles=tiles)
+            struct = datasets.setup_loaders(grid=grid)
             val_loader = struct.val_loader
             criterion, criterion_val = get_loss(cfg)
 
@@ -613,14 +546,14 @@ class SegGrid(
             torch.cuda.empty_cache()
 
             _ = (
-                tiles.file.grayscale,
-                tiles.file.infile,
-                tiles.file.probability,
-                # tiles.file.sidebyside,
-                # tiles.file.segresults,
-                tiles.file.error,
-                tiles.file.colored,
-                # tiles.file.submit,
+                grid.file.grayscale,
+                grid.file.infile,
+                grid.file.probability,
+                # grid.file.sidebyside,
+                # grid.file.segresults,
+                grid.file.error,
+                grid.file.colored,
+                # grid.file.submit,
             )
 
             if cfg.model.eval == 'test':
@@ -628,7 +561,7 @@ class SegGrid(
                     loader=val_loader,
                     net=net,
                     force=force,
-                    tiles=tiles,
+                    grid=grid,
                 )
             elif cfg.model.eval == 'folder':
                 self._validate(
@@ -636,7 +569,7 @@ class SegGrid(
                     net=net,
                     criterion=criterion_val,
                     force=force,
-                    tiles=tiles,
+                    grid=grid,
                 )
             else:
                 raise ValueError(f"Unknown evaluation mode: {cfg.model.eval}. ")
@@ -648,14 +581,14 @@ class SegGrid(
             loader: DataLoader,
             net: torch.nn.parallel.DataParallel,
             force,
-            tiles: SegGrid,
-            criterion: Optional[tile2net.tiles.tileseg.loss.utils.CrossEntropyLoss2d] = None,
+            grid: SegGrid,
+            criterion: Optional[tile2net.grid.grideg.loss.utils.CrossEntropyLoss2d] = None,
     ):
         """
         Run validation for one epoch
         :val_loader: data loader for validation
         """
-        TILES = tiles
+        TILES = grid
         cfg = self.cfg
         testing = False
         if cfg.model.eval == 'test':
@@ -691,7 +624,7 @@ class SegGrid(
                     (input_images, labels, img_names, scale_float)
             ) in enumerate(loader):
                 start = i * batch_size
-                tiles = TILES.iloc[start: start + len(input_images)]
+                grid = TILES.iloc[start: start + len(input_images)]
 
                 batch = MiniBatch.from_data(
                     images=input_images,
@@ -699,7 +632,7 @@ class SegGrid(
                     gt_image=labels,
                     criterion=criterion,
                     val_loss=val_loss,
-                    tiles=tiles,
+                    grid=grid,
                     threads=threads,
                 )
                 futures.extend(batch.submit_all())

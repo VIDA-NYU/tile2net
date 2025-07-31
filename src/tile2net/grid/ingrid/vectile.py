@@ -1,9 +1,9 @@
 from __future__ import annotations
+from .. import frame
 
 import copy
 
 import pandas as pd
-from ..grid import tile
 
 if False:
     from .ingrid import InGrid
@@ -21,6 +21,7 @@ def __get__(
 class VecTile(
 
 ):
+
     ingrid: InGrid
     locals().update(
         __get__=__get__,
@@ -32,13 +33,10 @@ class VecTile(
     def __set_name__(self, owner, name):
         self.__name__ = name
 
-    @property
+    @frame.column
     def xtile(self) -> pd.Series:
         """Tile integer X of this tile in the vecgrid vectile"""
-        key = 'vectile.xtile'
         ingrid = self.ingrid
-        if key in ingrid.columns:
-            return ingrid[key]
 
         vecgrid = ingrid.vecgrid
         length = 2 ** (ingrid.scale - vecgrid.scale)
@@ -46,17 +44,12 @@ class VecTile(
 
         msg = 'All segtile.xtile must be in seggrid.xtile!'
         assert result.isin(vecgrid.xtile).all(),msg
-
-        ingrid[key] = result
         return result
 
-    @property
+    @frame.column
     def ytile(self) -> pd.Series:
         """Tile integer X of this tile in the vecgrid vectile"""
-        key = 'vectile.ytile'
         ingrid = self.ingrid
-        if key in ingrid.columns:
-            return ingrid[key]
 
         vecgrid = ingrid.vecgrid
         length = 2 ** (ingrid.scale - vecgrid.scale)
@@ -64,11 +57,9 @@ class VecTile(
 
         msg = 'All segtile.ytile must be in seggrid.ytile!'
         assert result.isin(vecgrid.ytile).all(), msg
-
-        ingrid[key] = result
         return result
 
-    @tile.static.cached_prpoerty
+    @property
     def index(self):
         arrays = self.xtile, self.ytile
         names = self.xtile.name, self.ytile.name
@@ -78,4 +69,4 @@ class VecTile(
     @property
     def length(self):
         """Number of static grid in one dimension of the vectile"""
-        return self.ingrid.vecgrid.tile.length
+        return self.ingrid.vecgrid.length

@@ -1,9 +1,9 @@
 from __future__ import annotations
+from .. import frame
 
 import copy
 
 import pandas as pd
-from ..grid import tile
 
 if False:
     from .ingrid import InGrid
@@ -15,7 +15,6 @@ def __get__(
         owner: type[InGrid],
 ) -> SegTile:
     self.ingrid = instance
-    # return self.copy()
     return copy.copy(self)
 
 
@@ -31,29 +30,24 @@ class SegTile(
     def grid(self):
         return self.ingrid
 
-    # @cached_property
     @property
     def length(self):
-        """Number of static tiles in one dimension of the segtile"""
-        return self.ingrid.seggrid.tile.length
+        """Number of static grid in one dimension of the segtile"""
+        return self.ingrid.segtile.length
 
-    @tile.static.cached_prpoerty
+    @property
     def index(self):
         arrays = self.xtile, self.ytile
         names = self.xtile.name, self.ytile.name
         result = pd.MultiIndex.from_arrays(arrays, names=names)
         return result
 
-    @property
+    @frame.column
     def xtile(self) -> pd.Series:
         """Tile integer X of this tile in the seggrid segtile"""
-        key = 'segtile.xtile'
         ingrid = self.ingrid
-        if key in ingrid.columns:
-            return ingrid[key]
 
         seggrid = ingrid.seggrid.padded
-        ingrid.seggrid
         result = ingrid.xtile // ingrid.segtile.length
 
         msg = 'All segtile.xtile must be in seggrid.xtile!'
@@ -62,10 +56,6 @@ class SegTile(
         result.isin(seggrid.xtile).any()
         result.isin(seggrid.ytile)
         assert result.isin(seggrid.xtile).all(), msg
-        result.min() in seggrid.xtile.values
-        import numpy as np
-        np.unique(result[~result.isin(seggrid.xtile)] )
-        ingrid[key] = result
         return result
 
     @property
@@ -122,7 +112,7 @@ class SegTile(
 
     @property
     def ipred(self) -> pd.Series:
-        ingrid = self.ingrid4
+        ingrid = self.ingrid
         key = 'segtile.ipred'
         if key in ingrid.columns:
             return ingrid[key]

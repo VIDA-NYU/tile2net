@@ -17,75 +17,77 @@ if False:
     import folium
 
 
-def __get__(
-        self: Polygons,
-        instance: InGrid,
-        owner: type[InGrid]
-) -> Polygons:
-
-    self.ingrid = instance
-    if instance is None:
-        result = self
-    elif self.__name__ in instance.__dict__:
-        result = instance.__dict__[self.__name__]
-    else:
-
-        file = self.file
-        if os.path.exists(file):
-            msg = f"loading {instance.__name__}.{self.__name__} from {file}"
-            logger.info(msg)
-            result = gpd.read_parquet(file).pipe(self.__class__)
-        else:
-
-            vecgrid = instance.vecgrid
-            n = len(instance.vecgrid.polygons)
-            grid_size = max(
-                (affine.a ** 2 + affine.e ** 2) ** .5
-                for affine in vecgrid.affine_params
-            )
-
-            n_polygons = (
-                vecgrid.polygons
-                .apply(shapely.get_num_geometries)
-                .to_numpy()
-                .sum()
-            )
-
-            n_features = len(vecgrid.polygons.columns)
-            msg = (
-                f'Aggregating {n_polygons} polygons from {n} grid and '
-                f'{n_features} features into a single vector with grid '
-                f'size {grid_size:.2e}. This may take a while.'
-            )
-
-            with benchmark(msg, level='info'):
-                result = (
-                    instance.vecgrid.polygons
-                    .stack(future_stack=True)
-                    .set_precision(grid_size=grid_size)
-                    .to_frame(name='geometry')
-                    .pipe(Mask2Poly)
-                    .postprocess()
-                    .pipe(Polygons)
-                )
-
-            msg = f"Writing {instance.__name__}.{self.__name__} to {file}"
-            logger.info(msg)
-            result.to_parquet(file)
-
-        instance.__dict__[self.__name__] = result
-
-    result.ingrid = instance
-
-    return result
 
 
 class Polygons(
     GeoDataFrameFixed
 ):
     __name__ = 'polygons'
+
+    def __get(
+            self: Polygons,
+            instance: InGrid,
+            owner: type[InGrid]
+    ) -> Polygons:
+
+        self.ingrid = instance
+        if instance is None:
+            result = self
+        elif self.__name__ in instance.__dict__:
+            result = instance.__dict__[self.__name__]
+        else:
+
+            file = self.file
+            if os.path.exists(file):
+                msg = f"loading {instance.__name__}.{self.__name__} from {file}"
+                logger.info(msg)
+                result = gpd.read_parquet(file).pipe(self.__class__)
+            else:
+
+                vecgrid = instance.vecgrid
+                n = len(instance.vecgrid.polygons)
+                grid_size = max(
+                    (affine.a ** 2 + affine.e ** 2) ** .5
+                    for affine in vecgrid.affine_params
+                )
+
+                n_polygons = (
+                    vecgrid.polygons
+                    .apply(shapely.get_num_geometries)
+                    .to_numpy()
+                    .sum()
+                )
+
+                n_features = len(vecgrid.polygons.columns)
+                msg = (
+                    f'Aggregating {n_polygons} polygons from {n} grid and '
+                    f'{n_features} features into a single vector with grid '
+                    f'size {grid_size:.2e}. This may take a while.'
+                )
+
+                with benchmark(msg, level='info'):
+                    result = (
+                        instance.vecgrid.polygons
+                        .stack(future_stack=True)
+                        .set_precision(grid_size=grid_size)
+                        .to_frame(name='geometry')
+                        .pipe(Mask2Poly)
+                        .postprocess()
+                        .pipe(Polygons)
+                    )
+
+                msg = f"Writing {instance.__name__}.{self.__name__} to {file}"
+                logger.info(msg)
+                result.to_parquet(file)
+
+            instance.__dict__[self.__name__] = result
+
+        result.ingrid = instance
+
+        return result
+
     locals().update(
-        __get__=__get__,
+        __get__=__get,
     )
     ingrid: InGrid = None
 

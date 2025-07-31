@@ -19,7 +19,7 @@ from . import cmdline
 from .nested import Nested
 
 if False:
-    from ..tiles import Tiles
+    from ..grid import Tiles
 
 T = TypeVar('T')
 
@@ -641,7 +641,7 @@ class Model(cmdline.Namespace):
         """
         Path to HRNet checkpoint
         """
-        from tile2net.tiles.tiles.static import Static
+        from tile2net.grid.grid.static import Static
         return Static.hrnet_checkpoint
 
     @cmdline.property
@@ -649,7 +649,7 @@ class Model(cmdline.Namespace):
         """
         Path to the model snapshot
         """
-        from tile2net.tiles.tiles.static import Static
+        from tile2net.grid.grid.static import Static
         return Static.snapshot
 
     @cmdline.property
@@ -788,7 +788,7 @@ def __get__(
         result = self.__class__(self._trace2default)
         instance.__dict__[self._trace] = result
     result.__name__ = self.__name__
-    result.tiles = instance
+    result.grid = instance
     result.Tiles = owner
     result.instance = instance
     result.owner = owner
@@ -800,8 +800,8 @@ class Cfg(
     Nested,
     UserDict,
 ):
-    tiles = None
-    tiles: Tiles
+    grid = None
+    grid: Tiles
     instance: Tiles = None
     owner: Type[Tiles] = None
     locals().update(
@@ -1245,7 +1245,7 @@ class Cfg(
         return 4
 
     @cmdline.property
-    def base_tilesize(self) -> int:
+    def base_gridize(self) -> int:
         return 256
 
     @cmdline.property

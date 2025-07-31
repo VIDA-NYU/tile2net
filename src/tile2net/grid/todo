@@ -9,13 +9,13 @@ with logging_redirect_tqdm():
 Tiles
 
 SourceTiles
-    - stitch to inference tiles aggregates source tiles
+    - stitch to inference grid aggregates source grid
 SegTiles
-    - stitch to network tiles aggregates inference tiles
+    - stitch to network grid aggregates inference grid
     - does not write polygons
 NetworkTiles
     - generates polygons for each network tile
-    - from polygons creates network tiles
+    - from polygons creates network grid
     - each tile is a separate multiprocessing worker
 
 source -> inference -> network
@@ -26,7 +26,7 @@ SegTiles.stitch() -> NetworkTiles
 pad.
 
 InTiles.stitch() -> SegTiles
-SegTiles.stitch() -> VecTiles
+SegTiles.stitch() -> VecGrid
 
 previously, mosaic.xtile and mosaic.ytile were easy because they were 1-to-1 mappings and therefore columns
 now, each xtile and ytile can belong to two mosaics
@@ -45,10 +45,10 @@ mask2poly.py
 
 minibatch.py
 
-todo: segtiles.stitch() -> vectiles requires padding intiles once more
+todo: seggrid.stitch() -> vecgrid requires padding ingrid once more
 
-intiles.stitch() -> intiles
-segtiles.stitch() -> intiles
+ingrid.stitch() -> ingrid
+seggrid.stitch() -> ingrid
 
 add cfg.stitch.dimension to cfg
 
@@ -60,7 +60,7 @@ return a copy
 We can use something like the majority vote + confidence mask to force the labels of the pixels with low confidence into the same label as their neighbors starting from like 50 pixels away from the edge
 
 add a changelog
-we should have vectiles.prediction and vectiles.mask
+we should have vecgrid.prediction and vecgrid.mask
 we must dissolve before simplifying
 
 if exterior length along road < threshold
@@ -76,21 +76,22 @@ set_indir(...)
 set_outdir(...)
 what if they want to  set outdir after setting indir?
 
-vectiles.infile and segtiles.infile must share the same extension as intiles.infile
+vecgrid.infile and seggrid.infile must share the same extension as ingrid.infile
 
 What if extension is passed but not xy?
 
 indir should not require extension on the files
 
-stitch loader should still use threading within a process if a lot of small tiles in the big tile
+stitch loader should still use threading within a process if a lot of small grid in the big tile
 
 investigat submission
-            # loc = tiles.vectile.xtile == 4963
-            # loc &= tiles.vectiles.ytile == 6057
+            # loc = grid.vectile.xtile == 4963
+            # loc &= grid.vecgrid.ytile == 6057
 
-must be stitch segtiles.grayscale -> vectiles.grayscale
+must be stitch seggrid.grayscale -> vecgrid.grayscale
 
 lines
 polygons
 
-mass not in catalog?
+ephemeral.cached_property not preserved across grid copies
+or use sticky.cached_property for the converse?

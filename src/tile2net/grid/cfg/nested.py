@@ -5,7 +5,7 @@ from typing import *
 
 if False:
     from .cfg import Cfg
-    from ..tiles import Tiles
+    from ..grid import Tiles
 
 
 def __get__(

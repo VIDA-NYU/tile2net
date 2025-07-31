@@ -90,7 +90,7 @@ def __get__(
         return self
     try:
         result = instance.attrs[self.__name__]
-        result.grid = instance
+        result.tiles = instance
         result.instance = instance
     except KeyError as e:
         msg = (
@@ -136,7 +136,7 @@ class File(
         key = 'file.infile'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.seggrid.infile.files(tiles)
+        files = tiles.intiles.outdir.segtiles.infile.files(tiles)
         tiles[key] = files
         if (
                 not tiles._stitch_infile
@@ -152,7 +152,7 @@ class File(
         key = 'file.grayscale'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.seggrid.grayscale.files(tiles)
+        files = tiles.intiles.outdir.segtiles.grayscale.files(tiles)
         if (
                 not tiles.predict
                 and not files.map(os.path.exists).all()
@@ -167,7 +167,7 @@ class File(
         key = 'file.probability'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.seggrid.prob.files(tiles)
+        files = tiles.intiles.outdir.segtiles.prob.files(tiles)
         if (
                 not tiles.predict
                 and not files.map(os.path.exists).all()
@@ -182,7 +182,7 @@ class File(
         key = 'file.error'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.seggrid.error.files(tiles)
+        files = tiles.intiles.outdir.segtiles.error.files(tiles)
         if (
                 not tiles.predict
                 and not files.map(os.path.exists).all()
@@ -224,7 +224,7 @@ class File(
     @property
     def submit(self) -> pd.Series:
         raise NotImplementedError
-        tiles = self.grid
+        tiles = self.tiles
         key = 'file.submit'
         if key in tiles:
             return tiles[key]
@@ -243,7 +243,7 @@ class File(
         key = 'file.colored'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.seggrid.colored.files(tiles)
+        files = tiles.intiles.outdir.segtiles.colored.files(tiles)
         if (
                 not tiles.predict
                 and not files.map(os.path.exists).all()
@@ -257,7 +257,7 @@ class File(
         key = f'file.output.{dirname}'
         if key in tiles:
             return tiles[key]
-        files = tiles.intiles.outdir.seggrid.output.files(tiles, dirname)
+        files = tiles.intiles.outdir.segtiles.output.files(tiles, dirname)
         if (
                 not tiles.predict
                 and not files.map(os.path.exists).all()
@@ -297,7 +297,7 @@ class SegTiles(
         assert len(small_files) == len(intiles)
         assert len(big_files) == len(intiles)
 
-        msg = f'Stitching into \n\t{intiles.outdir.seggrid.infile.dir}'
+        msg = f'Stitching into \n\t{intiles.outdir.segtiles.infile.dir}'
         logger.debug(msg)
 
         self._stitch(

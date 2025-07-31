@@ -198,7 +198,7 @@ class Stitch:
         stitched.attrs.update(_stitched.attrs)
         setattr(stitched, 'indir', indir)
         tiles.segtiles = stitched
-        stitched.grid = tiles
+        stitched.tiles = tiles
 
         stitched.zoom = tiles.zoom
         stitched.tscale = scale

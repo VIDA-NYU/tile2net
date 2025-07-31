@@ -52,7 +52,7 @@ class VecTile(
 
 
 
-def boundary_tiles(
+def boundary_grid(
         shape: tuple[int, int],
         pad: int = 1,
 ) -> np.ndarray:
@@ -86,7 +86,7 @@ def __get__(
             .to_corners(seggrid.scale)
             .to_padding()
         )
-        vectile = corners.index.repeat(corners.tile.area)
+        vectile = corners.index.repeat(corners.area)
         kwargs = {
             'vectile.xtile': vectile.get_level_values('xtile'),
             'vectile.ytile': vectile.get_level_values('ytile'),

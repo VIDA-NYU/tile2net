@@ -36,33 +36,33 @@ class Stitch:
     ) -> InGrid:
         """
         resolution:
-            target resolution of the stitched tiles
+            target resolution of the stitched grid
         pad:
             True:
-                Go back and include more tiles to ensure the stitched
-                tiles include all the original tiles.
+                Go back and include more grid to ensure the stitched
+                grid include all the original grid.
             False:
-                Drop any tiles that cannot be stitched into a complete
+                Drop any grid that cannot be stitched into a complete
                 tile.
 
         Returns:
             InGrid:
                 New InGrid object with InGrid.stitched set to the stitched
-                tiles at the specified resolution.
+                grid at the specified resolution.
         """
-        tiles = self.ingrid
+        grid = self.ingrid
         try:
-            _ = tiles.dimension
+            _ = grid.dimension
         except KeyError as e:
             msg = (
-                'You cannot stitch tiles to a resolution when the tile '
+                'You cannot stitch grid to a resolution when the tile '
                 'resolution has not yet been set. First you must perform'
-                ' tiles.with_indir() or tiles.with_source() for the '
+                ' grid.with_indir() or grid.with_source() for the '
                 'resolution to be determined.'
             )
             raise ValueError(msg) from e
-        dscale = int(math.log2(dimension / tiles.dimension))
-        scale = tiles.tscale - dscale
+        dscale = int(math.log2(dimension / grid.dimension))
+        scale = grid.tscale - dscale
         result = self.to_scale(scale, pad=pad)
         return result
 
@@ -73,19 +73,19 @@ class Stitch:
     ) -> InGrid:
         """
         mosaic:
-            Mosaic size of the stitched tiles. Must be a power of 2.
+            Mosaic size of the stitched grid. Must be a power of 2.
         pad:
             True:
-                Go back and include more tiles to ensure the stitched
-                tiles include all the original tiles.
+                Go back and include more grid to ensure the stitched
+                grid include all the original grid.
             False:
-                Drop any tiles that cannot be stitched into a complete
+                Drop any grid that cannot be stitched into a complete
                 tile.
 
         Returns:
             InGrid:
                 New InGrid object with InGrid.stitched set to the stitched
-                tiles at the specified cluster size.
+                grid at the specified cluster size.
         """
         if (
                 not isinstance(mosaic, int)
@@ -93,10 +93,10 @@ class Stitch:
                 or (mosaic & (mosaic - 1)) != 0
         ):
             raise ValueError('Cluster must be a positive power of 2.')
-        tiles = self.ingrid
+        grid = self.ingrid
         marea = int(math.log2(mosaic))
         dscale = int(math.sqrt(marea))
-        scale = tiles.tscale - dscale
+        scale = grid.tscale - dscale
         result = self.to_scale(scale, pad=pad)
         return result
 
@@ -107,37 +107,37 @@ class Stitch:
     ) -> InGrid:
         """
         scale:
-            Scale of larger slippy tiles into which smaller tiles are stitched
+            Scale of larger slippy grid into which smaller grid are stitched
         pad:
             True:
-                Go back and include more tiles to ensure the stitched
-                tiles include all the original tiles.
+                Go back and include more grid to ensure the stitched
+                grid include all the original grid.
             False:
-                Drop any tiles that cannot be stitched into a complete
+                Drop any grid that cannot be stitched into a complete
                 tile.
         """
         from .ingrid import InGrid
         TILES = self.ingrid
 
-        tiles = TILES
+        grid = TILES
 
-        dscale = tiles.tscale - scale
+        dscale = grid.tscale - scale
         # todo: how to get the bounds in a different scale
         if dscale < 0:
             msg = (
-                f'Cannot stitch from slippy scale {tiles.tscale} to '
+                f'Cannot stitch from slippy scale {grid.tscale} to '
                 f'slippy scale {scale}. The target must be a lower int.'
             )
             raise ValueError(msg)
         mlength = dscale ** 2  # mosaic length
         marea = dscale ** 4  # mosaic area
 
-        txy = tiles.index.to_frame()
+        txy = grid.index.to_frame()
         if txy.duplicated().any():
-            msg = ('Cannot stitch tiles with duplicate indices!')
+            msg = ('Cannot stitch grid with duplicate indices!')
             raise ValueError(msg)
 
-        # a mosaic is a group of tiles
+        # a mosaic is a group of grid
         if pad:
             # fill all implicated mosaics
             mxy: pd.DataFrame = txy // mlength
@@ -158,16 +158,16 @@ class Stitch:
             tx = txy[:, 0]
             ty = txy[:, 1]
             assert not pd.DataFrame(dict(tx=tx, ty=ty)).duplicated().any()
-            tiles = InGrid.from_integers(tx, ty, scale=tiles.zoom)
-            tiles.__dict__.update(TILES.__dict__)
+            grid = InGrid.from_integers(tx, ty, scale=grid.zoom)
+            grid.__dict__.update(TILES.__dict__)
             if 'source' in TILES.__dict__:
-                tiles = tiles.set_source(
+                grid = grid.set_source(
                     source=TILES.source,
                     indir=TILES.indir.original,
                 )
             # we need to download from source if appropriate
         else:
-            # drop mosaics not containing all tiles
+            # drop mosaics not containing all grid
             mxy: pd.DataFrame = txy // mlength
             loc = (
                 pd.Series(1, index=mxy)
@@ -176,18 +176,18 @@ class Stitch:
                 .eq(mlength * mlength)
                 .loc[mxy]
             )
-            tiles = tiles.loc[loc]
+            grid = grid.loc[loc]
 
         mxy = (
-            tiles.index
+            grid.index
             .to_frame()
             .floordiv(mlength)
         )
         unique = mxy.drop_duplicates()
         tx = unique.xtile
         ty = unique.ytile
-        # tiles.indir.root +
-        indir = tiles.indir
+        # grid.indir.root +
+        indir = grid.indir
         indir = os.path.join(
             indir.dir,
             'stitched',
@@ -197,35 +197,35 @@ class Stitch:
         stitched = Stitched(_stitched)
         stitched.__dict__.update(_stitched.__dict__)
         setattr(stitched, 'indir', indir)
-        tiles.seggrid = stitched
-        stitched.grid = tiles
+        grid.segtile = stitched
+        stitched.grid = grid
 
-        stitched.zoom = tiles.zoom
+        stitched.zoom = grid.zoom
         stitched.tscale = scale
         mlength = dscale ** 2
 
         msg = f'Tile count is not {marea}x the mosaic count.'
-        assert len(tiles) == len(tiles.seggrid) * marea, msg
+        assert len(grid) == len(grid.seggrid) * marea, msg
         msg = f'Not all mosaics are complete'
         assert (
-            tiles
+            grid
             .groupby(pd.MultiIndex.from_frame(mxy))
             .size()
             .eq(marea)
             .all()
         ), msg
 
-        tiles: InGrid
+        grid: InGrid
 
         try:
-            indir = tiles.indir
+            indir = grid.indir
         except (AttributeError, KeyError) as e:
             ...
         else:
 
             # todo: do not stitch if file exists
             msg = (
-                f'Stitching tiles from \n\t{tiles.indir.original} '
+                f'Stitching grid from \n\t{grid.indir.original} '
                 f'to\n\t{stitched.indir.original}. '
             )
             logger.info(msg)
@@ -244,22 +244,22 @@ class Stitch:
             if n_missing == 0:  # nothing to do
                 msg = f'All {n_total:,} mosaics are already stitched.'
                 logger.info(msg)
-                return tiles
+                return grid
             else:
                 logger.info(f'Stitching {n_missing:,} of {n_total:,} mosaics missing on disk.')
 
             # groups (integer IDs) whose stitched files are absent
             groups_needed = stitched.ipred[missing_mask].unique()
 
-            # subset all per-tile Series to only tiles belonging to those groups
-            sel = tiles.segtile.ipred.isin(groups_needed).values
-            files_sub = tiles.indir.files().loc[sel]
+            # subset all per-tile Series to only grid belonging to those groups
+            sel = grid.segtile.ipred.isin(groups_needed).values
+            files_sub = grid.indir.files().loc[sel]
 
-            row_sub = tiles.segtile.r.loc[sel]
-            col_sub = tiles.segtile.c.loc[sel]
-            group_sub = tiles.segtile.ipred.loc[sel]
+            row_sub = grid.segtile.r.loc[sel]
+            col_sub = grid.segtile.c.loc[sel]
+            group_sub = grid.segtile.ipred.loc[sel]
 
-            tile_shape = tiles.dimension, tiles.dimension, 3
+            tile_shape = grid.dimension, grid.dimension, 3
             mosaic_shape = stitched.dimension, stitched.dimension, 3
 
             loader = Loader(
@@ -291,7 +291,7 @@ class Stitch:
             files: pd.Series[str] = stitched.grayscale
             assert all(map(os.path.exists, files))
 
-        return tiles
+        return grid
 
     def __init__(self, *args, **kwargs):
         ...

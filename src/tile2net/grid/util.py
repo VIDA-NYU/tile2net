@@ -23,7 +23,7 @@ from toolz import curried, pipe
 from tile2net.grid.cfg.logger import logger
 
 if False:
-    from ..grid.tiles.tiles import Grid
+    from ..grid.grid.grid import Grid
     import folium
 import pandas as pd
 
@@ -46,10 +46,10 @@ from geopy.geocoders import Nominatim
 from numpy import ndarray
 from toolz import curried, pipe
 
-from tile2net.tiles.cfg.logger import logger
+from tile2net.grid.cfg.logger import logger
 
 if False:
-    from ..grid.tiles.tiles import Grid
+    from ..grid.grid.grid import Grid
     import folium
 
 
@@ -413,14 +413,14 @@ class RecursionBlock:
     returns True if the function is currently being executed
     """
     __wrapped__: Callable[..., Any] = None
-    tiles: Grid = None
+    grid: Grid = None
     block: RecursionBlock = None
 
     def __init__(self, func: Callable[..., Any]):
         update_wrapper(self, func)
 
     def __bool__(self):
-        return self.tiles.__dict__.get(self.__name__) is not None
+        return self.grid.__dict__.get(self.__name__) is not None
 
     def __set_name__(self, owner, name):
         self.__name__ = name
@@ -437,7 +437,7 @@ class RecursionBlock:
         else:
             result = copy.copy(self)
 
-        result.tiles = instance
+        result.grid = instance
         return result
 
     def __call__(
@@ -448,17 +448,17 @@ class RecursionBlock:
         with self:
             return (
                 self.__wrapped__
-                .__get__(self.tiles, self.__class__)
+                .__get__(self.grid, self.__class__)
                 (*args, **kwargs)
             )
 
     def __enter__(self):
-        self.tiles.__dict__.setdefault(self.__name__, self)
+        self.grid.__dict__.setdefault(self.__name__, self)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.tiles.__dict__.get(self.__name__) is self:
-            del self.tiles.__dict__[self.__name__]
+        if self.grid.__dict__.get(self.__name__) is self:
+            del self.grid.__dict__[self.__name__]
         return False
 
 

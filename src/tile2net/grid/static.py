@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 from typing import *
 
-from tile2net.grid.namespace import namespace
+from tile2net.grid.frame.namespace import namespace
 
 if False:
     from tile2net.grid.grid.grid import Grid
@@ -18,7 +18,7 @@ class Static(namespace):
             owner
     ) -> dict | Self:
         self.instance = instance
-        self.tiles = tiles = instance.tiles
+        self.grid = grid = instance.grid
         result = copy.copy(self)
         if instance is None:
             return result

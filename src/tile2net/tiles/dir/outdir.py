@@ -1,7 +1,9 @@
 from __future__ import annotations
-from .ingrid import InGrid
-from .vecgrid import VecGrid
-from .seggrid import   SegGrid
+from .intiles import InTiles
+
+from .vectiles import VecTiles
+from .segtiles import SegTiles
+
 import os
 import hashlib
 import numpy as np
@@ -199,34 +201,34 @@ class Outdir(
     #     result = BestImages.from_format(format)
     #     return result
 
-    @VecGrid
-    def vecgrid(self):
+    @VecTiles
+    def vectiles(self):
         format = os.path.join(
             self.dir,
             'vectiles',
             self.suffix
         )
-        result = VecGrid.from_format(format)
+        result = VecTiles.from_format(format)
         return result
 
-    @SegGrid
-    def seggrid(self):
+    @SegTiles
+    def segtiles(self):
         format = os.path.join(
             self.dir,
             'segtiles',
             self.suffix
         )
-        result = SegGrid.from_format(format)
+        result = SegTiles.from_format(format)
         return result
 
-    @InGrid
-    def ingrid(self):
+    @InTiles
+    def intiles(self):
         format = os.path.join(
             self.dir,
             'intiles',
             self.suffix
         )
-        result = InGrid.from_format(format)
+        result = InTiles.from_format(format)
         return result
 
 
@@ -237,6 +239,10 @@ class Outdir(
     @Polygons
     def polygons(self):
         ...
+
+
+
+
 
     # def preview(self) -> str:
     #     self.seg_results.error.format

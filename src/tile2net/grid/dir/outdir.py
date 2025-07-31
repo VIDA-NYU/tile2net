@@ -1,8 +1,8 @@
 from __future__ import annotations
 from .ingrid import InGrid
-
 from .vecgrid import VecGrid
 from .seggrid import SegGrid
+
 
 import os
 import hashlib

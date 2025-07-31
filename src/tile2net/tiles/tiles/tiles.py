@@ -38,22 +38,26 @@ if False:
 class Tiles(
     GeoDataFrameFixed,
 ):
+    # gw: pd.Series  # geographic west bound of the tile
+    # gn: pd.Series  # geographic north bound of the tile
+    # ge: pd.Series  # geographic east bound of the tile
+    # gs: pd.Series  # geographic south bound of the tile
 
     @property
-    def lonmax(self) -> pd.Series:
-        return self['lonmax']
+    def ge(self) -> pd.Series:
+        return self['ge']
 
     @property
-    def lonmin(self) -> pd.Series:
-        return self['lonmin']
+    def gw(self) -> pd.Series:
+        return self['gw']
 
     @property
-    def latmax(self) -> pd.Series:
-        return self['latmax']
+    def gn(self) -> pd.Series:
+        return self['gn']
 
     @property
-    def latmin(self) -> pd.Series:
-        return self['latmin']
+    def gs(self) -> pd.Series:
+        return self['gs']
 
     @tile.cached_property
     def intiles(self) -> InTiles:
@@ -139,10 +143,10 @@ class Tiles(
         geometry = shapely.box(pw, pn, pe, ps)
 
         data = dict(
-            lonmin=gw,
-            latmax=gn,
-            lonmax=ge,
-            latmin=gs,
+            gw=gw,
+            gn=gn,
+            ge=ge,
+            gs=gs,
         )
 
         result = cls(
@@ -545,6 +549,7 @@ class Tiles(
         force=False
     ):
 
+
         if not force:
             loc = ~big_files.map(os.path.exists)
             small_files = small_files.loc[loc]
@@ -555,7 +560,7 @@ class Tiles(
         stitched = big_files.drop_duplicates()
         n_missing = len(small_files)
         n_total = len(stitched)
-        if n_missing == 0:  # n5othing to do54
+        if n_missing == 0:  # nothing to do
             msg = f'All {n_total:,} mosaics are already stitched.'
             logger.info(msg)
             # return

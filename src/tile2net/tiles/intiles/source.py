@@ -167,8 +167,8 @@ def __get__(
     """Return the source object for the tiles instance."""
     try:
         result = instance.attrs[self.__name__]
-        result.grid = instance
-        result.InGrid = owner
+        result.tiles = instance
+        result.InTiles = owner
     except KeyError as e:
         msg = (
             f'Source has not yet been set. To set the source, you '

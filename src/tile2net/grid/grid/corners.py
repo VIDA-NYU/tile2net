@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from .. import frame
-from ..framewrapper import FrameWrapper
+from tile2net.grid.frame.framewrapper import FrameWrapper
 from ..util import num2deg
 
 if False:
@@ -130,6 +130,10 @@ class Corners(FrameWrapper):
             scale=self.scale,
         )
         if drop_duplicates:
-            loc = ~result.index.duplicated()
-            result = result.loc[loc]
+            loc = ~result.frame.index.duplicated()
+            result = (
+                result.frame
+                .loc[loc]
+                .pipe(result.to_copy)
+            )
         return result

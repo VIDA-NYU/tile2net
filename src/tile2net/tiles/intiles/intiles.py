@@ -50,7 +50,7 @@ from ..segtiles import SegTiles
 from ..tiles import tile, file
 from ..tiles.tiles import Tiles
 from ..util import assert_perfect_overlap
-from ..vectiles.vectiles import VecGrid
+from ..vectiles.vectiles import VecTiles
 from ...tiles.util import RecursionBlock, recursion_block
 
 if False:
@@ -113,7 +113,7 @@ class InTiles(
 ):
     __name__ = 'intiles'
 
-    @VecGrid
+    @VecTiles
     def vectiles(self):
         """
         After performing SegTiles.stitch, SegTiles.vectiles is
@@ -151,7 +151,7 @@ class InTiles(
 
     @Indir
     def indir(self):
-        intiles = self.intiles.outdir.ingrid
+        intiles = self.intiles.outdir.intiles
         extension = self.source.extension
         format = os.path.join(
             intiles.dir,
@@ -764,7 +764,7 @@ class InTiles(
         intiles.padded
         intiles.segtile.xtile
         assert segtiles.tile.scale == self.segtiles.tile.scale
-        vectiles = VecGrid.from_rescale(intiles, scale, fill=fill)
+        vectiles = VecTiles.from_rescale(intiles, scale, fill=fill)
 
         intiles.vectiles = vectiles
         segtiles = intiles.segtiles
@@ -857,6 +857,42 @@ class InTiles(
     @delayed.Padded
     def padded(self) -> Padded:
         ...
+
+    def _make_session(
+            self,
+            *,
+            pool: int,
+            retry: Retry,
+    ) -> requests.Session:
+        s = requests.Session()
+        s.mount(
+            "https://",
+            HTTPAdapter(
+                pool_connections=pool,
+                pool_maxsize=pool,
+                max_retries=retry,
+            ),
+        )
+        s.headers.update({"User-Agent": "tiles"})
+        s.verify = certifi.where()
+        return s
+
+    def _init_net_worker(self) -> None:
+        retry_head = Retry(
+            total=3,
+            backoff_factor=0.2,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods=["HEAD"],
+        )
+        retry_get = Retry(
+            total=3,
+            backoff_factor=0.4,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods=["GET"],
+        )
+        tls.s_head = self._make_session(pool=2, retry=retry_head)  # HEAD burst
+        tls.s_get = self._make_session(pool=8, retry=retry_get)  # one stream at a time
+
     def _make_session(
             self,
             *,

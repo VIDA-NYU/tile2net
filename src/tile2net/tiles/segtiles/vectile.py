@@ -57,7 +57,7 @@ class VecTile(
         result = segtiles.xtile // length
 
         msg = 'All segtile.xtile must be in segtiles.xtile!'
-        assert result.isin(vectiles.xtile).all(),msg
+        assert result.isin(vectiles.xtile).all(), msg
 
         segtiles[key] = result
         return result
@@ -93,7 +93,6 @@ class VecTile(
     #     ), index=segtiles.index)
     #     concat.append(frame)
     #
-
 
     # @property
     # def group(self) -> pd.Series:
@@ -159,7 +158,6 @@ class VecTile(
         segtiles[key] = result
         return segtiles[key]
 
-
     @tile.static.cached_prpoerty
     def index(self):
         # todo: we need sticky (attrs) and not-stick (__dict__)
@@ -168,7 +166,7 @@ class VecTile(
         result = pd.MultiIndex.from_arrays(arrays, names=names)
         return result
 
-    def __init__( self, *args ):
+    def __init__(self, *args):
         ...
 
     def __set_name__(self, owner, name):

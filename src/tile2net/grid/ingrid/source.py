@@ -61,6 +61,8 @@ class Coverage:
                 return coverage.geometry
         coverages: list[GeoSeries] = []
         for source in owner.catalog.values():
+            # source is WashingtonDC
+
             if source.outdated:
                 continue
             try:
@@ -158,33 +160,46 @@ class cls_attr(
         return self.name == other.name
 
 
-def __get__(
-        self: Source,
-        instance: InGrid,
-        owner: type[InGrid],
-) -> Source:
-    """Return the source object for the tiles instance."""
-    try:
-        result = instance.__dict__[self.__name__]
-        result.grid = instance
-        result.InGrid = owner
-    except KeyError as e:
-        msg = (
-            f'Source has not yet been set. To set the source, you '
-            f'must call `InGrid.with_source()`.'
-        )
-        raise KeyError(msg) from e
-    return result
+# class SourceABC(
+#     # ...
+#     type,
+# ):
+#     def __eq__(self, other):
+#         return True
+#
+
+
+
 
 
 # noinspection PyMethodParameters
 class Source(
     ABC,
+    # metaclass=SourceABC,
 ):
-    tiles: InGrid
+    grid: InGrid
     catalog: dict[str, type[Source]] = {}
 
     outdated: bool = False
+
+    def __get(
+            self: Source,
+            instance: InGrid,
+            owner: type[InGrid],
+    ) -> Source:
+        """Return the source object for the grid instance."""
+        try:
+            result = instance.__dict__[self.__name__]
+            result.grid = instance
+            result.InGrid = owner
+        except KeyError as e:
+            msg = (
+                f'Source has not yet been set. To set the source, you '
+                f'must call `InGrid.with_source()`.'
+            )
+            raise KeyError(msg) from e
+        return result
+
     locals().update(
         __get__=__get__,
     )
@@ -226,7 +241,7 @@ class Source(
 
     @cls_attr
     def dimension(cls):
-        """Default dimension of the source tiles, e.g. 256 pixels."""
+        """Default dimension of the source grid, e.g. 256 pixels."""
         return 256
 
     @cls_attr
@@ -255,14 +270,14 @@ class Source(
 
     @cls_attr
     def template(cls) -> str:
-        """Template for formatting the URL of the tiles."""
+        """Template for formatting the URL of the grid."""
 
     def __set__(
             self,
             instance: InGrid,
             value,
     ):
-        """Set the source object for the tiles instance."""
+        """Set the source object for the grid instance."""
         instance.__dict__[self.__name__] = value
 
     def __set_name__(self, owner, name):
@@ -272,7 +287,7 @@ class Source(
             self,
             instance: InGrid,
     ):
-        """Delete the source object for the tiles instance."""
+        """Delete the source object for the grid instance."""
         if hasattr(instance, '_source'):
             del instance._source
 
@@ -288,16 +303,16 @@ class Source(
 
     @property
     def urls(self) -> pd.Series:
-        """Given some tiles, return the URL for the images"""
-        tiles = self.tiles
+        """Given some grid, return the URL for the images"""
+        grid = self.grid
         temp = self.template
-        zoom = tiles.zoom
-        it = zip(tiles.ytile, tiles.xtile)
+        zoom = grid.zoom
+        it = zip(grid.ytile, grid.xtile)
         data = [
             temp.format(z=zoom, y=ytile, x=xtile)
             for ytile, xtile in it
         ]
-        result = pd.Series(data, index=tiles.index, name='url')
+        result = pd.Series(data, index=grid.index, name='url')
         return result
 
     @classmethod
@@ -329,7 +344,7 @@ class Source(
         # todo: index index for which sources contain keyword
 
         matches: GeoSeries = Source.coverage.geometry
-        if isinstance(item, (gpd.GeoSeries, gpd.GeoDataFrame)):
+        if isinstance(item, (GeoSeries, GeoDataFrame)):
             infer = item.geometry.iat[0].centroid
         else:
             infer = item
@@ -431,8 +446,10 @@ class Source(
 
     def __eq__(self, other):
         if (
-                isinstance(other, Source)
-                or issubclass(other, Source)
+            isinstance(other, Source)
+        ) or (
+            isinstance(other, type)
+            and issubclass(other, Source)
         ):
             return self.name == other.name
         if isinstance(other, str):
@@ -496,7 +513,7 @@ class WashingtonDC(ArcGis):
     # ignore = True
     server = 'https://imagery.dcgis.dc.gov/dcgis/rest/services/Ortho/Ortho_2021/ImageServer'
     name = 'dc'
-    tilesize = 512
+    gridize = 512
     extension = 'jpeg'
     keyword = 'District of Columbia', 'DC'
     year = 2021
@@ -638,7 +655,7 @@ class AlamedaCounty(
 
     @cls_attr
     @property
-    def tiles(cls):
+    def grid(cls):
         return cls.server + '/{z}/{x}/{y}.png'
 
     @cls_attr
@@ -766,7 +783,7 @@ class Maine2022(MaineOrthoBase):
     name: str = "me2022"
     year: int = 2022
     outdated: bool = False  # current statewide layer
-    tilesize: int = 512
+    gridize: int = 512
     extension: str = "jpeg"
     zoom=19
 
@@ -783,7 +800,7 @@ class Maine2022(MaineOrthoBase):
     @property
     def urls(self) -> pd.Series:
         # project tile geometries to EPSG 102100, then build URLs
-        item = self.tiles
+        item = self.grid
         bounds = item.to_crs(102100).bounds
         tmpl = self.template
 
@@ -817,3 +834,7 @@ if __name__ == '__main__':
     assert Source.from_inferred('Oakland, California') == AlamedaCounty
     assert Source.from_inferred('San Francisco, California') == SanFrancisco2024
     assert Source.from_inferred('Bangor, Maine') == Maine2022
+
+    Source.catalog
+    Source.coverage.geometry
+

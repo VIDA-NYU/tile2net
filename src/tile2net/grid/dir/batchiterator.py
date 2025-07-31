@@ -95,8 +95,8 @@ class BatchIterator:
             *args,
     ):
         key = self.trace, *args
-        grid = self.tiles
-        cache = tiles.__dict__.setdefault('iterator', {})
+        grid = self.grid
+        cache = grid.__dict__.setdefault('iterator', {})
         if key in cache:
             return cache[key]
 
@@ -108,7 +108,7 @@ class BatchIterator:
             )
 
         result = BatchIterator(
-            tiles=tiles,
+            grid=grid,
             key=key,
             series=series,
         )

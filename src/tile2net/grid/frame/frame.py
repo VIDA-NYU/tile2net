@@ -1,34 +1,28 @@
 from __future__ import annotations
+from .framewrapper import FrameWrapper
 
 import copy
 from functools import *
 from typing import *
-
+from tile2net.grid.frame.namespace import namespace
 import pandas as pd
-from geopandas import GeoDataFrame
-
-from .namespace import namespace
-from .util import returns_or_assigns
 
 if False:
     from .framewrapper import FrameWrapper
 
 
-class column(namespace):
-
+class Column(
+    namespace
+):
     """
     Wraps column operations (get, set, del) for Grid.grid
     """
     test = None
 
-    def __init__(self, func):
-        if returns_or_assigns(func):
-            update_wrapper(self, func)
-
     def __set_name__(self, owner, name):
         self.__name__ = name
 
-    def __get__(
+    def __get(
             self,
             instance: FrameWrapper,
             owner
@@ -54,6 +48,19 @@ class column(namespace):
         result = frame[key]
         return result
 
+    locals().update(
+        __get__=__get
+    )
+
+    if False:
+        def __get__(self, instance, owner) -> Union[
+            Self,
+            pd.Series,
+            Iterable
+        ]:
+            ...
+
+
     def __set__(
             self,
             instance,
@@ -69,10 +76,9 @@ class column(namespace):
 
     @cached_property
     def key(self):
-        from .grid.grid import Grid
         instance = self.instance
         names = []
-        while not isinstance(instance, Grid):
+        while not isinstance(instance, FrameWrapper):
             names.append(instance.__name__)
             instance = instance.instance
         result = '.'.join(names[::-1])
@@ -94,7 +100,7 @@ class column(namespace):
             ...
 
 
-class index(column):
+class Index(Column):
     def __get__(
             self,
             instance,
@@ -111,3 +117,20 @@ class index(column):
             return frame.index.get_level_values(self.key)
         except KeyError:
             return super().__get__(instance, owner)
+
+def column(
+    *args, **kwargs
+) -> Union[
+    pd.Series,
+    Column
+]:
+    return Column(*args, **kwargs)
+
+
+def index(
+    *args, **kwargs
+) -> Union[
+    pd.Index,
+    Index
+]:
+    return Index(*args, **kwargs)

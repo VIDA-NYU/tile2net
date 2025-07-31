@@ -4,7 +4,7 @@ import pandas as pd
 import copy
 
 import pandas as pd
-from ..grid import tile
+from ..grid import grid
 
 if False:
     from .seggrid import SegGrid
@@ -28,7 +28,7 @@ class VecTile(
     )
 
     @property
-    def tiles(self):
+    def grid(self):
         return self.seggrid
 
     @property
@@ -41,15 +41,15 @@ class VecTile(
 
     @property
     def length(self):
-        """Number of tiles in one dimension of the vectile"""
-        return self.vecgrid.tile.length
+        """Number of grid in one dimension of the vectile"""
+        return self.vecgrid.length
 
     @property
     def xtile(self) -> pd.Series:
         """Tile integer X of this tile in the vecgrid vectile"""
         key = 'vectile.xtile'
         seggrid = self.seggrid
-        if key in seggrid.columns:
+        if key in seggrid.frame.columns:
             return seggrid[key]
 
         vecgrid = seggrid.vecgrid
@@ -67,7 +67,7 @@ class VecTile(
         """Tile integer X of this tile in the vecgrid vectile"""
         key = 'vectile.ytile'
         seggrid = self.seggrid
-        if key in seggrid.columns:
+        if key in seggrid.frame.columns:
             return seggrid[key]
 
         vecgrid = seggrid.vecgrid
@@ -160,7 +160,7 @@ class VecTile(
         return seggrid[key]
 
 
-    @tile.static.cached_prpoerty
+    @property
     def index(self):
         # todo: we need sticky (attrs) and not-stick (__dict__)
         arrays = self.xtile, self.ytile

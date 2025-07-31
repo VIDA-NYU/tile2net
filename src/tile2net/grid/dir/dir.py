@@ -269,7 +269,7 @@ class Dir:
             else:
                 indir.grid = instance.grid
         except AttributeError:
-            indir.tiles = None
+            indir.grid = None
 
     @cached_property
     def dir(self) -> str:
@@ -329,23 +329,23 @@ class Dir:
 
     def files(
             self,
-            tiles: Grid,
+            grid: Grid,
             dirname=''
     ) -> pd.Series:
         if dirname:
             key = f'{self._trace}.{dirname}'
         else:
             key = self._trace
-        if key in tiles:
-            return tiles[key]
+        if key in grid:
+            return grid[key]
         suffix = (
             self.format
             .removeprefix(self.dir)
             .lstrip(os.sep)
         )
         format = os.path.join(self.dir, dirname, suffix)
-        zoom = tiles.zoom
-        it = zip(tiles.ytile, tiles.xtile)
+        zoom = grid.zoom
+        it = zip(grid.ytile, grid.xtile)
         data = [
             format.format(z=zoom, y=ytile, x=xtile)
             for ytile, xtile in it
@@ -353,9 +353,9 @@ class Dir:
         # ensure parent directories exist
         for p in {Path(p).parent for p in data}:
             p.mkdir(parents=True, exist_ok=True)
-        result = pd.Series(data, index=tiles.index, dtype='str')
-        tiles[key] = result
-        result = tiles[key]
+        result = pd.Series(data, index=grid.index, dtype='str')
+        grid[key] = result
+        result = grid[key]
         return result
 
     def _cleanup(
@@ -416,7 +416,7 @@ if __name__ == '__main__':
         zoom: int
 
 
-    tiles = [
+    grid = [
         Tile(1, 2, 3),
         Tile(4, 5, 6),
         Tile(7, 8, 9),

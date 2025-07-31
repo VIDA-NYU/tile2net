@@ -5,21 +5,13 @@ import shutil
 import pandas as pd
 
 from .dir import Dir
-from ..tiles.tiles import Tiles
+from ..grid.grid import Grid
 
 
 class InFile(
     Dir
 ):
     ...
-
-    # def files(
-    #         self,
-    #         tiles: Tiles,
-    #         dirname=''
-    # ) -> pd.Series:
-    #     return self.intiles.indir.files(tiles, dirname)
-    #
 
 
 class InGrid(
@@ -31,7 +23,7 @@ class InGrid(
 
     @property
     def infile(self):
-        return self.tiles.indir
+        return self.grid.indir
 
 
 # def cleanup(self):
