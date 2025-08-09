@@ -1,4 +1,24 @@
 from __future__ import annotations
+from urllib.parse import quote_plus
+
+import builtins
+
+from attr.exceptions import AttrsAttributeNotFoundError
+from shapely import wkt
+from shapely.geometry import MultiPolygon
+
+import math
+import pathlib
+import mimetypes
+import xml.etree.ElementTree as ET
+from typing import Literal, Iterable
+from urllib.parse import urlencode
+
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+from typing import *
 
 import functools
 import json
@@ -50,15 +70,22 @@ class Coverage:
             if source.outdated:
                 continue
             try:
-                axis = pd.Index([source.name] * len(source.coverage), name='source')
+                coverage = source.coverage
+                if isinstance(
+                        coverage,
+                        shapely.geometry.base.BaseGeometry
+                ):
+                    coverage = GeoSeries([coverage], crs='epsg:4326')
+                axis = pd.Index([source.name] * len(coverage), name='source')
                 coverage = (
-                    source.coverage
+                    coverage
                     .set_crs('epsg:4326')
                     .set_axis(axis)
                 )
             except Exception as e:
                 logger.error(
-                    f'Could not get coverage for {source.name}, skipping:\n'
+                    f'Could not get coverage for {source.name},'
+                    f' skipping:\n\t'
                     f'{e}'
                 )
             else:
@@ -131,7 +158,14 @@ class SourceMeta(ABCMeta):
         loc = []
         for name in matches.index:
             keyword: str | tuple[str]
-            keyword = cls.catalog[name].keyword
+            try:
+                keyword = cls.catalog[name].keyword
+            except AttributeError as e:
+                msg = (
+                    "The keyword attribute must be defined to avoid "
+                    f"ambiguities in reverse geocoding: \n\t{e}"
+                )
+                raise AttributeError(msg) from e
             if isinstance(keyword, str):
                 loc.append(keyword.casefold() in geocode.address.casefold())
             else:
@@ -218,10 +252,11 @@ class Source(ABC, metaclass=SourceMeta):
 
     def __getitem__(self, item: Iterator[Tile]):
         tiles = self.tiles
-        yield from (
+        result = [
             tiles.format(z=tile.zoom, y=tile.ytile, x=tile.xtile)
             for tile in item
-        )
+        ]
+        return result
 
     def __bool__(self):
         return True
@@ -510,7 +545,6 @@ class AlamedaCounty(
         return res
 
 
-
 class SanFranciscoBase(
     Source,
     ABC
@@ -539,9 +573,9 @@ class SanFranciscoBase(
             [
                 box(
                     -122.514926,  # xmin (W)
-                    37.708075,    # ymin (S)
+                    37.708075,  # ymin (S)
                     -122.356779,  # xmax (E)
-                    37.832371     # ymax (N)
+                    37.832371  # ymax (N)
                 )
             ],
             crs='EPSG:4326',
@@ -590,7 +624,148 @@ class SanFrancisco2024(SanFranciscoBase):
     server = 'https://tile.sf.gov/api/tiles/p2024_rgb8cm'
     outdated = False
 
+
+class VexCel(Source, ABC):
+    flip_y = False
+    prefer_layers: Iterable[str] = ('wide-area', 'urban', 'urban-r', 'graysky')
+    server: str = 'https://api.vexcelgroup.com/v2/ortho'
+    base: str = 'https://api.vexcelgroup.com/v2/ortho/wmts'
+    api_key: str = None
+    timeout: int = 10
+    extension = 'png'
+
+    @classmethod
+    def _session(cls) -> requests.Session:
+        # ascii-only UA to avoid header encoding issues
+        s = requests.Session()
+        s.headers.update({'User-Agent': 'tile2net/1.0 (xyz-wmts)'})
+        retry = Retry(
+            total=5,
+            backoff_factor=0.4,
+            status_forcelist=(429, 500, 502, 503, 504),
+            allowed_methods=("GET",),
+            raise_on_status=False,
+        )
+        s.mount('https://', HTTPAdapter(max_retries=retry))
+        s.mount('http://', HTTPAdapter(max_retries=retry))
+        return s
+
+    @classmethod
+    def _raise_http(
+            cls,
+            r: requests.Response,
+            url: str,
+    ) -> None:
+        print('⚠️AI GENERATED🤖')
+        ctype = r.headers.get('Content-Type', '')
+        if ctype.startswith('text/'):
+            body = r.text[:800]
+        else:
+            body = f'<{len(r.content):,} bytes binary>'
+        raise requests.HTTPError(
+            f"{r.status_code} {r.reason or ''} for {url}\n"
+            f"CT: {ctype}\n"
+            f"Body: {body}"
+        )
+
+    @class_attr
+    @property
+    def layers(self) -> list[str]:
+        """
+        Layers available in the WMTS service.
+        e.g. ['wide-area', 'urban', 'urban-r', 'graysky']
+        """
+        query = dict(
+            SERVICE='WMTS',
+            REQUEST='GetCapabilities',
+            VERSION='1.0.0',
+            api_key=self.api_key,
+        )
+        url = f"{self.base}?{urlencode(query)}"
+
+        with self._session() as s:
+            r = s.get(url, timeout=self.timeout)
+            if r.status_code >= 400:
+                self._raise_http(r, url)
+            try:
+                root = ET.fromstring(r.content)
+            except ET.ParseError as e:
+                raise RuntimeError(f'Failed to parse WMTS capabilities: {e}') from e
+
+        ns = {
+            'wmts': 'http://www.opengis.net/wmts/1.0',
+            'ows': 'http://www.opengis.net/ows/1.1',
+        }
+        result = []
+        for lyr in root.findall('.//wmts:Contents/wmts:Layer', ns):
+            ident = lyr.find('ows:Identifier', ns)
+            if ident is not None and ident.text:
+                result.append(ident.text.strip())
+        return result
+
+    @class_attr
+    @property
+    def layer(self):
+        """ Layer chosen from the WMTS layers """
+        avail = {
+            layer
+            for layer in self.layers
+            if not layer.lower().endswith('-g')
+        }
+        for cand in self.prefer_layers:
+            if cand in avail:
+                return cand
+        if not avail:
+            raise RuntimeError('No RGB WMTS layers are available for this API key.')
+        result = sorted(avail)[0]
+        return result
+
+    @class_attr
+    @property
+    def tiles(self) -> str:
+        """Encoding the WMTS URL template for the tiles"""
+        query = {
+            'layer': self.layer,
+            'image-format': self.extension,
+            'api_key': self.api_key,
+        }
+        q = urlencode(query)
+        q += '&tile-x={x}&tile-y={y}&zoom={z}'
+        result = f'{self.server}/tile?{q}'
+        return result
+
+
+class Maine(VexCel):
+    name = 'maine'
+    api_key = "vfa_JkRqdw7HHOis.37zZe0OHVVqPlIY91FsT9arC9uGrDalMqwMW1AX4OgcfsiwtQoxDLed9OEIxKy3Ys2lMCam9C2swLrUwNqX2KrlegBRev8MRDpkqHkbSEn0fP1aEqvoDBdePjAOO9h91.4256792737"
+    keyword = 'Maine'
+    coverage = wkt.loads(
+        "MULTIPOLYGON (((-70.64573401557249 43.09008331966716, "
+        "-70.75102474636725 43.08003225358636, "
+        "-70.79761105007827 43.21973948828747, "
+        "-70.98176001655037 43.36789581966831, "
+        "-70.94416541205806 43.46633942318429, "
+        "-71.08481999999998 45.30523999999996, "
+        "-70.6600225491012 45.460222886733995, "
+        "-70.30495378282376 45.914794623389334, "
+        "-70.00014034695016 46.69317088478567, "
+        "-69.23708614772835 47.44777598732789, "
+        "-68.90478084987546 47.18479462339437, "
+        "-68.23430497910455 47.3546292181218, "
+        "-67.7903527492851 47.066248887717, "
+        "-67.79141211614706 45.702585354182794, "
+        "-67.13734351262877 45.13745189063888, "
+        "-66.96465999999998 44.809699999999935, "
+        "-68.03251999999992 44.32520000000004, "
+        "-69.05999999999996 43.980000000000096, "
+        "-70.11617000000001 43.68405, "
+        "-70.64573401557249 43.09008331966716)))"
+    )
+
+
 if __name__ == '__main__':
+    assert Source['Portland, Maine'] == Maine
+    assert Source['Maine'] == Maine
     assert Source['New Brunswick, New Jersey'] == NewJersey
     assert Source['New York City'] == NewYorkCity
     assert Source['New York'] in (NewYorkCity, NewYork)
@@ -607,3 +782,5 @@ if __name__ == '__main__':
     assert Source['Fremont, California'] == AlamedaCounty
     assert Source['Oakland, California'] == AlamedaCounty
     assert Source['San Francisco, California'] == SanFrancisco2024
+
+Source.__getitem__
