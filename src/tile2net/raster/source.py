@@ -1,47 +1,28 @@
 from __future__ import annotations
-from urllib.parse import quote_plus
-
-import builtins
-
-from attr.exceptions import AttrsAttributeNotFoundError
-from shapely import wkt
-from shapely.geometry import MultiPolygon
-
-import math
-import pathlib
-import mimetypes
-import xml.etree.ElementTree as ET
-from typing import Literal, Iterable
-from urllib.parse import urlencode
-
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-
-from typing import *
 
 import functools
 import json
 import pathlib
 import warnings
+import xml.etree.ElementTree as ET
 from abc import ABC, ABCMeta
 from functools import cached_property, wraps
-from typing import Iterator, Optional, Type
-from typing import TypeVar
+from typing import Iterator, Optional, Type, Iterable, TypeVar
+from urllib.parse import urlencode
 from weakref import WeakKeyDictionary
 
 import geopandas as gpd
 import pandas as pd
 import requests
 import shapely.geometry
-import shapely.geometry
 import shapely.ops
-from geopandas import GeoDataFrame
-from geopandas import GeoSeries
+from geopandas import GeoDataFrame, GeoSeries
+from requests.adapters import HTTPAdapter
+from shapely import box, wkt
+from urllib3.util.retry import Retry
 
 from tile2net.logger import logger
 from tile2net.raster.geocode import GeoCode
-from shapely import box
 
 if False:
     from tile2net.raster.tile import Tile
@@ -634,8 +615,9 @@ class VexCel(Source, ABC):
     timeout: int = 10
     extension = 'png'
 
-    @classmethod
-    def _session(cls) -> requests.Session:
+    @class_attr
+    @property
+    def _session(self) -> requests.Session:
         # ascii-only UA to avoid header encoding issues
         s = requests.Session()
         s.headers.update({'User-Agent': 'tile2net/1.0 (xyz-wmts)'})
@@ -643,7 +625,7 @@ class VexCel(Source, ABC):
             total=5,
             backoff_factor=0.4,
             status_forcelist=(429, 500, 502, 503, 504),
-            allowed_methods=("GET",),
+            allowed_methods=frozenset("GET", ),
             raise_on_status=False,
         )
         s.mount('https://', HTTPAdapter(max_retries=retry))
@@ -656,7 +638,6 @@ class VexCel(Source, ABC):
             r: requests.Response,
             url: str,
     ) -> None:
-        print('⚠️AI GENERATED🤖')
         ctype = r.headers.get('Content-Type', '')
         if ctype.startswith('text/'):
             body = r.text[:800]
@@ -683,7 +664,7 @@ class VexCel(Source, ABC):
         )
         url = f"{self.base}?{urlencode(query)}"
 
-        with self._session() as s:
+        with self._session as s:
             r = s.get(url, timeout=self.timeout)
             if r.status_code >= 400:
                 self._raise_http(r, url)
@@ -710,7 +691,9 @@ class VexCel(Source, ABC):
         avail = {
             layer
             for layer in self.layers
-            if not layer.lower().endswith('-g')
+            if not layer
+            .lower()
+            .endswith('-g')
         }
         for cand in self.prefer_layers:
             if cand in avail:
@@ -776,11 +759,9 @@ if __name__ == '__main__':
     assert Source['Jersey City'] == NewJersey
     assert Source['Hoboken'] == NewJersey
     assert Source["Spring Hill, TN"] == SpringHillTN
-    # assert Source['Oregon'] == Oregon
     assert Source['Virginia'] == Virginia
     assert Source['Berkeley, California'] == AlamedaCounty
     assert Source['Fremont, California'] == AlamedaCounty
     assert Source['Oakland, California'] == AlamedaCounty
     assert Source['San Francisco, California'] == SanFrancisco2024
 
-Source.__getitem__
