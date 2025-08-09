@@ -14,7 +14,7 @@ import argparse
 
 if False:
     from .cfg import Cfg
-    from ..grid import Tiles
+    from ..grid import Grid
 
 T = TypeVar(
     'T',

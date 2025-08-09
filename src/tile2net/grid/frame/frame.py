@@ -76,11 +76,21 @@ class Column(
 
     @cached_property
     def key(self):
-        instance = self.instance
+        # instance = self.instance
+        # names = []
+        # while not isinstance(instance, FrameWrapper):
+        #     names.append(instance.__name__)
+        #     instance = instance.instance
+        instance = self
         names = []
-        while not isinstance(instance, FrameWrapper):
+        while True:
             names.append(instance.__name__)
+            if isinstance(instance, FrameWrapper):
+                break
+            if instance is None:
+                break
             instance = instance.instance
+
         result = '.'.join(names[::-1])
         return result
 

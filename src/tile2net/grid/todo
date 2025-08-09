@@ -10,7 +10,7 @@ Tiles
 
 SourceTiles
     - stitch to inference grid aggregates source grid
-SegTiles
+SegGrid
     - stitch to network grid aggregates inference grid
     - does not write polygons
 NetworkTiles
@@ -20,13 +20,13 @@ NetworkTiles
 
 source -> inference -> network
 
-SourceTiles.stitch() -> SegTiles
-SegTiles.stitch() -> NetworkTiles
+SourceTiles.stitch() -> SegGrid
+SegGrid.stitch() -> NetworkTiles
 
 pad.
 
-InTiles.stitch() -> SegTiles
-SegTiles.stitch() -> VecGrid
+InTiles.stitch() -> SegGrid
+SegGrid.stitch() -> VecGrid
 
 previously, mosaic.xtile and mosaic.ytile were easy because they were 1-to-1 mappings and therefore columns
 now, each xtile and ytile can belong to two mosaics

@@ -19,7 +19,7 @@ from . import cmdline
 from .nested import Nested
 
 if False:
-    from ..grid import Tiles
+    from ..grid import Grid
 
 T = TypeVar('T')
 
@@ -777,8 +777,8 @@ class Polygon(cmdline.Namespace):
 
 def __get__(
         self: Cfg,
-        instance: Tiles,
-        owner: type[Tiles]
+        instance: Grid,
+        owner: type[Grid]
 ) -> Self:
     if instance is None:
         result = self
@@ -789,7 +789,7 @@ def __get__(
         instance.__dict__[self._trace] = result
     result.__name__ = self.__name__
     result.grid = instance
-    result.Tiles = owner
+    result.Grid = owner
     result.instance = instance
     result.owner = owner
     assert result is not None
@@ -801,9 +801,9 @@ class Cfg(
     UserDict,
 ):
     grid = None
-    grid: Tiles
-    instance: Tiles = None
-    owner: Type[Tiles] = None
+    grid: Grid
+    instance: Grid = None
+    owner: Type[Grid] = None
     locals().update(
         __get__=__get__,
     )

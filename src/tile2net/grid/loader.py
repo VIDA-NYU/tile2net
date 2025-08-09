@@ -1,17 +1,17 @@
 if False:
-    from .grid import  Tiles
+    from .grid import  Grid
 class Loader(
 
 ):
     """Loader"""
-    grid: Tiles
+    grid: Grid
 
     def __get__(
             self,
-            instance: Tiles,
-            owner: type[Tiles]
+            instance: Grid,
+            owner: type[Grid]
     ):
         self.grid = instance
-        self.Tiles = owner
+        self.Grid = owner
 
 

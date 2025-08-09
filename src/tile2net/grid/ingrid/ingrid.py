@@ -109,7 +109,7 @@ class InGrid(
     def source(self):
         """
         Returns the Source class, which wraps a tile server.
-        See `Tiles.with_source()` to actually set a source.
+        See `Grid.with_source()` to actually set a source.
         """
         # This code block is just semantic sugar and does not run.
         # These methods are how to set the source:
@@ -539,7 +539,7 @@ class InGrid(
         Assign an output directory to the grid.
         The grid are saved to the output directory.
         """
-        result: Tiles = self.copy()
+        result: Grid = self.copy()
 
         # if not outdir:
         # if not outdir:
@@ -593,7 +593,7 @@ class InGrid(
         if bs_val:
             self.cfg.model.bs_val = bs_val
 
-        msg = 'Padding InTiles to align with SegGrid'
+        msg = 'Padding InGrid to align with SegGrid'
         logger.debug(msg)
         ingrid = (
             self
@@ -656,7 +656,7 @@ class InGrid(
 
         scale = self.seggrid._to_scale(dimension, length, mosaic, scale)
 
-        msg = 'Padding InTiles to align with VecGrid'
+        msg = 'Padding InGrid to align with VecGrid'
         logger.debug(msg)
         ingrid = (
             self
