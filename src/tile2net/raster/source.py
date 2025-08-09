@@ -52,11 +52,6 @@ class Coverage:
                 continue
             try:
                 coverage = source.coverage
-                if isinstance(
-                        coverage,
-                        shapely.geometry.base.BaseGeometry
-                ):
-                    coverage = GeoSeries([coverage], crs='epsg:4326')
                 axis = pd.Index([source.name] * len(coverage), name='source')
                 coverage = (
                     coverage
@@ -724,6 +719,7 @@ class VexCel(Source, ABC):
 
 
 class Maine(VexCel):
+    # https://www.maine.gov/geolib/data/index.html
     name = 'maine'
     api_key = "vfa_JkRqdw7HHOis.37zZe0OHVVqPlIY91FsT9arC9uGrDalMqwMW1AX4OgcfsiwtQoxDLed9OEIxKy3Ys2lMCam9C2swLrUwNqX2KrlegBRev8MRDpkqHkbSEn0fP1aEqvoDBdePjAOO9h91.4256792737"
     keyword = 'Maine'
@@ -749,6 +745,7 @@ class Maine(VexCel):
         "-70.11617000000001 43.68405, "
         "-70.64573401557249 43.09008331966716)))"
     )
+    coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
 if __name__ == '__main__':
