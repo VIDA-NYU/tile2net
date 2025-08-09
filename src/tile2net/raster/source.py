@@ -618,9 +618,13 @@ class VexCel(Source, ABC):
     @class_attr
     @property
     def _session(self) -> requests.Session:
+        """
+        Create a requests session with
+        retries and a custom User-Agent.
+        """
         # ascii-only UA to avoid header encoding issues
         s = requests.Session()
-        s.headers.update({'User-Agent': 'tile2net/1.0 (xyz-wmts)'})
+        s.headers.update({'User-Agent': 'tile2net'})
         retry = Retry(
             total=5,
             backoff_factor=0.4,
@@ -638,6 +642,7 @@ class VexCel(Source, ABC):
             r: requests.Response,
             url: str,
     ) -> None:
+        """ Raise an HTTPError with details from the response."""
         ctype = r.headers.get('Content-Type', '')
         if ctype.startswith('text/'):
             body = r.text[:800]
@@ -673,10 +678,10 @@ class VexCel(Source, ABC):
             except ET.ParseError as e:
                 raise RuntimeError(f'Failed to parse WMTS capabilities: {e}') from e
 
-        ns = {
-            'wmts': 'http://www.opengis.net/wmts/1.0',
-            'ows': 'http://www.opengis.net/ows/1.1',
-        }
+        ns = dict(
+            wmts='http://www.opengis.net/wmts/1.0',
+            ows='http://www.opengis.net/ows/1.1',
+        )
         result = []
         for lyr in root.findall('.//wmts:Contents/wmts:Layer', ns):
             ident = lyr.find('ows:Identifier', ns)
@@ -764,4 +769,3 @@ if __name__ == '__main__':
     assert Source['Fremont, California'] == AlamedaCounty
     assert Source['Oakland, California'] == AlamedaCounty
     assert Source['San Francisco, California'] == SanFrancisco2024
-
