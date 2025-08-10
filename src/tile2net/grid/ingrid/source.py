@@ -182,7 +182,7 @@ class Source(
 
     outdated: bool = False
 
-    def __get(
+    def _get(
             self: Source,
             instance: InGrid,
             owner: type[InGrid],

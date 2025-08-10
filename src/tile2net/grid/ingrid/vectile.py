@@ -5,6 +5,8 @@ import copy
 
 import pandas as pd
 
+from tile2net.grid.frame.namespace import namespace
+
 if False:
     from .ingrid import InGrid
 
@@ -19,19 +21,13 @@ def __get__(
 
 
 class VecTile(
-
+    namespace,
 ):
 
     ingrid: InGrid
-    locals().update(
-        __get__=__get__,
-    )
-
-    def __init__(self, *args):
-        ...
-
-    def __set_name__(self, owner, name):
-        self.__name__ = name
+    # locals().update(
+    #     __get__=__get__,
+    # )
 
     @frame.column
     def xtile(self) -> pd.Series:

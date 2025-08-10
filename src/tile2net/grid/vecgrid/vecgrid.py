@@ -45,7 +45,7 @@ from ..grid import file
 
 if False:
     import folium
-    from ..ingrid import InTiles
+    from ..ingrid import InGrid
 from ..grid.grid import Grid
 
 
@@ -53,7 +53,7 @@ class Feature(
     namespace
 ):
 
-    def __get(
+    def _get(
             self: Feature,
             instance: VecGrid,
             owner
@@ -61,14 +61,8 @@ class Feature(
         self.grid = instance
         return copy.copy(self)
 
-    locals().update(__get__=__get)
+    locals().update(__get__=_get)
     grid: VecGrid
-
-    def __set_name__(self, owner, name):
-        self.__name__ = name
-
-    def __init__(self, *args, ):
-        ...
 
     def _ensure_network_column(self, key: str):
         if key not in self.grid:
@@ -173,6 +167,55 @@ class File(
 
 
 class VecGrid(Grid):
+
+    def _get(
+            self: VecGrid,
+            instance: InGrid,
+            owner: type[Grid],
+    ) -> VecGrid:
+        self.instance = instance
+        if instance is None:
+            return copy.copy(self)
+        try:
+            # result: VecGrid = instance.attrs[self.__name__]
+            result = instance.__dict__[self.__name__]
+            # result.grid = instance
+            result.instance = instance
+        except KeyError as e:
+            msg = (
+                f'intiles.{self.__name__} has not been set. You may '
+                f'customize the vectorization functionality by using '
+                f'`Intiles.set_vectorization`'
+            )
+            logger.info(msg)
+            cfg = instance.cfg
+
+            scale = cfg.vectile.scale
+            length = cfg.vectile.length
+            dimension = cfg.vectile.dimension
+
+            if scale:
+                instance = instance.set_segmentation(scale=scale)
+            elif length:
+                instance = instance.set_segmentation(length=length)
+            elif dimension:
+                instance = instance.set_segmentation(dimension=dimension)
+            else:
+                raise ValueError(
+                    'You must set at least one of the following '
+                    'segmentation parameters: vectile.scale, vectile.length, or vectile.dimension.'
+                )
+            result = instance.vecgrid
+
+        result.tiles = instance
+        result.instance = instance
+
+        return result
+
+
+    locals().update(__get__=_get)
+
+
     @File
     def file(self):
         ...

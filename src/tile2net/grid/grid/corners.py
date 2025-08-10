@@ -88,7 +88,8 @@ class Corners(FrameWrapper):
             lonmax=latmax,
             latmin=latmin,
         )
-        result = cls(data, index=index)
+        frame = pd.DataFrame(data, index=index)
+        result = cls(frame)
         result.scale = scale
         return result
 

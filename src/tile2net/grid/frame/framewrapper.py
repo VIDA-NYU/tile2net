@@ -1,7 +1,6 @@
 from __future__ import annotations
 import geopandas as gpd
 
-
 import copy
 from functools import *
 from typing import *
@@ -12,13 +11,20 @@ from geopandas import GeoDataFrame
 from tile2net.grid import static
 
 
-class FrameWrapper:
+class FrameWrapper(
+
+):
     frame: pd.DataFrame | gpd.GeoDataFrame
 
     def __init__(
             self,
-            frame: GeoDataFrame,
+            frame: Union[
+                gpd.GeoDataFrame,
+                pd.DataFrame,
+            ] = None,
     ):
+        if frame is None:
+            frame = gpd.GeoDataFrame()
         self.frame = frame
 
     @property
@@ -84,8 +90,8 @@ class FrameWrapper:
     @classmethod
     def from_copy(
             cls,
+            frame: pd.DataFrame,
             wrapper: Self,
-            frame: pd.DataFrame
     ) -> Self:
         result = wrapper.copy()
         result.frame = frame
@@ -116,4 +122,15 @@ class FrameWrapper:
     def columns(self):
         return self.frame.columns
 
+    @property
+    def geometry(self) -> gpd.GeoSeries:
+        return self.frame.geometry
+
+    def __set_name__(self, owner, name):
+        self.__name__ = name
+
+    def __copy__(self) -> Self:
+        result = self.__class__()
+        result.__dict__.update(self.__dict__)
+        return result
 

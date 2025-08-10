@@ -28,7 +28,7 @@ class File(
 
     grid: Grid = None
 
-    def __get(
+    def _get(
             self: File,
             instance: Grid,
             owner: type[Grid],
@@ -37,7 +37,7 @@ class File(
         return copy.copy(self)
 
     locals().update(
-        __get__=__get
+        __get__=_get
     )
 
     def __set_name__(self, owner, name):

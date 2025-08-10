@@ -1,4 +1,8 @@
 from __future__ import annotations
+
+import copy
+
+import pandas as pd
 import numpy as np
 from ..grid.grid import Grid
 from functools import *
@@ -12,8 +16,6 @@ from pathlib import Path
 from typing import *
 
 import PIL.Image
-import imageio.v2
-import imageio.v3
 import imageio.v3 as iio
 import numpy
 import numpy as np
@@ -37,7 +39,6 @@ from tile2net.grid.tileseg.loss.utils import get_loss
 from tile2net.grid.tileseg.network.ocrnet import MscaleOCR
 from tile2net.grid.tileseg.utils.misc import AverageMeter, prep_experiment
 
-
 from . import delayed
 from .minibatch import MiniBatch
 from .vectile import VecTile
@@ -45,6 +46,8 @@ from ..grid import file
 from ..util import recursion_block
 from .. import frame
 from ...grid.util import RecursionBlock
+
+sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 
 if False:
     from .padded import Padded
@@ -59,48 +62,6 @@ def sha256sum(path):
             h.update(chunk)
     return h.hexdigest()
 
-
-sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
-
-
-def __get__(
-        self: SegGrid,
-        instance: InGrid,
-        owner: type[Grid],
-) -> SegGrid:
-    if instance is None:
-        return self
-    try:
-        result = instance.__dict__[self.__name__]
-        result.grid = instance
-        result.instance = instance
-    except KeyError as e:
-        msg = (
-            f'ingrid.{self.__name__} has not been set. You may '
-            f'customize the segmentation functionality by using '
-            f'`Ingrid.set_segmentation`'
-        )
-        logger.info(msg)
-        cfg = instance.cfg
-
-        scale = cfg.segscale
-        length = cfg.segtile.length
-        dimension = cfg.segdimension
-
-        if scale:
-            instance = instance.set_segmentation(scale=scale)
-        elif length:
-            instance = instance.set_segmentation(length=length)
-        elif dimension:
-            instance = instance.set_segmentation(dimension=dimension)
-        else:
-            raise ValueError(
-                'You must set at least one of the following '
-                'segmentation parameters: segscale, segtile.length, or segdimension.'
-            )
-        result = instance.segtile
-
-    return result
 
 
 class File(
@@ -127,6 +88,7 @@ class File(
         #     grid._stitch_infile()
         # grid[key] = files
         # return grid[key]
+        raise NotImplementedError
 
         self.grid.ingrid.outdir.seggrid
 
@@ -207,8 +169,50 @@ class SegGrid(
     Grid,
 ):
     __name__ = 'seggrid'
+
+    def _get(
+            self: SegGrid,
+            instance: InGrid,
+            owner: type[Grid],
+    ) -> SegGrid:
+        # super(SegGrid, self).__get__(instance, owner)
+        self.instance = instance
+        if instance is None:
+            return copy.copy(self)
+        try:
+            result = instance.__dict__[self.__name__]
+            # result.grid = instance
+            result.instance = instance
+        except KeyError as e:
+            msg = (
+                f'ingrid.{self.__name__} has not been set. You may '
+                f'customize the segmentation functionality by using '
+                f'`Ingrid.set_segmentation`'
+            )
+            logger.info(msg)
+            cfg = instance.cfg
+
+            scale = cfg.segscale
+            length = cfg.segtile.length
+            dimension = cfg.segdimension
+
+            if scale:
+                instance = instance.set_segmentation(scale=scale)
+            elif length:
+                instance = instance.set_segmentation(length=length)
+            elif dimension:
+                instance = instance.set_segmentation(dimension=dimension)
+            else:
+                raise ValueError(
+                    'You must set at least one of the following '
+                    'segmentation parameters: segscale, segtile.length, or segdimension.'
+                )
+            result = instance.seggrid
+
+        return result
+
     locals().update(
-        __get__=__get__,
+        __get__=_get,
     )
 
     @cached_property
@@ -226,9 +230,13 @@ class SegGrid(
         result = ingrid.dimension * self.length
         return result
 
-    @cached_property
-    def grid(self) -> InGrid:
-        ...
+    # @cached_property
+    # def grid(self) -> InGrid:
+    #     ...
+
+    @property
+    def grid(self):
+        return self.instance
 
     @recursion_block
     def _stitch_infile(self) -> Self:

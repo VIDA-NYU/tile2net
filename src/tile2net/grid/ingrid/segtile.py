@@ -5,6 +5,8 @@ import copy
 
 import pandas as pd
 
+from tile2net.grid.frame.namespace import namespace
+
 if False:
     from .ingrid import InGrid
 
@@ -19,21 +21,26 @@ def __get__(
 
 
 class SegTile(
-
+    namespace,
 ):
     ingrid: InGrid
-    locals().update(
-        __get__=__get__,
-    )
+
+    # locals().update(
+    #     __get__=__get__,
+    # )
 
     @property
-    def grid(self):
+    def ingrid(self) -> InGrid:
+        return self.instance
+
+    @property
+    def grid(self) -> InGrid:
         return self.ingrid
 
     @property
     def length(self):
         """Number of static grid in one dimension of the segtile"""
-        return self.ingrid.segtile.length
+        return self.ingrid.seggrid
 
     @property
     def index(self):
@@ -67,7 +74,7 @@ class SegTile(
             return ingrid[key]
 
         seggrid = ingrid.seggrid.padded
-        result = ingrid.ytile // ingrid.segtile.length
+        result = ingrid.ytile // ingrid.seggrid.length
 
         msg = 'All segtile.ytile must be in seggrid.ytile!'
         assert result.isin(seggrid.ytile).all(), msg
@@ -141,9 +148,3 @@ class SegTile(
         )
         ingrid[key] = result
         return ingrid[key]
-
-    def __init__(self, *args):
-        ...
-
-    def __set_name__(self, owner, name):
-        self.__name__ = name

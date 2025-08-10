@@ -122,7 +122,7 @@ class SegTile(
 
     @property
     def ipred(self) -> pd.Series:
-        intiles = self.intiles4
+        intiles = self.intiles
         key = 'segtile.ipred'
         if key in intiles.columns:
             return intiles[key]

@@ -23,18 +23,17 @@ class namespace(
     __wrapped__ = None
     __name__ = None
 
-    def __get(
+    def _get(
             self,
             instance: TGrid,
             owner
     ) :
-
         self.instance = instance
         self.frame = instance.frame
         return copy.copy(self)
 
     locals().update(
-        __get__=__get,
+        __get__=_get,
     )
 
     def __init__(
@@ -43,6 +42,7 @@ class namespace(
             *args,
             **kwargs
     ):
+
         if returns_or_assigns(func):
             update_wrapper(self, func)
 

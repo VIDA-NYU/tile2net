@@ -12,6 +12,8 @@ from ..explore import explore
 from ..fixed import GeoDataFrameFixed
 from ..vecgrid.mask2poly import Mask2Poly
 
+from ..frame.framewrapper import FrameWrapper
+
 if False:
     from .ingrid import InGrid
     import folium
@@ -20,11 +22,11 @@ if False:
 
 
 class Polygons(
-    GeoDataFrameFixed
+    FrameWrapper
 ):
     __name__ = 'polygons'
 
-    def __get(
+    def _get(
             self: Polygons,
             instance: InGrid,
             owner: type[InGrid]
@@ -87,7 +89,7 @@ class Polygons(
         return result
 
     locals().update(
-        __get__=__get,
+        __get__=_get,
     )
     ingrid: InGrid = None
 
@@ -119,7 +121,7 @@ class Polygons(
 
         import folium
         feature2color = cfg.label2color
-        it = self.groupby('feature', observed=False)
+        it = self.frame.groupby('feature', observed=False)
         for feature, frame in it:
             color = feature2color[feature]
             m = explore(

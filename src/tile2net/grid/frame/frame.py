@@ -22,7 +22,7 @@ class Column(
     def __set_name__(self, owner, name):
         self.__name__ = name
 
-    def __get(
+    def _get(
             self,
             instance: FrameWrapper,
             owner
@@ -49,7 +49,7 @@ class Column(
         return result
 
     locals().update(
-        __get__=__get
+        __get__=_get
     )
 
     if False:
@@ -85,11 +85,12 @@ class Column(
         names = []
         while True:
             names.append(instance.__name__)
-            if isinstance(instance, FrameWrapper):
-                break
-            if instance is None:
-                break
             instance = instance.instance
+            if (
+                instance is None
+                or isinstance(instance, FrameWrapper)
+            ):
+                break
 
         result = '.'.join(names[::-1])
         return result

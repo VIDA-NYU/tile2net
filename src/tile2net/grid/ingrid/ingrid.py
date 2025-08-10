@@ -8,7 +8,8 @@ from ..dir.dir import Dir, ExtensionNotFoundError, XYNotFoundError
 
 # thread-local store
 tls = threading.local()
-
+from ..seggrid.seggrid import SegGrid
+from ..vecgrid.vecgrid import VecGrid
 import geopandas as gpd
 from ..vecgrid.vecgrid import VecGrid
 
@@ -79,6 +80,21 @@ class InGrid(
     @File
     def file(self):
         ...
+
+    @VecGrid
+    def vecgrid(self) -> VecGrid:
+        """
+        After performing SegTiles.stitch, SegTiles.vectiles is
+        available for performing inference on the stitched tiles.
+        """
+
+    @SegGrid
+    def seggrid(self) -> SegGrid:
+        """
+        After performing InTiles.stitch, InTiles.segtiles is
+        available for performing inference on the stitched tiles.
+        """
+
 
     @cached_property
     def dimension(self) -> int:
@@ -608,7 +624,6 @@ class InGrid(
         assert seggrid.padded.index.isin(ingrid.padded.segtile.index).all()
 
         assert seggrid.scale == scale
-        seggrid
         assert len(seggrid) <= len(ingrid)
         assert len(self) <= len(ingrid)
 

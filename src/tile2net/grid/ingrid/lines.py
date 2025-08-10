@@ -18,6 +18,7 @@ from ..cfg import cfg
 from ..cfg.logger import logger
 from ..explore import explore
 from ..fixed import GeoDataFrameFixed
+from ..frame.framewrapper import FrameWrapper
 
 if False:
     from .ingrid import InGrid
@@ -26,9 +27,10 @@ if False:
 
 
 class Lines(
-    GeoDataFrameFixed
+    FrameWrapper
 ):
-    def __get(
+
+    def _get(
             self: Lines,
             instance: InGrid,
             owner: type[InGrid]
@@ -61,7 +63,7 @@ class Lines(
                     .explode()
                     .reset_index()
                     .rename(columns=dict(level_2='feature', ))
-                    .pipe(self.__class__)
+                    .pipe(self.__class__.from_copy, wrapper=self)
                 )
 
                 instance.__dict__[self.__name__] = result
@@ -86,7 +88,7 @@ class Lines(
                 frame = result.loc[iline].reset_index()
                 coords = COORDS[iend]
                 geometry = shapely.points(coords)
-                borders = instance.vecgrid.exterior.union_all()
+                borders = instance.vecgrid.geometry.exterior.union_all()
                 loc = shapely.intersects(geometry, borders)
                 iend = iend[loc]
                 coords = COORDS[iend]
@@ -144,7 +146,7 @@ class Lines(
     __name__ = 'lines'
     ingrid: InGrid = None
     locals().update(
-        __get__=__get,
+        __get__=_get,
     )
 
     @property

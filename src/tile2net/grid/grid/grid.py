@@ -1,28 +1,19 @@
 from __future__ import annotations
-from .stitcher import Stitcher
-import os
 
-import copy
+import os
 import threading
+
+from .stitcher import Stitcher
 
 # thread-local store
 tls = threading.local()
 
-import shutil
-import tempfile
-
 import PIL.Image
-import certifi
-import geopandas as gpd
-import requests
 from PIL import Image
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 from concurrent.futures import ThreadPoolExecutor
 
 import math
 
-from tile2net.grid import util
 from tile2net.grid.explore import explore
 from tile2net.grid.cfg.logger import logger
 
@@ -43,7 +34,7 @@ from tile2net.raster import util
 from .corners import Corners
 from .. import frame
 from .. import util
-from tile2net.grid.frame.framewrapper import FrameWrapper
+from ..frame.framewrapper import FrameWrapper
 from .file import File
 from ..cfg import cfg, Cfg
 

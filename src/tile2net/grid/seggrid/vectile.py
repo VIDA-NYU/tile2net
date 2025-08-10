@@ -1,4 +1,5 @@
 from __future__ import annotations
+from tile2net.grid.frame.namespace import namespace
 import pandas as pd
 
 import copy
@@ -20,12 +21,16 @@ def __get__(
 
 
 class VecTile(
-
+    namespace,
 ):
     seggrid: SegGrid
-    locals().update(
-        __get__=__get__,
-    )
+    # locals().update(
+    #     __get__=__get__,
+    # )
+
+    @property
+    def seggrid(self):
+        return self.instance
 
     @property
     def grid(self):

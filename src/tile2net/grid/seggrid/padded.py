@@ -39,35 +39,36 @@ def boundary_grid(
     return coords[mask]
 
 
-def __get__(
-        self: Padded,
-        instance: SegGrid,
-        owner,
-) -> Padded:
-    if instance is None:
-        result = self
-    elif self.__name__ in instance.__dict__:
-        result = instance.__dict__[self.__name__]
-    else:
-        result = (
-            instance
-            .to_padding()
-            .pipe(self.__class__)
-        )
-        assert instance.index.isin(result.index).all()
-        result.__dict__.update(instance.__dict__)
-        instance.__dict__[self.__name__] = result
-
-    result.instance = instance
-    return result
-
 
 class Padded(
     padded.Padded,
     SegGrid
 ):
+
+    def _get(
+            self: Padded,
+            instance: SegGrid,
+            owner,
+    ) -> Padded:
+        if instance is None:
+            result = self
+        elif self.__name__ in instance.__dict__:
+            result = instance.__dict__[self.__name__]
+        else:
+            result = (
+                instance
+                .to_padding()
+                .pipe(self.__class__)
+            )
+            assert instance.index.isin(result.index).all()
+            result.__dict__.update(instance.__dict__)
+            instance.__dict__[self.__name__] = result
+
+        result.instance = instance
+        return result
+
     locals().update(
-        __get__=__get__
+        __get__=_get
     )
 
     @VecTile
