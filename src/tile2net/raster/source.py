@@ -693,6 +693,7 @@ class VexCel(Source, ABC):
             for layer in self.layers
             if not layer
             .lower()
+            # exclude greyscale imagery
             .endswith('-g')
         }
         for cand in self.prefer_layers:
