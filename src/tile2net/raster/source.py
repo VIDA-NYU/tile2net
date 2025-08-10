@@ -371,6 +371,8 @@ class NewYorkCity(ArcGis):
     name = 'nyc'
     keyword = 'New York City', 'City of New York'
     year = 2024
+    coverage = wkt.loads("POLYGON ((-73.69048 40.4889, -73.69048 40.92834, -74.27615 40.92834, -74.27615 40.4889, -73.69048 40.4889))")
+    coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
 class NewYork(ArcGis):
@@ -378,6 +380,8 @@ class NewYork(ArcGis):
     name = 'ny'
     keyword = 'New York'
     year = 2024
+    coverage = wkt.loads("POLYGON ((-73.25509 40.48341, -73.25509 45.03931, -79.77922 45.03931, -79.77922 40.48341, -73.25509 40.48341))")
+    coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
 class Massachusetts(ArcGis):
@@ -386,6 +390,8 @@ class Massachusetts(ArcGis):
     keyword = 'Massachusetts'
     extension = 'jpg'
     year = 2021
+    coverage = wkt.loads("POLYGON ((-69.92466 41.2265, -69.92466 42.89199, -73.51979 42.89199, -73.51979 41.2265, -69.92466 41.2265))")
+    coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
 class KingCountyWashington(ArcGis):
@@ -393,6 +399,8 @@ class KingCountyWashington(ArcGis):
     name = 'king'
     keyword = 'King County, Washington', 'King County'
     year = 2023
+    coverage = wkt.loads("POLYGON ((-121.03559 47.04875, -121.03559 47.96618, -122.56958 47.96618, -122.56958 47.04875, -121.03559 47.04875))")
+    coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
 class WashingtonDC(ArcGis):
@@ -403,6 +411,8 @@ class WashingtonDC(ArcGis):
     extension = 'jpeg'
     keyword = 'District of Columbia', 'DC'
     year = 2023
+    coverage = wkt.loads("POLYGON ((-76.90102 38.7855, -76.90072 39.0017, -77.12237 39.00168, -77.122 38.78548, -76.90102 38.7855))")
+    coverage = GeoSeries(coverage, crs='epsg:4326')
 
     def __getitem__(self, item: Iterator[Tile]):
         for tile in item:
@@ -424,6 +434,8 @@ class LosAngeles(ArcGis):
     name = 'la'
     keyword = 'Los Angeles'
     year = 2014
+    coverage = wkt.loads("POLYGON ((-117.63102 33.28853, -117.63102 34.83012, -118.95937 34.83012, -118.95937 33.28853, -117.63102 33.28853))")
+    coverage = GeoSeries(coverage, crs='epsg:4326')
 
     # to test case where a source raises an error due to metadata failure
     #   other sources should still function
@@ -463,6 +475,8 @@ class NewJersey(ArcGis):
     name = 'nj'
     keyword = 'New Jersey'
     year = 2020
+    coverage = wkt.loads("POLYGON ((-73.85543 38.824, -73.85543 41.3866, -75.59981 41.3866, -75.59981 38.824, -73.85543 38.824))")
+    coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
 class SpringHillTN(ArcGis):
@@ -470,6 +484,8 @@ class SpringHillTN(ArcGis):
     name = 'sh_tn'
     keyword = 'Spring Hill, Tennessee', 'Spring Hill'
     year = 2020
+    coverage = wkt.loads("POLYGON ((-86.75604 35.58884, -86.75604 35.85806, -87.13095 35.85806, -87.13095 35.58884, -86.75604 35.58884))")
+    coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
 class Virginia(ArcGis):
@@ -747,6 +763,31 @@ class Maine(VexCel):
         "-70.64573401557249 43.09008331966716)))"
     )
     coverage = GeoSeries(coverage, crs='epsg:4326')
+
+
+
+def print_coverages(
+        simplify: Optional[float] = 5,
+) -> None:
+    # utility function to print all coverages to be hard-coded
+    # get the canonical coverage series; ensure EPSG:4326 for consistency
+    coverages = SourceMeta.coverage
+    # coerce to integer decimals if provided
+    decimals: Optional[int] = None
+    if simplify is not None:
+        decimals = int(simplify)
+
+    for name, geom in coverages.items():
+        # use text-level rounding; does not alter topology/coords
+        if decimals is not None:
+            txt = geom.simplify(simplify, preserve_topology=True).wkt
+        else:
+            txt = geom.wkt
+
+        # print the source name (index) and its WKT
+        print(name)
+        print(txt)
+
 
 
 if __name__ == '__main__':
