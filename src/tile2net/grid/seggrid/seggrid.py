@@ -180,7 +180,7 @@ class SegGrid(
         if instance is None:
             return copy.copy(self)
         try:
-            result = instance.__dict__[self.__name__]
+            result = instance.frame.__dict__[self.__name__]
             # result.grid = instance
             result.instance = instance
         except KeyError as e:
@@ -192,9 +192,9 @@ class SegGrid(
             logger.info(msg)
             cfg = instance.cfg
 
-            scale = cfg.segscale
+            scale = cfg.segtile.scale
             length = cfg.segtile.length
-            dimension = cfg.segdimension
+            dimension = cfg.segtile.dimension
 
             if scale:
                 instance = instance.set_segmentation(scale=scale)
@@ -210,6 +210,7 @@ class SegGrid(
             result = instance.seggrid
 
         return result
+
 
     locals().update(
         __get__=_get,
@@ -662,3 +663,7 @@ class SegGrid(
         for fut in futures:
             fut.result()
         futures.clear()
+
+SegGrid.static
+SegGrid.__set__
+

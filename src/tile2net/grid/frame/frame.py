@@ -25,24 +25,29 @@ class Column(
     def _get(
             self,
             instance: FrameWrapper,
-            owner
+            owner: type
     ) -> Self | pd.Series:
-        self.instance = instance
-        self.frame = instance.frame
-        frame = self.frame
+        self = super()._get(instance, owner)
+        frame = self.wrapper.frame
         result = copy.copy(self)
         if instance is None:
             return result
         key = self.key
         if key in frame:
             return frame[key]
+        if key in frame.index.names:
+            return frame.index.get_level_values(key)
         wrapped = self.__wrapped__
         if wrapped is None:
-            msg = f'No wrapper implemented for {owner}.{self.__name__}'
+            msg = (
+                f'No wrapper implemented for '
+                f'{owner.__qualname__}.{self.__name__}'
+            )
             raise NotImplementedError(msg)
         result = (
             self.__wrapped__
             .__get__(instance, owner)
+            .__call__()
         )
         frame[key] = result
         result = frame[key]
@@ -60,77 +65,68 @@ class Column(
         ]:
             ...
 
-
-    def __set__(
-            self,
-            instance,
-            value,
-    ):
-        self.instance = instance
-        self.frame = frame = instance.frame
-        result = copy.copy(self)
-        if instance is None:
-            return result
-        key = self.key
-        frame[key] = value
-
     @cached_property
     def key(self):
-        # instance = self.instance
-        # names = []
-        # while not isinstance(instance, FrameWrapper):
-        #     names.append(instance.__name__)
-        #     instance = instance.instance
         instance = self
         names = []
         while True:
             names.append(instance.__name__)
             instance = instance.instance
             if (
-                instance is None
-                or isinstance(instance, FrameWrapper)
+                    instance is None
+                    or isinstance(instance, FrameWrapper)
             ):
                 break
 
         result = '.'.join(names[::-1])
         return result
 
-    def __delete__(
+    def __set__(
             self,
-            instance,
+            instance: namespace,
+            value,
     ):
         self.instance = instance
-        self.frame = frame = instance.frame
-        result = copy.copy(self)
-        if instance is None:
-            return result
+        self.wrapper = instance.wrapper
+        wrapper: FrameWrapper = self.wrapper
+        cache = wrapper.frame.__dict__
         key = self.key
-        try:
-            del frame[key]
-        except KeyError:
-            ...
+        cache[key] = value
+
+    def __delete__(
+            self,
+            instance: namespace,
+    ):
+        self.instance = instance
+        self.wrapper = instance.wrapper
+        wrapper: FrameWrapper = self.wrapper
+        cache = wrapper.frame.__dict__
+        key = self.key
+        del cache[key]
 
 
 class Index(Column):
-    def __get__(
-            self,
-            instance,
-            owner
-    ) -> Union[
-        Self,
-        pd.Index,
-        pd.Series,
-    ]:
-        self.instance = instance
-        self.frame = instance.frame
-        frame = self.frame
-        try:
-            return frame.index.get_level_values(self.key)
-        except KeyError:
-            return super().__get__(instance, owner)
+    # def __get__(
+    #         self,
+    #         instance,
+    #         owner
+    # ) -> Union[
+    #     Self,
+    #     pd.Index,
+    #     pd.Series,
+    # ]:
+    #     self = super()._get(instance, owner)
+    #     frame = self.frame
+    #     try:
+    #         return frame.index.get_level_values(self.key)
+    #     except KeyError:
+    #         return super().__get__(instance, owner)
+    ...
+
+
 
 def column(
-    *args, **kwargs
+        *args, **kwargs
 ) -> Union[
     pd.Series,
     Column
@@ -139,7 +135,7 @@ def column(
 
 
 def index(
-    *args, **kwargs
+        *args, **kwargs
 ) -> Union[
     pd.Index,
     Index

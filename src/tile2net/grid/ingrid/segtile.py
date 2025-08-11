@@ -40,7 +40,7 @@ class SegTile(
     @property
     def length(self):
         """Number of static grid in one dimension of the segtile"""
-        return self.ingrid.seggrid
+        return self.ingrid.seggrid.length
 
     @property
     def index(self):
@@ -50,36 +50,29 @@ class SegTile(
         return result
 
     @frame.column
-    def xtile(self) -> pd.Series:
+    def xtile(self):
         """Tile integer X of this tile in the seggrid segtile"""
         ingrid = self.ingrid
 
         seggrid = ingrid.seggrid.padded
-        result = ingrid.xtile // ingrid.segtile.length
+        result: pd.Index = ingrid.xtile.__floordiv__(ingrid.segtile.length)
 
         msg = 'All segtile.xtile must be in seggrid.xtile!'
-        loc = ~result.isin(seggrid.xtile)
-
-        result.isin(seggrid.xtile).any()
-        result.isin(seggrid.ytile)
         assert result.isin(seggrid.xtile).all(), msg
         return result
 
-    @property
-    def ytile(self) -> pd.Series:
-        """Tile integer X of this tile in the seggrid segtile"""
-        key = 'segtile.ytile'
+    @frame.column
+    def ytile(self):
+        """Tile integer Y of this tile in the seggrid segtile"""
         ingrid = self.ingrid
-        if key in ingrid.columns:
-            return ingrid[key]
 
         seggrid = ingrid.seggrid.padded
-        result = ingrid.ytile // ingrid.seggrid.length
+        result: pd.Index = ingrid.ytile.__floordiv__(ingrid.segtile.length)
 
         msg = 'All segtile.ytile must be in seggrid.ytile!'
         assert result.isin(seggrid.ytile).all(), msg
-        ingrid[key] = result
         return result
+
 
     @property
     def r(self) -> pd.Series:

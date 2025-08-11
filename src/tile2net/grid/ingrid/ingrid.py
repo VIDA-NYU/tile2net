@@ -1,56 +1,44 @@
 from __future__ import annotations
 
 import copy
-import threading
-
-from ..cfg import cfg
-from ..dir.dir import Dir, ExtensionNotFoundError, XYNotFoundError
-
-# thread-local store
-tls = threading.local()
-from ..seggrid.seggrid import SegGrid
-from ..vecgrid.vecgrid import VecGrid
-import geopandas as gpd
-from ..vecgrid.vecgrid import VecGrid
-
-import threading
-
-from ..grid.grid import Grid
-
 import os
 import os.path
 import shutil
 import tempfile
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import *
 from pathlib import Path
+from typing import *
 
-from . import delayed
 import certifi
+import geopandas as gpd
 import imageio.v3 as iio
+import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
 from tqdm import tqdm
 from tqdm.auto import tqdm
 from urllib3.util.retry import Retry
 
+from tile2net.grid import static
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.dir.indir import Indir
 from tile2net.grid.dir.outdir import Outdir
-
-import pandas as pd
-
-from .. import frame
-
-from typing import *
-
-from functools import *
-
-from ...grid.util import recursion_block
-from .vectile import VecTile
+from . import delayed
 from .segtile import SegTile
-from ..grid import file
 from .source import Source
+from .vectile import VecTile
+from .. import frame
+from ..cfg import cfg
+from ..dir.dir import Dir, ExtensionNotFoundError, XYNotFoundError
+from ..grid import file
+from ..grid.grid import Grid
+from ..seggrid.seggrid import SegGrid
+from ..vecgrid.vecgrid import VecGrid
+from ...grid.util import recursion_block, assert_perfect_overlap
 
+# thread-local store
 tls = threading.local()
 
 if False:
@@ -77,6 +65,16 @@ class File(
 class InGrid(
     Grid
 ):
+
+    @property
+    def ingrid(self) -> InGrid:
+        return self
+
+    @static.Static
+    def static(self):
+        """
+        """
+
     @File
     def file(self):
         ...
@@ -112,7 +110,6 @@ class InGrid(
     @Indir
     def indir(self):
         ingrid = self.ingrid.outdir.ingrid
-        extension = self.source.extension
         format = os.path.join(
             ingrid.dir,
             'infile',
@@ -307,9 +304,6 @@ class InGrid(
         logger.info("All requested grid are on disk.")
         return self
 
-    @delayed.Padded
-    def padded(self) -> Padded:
-        ...
 
     def _make_session(
             self,
@@ -620,8 +614,16 @@ class InGrid(
         ingrid.seggrid = seggrid
         seggrid = ingrid.seggrid
 
-        assert ingrid.padded.segtile.index.isin(seggrid.padded.index).all()
-        assert seggrid.padded.index.isin(ingrid.padded.segtile.index).all()
+        assert (
+            ingrid.padded.segtile.index
+            .isin(seggrid.padded.index)
+            .all()
+        )
+        assert (
+            seggrid.padded.index
+            .isin(ingrid.padded.segtile.index)
+            .all()
+        )
 
         assert seggrid.scale == scale
         assert len(seggrid) <= len(ingrid)
@@ -652,8 +654,8 @@ class InGrid(
             length in segmentation grid of each vectorization tile,
             including padding
         scale:
-
         """
+
         # todo: if all are None, determine dimension using RAM
         seggrid = self.seggrid
         if dimension:
@@ -705,3 +707,5 @@ class InGrid(
         assert len(ingrid) == len(vecgrid) * area
 
         return ingrid
+
+

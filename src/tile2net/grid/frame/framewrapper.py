@@ -1,20 +1,56 @@
 from __future__ import annotations
+
+from typing import (
+    TYPE_CHECKING,
+)
+
+if TYPE_CHECKING:
+    pass
+
+from typing import (
+    TYPE_CHECKING,
+)
+
+if TYPE_CHECKING:
+    from pandas._typing import (
+        Self,
+    )
+
+from tile2net.grid.frame.namespace import namespace
+
 import geopandas as gpd
+
 
 import copy
 from functools import *
 from typing import *
 
 import pandas as pd
-from geopandas import GeoDataFrame
+from .wrapper import Wrapper
 
-from tile2net.grid import static
 
 
 class FrameWrapper(
-
+    Wrapper,
+    namespace,
 ):
     frame: pd.DataFrame | gpd.GeoDataFrame
+
+    def __getattr__(self, item):
+        return getattr(self.frame, item)
+
+
+    # def _repr_data_resource_(self):
+    #     return self.frame._repr_data_resource_()
+    #
+    # def _repr_fits_vertical_(self) -> bool:
+    #     return self.frame._repr_fits_vertical_()
+    #
+    # def _repr_fits_horizontal_(self) -> bool:
+    #     return self.frame._repr_fits_horizontal_()
+    #
+    # def _repr_html_(self) -> str | None:
+    #     return self.frame._repr_html_()
 
     def __init__(
             self,
@@ -22,10 +58,14 @@ class FrameWrapper(
                 gpd.GeoDataFrame,
                 pd.DataFrame,
             ] = None,
+            *args,
+            **kwargs
     ):
+        super().__init__(frame, *args, **kwargs)
         if frame is None:
-            frame = gpd.GeoDataFrame()
-        self.frame = frame
+            self.frame = gpd.GeoDataFrame()
+        elif isinstance(frame, (pd.DataFrame, gpd.GeoDataFrame)):
+            self.frame = frame
 
     @property
     def index(self):
@@ -61,15 +101,19 @@ class FrameWrapper(
         """
         return partial(self._loc)
 
+    # def copy(self) -> Self:
+    #     result = copy.copy(self)
+    #     del result.static
+    #     return result
+
     def copy(self) -> Self:
         result = copy.copy(self)
-        del result.static
         return result
 
-    @static.Static
-    def static(self):
-        """
-        """
+    # @static.Static
+    # def static(self):
+    #     """
+    #     """
 
     def __delitem__(self, key):
         del self.frame[key]
@@ -88,13 +132,28 @@ class FrameWrapper(
         return self.frame[item]
 
     @classmethod
-    def from_copy(
+    def from_frame(
             cls,
             frame: pd.DataFrame,
             wrapper: Self,
     ) -> Self:
-        result = wrapper.copy()
-        result.frame = frame
+        result = cls()
+        result.__dict__.update(wrapper.__dict__)
+        result.frame = frame.copy()
+        return result
+
+    @classmethod
+    def from_wrapper(
+            cls,
+            wrapper: Self,
+            frame: pd.DataFrame = None,
+    ) -> Self:
+        result = cls()
+        result.__dict__.update(wrapper.__dict__)
+        if frame is not None:
+            result.frame = frame.copy()
+        else:
+            result.frame = result.frame.copy()
         return result
 
     def to_copy(
@@ -134,3 +193,21 @@ class FrameWrapper(
         result.__dict__.update(self.__dict__)
         return result
 
+
+
+# from IPython import get_ipython
+# ip = get_ipython()
+# for mt in (
+#     "application/vnd.dataframe+json",
+#     "application/vnd.dataresource+json",  # older frontends
+#     "text/html",  # fallback
+# ):
+#     fmt = ip.display_formatter.formatters[mt]
+#     base = fmt.lookup_by_type(pd.DataFrame)
+#     if base is not None:
+#         # bind delegating formatter for your wrapper
+#         fmt.for_type(FrameWrapper, lambda obj, _base=base: _base(obj.frame))
+# import pandas as pd
+# pd.options.display.html.table_schema = True
+# # Optional if you want HTML fallback too:
+# pd.options.display.notebook_repr_html = True

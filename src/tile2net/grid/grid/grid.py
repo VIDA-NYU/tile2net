@@ -158,9 +158,9 @@ class Grid(
         # See the following:
         _ = self.file.infile
 
-    @cached_property
+    @property
     def ingrid(self) -> InGrid:
-        ...
+        return self.instance
 
     @property
     def seggrid(self) -> SegGrid:
@@ -318,10 +318,10 @@ class Grid(
         ymax_arr = np.asarray(ymax, dtype='uint32')
 
         if not (
-            xmin_arr.shape ==
-            ymin_arr.shape ==
-            xmax_arr.shape ==
-            ymax_arr.shape
+                xmin_arr.shape ==
+                ymin_arr.shape ==
+                xmax_arr.shape ==
+                ymax_arr.shape
         ):
             msg = 'xmin, ymin, xmax, ymax must have identical shapes'
             raise ValueError(msg)
@@ -377,13 +377,16 @@ class Grid(
                 .reshape(-1, 2)
             )
             xtile, ytile = txy.T
-            result = self.from_integers(
+            scaled = self.from_integers(
                 xtile,
                 ytile,
                 scale
             )
-            assert len(result) == len(self) * (mosaic_length ** 2)
-            assert not result.index.duplicated().any()
+            assert len(scaled) == len(self) * (mosaic_length ** 2)
+            assert not scaled.index.duplicated().any()
+
+            result = self.copy()
+            result.__dict__.update(scaled.__dict__)
 
         elif self.scale > scale:
             # into larger grid
@@ -409,23 +412,23 @@ class Grid(
                 )
                 frame = frame.loc[loc]
 
-            result = self.from_integers(
+            scaled = self.from_integers(
                 frame.xtile,
                 frame.ytile,
                 scale
             )
 
-            assert len(self) > len(result)
-            assert not result.index.duplicated().any()
+            assert len(self) > len(scaled)
+            assert not scaled.index.duplicated().any()
+
+            result = self.copy()
+            result.__dict__.update(scaled.__dict__)
 
         else:
             # same scale
             result = self.copy()
 
-        result.__dict__.update(self.__dict__)
-        result.scale = scale
         return result
-
 
     @classmethod
     def from_rescale(
@@ -450,7 +453,6 @@ class Grid(
         assert result.scale == scale
         return result
 
-
     def to_padding(self, pad: int = 1) -> Self:
         """ Pad each tile by `pad` grid in each direction. """
         padded = (
@@ -458,7 +460,9 @@ class Grid(
             .to_corners(self.scale)
             .to_padding(pad)
             .to_grid()
+            .pipe(self.from_wrapper)
         )
+        assert isinstance(padded, self.__class__)
         padded.frame = padded.frame.sort_index()
 
         assert self.xtile.min() - pad == padded.xtile.min()
@@ -467,7 +471,10 @@ class Grid(
         assert self.ytile.max() + pad == padded.ytile.max()
         if pad >= 0:
             assert self.index.isin(padded.index).all()
-        padded.__dict__.update(self.__dict__)
+
+        result = self.copy()
+        result.__dict__.update(padded.__dict__)
+
         return padded
 
     def to_corners(self, scale: int = None) -> Corners:
@@ -518,7 +525,6 @@ class Grid(
             raise ValueError('func must be provided to pipe')
         result = func(self, *args[1:], **kwargs)
         return result
-
 
     def explore(
             self,
@@ -689,6 +695,11 @@ class Grid(
     def from_empty(cls) -> Self:
         ...
 
+    # def __repr__(self):
+    #     result = f'{self.__class__.__qualname__} wrapper:\n\n'
+    #     result += self.frame.__repr__()
+    #     return result
+
     def __repr__(self):
         return self.frame.__repr__()
 
@@ -743,3 +754,20 @@ class Grid(
     @property
     def crs(self):
         return self.crs
+
+    def __delete__(
+            self,
+            instance: Grid,
+    ):
+        del instance.frame.__dict__[self.__name__]
+
+    def __set__(
+            self,
+            instance: Grid,
+            value,
+    ):
+        instance.frame.__dict__[self.__name__] = value
+
+
+
+

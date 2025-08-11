@@ -336,8 +336,8 @@ class Dir:
             key = f'{self._trace}.{dirname}'
         else:
             key = self._trace
-        if key in grid:
-            return grid[key]
+        if key in grid.frame:
+            return grid.frame[key]
         suffix = (
             self.format
             .removeprefix(self.dir)
@@ -354,8 +354,8 @@ class Dir:
         for p in {Path(p).parent for p in data}:
             p.mkdir(parents=True, exist_ok=True)
         result = pd.Series(data, index=grid.index, dtype='str')
-        grid[key] = result
-        result = grid[key]
+        grid.frame[key] = result
+        result = grid.frame[key]
         return result
 
     def _cleanup(

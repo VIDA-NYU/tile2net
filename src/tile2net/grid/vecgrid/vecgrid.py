@@ -178,7 +178,7 @@ class VecGrid(Grid):
             return copy.copy(self)
         try:
             # result: VecGrid = instance.attrs[self.__name__]
-            result = instance.__dict__[self.__name__]
+            result = instance.frame.__dict__[self.__name__]
             # result.grid = instance
             result.instance = instance
         except KeyError as e:

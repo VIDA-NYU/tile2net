@@ -11,9 +11,14 @@ if False:
 
 from .. import frame
 
+
 class File(
     namespace
 ):
+    @property
+    def grid(self) -> Grid:
+        return self.instance
+
     @frame.column
     def infile(self):
         grid = self.grid.ingrid
@@ -25,22 +30,19 @@ class File(
             grid.download()
         return files
 
-
-    grid: Grid = None
-
-    def _get(
-            self: File,
-            instance: Grid,
-            owner: type[Grid],
-    ) -> File:
-        self.grid = instance
-        return copy.copy(self)
-
-    locals().update(
-        __get__=_get
-    )
-
-    def __set_name__(self, owner, name):
-        self.__name__ = name
-
-
+    # grid: Grid = None
+    #
+    # def _get(
+    #         self: File,
+    #         instance: Grid,
+    #         owner: type[Grid],
+    # ) -> File:
+    #     self.grid = instance
+    #     return copy.copy(self)
+    #
+    # locals().update(
+    #     __get__=_get
+    # )
+    #
+    # def __set_name__(self, owner, name):
+    #     self.__name__ = name

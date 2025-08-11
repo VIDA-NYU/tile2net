@@ -52,13 +52,13 @@ class Padded(
     ) -> Padded:
         if instance is None:
             result = self
-        elif self.__name__ in instance.__dict__:
-            result = instance.__dict__[self.__name__]
+        elif self.__name__ in instance.frame.__dict__:
+            result = instance.frame.__dict__[self.__name__]
         else:
             result = (
                 instance
                 .to_padding()
-                .pipe(self.__class__)
+                .pipe(self.__class__.from_wrapper)
             )
             assert instance.index.isin(result.index).all()
             result.__dict__.update(instance.__dict__)

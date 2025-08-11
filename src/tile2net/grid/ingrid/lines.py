@@ -63,7 +63,7 @@ class Lines(
                     .explode()
                     .reset_index()
                     .rename(columns=dict(level_2='feature', ))
-                    .pipe(self.__class__.from_copy, wrapper=self)
+                    .pipe(self.__class__.from_frame, wrapper=self)
                 )
 
                 instance.__dict__[self.__name__] = result

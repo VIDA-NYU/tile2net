@@ -15,10 +15,14 @@ class Padded(
             instance: InGrid,
             owner,
     ) -> Padded:
+        self.instance = instance
         if instance is None:
-            result = self
-        elif self.__name__ in instance.__dict__:
-            result = instance.__dict__[self.__name__]
+            return self
+        cache = instance.frame.__dict__
+        key = self.__name__
+
+        if key in cache:
+            result = cache[key]
         else:
             seggrid = instance.seggrid
             result = (
@@ -26,11 +30,13 @@ class Padded(
                 .to_scale(seggrid.scale)
                 .to_padding()
                 .to_scale(instance.scale)
-                .pipe(self.__class__)
+                .pipe(self.__class__.from_wrapper)
             )
+            assert isinstance(result, self.__class__)
+
             result.__dict__.update(instance.__dict__)
             result.instance = instance
-            instance.__dict__[self.__name__] = result
+            instance.frame.__dict__[self.__name__] = result
         return result
 
     locals().update(

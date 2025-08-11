@@ -9,6 +9,7 @@ from geopandas import GeoDataFrame
 
 from tile2net.grid.util import returns_or_assigns
 
+from .wrapper import Wrapper
 if False:
     from tile2net.grid.grid.grid import Grid
 
@@ -19,7 +20,7 @@ class namespace(
     Generic[TGrid]
 ):
     instance: TGrid = None
-    frame: GeoDataFrame = None
+    # frame: GeoDataFrame = None
     __wrapped__ = None
     __name__ = None
 
@@ -29,12 +30,15 @@ class namespace(
             owner
     ) :
         self.instance = instance
-        self.frame = instance.frame
+        if instance is None:
+            self.wrapper = None
+        elif isinstance(instance, Wrapper):
+            self.wrapper = instance
+        elif isinstance(instance, namespace):
+            self.wrapper = instance.wrapper
+        else:
+            raise TypeError(instance)
         return copy.copy(self)
-
-    locals().update(
-        __get__=_get,
-    )
 
     def __init__(
             self,
@@ -42,9 +46,16 @@ class namespace(
             *args,
             **kwargs
     ):
-
-        if returns_or_assigns(func):
+        if (
+            callable(func)
+            and returns_or_assigns(func)
+        ):
             update_wrapper(self, func)
 
     def __set_name__(self, owner, name):
         self.__name__ = name
+
+    locals().update(
+        __get__=_get,
+    )
+
