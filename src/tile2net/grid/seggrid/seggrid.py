@@ -1,18 +1,13 @@
 from __future__ import annotations
+from ...grid.frame.namespace import namespace
 
 import copy
-
-import pandas as pd
-import numpy as np
-from ..grid.grid import Grid
-from functools import *
-
 import hashlib
 import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import wait
-from pathlib import Path
+from functools import *
 from typing import *
 
 import PIL.Image
@@ -38,14 +33,13 @@ from tile2net.grid.tileseg.loss.optimizer import get_optimizer, restore_opt, res
 from tile2net.grid.tileseg.loss.utils import get_loss
 from tile2net.grid.tileseg.network.ocrnet import MscaleOCR
 from tile2net.grid.tileseg.utils.misc import AverageMeter, prep_experiment
-
 from . import delayed
 from .minibatch import MiniBatch
 from .vectile import VecTile
-from ..grid import file
-from ..util import recursion_block
 from .. import frame
-from ...grid.util import RecursionBlock
+from ..grid import file
+from ..grid.grid import Grid
+from ..util import recursion_block
 
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 
@@ -75,25 +69,18 @@ class File(
         A file for each segmentation tile: the stitched input grid.
         Stitches input files when seggrid.file is accessed
         """
-        # grid = self.grid
-        # key = 'file.infile'
-        # if key in grid:
-        #     return grid[key]
-        # files = grid.ingrid.outdir.seggrid.infile.files(grid)
-        # grid[key] = files
-        # if (
-        #         not grid._stitch_infile
-        #         and not files.map(os.path.exists).all()
-        # ):
-        #     grid._stitch_infile()
-        # grid[key] = files
-        # return grid[key]
-        raise NotImplementedError
-
-        self.grid.ingrid.outdir.seggrid
+        grid = self.grid
+        files = grid.ingrid.outdir.seggrid.infile.files(grid)
+        if (
+                not grid._stitch_infile
+                and not files.map(os.path.exists).all()
+        ):
+            grid._stitch_infile()
+        return files
 
     @frame.column
     def grayscale(self) -> pd.Series:
+        """Segmentation masks, where each pixel is a class id"""
         grid = self.grid
         files = grid.ingrid.outdir.seggrid.grayscale.files(grid)
         if (
@@ -175,8 +162,7 @@ class SegGrid(
             instance: InGrid,
             owner: type[Grid],
     ) -> SegGrid:
-        # super(SegGrid, self).__get__(instance, owner)
-        self.instance = instance
+        self = namespace._get(self, instance, owner)
         if instance is None:
             return copy.copy(self)
         try:
@@ -266,17 +252,9 @@ class SegGrid(
 
         return self
 
-    # @cached_property
-    # def ingrid(self) -> InGrid:
-    #     """InGrid object that this SegGrid object is based on"""
-
     @property
     def ingrid(self) -> InGrid:
         return self.grid
-
-    @frame.column
-    def ipred(self):
-        return np.arange(len(self), dtype=np.uint32)
 
     @property
     def outdir(self):
@@ -443,7 +421,11 @@ class SegGrid(
             cfg.model.bs_val = batch_size
         if not cfg.force:
             loc = ~grid.file.grayscale.apply(os.path.exists)
-            grid: SegGrid = grid.loc[loc].copy()
+            grid = (
+                grid.frame
+                .loc[loc]
+                .pipe(grid.from_frame, wrapper=grid)
+            )
             if not np.any(loc):
                 msg = 'All segmentation grid are on disk.'
                 logger.info(msg)
@@ -523,7 +505,7 @@ class SegGrid(
             assert_and_infer_cfg(cfg)
             prep_experiment()
 
-            struct = datasets.setup_loaders(grid=grid)
+            struct = datasets.setup_loaders(tiles=grid)
             val_loader = struct.val_loader
             criterion, criterion_val = get_loss(cfg)
 
@@ -599,7 +581,7 @@ class SegGrid(
         Run validation for one epoch
         :val_loader: data loader for validation
         """
-        TILES = grid
+        GRID = grid
         cfg = self.cfg
         testing = False
         if cfg.model.eval == 'test':
@@ -624,7 +606,7 @@ class SegGrid(
 
         with logging_redirect_tqdm():
             pbar = tqdm(
-                total=len(TILES),  # one tick per tile
+                total=len(GRID),  # one tick per tile
                 desc="Inferring",
                 unit=f' {self.seggrid.file.grayscale.name}',
                 dynamic_ncols=True,
@@ -635,7 +617,12 @@ class SegGrid(
                     (input_images, labels, img_names, scale_float)
             ) in enumerate(loader):
                 start = i * batch_size
-                grid = TILES.iloc[start: start + len(input_images)]
+                # grid = GRID.iloc[start: start + len(input_images)]
+                grid = (
+                    GRID.frame
+                    .iloc[start: start + len(input_images)]
+                    .pipe(GRID.from_frame, wrapper=GRID)
+                )
 
                 batch = MiniBatch.from_data(
                     images=input_images,
@@ -663,7 +650,3 @@ class SegGrid(
         for fut in futures:
             fut.result()
         futures.clear()
-
-SegGrid.static
-SegGrid.__set__
-

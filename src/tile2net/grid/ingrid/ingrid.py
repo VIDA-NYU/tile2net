@@ -37,6 +37,8 @@ from ..grid.grid import Grid
 from ..seggrid.seggrid import SegGrid
 from ..vecgrid.vecgrid import VecGrid
 from ...grid.util import recursion_block, assert_perfect_overlap
+from .lines import Lines
+from .polygons import Polygons
 
 # thread-local store
 tls = threading.local()
@@ -82,15 +84,15 @@ class InGrid(
     @VecGrid
     def vecgrid(self) -> VecGrid:
         """
-        After performing SegTiles.stitch, SegTiles.vectiles is
-        available for performing inference on the stitched tiles.
+        After performing InGrid.set_vectorization(), InGrid.vecgrid is
+        available for performing vectorization on the stitched tiles.
         """
 
     @SegGrid
     def seggrid(self) -> SegGrid:
         """
-        After performing InTiles.stitch, InTiles.segtiles is
-        available for performing inference on the stitched tiles.
+        After performing InGrid.set_segmentation(), InGrid.seggrid is
+        available for performing segmentation on the stitched tiles.
         """
 
 
@@ -707,5 +709,14 @@ class InGrid(
         assert len(ingrid) == len(vecgrid) * area
 
         return ingrid
+
+    @Lines
+    def lines(self):
+        ...
+
+    @Polygons
+    def polygons(self):
+        ...
+
 
 

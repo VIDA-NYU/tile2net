@@ -20,7 +20,6 @@ class namespace(
     Generic[TGrid]
 ):
     instance: TGrid = None
-    # frame: GeoDataFrame = None
     __wrapped__ = None
     __name__ = None
 

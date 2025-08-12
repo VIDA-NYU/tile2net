@@ -89,7 +89,7 @@ class Column(
         self.instance = instance
         self.wrapper = instance.wrapper
         wrapper: FrameWrapper = self.wrapper
-        cache = wrapper.frame.__dict__
+        cache = wrapper.frame
         key = self.key
         cache[key] = value
 
@@ -100,7 +100,7 @@ class Column(
         self.instance = instance
         self.wrapper = instance.wrapper
         wrapper: FrameWrapper = self.wrapper
-        cache = wrapper.frame.__dict__
+        cache = wrapper.frame
         key = self.key
         del cache[key]
 

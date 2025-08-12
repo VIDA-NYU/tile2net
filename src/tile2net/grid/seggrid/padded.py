@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import copy
+
 import numpy as np
 import pandas as pd
 
 from . import vectile
 from .seggrid import SegGrid
 from ..grid import padded
-
+from ...grid.frame.namespace import namespace
 
 class VecTile(
     vectile.VecTile
@@ -50,21 +52,23 @@ class Padded(
             instance: SegGrid,
             owner,
     ) -> Padded:
-        if instance is None:
-            result = self
-        elif self.__name__ in instance.frame.__dict__:
-            result = instance.frame.__dict__[self.__name__]
+        self = namespace._get(self, instance, owner)
+        cache = instance.frame.__dict__
+        key = self.__name__
+
+        if key in cache:
+            result = cache[key]
         else:
             result = (
                 instance
                 .to_padding()
                 .pipe(self.__class__.from_wrapper)
             )
-            assert instance.index.isin(result.index).all()
-            result.__dict__.update(instance.__dict__)
-            instance.__dict__[self.__name__] = result
 
-        result.instance = instance
+            result.__dict__.update(instance.__dict__)
+            result.instance = instance
+            cache[key] = result
+
         return result
 
     locals().update(

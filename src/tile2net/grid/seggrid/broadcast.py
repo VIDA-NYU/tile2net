@@ -5,20 +5,18 @@ import pandas as pd
 
 from . import vectile
 from .seggrid import SegGrid
-from ..grid import tile
+
+from .. import frame
 
 
 class VecTile(
     vectile.VecTile
 ):
 
-    @property
-    def r(self) -> pd.Series:
+    @frame.column
+    def r(self):
         """row within the segtile of this tile"""
-        grid = self.grid
-        key = 'vectile.r'
-        if key in grid:
-            return grid[key]
+
         ytile = self.grid.ytile.to_series()
         result = (
             ytile
@@ -28,16 +26,11 @@ class VecTile(
             .rsub(ytile.values)
             .values
         )
-        grid[key] = result
-        return grid[key]
+        return result
 
-    @property
-    def c(self) -> pd.Series:
+    @frame.column
+    def c(self):
         """column within the segtile of this tile"""
-        grid = self.grid
-        key = 'vectile.c'
-        if key in grid:
-            return grid[key]
         xtile = self.grid.xtile.to_series()
         result = (
             xtile
@@ -47,8 +40,7 @@ class VecTile(
             .rsub(xtile.values)
             .values
         )
-        grid[key] = result
-        return grid[key]
+        return result
 
 
 
@@ -77,7 +69,7 @@ def __get__(
     if instance is None:
         result = self
     elif self.__name__ in instance.__dict__:
-        result = instance.__dict__[self.__name__]
+        result = instance.frame.__dict__[self.__name__]
     else:
         vecgrid = instance.vecgrid
         seggrid = instance.seggrid.padded
@@ -95,12 +87,13 @@ def __get__(
         result = (
             corners
             .to_grid(drop_duplicates=False)
+            .frame
             .assign(**kwargs)
-            .pipe(Broadcast)
+            .pipe(Broadcast.from_frame, wrapper=instance)
         )
 
-        result.__dict__.update(instance.__dict__)
-        instance.__dict__[self.__name__] = result
+        # instance.__dict__[self.__name__] = result
+        instance.frame.__dict__[self.__name__] = result
 
         d = seggrid.scale - vecgrid.scale
         expected = 2 ** (2 * d) + 4 * 2 ** d + 4

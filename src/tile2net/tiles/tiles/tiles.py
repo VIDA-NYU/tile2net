@@ -1,20 +1,14 @@
 from __future__ import annotations
 
 import os
-from concurrent.futures import ThreadPoolExecutor
 from functools import cached_property
-from pathlib import Path
 from typing import *
 
-import imageio.v2
-import imageio.v3
 import math
 import numpy as np
 import pandas as pd
 import pyproj
 import shapely
-from sympy.codegen.fnodes import intent_in
-from tqdm.auto import tqdm
 
 from tile2net.raster import util
 from tile2net.tiles import util
@@ -24,8 +18,8 @@ from tile2net.tiles.fixed import GeoDataFrameFixed
 from . import tile
 from .colormap import ColorMap
 from .corners import Corners
-from .stitcher import Stitcher
 from .static import Static
+from .stitcher import Stitcher
 from .tile import Tile
 
 if False:

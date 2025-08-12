@@ -100,15 +100,6 @@ class Coverage:
         ...
 
 
-def __get__(
-        self: cls_attr,
-        instance,
-        owner: Source | type[Source]
-) -> T:
-    result = self.func(owner)
-    type.__setattr__(owner, self.name, result)
-    return result
-
 
 def __init__(
         self: cls_attr,
@@ -126,9 +117,20 @@ def __init__(
 class cls_attr(
     # Generic[T],
 ):
+    __wrapped__: Callable = None
+
+    def _get(
+            self: cls_attr,
+            instance,
+            owner: Source | type[Source]
+    ) -> T:
+        result = self.__wrapped__(owner)
+        type.__setattr__(owner, self.name, result)
+        return result
+
     cache = WeakKeyDictionary()
     locals().update(
-        __get__=__get__,
+        __get__=_get,
         __init__=__init__,
     )
 
@@ -137,7 +139,7 @@ class cls_attr(
             ...
 
     @classmethod
-    def relevant_to(cls, item: type[Source]) -> set[class_attr]:
+    def relevant_to(cls, item: type[Source]) -> set[cls_attr]:
         res = {
             attr
             for subclass in item.mro()
@@ -201,7 +203,7 @@ class Source(
         return result
 
     locals().update(
-        __get__=__get__,
+        __get__=_get,
     )
 
     """

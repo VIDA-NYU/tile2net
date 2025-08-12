@@ -11,23 +11,16 @@ if False:
     from .ingrid import InGrid
 
 
-def __get__(
-        self: VecTile,
-        instance: InGrid,
-        owner: type[InGrid],
-) -> VecTile:
-    self.ingrid = instance
-    return copy.copy(self)
-
 
 class VecTile(
     namespace,
 ):
 
     ingrid: InGrid
-    # locals().update(
-    #     __get__=__get__,
-    # )
+
+    @property
+    def ingrid(self):
+        return self.instance
 
     @frame.column
     def xtile(self) -> pd.Series:

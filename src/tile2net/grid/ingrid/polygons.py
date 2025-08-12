@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 import os
 
 import geopandas as gpd
@@ -32,11 +33,11 @@ class Polygons(
             owner: type[InGrid]
     ) -> Polygons:
 
-        self.ingrid = instance
+        self = super()._get(instance, owner)
         if instance is None:
             result = self
         elif self.__name__ in instance.__dict__:
-            result = instance.__dict__[self.__name__]
+            result = instance.frame.__dict__[self.__name__]
         else:
 
             file = self.file
@@ -49,7 +50,8 @@ class Polygons(
                 vecgrid = instance.vecgrid
                 n = len(instance.vecgrid.polygons)
                 grid_size = max(
-                    (affine.a ** 2 + affine.e ** 2) ** .5
+                    (affine.a ** 2 + affine.e ** 2)
+                    ** .5
                     for affine in vecgrid.affine_params
                 )
 
@@ -82,7 +84,7 @@ class Polygons(
                 logger.info(msg)
                 result.to_parquet(file)
 
-            instance.__dict__[self.__name__] = result
+            instance.frame.__dict__[self.__name__] = result
 
         result.ingrid = instance
 

@@ -28,6 +28,39 @@ from typing import *
 import pandas as pd
 from .wrapper import Wrapper
 
+class Loc:
+    instance: FrameWrapper
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        ...
+
+
+    def __get__(
+            self,
+            instance,
+            owner
+    ):
+        self.instance = instance
+        return copy.copy(self)
+    def __set_name__(self, owner, name):
+        self.__name__ = name
+
+    def __getitem__(self, item):
+        result = (
+            getattr(self.instance.frame, self.__name__)
+            [item]
+            .pipe(self.instance.from_frame, self.instance)
+        )
+        return result
+
+
+
+
+
 
 
 class FrameWrapper(
@@ -36,8 +69,8 @@ class FrameWrapper(
 ):
     frame: pd.DataFrame | gpd.GeoDataFrame
 
-    def __getattr__(self, item):
-        return getattr(self.frame, item)
+    # def __getattr__(self, item):
+    #     return getattr(self.frame, item)
 
 
     # def _repr_data_resource_(self):
@@ -101,19 +134,10 @@ class FrameWrapper(
         """
         return partial(self._loc)
 
-    # def copy(self) -> Self:
-    #     result = copy.copy(self)
-    #     del result.static
-    #     return result
 
     def copy(self) -> Self:
         result = copy.copy(self)
         return result
-
-    # @static.Static
-    # def static(self):
-    #     """
-    #     """
 
     def __delitem__(self, key):
         del self.frame[key]
@@ -121,15 +145,15 @@ class FrameWrapper(
     def __setitem__(self, key, value):
         self.frame[key] = value
 
-    def __getitem__(self, item) -> Union[
-        pd.Series,
-        pd.DataFrame,
-        gpd.GeoDataFrame,
-        gpd.GeoSeries,
-        pd.Index,
-        pd.MultiIndex,
-    ]:
-        return self.frame[item]
+    # def __getitem__(self, item) -> Union[
+    #     pd.Series,
+    #     pd.DataFrame,
+    #     gpd.GeoDataFrame,
+    #     gpd.GeoSeries,
+    #     pd.Index,
+    #     pd.MultiIndex,
+    # ]:
+    #     return self.frame[item]
 
     @classmethod
     def from_frame(
@@ -192,6 +216,17 @@ class FrameWrapper(
         result = self.__class__()
         result.__dict__.update(self.__dict__)
         return result
+
+    @Loc
+    def loc(self):
+        ...
+
+    @Loc
+    def iloc(self):
+        ...
+
+
+
 
 
 

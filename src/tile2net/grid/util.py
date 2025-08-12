@@ -193,7 +193,10 @@ def geocode(location) -> list[float]:
         except (ValueError, AttributeError):  # fails if address or list
             msg = f'Geocoding the following, please wait:\n \t{location}'
             logger.info(msg)
-            nom: geopy.Location = Nominatim(user_agent='tile2net').geocode(location, timeout=None)
+            nom: geopy.Location = (
+                Nominatim(user_agent='tile2net')
+                .geocode(location, timeout=None)
+            )
             if nom is None:
                 raise ValueError(f"Could not geocode '{location}'")
             logger.info(f"Geocoded to\n\t{nom.raw['display_name']}")
@@ -420,7 +423,11 @@ class RecursionBlock:
         update_wrapper(self, func)
 
     def __bool__(self):
-        return self.grid.__dict__.get(self.__name__) is not None
+        return (
+            self.grid.__dict__
+            .get(self.__name__)
+            is not None
+        )
 
     def __set_name__(self, owner, name):
         self.__name__ = name
@@ -471,7 +478,6 @@ else:
     recursion_block = RecursionBlock
 
 
-
 def assert_perfect_overlap(
         a: Grid,
         b: Grid,
@@ -480,12 +486,14 @@ def assert_perfect_overlap(
     needles = (
         a
         .to_corners(scale)
+        .frame
         ['xmin ymin'.split()]
         .pipe(pd.MultiIndex.from_frame)
     )
     haystack = (
         b
         .to_corners(scale)
+        .frame
         ['xmin ymin'.split()]
         .pipe(pd.MultiIndex.from_frame)
         .drop_duplicates()

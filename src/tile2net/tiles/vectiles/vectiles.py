@@ -864,3 +864,5 @@ class VecTiles(
     @Tile
     def tile(self):
         ...
+
+# VecTiles.tile.dimension

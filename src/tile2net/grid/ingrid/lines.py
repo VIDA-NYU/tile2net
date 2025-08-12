@@ -35,11 +35,11 @@ class Lines(
             instance: InGrid,
             owner: type[InGrid]
     ) -> Lines:
-        self.ingrid = instance
+        self = super()._get(instance, owner)
         if instance is None:
             result = self
         elif self.__name__ in instance.__dict__:
-            result = instance.__dict__[self.__name__]
+            result = instance.frame.__dict__[self.__name__]
         else:
             file = self.file
             if os.path.exists(file):
@@ -66,7 +66,7 @@ class Lines(
                     .pipe(self.__class__.from_frame, wrapper=self)
                 )
 
-                instance.__dict__[self.__name__] = result
+                instance.frame.__dict__[self.__name__] = result
 
                 msg = "Finding coordinates that intersect tile boundaries"
                 debug = logger.debug(msg)
@@ -134,7 +134,7 @@ class Lines(
                     .pipe(self.__class__)
                 )
 
-                instance.__dict__[self.__name__] = result
+                instance.frame.__dict__[self.__name__] = result
 
                 msg = f"Writing {instance.__name__}.{self.__name__} to {file}"
                 logger.info(msg)

@@ -1,12 +1,10 @@
 from __future__ import annotations
+from .colormap import ColorMap
 
 import os
 import threading
 
 from .stitcher import Stitcher
-
-# thread-local store
-tls = threading.local()
 
 import PIL.Image
 from PIL import Image
@@ -43,6 +41,9 @@ if False:
     from ..seggrid.seggrid import SegGrid
     from ..ingrid.ingrid import InGrid
     from ..vecgrid.vecgrid import VecGrid
+
+# thread-local store
+tls = threading.local()
 
 
 class Grid(
@@ -100,18 +101,10 @@ class Grid(
         return self.scale
 
     @cached_property
-    def dimension(self) -> int:
-        """Tile dimension; inferred from input files"""
-        try:
-            # noinspection PyTypeChecker
-            sample = next(
-                p
-                for p in self.file.infile
-                if Path(p).is_file()
-            )
-        except StopIteration:
-            raise FileNotFoundError('No image files found to infer dimension.')
-        return iio.imread(sample).shape[1]  # width
+    def dimension(self):
+        """How many pixels in a segmentation tile"""
+        result = self.ingrid.dimension * self.length
+        return result
 
     @property
     def shape(self) -> tuple[int, int, int]:
@@ -482,11 +475,31 @@ class Grid(
             scale = self.scale
 
         length = 2 ** (self.scale - scale)
+        xmin = (
+            self.xtile.values
+            .__floordiv__(length)
+            .astype('uint32')
+        )
+        ymin = (
+            self.ytile.values
+            .__floordiv__(length)
+            .astype('uint32')
+        )
+        xmax = (
+            (self.xtile.values + 1)
+            .__floordiv__(length)
+            .astype('uint32')
+        )
+        ymax = (
+            (self.ytile.values + 1)
+            .__floordiv__(length)
+            .astype('uint32')
+        )
         result = Corners.from_data(
-            xmin=self.xtile.values // length,
-            ymin=self.ytile.values // length,
-            xmax=(self.xtile.values + 1) // length,
-            ymax=(self.ytile.values + 1) // length,
+            xmin=xmin,
+            ymin=ymin,
+            xmax=xmax,
+            ymax=ymax,
             scale=scale,
             index=self.index,
         )
@@ -532,20 +545,24 @@ class Grid(
             loc=None,
             tile_color='grey',
             subset_color='yellow',
-            grid: str = 'cartodbdark_matter',
+            tiles: str = 'cartodbdark_matter',
             m=None,
+            dissolve: bool = False,
             **kwargs
     ) -> folium.map:
         import folium
+        frame = self.frame
+        if dissolve:
+            frame = frame.dissolve()
         if loc is None:
             m = explore(
                 # self,
-                self.frame,
+                frame,
                 color=tile_color,
                 name='lines',
                 *args,
                 **kwargs,
-                grid=grid,
+                tiles=tiles,
                 m=m,
                 style_kwds=dict(
                     # fill=False,
@@ -553,15 +570,15 @@ class Grid(
                 )
             )
         else:
-            grid = self.frame.loc[loc]
+            grid = frame.loc[loc]
             loc = ~self.index.isin(grid.index)
             m = explore(
-                self.frame.loc[loc],
+                frame.loc[loc],
                 color=tile_color,
                 name='grid',
                 *args,
                 **kwargs,
-                grid=grid,
+                tiles=tiles,
                 m=m,
                 style_kwds=dict(
                     fill=False,
@@ -574,7 +591,7 @@ class Grid(
                 name='subset',
                 *args,
                 **kwargs,
-                grid=grid,
+                tiles=tiles,
                 m=m,
                 style_kwds=dict(
                     fill=False,
@@ -695,14 +712,6 @@ class Grid(
     def from_empty(cls) -> Self:
         ...
 
-    # def __repr__(self):
-    #     result = f'{self.__class__.__qualname__} wrapper:\n\n'
-    #     result += self.frame.__repr__()
-    #     return result
-
-    def __repr__(self):
-        return self.frame.__repr__()
-
     def _stitch(
             self,
             small_files: pd.Series,
@@ -714,6 +723,8 @@ class Grid(
             background: int = 0,
             force=False
     ):
+        row = r
+        col = c
         if not force:
             loc = ~big_files.map(os.path.exists)
             small_files = small_files.loc[loc]
@@ -768,6 +779,14 @@ class Grid(
     ):
         instance.frame.__dict__[self.__name__] = value
 
+    @ColorMap
+    def colormap(self):
+        # This code block is just semantic sugar and does not run.
+        # This allows us to apply colormaps to tensors, ndarrays, and images.
+        # todo: allow setting custom colormaps
+        # See:
+        self.colormap.__call__(...)
+        self.colormap(...)
 
 
-
+Grid.__repr__

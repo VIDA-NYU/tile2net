@@ -19,6 +19,7 @@ from concurrent.futures import (
     wait,
     FIRST_COMPLETED,
 )
+from ..grid.corners import Corners
 from functools import cached_property
 from pathlib import Path
 from typing import *
@@ -125,12 +126,14 @@ class File(
     def infile(self) -> pd.Series:
         grid = self.grid
         files = grid.ingrid.outdir.vecgrid.infile.files(grid)
+        self.infile = files
         if (
                 not grid._stitch_infile
                 and not files.map(os.path.exists).all()
         ):
             grid._stitch_infile()
-        return files
+        result = self.infile
+        return result
 
     @frame.column
     def overlay(self) -> pd.Series:
@@ -384,7 +387,12 @@ class VecGrid(Grid):
         # only stitch the seggrid which are implicated by the vecgrid
         loc = ingrid.vectile.xtile.isin(outgrid.xtile)
         loc &= ingrid.vectile.ytile.isin(outgrid.ytile)
-        ingrid = ingrid.loc[loc]
+        # ingrid = ingrid.loc[loc]
+        ingrid = (
+            ingrid.frame
+            .loc[loc]
+            .pipe(ingrid.from_frame, wrapper=ingrid)
+        )
 
         self._stitch(
             small_grid=ingrid,
@@ -424,7 +432,7 @@ class VecGrid(Grid):
 
     @property
     def ingrid(self):
-        return self
+        return self.instance
 
     @recursion_block
     def _stitch_colored(self) -> Self:
@@ -792,3 +800,17 @@ class VecGrid(Grid):
     @Polygons
     def polygons(self):
         ...
+
+    @cached_property
+    def length(self) -> int:
+        """
+        How many input tiles comprise a segmentation tile.
+        This is a multiple of the segmentation tile length.
+        """
+        vecgrid = self
+        ingrid = vecgrid.ingrid
+        seggrid = self.seggrid
+        result = 2 ** (ingrid.scale - self.scale)
+        result += 2 * seggrid.length
+        return result
+

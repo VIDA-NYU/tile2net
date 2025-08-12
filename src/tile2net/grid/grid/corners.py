@@ -14,20 +14,23 @@ if False:
     from .grid import Grid
 
 
-class Corners(FrameWrapper):
-    @cached_property
+class Corners(
+    FrameWrapper
+):
+
+    @frame.column
     def area(self):
         return self.width * self.height
 
-    @cached_property
-    def width(self) -> int:
+    @frame.column
+    def width(self):
         """How many input  comprise a of this class"""
-        raise NotImplementedError
+        return self.xmax - self.xmin
 
-    @cached_property
-    def height(self) -> int:
+    @frame.column
+    def height(self):
         """height in pixels"""
-        raise NotImplementedError
+        return  self.ymax - self.ymin
 
     @cached_property
     def scale(self) -> int:

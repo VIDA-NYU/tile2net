@@ -92,3 +92,63 @@ must be stitch segtiles.grayscale -> vectiles.grayscale
 
 lines
 polygons
+
+We need something like wrappers or extensions to simplify the experience of reading and writing higher level operations. It is more conventional and familiar for the typical style found in most libraries where we import get_grayscale_filepath or something, and we read the docstring and understand what it expects as the parameters and what it will return as an output. But as wer library grows, the amount of reading we have to do becomes exhausting, the methods these higher-level abstractions use end up taking a dozen parameters, and wer codebase becomes bloated. We keep having to search to see if there is a method somewhere that already does what we want to achieve, and ensure that wer parameters conform to its expected format by reading the documentation that is often optimized not for direct reading but rather to be parsed into an HTML document.
+
+An alternative is to have various data abstractions defined with nested classes and attributes, each with namespaces that serve for easy lookup of relevant tasks. Rather than sifting through the methods defined in various modules to import, we just type . after wer instance to look at the attributes and methods of what we're working with. We type ingrid.  and see there is an ingrid.r available which sounds what we're looking for, so we go to it and see this very condensed implementation:
+    @cached_property
+    def r(self) -> Series:
+        """
+        Row of the tile within the overall grid.
+        """
+        result = (
+            self.ytile
+            .to_series()
+            .set_axis(self.frame.index)
+            .sub(self.ytile.min())
+        )
+        return result
+
+Maybe next we want to work with the source images, so we type ingrid. and see ingrid.file Could this be what we need? WeWe go to it and see this tiny block:
+    @File
+    def file(self):
+        """Namespace for file attributes"""
+        # See the following:
+        _ = self.file.infile
+infile sounds interesting, we go to it, and we see this:
+
+    @frame.column
+    def grayscale(self) -> pd.Series:
+        grid = self.grid
+        files = grid.ingrid.outdir.seggrid.grayscale.files(grid)
+        if (
+                not grid.predict
+                and not files.map(os.path.exists).all()
+        ):
+            grid.predict()
+        return files
+Hmm, so it's a column? Without reading any documentation, we access the attribute. The logger tells we it is downloading, and then the file paths just appear magically at we fingertips.
+
+We also see in the Ingrid something about segmentation:
+    @SegGrid
+    def seggrid(self) -> SegGrid:
+        """
+        After performing InGrid.set_segmentation(), InGrid.seggrid is
+        available for performing segmentation on the stitched tiles.
+        """
+
+We want to write some code of wer own that does something with the segmentation masks, so how can we access those files? We try ingrid.seggrid.file and see some other attributes show up: grayscale, probability, error, colored, ... We see the implementation for grayscale:
+    @frame.column
+    def grayscale(self) -> pd.Series:
+        """Segmentation masks, where each pixel is a class id"""
+        grid = self.grid
+        files = grid.ingrid.outdir.seggrid.grayscale.files(grid)
+        if (
+                not grid.predict
+                and not files.map(os.path.exists).all()
+        ):
+            grid.predict()
+        return files
+Okay, so we are curious and access it. In the logger it says something about downloading, and then stitching, and then predicting, and a few moments later we have a Series with the filepath of each prediction. Now we can spend our time focusing on more complicated tasks, such as performing another iteration of stitching, so that there is a padded region of redundancy to improve the topology of centerlines during the vectorization stage.
+
+To answer why we need wrappers more succinctly: we need wrappers to express ideas simply.

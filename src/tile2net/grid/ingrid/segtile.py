@@ -11,23 +11,10 @@ if False:
     from .ingrid import InGrid
 
 
-def __get__(
-        self: SegTile,
-        instance: InGrid,
-        owner: type[InGrid],
-) -> SegTile:
-    self.ingrid = instance
-    return copy.copy(self)
-
-
 class SegTile(
     namespace,
 ):
     ingrid: InGrid
-
-    # locals().update(
-    #     __get__=__get__,
-    # )
 
     @property
     def ingrid(self) -> InGrid:
@@ -73,14 +60,10 @@ class SegTile(
         assert result.isin(seggrid.ytile).all(), msg
         return result
 
-
-    @property
+    @frame.column
     def r(self) -> pd.Series:
         """row within the segtile of this tile"""
         ingrid = self.ingrid
-        key = 'segtile.r'
-        if key in ingrid.columns:
-            return ingrid[key]
         result = (
             ingrid.ytile
             .to_series(index=ingrid.index)
@@ -88,17 +71,12 @@ class SegTile(
             .mul(ingrid.segtile.length)
             .rsub(ingrid.ytile.values)
         )
-        ingrid[key] = result
-        result = ingrid[key]
         return result
 
-    @property
+    @frame.column
     def c(self) -> pd.Series:
         """column within the segtile of this tile"""
         ingrid = self.ingrid
-        key = 'segtile.c'
-        if key in ingrid.columns:
-            return ingrid[key]
         result = (
             ingrid.xtile
             .to_series(index=ingrid.index)
@@ -106,38 +84,16 @@ class SegTile(
             .mul(ingrid.segtile.length)
             .rsub(ingrid.xtile.values)
         )
-        ingrid[key] = result
-        result = ingrid[key]
         return result
 
-    @property
-    def ipred(self) -> pd.Series:
-        ingrid = self.ingrid
-        key = 'segtile.ipred'
-        if key in ingrid.columns:
-            return ingrid[key]
-        arrays = self.xtile, self.ytile
-        loc = pd.MultiIndex.from_arrays(arrays)
-        result = (
-            ingrid.seggrid.padded.ipred
-            .loc[loc]
-            .values
-        )
-        ingrid[key] = result
-        return ingrid[key]
-
-    @property
+    @frame.column
     def infile(self) -> pd.Series:
         """seggrid.file broadcasted to ingrid"""
         ingrid = self.ingrid
-        key = 'segtile.infile'
-        if key in ingrid.columns:
-            return ingrid[key]
         result = (
             # ingrid.seggrid.file.stitched
             ingrid.seggrid.padded.file.infile
             .loc[self.index]
             .values
         )
-        ingrid[key] = result
-        return ingrid[key]
+        return result
