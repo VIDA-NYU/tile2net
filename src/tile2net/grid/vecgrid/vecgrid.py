@@ -84,7 +84,7 @@ class Feature(
         if key not in self.grid:
             self.grid._load_polygons()
             self._ensure_network_column(key)
-        return self.grid[key]
+        return self.grid.frame[key]
 
     @property
     def lines(self) -> gpd.GeoSeries:
@@ -215,9 +215,7 @@ class VecGrid(Grid):
 
         return result
 
-
     locals().update(__get__=_get)
-
 
     @File
     def file(self):
@@ -471,6 +469,9 @@ class VecGrid(Grid):
             network_file: str,
             cfg: Optional[dict] = None,
     ):
+        polys = None
+        Path(polygons_file).parent.mkdir(parents=True, exist_ok=True)
+        Path(network_file).parent.mkdir(parents=True, exist_ok=True)
         try:
             if cfg:
                 import tile2net.grid.cfg
@@ -501,11 +502,13 @@ class VecGrid(Grid):
 
             net = PedNet.from_mask2poly(polys)
             # return
-            clipped = net.center.clipped.to_crs(4326)
-            polys = polys.to_crs(4326)
+            # clipped = net.center.clipped.to_crs(4326)
+            net.center
+            # polys = polys.to_crs(4326)
 
             polys = (
-                polys
+                polys.frame
+                .to_crs(4326)
                 .clip_by_rect(xmin, ymin, xmax, ymax)
                 .to_frame('geometry')
                 .dissolve(by='feature')
@@ -520,8 +523,6 @@ class VecGrid(Grid):
                 .explode()
             )
 
-            Path(polygons_file).parent.mkdir(parents=True, exist_ok=True)
-            Path(network_file).parent.mkdir(parents=True, exist_ok=True)
             polys.to_parquet(polygons_file)
             clipped.to_parquet(network_file)
 
@@ -530,8 +531,11 @@ class VecGrid(Grid):
                 'Error vectorizing:\n'
                 f'affine={affine!r},\n'
                 f'infile={infile!r}\n'
-                f'{e}'
             )
+            if isinstance(polys, gpd.GeoDataFrame):
+                msg += f'polygons_file={polygons_file}\n'
+                polys.to_parquet(polygons_file)
+            msg += f'{e}'
             logger.error(msg)
             raise
 
@@ -586,8 +590,8 @@ class VecGrid(Grid):
             """
             Wrapper that remembers which infile belongs to each Future.
             """
-            fut = executor.submit(self._vectorize_submit, *args)
-            # self._vectorize_submit(*args)
+            # fut = executor.submit(self._vectorize_submit, *args)
+            self._vectorize_submit(*args)
             running[fut] = args[0]  # args[0] == infile path
             return fut
 
@@ -599,9 +603,13 @@ class VecGrid(Grid):
             loc |= ~grid.file.polygons.map(os.path.exists)
             grid = grid.loc[loc]
 
-        if grid.empty:
+        if not len(grid):
             return
-        dest = self.ingrid.outdir.vecgrid.polygons.dir.rpartition(os.sep)[0]
+        dest = (
+            self.ingrid.outdir.vecgrid.polygons.dir
+            .rpartition(os.sep)
+            [0]
+        )
         msg = f'Vectorizing to {dest}'
         logger.debug(msg)
 
@@ -621,15 +629,16 @@ class VecGrid(Grid):
         ]:
 
             _cfg = dict(grid.ingrid.cfg)
+
             it = zip(
                 grid.file.grayscale,
                 grid.affine_params,
                 grid.file.lines,
                 grid.file.polygons,
-                grid.gw,
-                grid.gs,
-                grid.ge,
-                grid.gn,
+                grid.lonmin,
+                grid.latmin,
+                grid.lonmax,
+                grid.latmax,
             )
             yield from (
                 (
@@ -762,24 +771,30 @@ class VecGrid(Grid):
         )
         return result
 
-    @property
-    def affine_params(self) -> pd.Series:
-        key = 'affine_params'
-        if key in self:
-            return self[key]
+    @frame.column
+    def affine_params(self):
 
         dim = self.dimension
         padding = self.padding
-        col = 'gw gs ge gn'.split()
+        col = [
+            self.lonmin.name,
+            self.latmin.name,
+            self.lonmax.name,
+            self.latmax.name,
+        ]
 
-        it = padding[col].itertuples(index=False)
-        data = [
+        it = (
+            padding.frame
+            [col]
+            .itertuples(index=False)
+        )
+
+        result = [
             rasterio.transform
             .from_bounds(gw, gs, ge, gn, dim, dim)
             for gw, gs, ge, gn in it
         ]
-        self[key] = data
-        return self[key]
+        return result
 
     @Feature
     def road(self):
@@ -813,4 +828,3 @@ class VecGrid(Grid):
         result = 2 ** (ingrid.scale - self.scale)
         result += 2 * seggrid.length
         return result
-

@@ -210,8 +210,8 @@ class Grid(
         gn, gw, gs, ge = latlon
         gn, gs = min(gn, gs), max(gn, gs)
         gw, ge = min(gw, ge), max(gw, ge)
-        tw, tn = util.deg2num(gw, gn, zoom=zoom)
-        te, ts = util.deg2num(ge, gs, zoom=zoom)
+        tw, tn = util.lonlat2xy(gw, gn, zoom=zoom)
+        te, ts = util.lonlat2xy(ge, gs, zoom=zoom)
         te, tw = max(te, tw), min(te, tw)
         ts, tn = max(ts, tn), min(ts, tn)
         te += 1
@@ -255,8 +255,8 @@ class Grid(
         ts = tn + 1
         names = 'xtile ytile'.split()
         index = MultiIndex.from_arrays([xtile, ytile], names=names)
-        gw, gn = util.num2deg(tw, tn, zoom=scale)
-        ge, gs = util.num2deg(te, ts, zoom=scale)
+        gw, gn = util.xy2lonlat(tw, tn, zoom=scale)
+        ge, gs = util.xy2lonlat(te, ts, zoom=scale)
         trans = (
             pyproj.proj.Transformer
             .from_crs(4326, 3857, always_xy=True)

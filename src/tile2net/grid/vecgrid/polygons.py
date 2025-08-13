@@ -1,24 +1,17 @@
 from __future__ import annotations
-import shapely
 
 from concurrent.futures import (
     ThreadPoolExecutor,
 )
-from multiprocessing import cpu_count
-from typing import *
 
 import geopandas as gpd
 import pandas as pd
 import shapely
-from geopandas.array import GeometryDtype
 
 from ..benchmark import benchmark
 from ..cfg import cfg
 from ..cfg.logger import logger
 from ..explore import explore
-from ..fixed import GeoDataFrameFixed
-
-from tile2net.grid.frame.namespace import namespace
 from ..frame.framewrapper import FrameWrapper
 
 if False:

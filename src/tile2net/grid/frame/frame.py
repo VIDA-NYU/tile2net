@@ -1,4 +1,6 @@
 from __future__ import annotations
+import geopandas as gpd
+
 from .framewrapper import FrameWrapper
 
 import copy
@@ -129,6 +131,7 @@ def column(
         *args, **kwargs
 ) -> Union[
     pd.Series,
+    gpd.GeoSeries,
     Column
 ]:
     return Column(*args, **kwargs)

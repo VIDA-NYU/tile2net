@@ -54,7 +54,7 @@ if False:
 
 
 @singledispatch
-def num2deg(
+def xy2lonlat(
         x: float,
         y: float,
         zoom: int,
@@ -65,7 +65,7 @@ def num2deg(
     return lon, lat
 
 
-@num2deg.register
+@xy2lonlat.register
 def _(
         x: ndarray,
         y: ndarray,
@@ -78,7 +78,7 @@ def _(
 
 
 @singledispatch
-def deg2num(
+def lonlat2xy(
         lon: float,
         lat: float,
         zoom: int,
@@ -90,7 +90,7 @@ def deg2num(
     return x, y
 
 
-@deg2num.register
+@lonlat2xy.register
 def _(
         lon: ndarray,
         lat: ndarray,
@@ -106,22 +106,22 @@ def _(
     return x.astype(int), y.astype(int)
 
 
-@num2deg.register
+@xy2lonlat.register
 def _(
         x: pd.Series,
         y: pd.Series,
         zoom: int,
 ) -> tuple[np.ndarray, np.ndarray]:
-    return num2deg(x.to_numpy(), y.to_numpy(), zoom)
+    return xy2lonlat(x.to_numpy(), y.to_numpy(), zoom)
 
 
-@deg2num.register
+@lonlat2xy.register
 def _(
         lon: pd.Series,
         lat: pd.Series,
         zoom: int,
 ) -> tuple[np.ndarray, np.ndarray]:
-    return deg2num(lon.to_numpy(), lat.to_numpy(), zoom)
+    return lonlat2xy(lon.to_numpy(), lat.to_numpy(), zoom)
 
 
 def import_folium() -> 'folium':

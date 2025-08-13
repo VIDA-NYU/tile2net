@@ -10,7 +10,6 @@ from tile2net.grid.cfg.logger import logger
 from ..benchmark import benchmark
 from ..cfg import cfg
 from ..explore import explore
-from ..fixed import GeoDataFrameFixed
 from ..vecgrid.mask2poly import Mask2Poly
 
 from ..frame.framewrapper import FrameWrapper

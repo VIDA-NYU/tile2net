@@ -17,7 +17,6 @@ import tile2net.grid.pednet.lines
 from ..cfg import cfg
 from ..cfg.logger import logger
 from ..explore import explore
-from ..fixed import GeoDataFrameFixed
 from ..frame.framewrapper import FrameWrapper
 
 if False:

@@ -1,24 +1,20 @@
 
 from __future__ import annotations
-from typing import Self
-
-from ..frame.framewrapper import FrameWrapper
-from shapely import MultiLineString
-from ..benchmark import benchmark
-import shapely
 
 from concurrent.futures import (
     ThreadPoolExecutor,
 )
+from typing import Self
 
 import geopandas as gpd
-import numpy as np
 import pandas as pd
 from geopandas.array import GeometryDtype
+from shapely import MultiLineString
 
+from ..benchmark import benchmark
 from ..cfg import cfg
 from ..explore import explore
-from ..fixed import GeoDataFrameFixed
+from ..frame.framewrapper import FrameWrapper
 
 if False:
     from .vecgrid import VecGrid

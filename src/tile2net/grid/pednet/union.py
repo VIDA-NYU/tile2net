@@ -1,71 +1,69 @@
 from __future__ import annotations
+from ..frame.framewrapper import FrameWrapper
 from ..benchmark import benchmark
 from ..cfg import cfg
 from ..explore import explore
 
 from typing import *
+from typing import Self
 
 import geopandas as gpd
 import shapely
 
-from ..fixed import GeoDataFrameFixed
+from ...grid.frame.namespace import namespace
 
 if False:
     import folium
     from .pednet import PedNet
 
 
-def __get__(
-        self,
-        instance: PedNet,
-        owner: type[PedNet]
-) -> Self:
-    self.instance = instance
-    self.owner = owner
-    return self
-
-
-def __get__(
-        self: Union,
-        instance: PedNet,
-        owner: type[PedNet]
-) -> Union:
-    if instance is None:
-        result = self
-    elif self.__name__ in instance.__dict__:
-        result = instance.__dict__[self.__name__]
-    else:
-        loc = ~instance.feature.isin(cfg.polygon.borders)
-        msg = f'Computing the geometric union of all {loc.sum()} pedestrian features.'
-        # logger.debug(msg)
-        with benchmark(msg):
-            collection = (
-                instance
-                .loc[loc]
-                .geometry
-                .union_all()
-            )
-        data = shapely.get_parts(collection)
-        crs = instance.crs
-        geometry = gpd.GeoSeries(data, crs=crs)
-        result = Union(geometry=geometry)
-        result.index.name = 'iunion'
-        instance.__dict__[self.__name__] = result
-        # result.collection = collection
-        return result
-
-    result.instance = instance
-    return result
-
-
 class Union(
-    GeoDataFrameFixed
+
+    FrameWrapper
 ):
     """
     Union of all pedestrian features
     """
+    instance: PedNet = None
+    __name__ = 'union'
+    
+    def _get(
+            self,
+            instance: PedNet,
+            owner: type[PedNet]
+    ) -> Union:
+        self: Self = namespace._get(self, instance, owner)
+        cache = instance.frame.__dict__
+        key = self.__name__
+        if instance is None:
+            return self
+        if key in cache:
+            result = cache[key]
+        else:
+            loc = ~instance.feature.isin(cfg.polygon.borders)
+            msg = f'Computing the geometric union of all {loc.sum()} pedestrian features.'
+            # logger.debug(msg)
+            with benchmark(msg):
+                collection = (
+                    instance
+                    .loc[loc]
+                    .geometry
+                    .union_all()
+                )
+            data = shapely.get_parts(collection)
+            crs = instance.crs
+            geometry = gpd.GeoSeries(data, crs=crs)
+            result = self.from_frame(geometry=geometry, wrapper=self)
+            result.index.name = 'iunion'
+            cache[key] = result
+            # result.collection = collection
+            return result
+
+        result.instance = instance
+        return result
+        
     locals().update(
-        __get__=__get__,
+        __get__=_get,
     )
     instance: PedNet = None
     __name__ = 'union'

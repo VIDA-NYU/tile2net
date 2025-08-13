@@ -1,6 +1,4 @@
 from __future__ import annotations
-import shapely
-import shapely
 
 from pathlib import Path
 from typing import *
@@ -13,15 +11,15 @@ from .union import Union
 from ..benchmark import benchmark
 from ..cfg import cfg
 from ..explore import explore
-from ..fixed import GeoDataFrameFixed
+from ..frame.framewrapper import FrameWrapper
 
 if False:
-    from .. import Mask2Poly
+    from ..vecgrid.mask2poly import Mask2Poly
     import folium
 
 
 class PedNet(
-    GeoDataFrameFixed,
+    FrameWrapper,
 ):
     __name__ = 'pednet'
 
@@ -42,7 +40,7 @@ class PedNet(
         logger.debug(msg)
         polygons = gdf.postprocess(crs=crs)
         result = cls.from_polygons(
-            polygons,
+            polygons.frame,
             distance=distance,
             crs=crs,
             save_original=save_original,
@@ -63,7 +61,7 @@ class PedNet(
         result = (
             gdf
             .to_crs(crs)
-            .pipe(cls)
+            .pipe(cls.from_frame)
         )
         original = result
 
@@ -76,6 +74,7 @@ class PedNet(
             with benchmark(msg):
                 buffer = (
                     ped
+                    .frame
                     .dissolve(level='feature')
                     .set_geometry('geometry')
                     .buffer(distance, cap_style='flat')
@@ -189,7 +188,11 @@ class PedNet(
     ) -> folium.Map:
         features = self.features
         feature2color = features.color.to_dict()
-        it = self.groupby('feature', observed=False)
+        # it = self.groupby('feature', observed=False)
+        it = (
+            self.frame
+            .groupby('feature', observed=False)
+        )
 
         for feature, frame in it:
             color = feature2color[feature]

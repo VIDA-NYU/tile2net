@@ -20,7 +20,6 @@ from tile2net.grid.frame.namespace import namespace
 
 import geopandas as gpd
 
-
 import copy
 from functools import *
 from typing import *
@@ -28,16 +27,16 @@ from typing import *
 import pandas as pd
 from .wrapper import Wrapper
 
+
 class Loc:
     instance: FrameWrapper
 
     def __init__(
-        self,
-        *args,
-        **kwargs,
+            self,
+            *args,
+            **kwargs,
     ):
         ...
-
 
     def __get__(
             self,
@@ -46,6 +45,7 @@ class Loc:
     ):
         self.instance = instance
         return copy.copy(self)
+
     def __set_name__(self, owner, name):
         self.__name__ = name
 
@@ -57,10 +57,8 @@ class Loc:
         )
         return result
 
-
-
-
-
+    def __setitem__(self, key, value):
+        getattr(self.instance.frame, self.__name__)[key] = value
 
 
 class FrameWrapper(
@@ -71,7 +69,6 @@ class FrameWrapper(
 
     # def __getattr__(self, item):
     #     return getattr(self.frame, item)
-
 
     # def _repr_data_resource_(self):
     #     return self.frame._repr_data_resource_()
@@ -134,7 +131,6 @@ class FrameWrapper(
         """
         return partial(self._loc)
 
-
     def copy(self) -> Self:
         result = copy.copy(self)
         return result
@@ -159,10 +155,11 @@ class FrameWrapper(
     def from_frame(
             cls,
             frame: pd.DataFrame,
-            wrapper: Self,
+            wrapper: Self = None,
     ) -> Self:
         result = cls()
-        result.__dict__.update(wrapper.__dict__)
+        if wrapper is not None:
+            result.__dict__.update(wrapper.__dict__)
         result.frame = frame.copy()
         return result
 
@@ -209,9 +206,6 @@ class FrameWrapper(
     def geometry(self) -> gpd.GeoSeries:
         return self.frame.geometry
 
-    def __set_name__(self, owner, name):
-        self.__name__ = name
-
     def __copy__(self) -> Self:
         result = self.__class__()
         result.__dict__.update(self.__dict__)
@@ -225,10 +219,12 @@ class FrameWrapper(
     def iloc(self):
         ...
 
+    @property
+    def empty(self):
+        return self.frame.empty
 
-
-
-
+    def __getitem__(self, item):
+        return self.frame[item]
 
 # from IPython import get_ipython
 # ip = get_ipython()

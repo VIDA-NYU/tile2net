@@ -1,24 +1,18 @@
 
 from __future__ import annotations
 
-from functools import *
-from typing import *
+from typing import Self
 
-import geopandas as gpd
 import numpy as np
 import pandas as pd
 import shapely.ops
-from geopandas import GeoDataFrame
 from pandas import Series
 
-from ..fixed import GeoDataFrameFixed
-import pandas as pd
+from .. import frame
+from ...grid.frame.framewrapper import FrameWrapper
+from ...grid.frame.namespace import namespace
 
 if False:
-    from .pednet import PedNet
-    import folium
-    from .stubs import Stubs
-    from .mintrees import Mintrees
     from .lines import Lines
 
 """
@@ -30,74 +24,77 @@ one to drop degree=2 noeds
 one to extract node information
 """
 
-def __get__(
-        self: Nodes,
-        instance: Lines,
-        owner
-) -> Nodes:
-    if instance is None:
-        result = self
-    elif self.__name__ in instance.__dict__:
-        result = instance.__dict__[self.__name__]
-    else:
-        lines = shapely.get_parts(instance.geometry)
-        coords = shapely.get_coordinates(lines, include_z=False)
-        npoints = shapely.get_num_points(lines)
-        iline = np.arange(len(npoints)).repeat(npoints)
-        unique, ifirst, repeat = np.unique(
-            iline,
-            return_counts=True,
-            return_index=True
-        )
-        istop = ifirst + repeat
-        ilast = istop - 1
-        iloc = np.c_[ifirst, ilast].ravel()
-        ends = coords[iloc]
-
-        haystack = pd.MultiIndex.from_arrays(ends.T)
-        needles = haystack.drop_duplicates()
-        x = needles.get_level_values(0).values
-        y = needles.get_level_values(1).values
-        degree = (
-            pd.Series(1, haystack)
-            .groupby(level=[0, 1], sort=False)
-            .sum()
-            .loc[needles]
-            .values
-        )
-        geometry = shapely.points(x, y)
-        crs = instance.crs
-        data = dict(
-            degree=degree,
-            x=x,
-            y=y,
-        )
-        result = self.__class__(data, geometry=geometry, crs=crs)
-        result.index.name = 'inode'
-
-        instance.__dict__[self.__name__] = result
-
-    result.lines = instance
-
-    return result
-
-
 class Nodes(
-    GeoDataFrameFixed
+    FrameWrapper,
 ):
     x: Series
     y: Series
     degree: Series
     lines: Lines
+    
+    def _get(
+            self,
+            instance: Lines,
+            owner
+    ) -> Nodes:
+        self: Self = namespace._get(self, instance, owner)
+        cache = instance.frame.__dict__
+        key = self.__name__
+        if instance is None:
+            return self
+        if key in cache:
+            result = cache[key]
+        else:
+            lines = shapely.get_parts(instance.geometry)
+            coords = shapely.get_coordinates(lines, include_z=False)
+            npoints = shapely.get_num_points(lines)
+            iline = np.arange(len(npoints)).repeat(npoints)
+            unique, ifirst, repeat = np.unique(
+                iline,
+                return_counts=True,
+                return_index=True
+            )
+            istop = ifirst + repeat
+            ilast = istop - 1
+            iloc = np.c_[ifirst, ilast].ravel()
+            ends = coords[iloc]
+
+            haystack = pd.MultiIndex.from_arrays(ends.T)
+            needles = haystack.drop_duplicates()
+            x = needles.get_level_values(0).values
+            y = needles.get_level_values(1).values
+            degree = (
+                pd.Series(1, haystack)
+                .groupby(level=[0, 1], sort=False)
+                .sum()
+                .loc[needles]
+                .values
+            )
+            geometry = shapely.points(x, y)
+            crs = instance.crs
+            data = dict(
+                degree=degree,
+                x=x,
+                y=y,
+            )
+            result = self.from_frame(data, geometry=geometry, crs=crs, wrapper=self)
+            result.index.name = 'inode'
+
+            cache[key] = result
+
+        result.lines = instance
+
+        return result
+        
     locals().update(
-        __get__=__get__,
+        __get__=_get,
     )
     __name__ = 'nodes'
 
     @property
     def lines(self):
         try:
-            return self.attrs['lines']
+            return self.frame.attrs['lines']
         except KeyError as e:
             raise AttributeError(
                 'Lines not set. Please set lines attribute before accessing Nodes.'
@@ -108,20 +105,19 @@ class Nodes(
         from .lines import Lines
         if not isinstance(value, Lines):
             raise TypeError('lines must be an instance of Lines')
-        self.attrs['lines'] = value
+        self.frame.attrs['lines'] = value
 
-    @property
+    @frame.column
     def inode(self) -> pd.Index:
+        """Node index values."""
         if 'inode' in self.index.names:
             return self.index.get_level_values('inode')
         else:
             return self['inode']
 
-    @property
+    @frame.column
     def tuple(self) -> pd.Series:
-        key = 'tuple'
-        if key in self:
-            return self[key]
+        """Tuple of edge indices for each node."""
         edges = self.lines.edges
         result = (
             edges
@@ -131,19 +127,16 @@ class Nodes(
             .apply(tuple)
             .loc[self.inode.values]
         )
-        self[key] = result
-        result = self[key]
         return result
 
-    @property
+    @frame.column
     def edges(self):
+        """Get edges from lines."""
         return self.lines.edges
 
-    @property
+    @frame.column
     def iunion(self) -> pd.Series:
-        key = 'iunion'
-        if key in self:
-            return self[key]
+        """Union index for each node."""
         polygons = self.lines.pednet.union
         geometry = self.geometry
         iloc, idissolved = polygons.sindex.nearest(
@@ -159,15 +152,11 @@ class Nodes(
             .iloc[idissolved]
             .set_axis(labels)
         )
-        self[key] = result
-        result = self[key]
         return result
 
-    @property
+    @frame.column
     def threshold(self) -> pd.Series:
-        key = 'threshold'
-        if key in self:
-            return self[key]
+        """Threshold distance for each node."""
         result = (
             self.lines.pednet.union.boundary
             .reindex(self.iunion)
@@ -175,7 +164,5 @@ class Nodes(
             .mul(2)
             .values
         )
-        self[key] = result
-        result = self[key]
         return result
 

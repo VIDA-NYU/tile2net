@@ -10,6 +10,7 @@ from .seggrid import SegGrid
 from ..grid import padded
 from ...grid.frame.namespace import namespace
 
+
 class VecTile(
     vectile.VecTile
 ):
@@ -41,7 +42,6 @@ def boundary_grid(
     return coords[mask]
 
 
-
 class Padded(
     padded.Padded,
     SegGrid
@@ -55,6 +55,8 @@ class Padded(
         self = namespace._get(self, instance, owner)
         cache = instance.frame.__dict__
         key = self.__name__
+        if instance is None:
+            return instance
 
         if key in cache:
             result = cache[key]

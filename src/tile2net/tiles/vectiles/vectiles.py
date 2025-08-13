@@ -1,4 +1,6 @@
 from __future__ import annotations
+from ...grid.frame.namespace import namespace
+from ...grid.frame import frame
 from .lines import Lines
 from .polygons import Polygons
 from multiprocessing import get_context
@@ -60,16 +62,10 @@ def __get__(
 
 
 class Feature(
-
+    namespace,
 ):
     locals().update(__get__=__get__)
     tiles: VecTiles
-
-    def __set_name__(self, owner, name):
-        self.__name__ = name
-
-    def __init__(self, *args, ):
-        ...
 
     def _ensure_network_column(self, key: str):
         if key not in self.tiles:

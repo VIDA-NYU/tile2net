@@ -1,7 +1,10 @@
 from __future__ import annotations
+from ..frame.framewrapper import FrameWrapper
+from .. import frame
 from ..explore import explore
 from tile2net.grid.cfg.logger import logger
 from ..cfg import cfg
+from ...grid.frame.namespace import namespace
 
 from typing import *
 
@@ -9,43 +12,46 @@ import pandas as pd
 from geopandas import GeoSeries
 from shapely import *
 
-from ..fixed import GeoDataFrameFixed
-
 if False:
     import folium
     from .pednet import PedNet
 
 
-def __get__(
-        self,
-        instance: PedNet,
-        owner: type[PedNet]
-) -> Self:
-    if instance is None:
-        result = self
-    elif self.__name__ in instance.__dict__:
-        result = instance.__dict__[self.__name__]
-    else:
-        result = (
-            instance
-            # .make_valid()
-            # .to_frame(name='geometry')
-            .dissolve(by='feature')
-            .pipe(Features)
-        )
-        instance.__dict__[self.__name__] = result
-    result._pednet = instance
-
-    return result
-
 
 class Features(
-    GeoDataFrameFixed
+    FrameWrapper
 ):
     __name__ = 'features'
     _pednet: PedNet = None
+
+    def _get(
+            self,
+            instance: PedNet,
+            owner: type[PedNet]
+    ) -> Self:
+        self: Self = namespace._get(self, instance, owner)
+        cache = instance.frame.__dict__
+        key = self.__name__
+        if instance is None:
+            return self
+        if key in cache:
+            result = cache[key]
+        else:
+            result = (
+                instance
+                .frame
+                # .make_valid()
+                # .to_frame(name='geometry')
+                .dissolve(by='feature')
+                .pipe(self.from_frame, wrapper=self)
+            )
+            cache[key] = result
+        result._pednet = instance
+
+        return result
+
     locals().update(
-        __get__=__get__,
+        __get__=_get
     )
 
     def __set__(
@@ -56,12 +62,10 @@ class Features(
         value.__name__ = self.__name__
         instance.__dict__[self.__name__] = value
 
-    @property
-    def above(self) -> GeoSeries[GeometryCollection]:
+
+    @frame.column
+    def above(self):
         """Unary union of all features above the given feature."""
-        key = f'{self.__name__}.above'
-        if key in self:
-            return self[key]
         ordered = self.sort_values(self.z_order.name, ascending=False)
         geoms = ordered.geometry.values
         out = []
@@ -70,21 +74,15 @@ class Features(
             out.append(cum)
             cum = cum.union(g)
         result = GeoSeries(out, index=ordered.index, crs=self.crs)
-        self[key] = result
-        result = self[key]
         return result
 
-    @property
+
+    @frame.column
     def mutex(self) -> GeoSeries[GeometryCollection]:
         """Mutually exclusive geometries based on z_order"""
-        key = 'mutex'
-        if key in self:
-            return self[key]
-        msg = f'Computing {key} for {self.__name__}'
+        msg = f'Computing mutex for {self.__name__}'
         logger.debug(msg)
         result = self.geometry.difference(self.above)
-        self[key] = result
-        result = self[key]
         return result
 
     @property
@@ -107,46 +105,35 @@ class Features(
             raise TypeError('original must be a GeoSeries')
         self['original'] = value
 
-    @property
+    @frame.column
     def other(self) -> GeoSeries[GeometryCollection]:
         """Geometry union of every feature excluding the feature itself."""
-        key = 'other'
-        if key in self:
-            return self[key]
-
         data = (
             self._pednet
+            .frame
             .union_all()
             .difference(self.geometry)
         )
         result = GeoSeries(data, self.index, self.crs)
+        return result
 
-        self[key] = result
-        return self[key]
-
-    @property
+    @frame.column
     def feature(self) -> pd.Index:
+        """Feature index values."""
         return self.index.get_level_values('feature')
 
-    @property
+    @frame.column
     def color(self) -> pd.Series:
-        key = f'color'
-        if key in self:
-            return self[key]
-        self[key] = pd.Series(cfg.label2color, dtype='string')
-        result = self[key]
+        """Color mapping for features."""
+        result = pd.Series(cfg.label2color, dtype='string')
         return result
-
-    @property
+        
+    @frame.column
     def z_order(self) -> pd.Series:
         """Z-order of the features."""
-        key = f'z_order'
-        if key in self:
-            return self[key]
         result = pd.Series(cfg.polygon.z_order)
-        self[key] = result
-        result = self[key]
         return result
+
 
     def visualize(
             self,

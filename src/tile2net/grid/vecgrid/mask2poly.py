@@ -1,10 +1,8 @@
 from __future__ import annotations
-import rasterio.features
 
-import rasterio.features as _rf
-from contextlib import contextmanager
 import os
 import warnings
+from contextlib import contextmanager
 from pathlib import Path
 from typing import *
 
@@ -12,6 +10,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pyarrow.dataset as ds
+import rasterio.features
+import rasterio.features as _rf
 import shapely
 import shapely.wkt
 import skimage
@@ -24,19 +24,17 @@ from rasterio.errors import NotGeoreferencedWarning
 from rasterio.features import shapes
 from shapely.geometry import shape
 
-from tile2net.raster.tile_utils.geodata_utils import _check_skimage_im_load
 from tile2net.grid.cfg.logger import logger
+from tile2net.raster.tile_utils.geodata_utils import _check_skimage_im_load
 from ..benchmark import benchmark
 from ..cfg import cfg
-from ..fixed import GeoDataFrameFixed
-
-
+from ..frame.framewrapper import FrameWrapper
 
 os.environ['USE_PYGEOS'] = '0'
 
 
 class Mask2Poly(
-    GeoDataFrameFixed,
+    FrameWrapper,
 ):
 
 
@@ -54,8 +52,8 @@ class Mask2Poly(
             array = skimage.io.imread(str(path))
 
         Image.MAX_IMAGE_PIXELS = original_max       # restore global state
-        return cls.from_array(array, affine)
-
+        result = cls.from_array(array, affine)
+        return result
 
     @classmethod
     def from_parquets(cls, files: Iterable[str | Path], ) -> Self:
@@ -161,22 +159,9 @@ class Mask2Poly(
         if array.ndim == 3:
             array = array[..., 0]  # assuming single channel for simplicity
 
-
         for label, id in label2id.items():
             mask = np.array(array == id, dtype=np.uint8)
             it = rasterio.features.shapes(array, mask, transform=affine)
-            # it = cls.shapes_strict(
-            #     array,
-            #     mask=mask,
-            #     transform=affine,
-            # )
-
-            # with cls.shapes_strict_context():
-            #     it = _rf.shapes(
-            #         ARRAY,
-            #         mask=mask,
-            #         transform=affine,
-            #     )
             geometry = [
                 shape(geom)
                 for geom, _ in it
@@ -189,11 +174,9 @@ class Mask2Poly(
 
         result = (
             pd.concat(concat)
-            .pipe(cls)
             .set_index('feature')
+            .pipe(cls.from_frame)
         )
-
-
         return result
 
     @classmethod
@@ -262,8 +245,8 @@ class Mask2Poly(
         Returns:
             geopandas geodataframe
         """
-        hulls: gpd.GeoSeries = self.convex_hull
-        convexity = self.area / hulls.area  # [0, 1]
+        hulls: gpd.GeoSeries = self.frame.convex_hull
+        convexity = self.frame.area / hulls.area  # [0, 1]
         logger.debug(f"Applying convexity filter")
         loc = convexity > threshold
         hulls = hulls.loc[loc]
@@ -278,10 +261,10 @@ class Mask2Poly(
         MAX_AREA = max_area
 
         max_area = MAX_AREA
-        RINGS = shapely.get_rings(self.geometry)
+        RINGS = shapely.get_rings(self.frame.geometry)
         polygons = shapely.polygons(RINGS)
         area = shapely.area(polygons)
-        repeat = self.count_interior_rings() + 1
+        repeat = self.frame.count_interior_rings() + 1
         indices = np.arange(len(repeat)).repeat(repeat)
         max_area = max_area.repeat(repeat)
         loc = area >= max_area
@@ -301,7 +284,8 @@ class Mask2Poly(
         data = shapely.polygons(rings, indices=indices)
         result = (
             gpd.GeoSeries(data, index=self.index, crs=self.crs)
-            .pipe(self.set_geometry)
+            .pipe(self.frame.set_geometry)
+            .pipe(self.from_frame, wrapper=self)
         )
         return result
 
@@ -319,14 +303,13 @@ class Mask2Poly(
         msg = f'Dissolving, simplifying, & exploding {len(self)} (Multi)Polygons'
         if simplify is None:
             simplify = cfg.polygon.simplify
-            self
         loc = self.geometry.is_valid
         loc |= self.geometry.isna()
         assert np.all(loc)
 
         with benchmark(msg):
             result: Self = (
-                self
+                self.frame
                 .dissolve(level='feature', method='coverage')
                 .set_geometry('geometry')
                 .simplify_coverage(simplify)
@@ -339,13 +322,12 @@ class Mask2Poly(
                 )
                 .explode()
                 .to_frame('geometry')
-                .pipe(self.__class__)
+                .pipe(self.__class__.from_frame, wrapper=self)
             )
 
         RESULT = result
 
-        assert np.all(result.geom_type == 'Polygon')
-
+        assert np.all(result.frame.geom_type == 'Polygon')
         if min_poly_area is None:
             min_poly_area = cfg.polygon.min_polygon_area
         if max_hole_area is None:
@@ -379,7 +361,7 @@ class Mask2Poly(
 
             msg = f'Applying area filter'
             logger.debug(msg)
-            loc = result.area >= min_poly_area
+            loc = result.frame.area >= min_poly_area
             result = result.loc[loc]
             msg = f'{len(result)} out of {len(loc)} polygons remaining after area filter'
             logger.debug(msg)
@@ -425,9 +407,15 @@ class Mask2Poly(
 
             result = cls._replace_convexhull(result, threshold=convexity)
 
+        # result = (
+        #     cls(result)
+        #     .frame
+        #     .to_crs(self.crs)
+        # )
         result = (
-            cls(result)
+            result.frame
             .to_crs(self.crs)
+            .pipe(self.from_frame, wrapper=self)
         )
         return result
 

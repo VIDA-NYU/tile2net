@@ -8,7 +8,7 @@ import pandas as pd
 
 from .. import frame
 from tile2net.grid.frame.framewrapper import FrameWrapper
-from ..util import num2deg
+from ..util import xy2lonlat
 
 if False:
     from .grid import Grid
@@ -78,18 +78,19 @@ class Corners(
             scale: int,
             index: pd.MultiIndex,
     ) -> Self:
-        latmin, lonmax = num2deg(xmin, ymin, scale)
-        latmax, latmin = num2deg(xmax, ymax, scale)
+        lonmax, latmax = xy2lonlat(xmax, ymin, scale)
+        lonmin, latmin = xy2lonlat(xmin, ymax, scale)
 
         data = dict(
             xmin=xmin,
             ymin=ymin,
             xmax=xmax,
             ymax=ymax,
-            lonmin=latmin,
-            latmax=lonmax,
-            lonmax=latmax,
+            lonmin=lonmin,
+            latmax=latmax,
             latmin=latmin,
+            lonmax=lonmax,
+            scale=scale,
         )
         frame = pd.DataFrame(data, index=index)
         result = cls(frame)

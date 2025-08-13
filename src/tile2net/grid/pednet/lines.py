@@ -8,12 +8,11 @@ import numpy as np
 import pandas as pd
 import shapely.ops
 from geopandas import GeoDataFrame
-from pandas import Series
 
-from ..fixed import GeoDataFrameFixed
-import pandas as pd
 from .edges import Edges
 from .nodes import Nodes
+from .. import frame
+from ...grid.frame.framewrapper import FrameWrapper
 
 if False:
     from .pednet import PedNet
@@ -110,7 +109,7 @@ def explore(
 
 
 class Lines(
-    gpd.GeoDataFrame
+    FrameWrapper
 ):
     start_iend: pd.Series
     stop_iend: pd.Series
@@ -134,64 +133,51 @@ class Lines(
     def nodes(self):
         ...
 
-    @property
+    @frame.column
     def feature(self) -> pd.Series:
         try:
-            return self['feature']
+            return self.frame['feature']
         except KeyError as e:
             raise KeyError(
                 'Feature not set. Please set feature column '
                 'before accessing Lines.feature'
             ) from e
 
-    @feature.setter
-    def feature(self, value: pd.Series):
-        self['feature'] = value
-
-    @feature.deleter
-    def feature(self):
-        del self['feature']
-
-    @property
+    @frame.column
     def iunion(self):
         if self.pednet is None:
             raise ValueError('PedNet not set')
+        return None
 
-    @property
+    @frame.column
     def start_inode(self) -> pd.Series:
-        if 'start_inode' not in self:
-            cols = 'start_x start_y'.split()
-            loc = pd.MultiIndex.from_frame(self[cols])
-            result = (
-                self.nodes
-                .reset_index()
-                .set_index('x y'.split())
-                ['inode']
-                .loc[loc]
-                .values
-            )
-            self['start_inode'] = result
-            assert self.start_inode.isin(self.nodes.inode.values).all()
+        cols = 'start_x start_y'.split()
+        loc = pd.MultiIndex.from_frame(self.frame[cols])
+        result = (
+            self.nodes
+            .reset_index()
+            .set_index('x y'.split())
+            ['inode']
+            .loc[loc]
+            .values
+        )
+        assert pd.Series(result).isin(self.nodes.inode.values).all()
+        return result
 
-        return self['start_inode']
-
-    @property
+    @frame.column
     def stop_inode(self) -> pd.Series:
-        if 'stop_inode' not in self:
-            cols = 'stop_x stop_y'.split()
-            loc = pd.MultiIndex.from_frame(self[cols])
-            result = (
-                self.nodes
-                .reset_index()
-                .set_index('x y'.split())
-                ['inode']
-                .loc[loc]
-                .values
-            )
-            self['stop_inode'] = result
-            assert self.stop_inode.isin(self.nodes.inode.values).all()
-
-        return self['stop_inode']
+        cols = 'stop_x stop_y'.split()
+        loc = pd.MultiIndex.from_frame(self.frame[cols])
+        result = (
+            self.nodes
+            .reset_index()
+            .set_index('x y'.split())
+            ['inode']
+            .loc[loc]
+            .values
+        )
+        assert pd.Series(result).isin(self.nodes.inode.values).all()
+        return result
 
     @classmethod
     def from_frame(
@@ -376,10 +362,10 @@ class Lines(
         folium.LayerControl().add_to(m)
         return m
 
-    @property
+    @frame.column
     def iline(self) -> pd.Index:
         key = 'iline'
         if key in self.index.names:
             return self.index.get_level_values(key)
         else:
-            return self[key]
+            return self.frame[key]

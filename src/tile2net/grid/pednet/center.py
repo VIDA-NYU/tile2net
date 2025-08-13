@@ -1,5 +1,4 @@
 from __future__ import annotations
-from ..cfg import cfg
 
 from functools import *
 from typing import Self
@@ -12,79 +11,85 @@ from tile2net.grid.cfg.logger import logger
 from . import mintrees, stubs
 from .standalone import Lines
 from ..benchmark import benchmark
+from ..cfg import cfg
+from ..frame.framewrapper import FrameWrapper
 
 _ = mintrees, stubs
 from tile2net.raster.tile_utils.topology import *
 from ..explore import explore
-from ..fixed import GeoDataFrameFixed
 
 if False:
     from .pednet import PedNet
     import folium
 
 
-def __get__(
-        self: Center,
-        instance: PedNet,
-        owner: type[PedNet]
-) -> Center:
-    if instance is None:
-        result = self
-    elif self.__name__ in instance.__dict__:
-        result = instance.__dict__[self.__name__]
-    else:
-        union = instance.union
-        geometry = union.geometry
-
-        msg = 'Computing centerlines'
-        with benchmark(msg):
-            centers = []
-            it = tqdm(
-                enumerate(geometry),
-                total=len(geometry),
-                desc='centerline.geometry.Centerline()',
-            )
-            for i, poly in it:
-                try:
-                    item = Centerline(poly).geometry
-                    centers.append(item)
-                except Exception as e:
-                    err = f'Centerline computation failed for index {i}:\n\t{e}'
-                    logger.error(err)
-
-        multilines = np.asarray(centers, dtype=object)
-        repeat = shapely.get_num_geometries(multilines)
-        lines = shapely.get_parts(multilines)
-        iloc = np.arange(len(repeat)).repeat(repeat)
-
-        msg = f'Resolving interstitial centerlines'
-        with benchmark(msg):
-            result = (
-                union
-                .iloc[iloc]
-                .set_geometry(lines)
-                .pipe(Lines.from_frame)
-                .drop2nodes
-                .pipe(Center)
-            )
-
-        msg = f'Simplifying centerlines with tolerance 0.01'
-        with benchmark(msg):
-            lines = shapely.simplify(result.geometry, .01)
-        result = result.set_geometry(lines)
-        result.index.name = 'icent'
-
-        instance.__dict__[self.__name__] = result
-
-    result.instance = instance
-    return result
 
 
 class Center(
-    GeoDataFrameFixed,
+    FrameWrapper
 ):
+
+    def _get(
+            self,
+            instance: PedNet,
+            owner: type[PedNet]
+    ) -> Center:
+        self: Self = FrameWrapper._get(self, instance, owner)
+        cache = instance.frame.__dict__
+        key = self.__name__
+        if instance is None:
+            return self
+        if key in cache:
+            result = cache[key]
+        else:
+            union = instance.union
+            geometry = union.geometry
+
+            msg = 'Computing centerlines'
+            with benchmark(msg):
+                centers = []
+                it = tqdm(
+                    enumerate(geometry),
+                    total=len(geometry),
+                    desc='centerline.geometry.Centerline()',
+                )
+                for i, poly in it:
+                    try:
+                        item = Centerline(poly).geometry
+                        centers.append(item)
+                    except Exception as e:
+                        err = f'Centerline computation failed for index {i}:\n\t{e}'
+                        logger.error(err)
+
+            multilines = np.asarray(centers, dtype=object)
+            repeat = shapely.get_num_geometries(multilines)
+            lines = shapely.get_parts(multilines)
+            iloc = np.arange(len(repeat)).repeat(repeat)
+
+            msg = f'Resolving interstitial centerlines'
+            with benchmark(msg):
+                result = (
+                    union
+                    .iloc[iloc]
+                    .set_geometry(lines)
+                    .pipe(Lines.from_frame)
+                    .drop2nodes
+                    .pipe(self.from_frame, wrapper=self)
+                )
+
+            msg = f'Simplifying centerlines with tolerance 0.01'
+            with benchmark(msg):
+                lines = shapely.simplify(result.geometry, .01)
+            result = result.set_geometry(lines)
+            result.index.name = 'icent'
+
+            cache[key] = result
+
+        result.instance = instance
+        return result
+
     locals().update(
-        __get__=__get__,
+        __get__=_get,
     )
 
     instance: PedNet = None
