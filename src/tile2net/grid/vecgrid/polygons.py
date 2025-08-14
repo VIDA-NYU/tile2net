@@ -32,7 +32,7 @@ class Polygons(
         if instance is None:
             result = self
 
-        elif self.__name__ not in instance.frame.__dict__:
+        elif self.__name__ not in instance.__dict__:
 
             msg = f'Loading {instance.__name__}.polygons'
             logger.debug(msg)
@@ -80,8 +80,8 @@ class Polygons(
                         columns='feature',
                         aggfunc='first'
                     )
-                    .pipe(self.__class__)
                     .reindex(instance.index)
+                    .pipe(self.from_frame, wrapper=self)
                 )
 
             for col in result.columns:
@@ -91,10 +91,10 @@ class Polygons(
                     allow_override=True
                 )
 
-            instance.frame.__dict__[self.__name__] = result
+            instance.__dict__[self.__name__] = result
 
         else:
-            result = instance.frame.__dict__[self.__name__]
+            result = instance.__dict__[self.__name__]
 
         result.vecgrid = instance
         return result
@@ -120,11 +120,11 @@ class Polygons(
         import folium
         feature2color = cfg.label2color
 
-        loc = self.dtypes == 'geometry'
+        loc = self.frame.dtypes == 'geometry'
         for col in self.columns[loc]:
             color = feature2color.get(col)
             m = explore(
-                self,
+                self.frame,
                 geometry=col,
                 *args,
                 color=color,

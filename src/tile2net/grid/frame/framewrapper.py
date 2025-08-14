@@ -226,6 +226,12 @@ class FrameWrapper(
     def __getitem__(self, item):
         return self.frame[item]
 
+    def __repr__(self):
+        result = f'{self.__class__.__qualname__}:\n\n'
+        result += self.frame.__repr__()
+        return result
+
+
 # from IPython import get_ipython
 # ip = get_ipython()
 # for mt in (

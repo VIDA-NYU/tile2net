@@ -31,26 +31,34 @@ class Stubs(
             owner: type[PedNet]
     ) -> Stubs:
         self: Self = namespace._get(self, instance, owner)
-        cache = instance.frame.__dict__
+        cache = instance.__dict__
         key = self.__name__
         if instance is None:
             return self
         if key in cache:
-            result = cache[key]
+            result: Self = cache[key]
+            # if result.instance is not instance:
+            #     loc = result.iline.isin(instance.iline)
+            #     result = result.loc[loc].copy()
+            #     cache[key] = result
+
+            if result.instance is not instance:
+                del cache[key]
+                return  self._get(instance, owner)
         else:
             lines = instance
             edges = lines.edges
             nodes = lines.nodes
             _ = edges.threshold, edges.start_degree, edges.stop_degree
 
-            icoord2cost: dict[int, float] = edges.length.to_dict()
+            icoord2cost: dict[int, float] = edges.frame.length.to_dict()
             icoord2icoord = edges.stop_iend.to_dict()
             icoord2node = edges.start_tuple.to_dict()
 
             msg = f'Computing stubs'
             logger.debug(msg)
 
-            loc = edges.length.values <= edges.threshold.values
+            loc = edges.frame.length.values <= edges.threshold.values
             loc &= edges.start_degree.values == 1
             ends = edges.loc[loc]
 
@@ -63,7 +71,7 @@ class Stubs(
             it = zip(
                 ends.start_iend.values,  # ifirst
                 ends.stop_iend.values,  # ilast
-                ends.length.values,  # cost
+                ends.frame.length.values,  # cost
                 ends.iline.values,  # iline
                 ends.stop_inode.values,  # inode
                 ends.threshold.values,  # stub_length
@@ -119,7 +127,7 @@ class Stubs(
             legal_icoords = set(stub_edges.start_iend)
 
             inode2stub_length = (
-                stub_edges
+                stub_edges.frame
                 .groupby("stop_inode")
                 ["threshold"]
                 .min()
@@ -188,6 +196,7 @@ class Stubs(
             result = (
                 lines
                 .loc[loc, cols]
+                .frame
                 .pipe(self.from_frame, wrapper=self)
             )
             cache[key] = result
@@ -221,7 +230,7 @@ class Stubs(
         _ = features.mutex
 
         if 'original' in features:
-            it = features.groupby(
+            it = features.frame.groupby(
                 level='feature',
                 observed=False,
             )

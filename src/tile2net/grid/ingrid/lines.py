@@ -38,7 +38,7 @@ class Lines(
         if instance is None:
             result = self
         elif self.__name__ in instance.__dict__:
-            result = instance.frame.__dict__[self.__name__]
+            result = instance.__dict__[self.__name__]
         else:
             file = self.file
             if os.path.exists(file):
@@ -50,8 +50,11 @@ class Lines(
 
                 msg = f"Stacking geometric columns into a single geometry column."
                 logger.debug(msg)
-                lines: gpd.GeoDataFrame = instance.vecgrid.lines.copy()
-                lines.columns = lines.columns.str.removeprefix('lines.')
+                lines: gpd.GeoDataFrame = instance.vecgrid.lines.frame.copy()
+                lines.columns = (
+                    lines.columns.str
+                    .removeprefix('lines.')
+                )
                 cols = lines.dtypes == 'geometry'
                 result: Lines = (
                     lines
@@ -65,7 +68,7 @@ class Lines(
                     .pipe(self.__class__.from_frame, wrapper=self)
                 )
 
-                instance.frame.__dict__[self.__name__] = result
+                instance.__dict__[self.__name__] = result
 
                 msg = "Finding coordinates that intersect tile boundaries"
                 debug = logger.debug(msg)
@@ -84,7 +87,7 @@ class Lines(
 
                 iend = np.concatenate([ifirst, ilast])
                 iline = iline[iend]
-                frame = result.loc[iline].reset_index()
+                frame = result.loc[iline].frame.reset_index()
                 coords = COORDS[iend]
                 geometry = shapely.points(coords)
                 borders = instance.vecgrid.geometry.exterior.union_all()
@@ -125,28 +128,33 @@ class Lines(
                 result['geometry'] = geometry
 
                 result = (
-                    result
-                    .pipe(tile2net.grid.pednet.lines.Lines.from_frame)
+                    result.frame
+                    .pipe(tile2net.grid.pednet.lines.Lines.from_center)
                     .drop2nodes()
+                    .frame
                     .set_index('feature')
                     [['geometry']]
-                    .pipe(self.__class__)
+                    # .pipe(self.__class__)
+                    .pipe(self.__class__.from_frame, wrapper=self)
                 )
 
-                instance.frame.__dict__[self.__name__] = result
+                instance.__dict__[self.__name__] = result
 
                 msg = f"Writing {instance.__name__}.{self.__name__} to {file}"
                 logger.info(msg)
-                result.to_parquet(file)
+                result.frame.to_parquet(file)
 
-        result.ingrid = instance
+        result.instance = instance
         return result
 
     __name__ = 'lines'
-    ingrid: InGrid = None
     locals().update(
         __get__=_get,
     )
+
+    @property
+    def ingrid(self) -> InGrid:
+        return self.instance
 
     @property
     def feature(self):

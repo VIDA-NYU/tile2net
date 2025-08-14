@@ -24,7 +24,7 @@ if __name__ == '__main__':
     file = '/home/arstneio/PycharmProjects/kashi/src/tile2net/artifacts/static/brooklyn.feather'
     result = (
         gpd.read_feather(file)
-        .pipe(Lines.from_frame)
+        .pipe(Lines.from_center)
         .drop2nodes
     )
     print(f'{len(result)=}')

@@ -31,12 +31,15 @@ class Mintrees(
             owner: type[PedNet]
     ) -> Mintrees:
         self: Self = namespace._get(self, instance, owner)
-        cache = instance.frame.__dict__
+        cache = instance.__dict__
         key = self.__name__
         if instance is None:
             return self
         if key in cache:
             result = cache[key]
+            if result.instance is not instance:
+                del cache[key]
+                return  self._get(instance, owner)
         else:
             stubs = instance.stubs
             edges = stubs.edges
@@ -52,7 +55,7 @@ class Mintrees(
             assert nodes.inode.isin(edges.start_inode.values).all()
             _ = nodes.tuple
 
-            icoord2cost: dict[int, float] = edges.length.to_dict()
+            icoord2cost: dict[int, float] = edges.frame.length.to_dict()
             icoord2icoord: dict[int, int] = edges.stop_iend.to_dict()
             icoord2inode = edges.start_inode.to_dict()
             icoord2node: dict[int, tuple[int, ...]] = (
@@ -150,6 +153,7 @@ class Mintrees(
             result = (
                 edges.lines
                 .loc[iline]
+                .frame
                 .sort_index()
                 .pipe(self.from_frame, wrapper=self)
             )
@@ -186,7 +190,7 @@ class Mintrees(
 
         if polygon_color:
             m = explore(
-                self.instance.pednet.union,
+                self.instance.pednet.union.frame,
                 *args,
                 color=polygon_color,
                 name=f'polygons',
@@ -210,7 +214,7 @@ class Mintrees(
             m=m,
         )
         m = explore(
-            stubs,
+            stubs.frame,
             color=stub_color,
             name='stubs',
             *args,
@@ -219,7 +223,7 @@ class Mintrees(
             m=m,
         )
         m = explore(
-            self,
+            self.frame,
             color=mintree_color,
             name='mintrees',
             *args,
@@ -232,7 +236,7 @@ class Mintrees(
         loc |= nodes.index.isin(stubs.stop_inode.values)
         nodes = nodes.loc[loc]
         m = explore(
-            nodes,
+            nodes.frame,
             color=node_color,
             name='node',
             *args,

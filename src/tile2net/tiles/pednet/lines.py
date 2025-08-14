@@ -256,8 +256,6 @@ class Lines(
         visited = set()
         edges = self.edges
 
-        edges.start_other_iend
-
         iloc = (
             edges.start_shared_iend
             .notna()

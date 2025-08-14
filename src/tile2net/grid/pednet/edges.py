@@ -1,4 +1,5 @@
 from __future__ import annotations
+from tile2net.grid.cfg.logger import logger
 
 from typing import *
 
@@ -22,19 +23,44 @@ one to extract node information
 """
 
 
-
 class Edges(
     FrameWrapper,
 ):
-    stop_iend: pd.Series
-    iline: pd.Series
-    start_x: pd.Series
-    start_y: pd.Series
-    stop_x: pd.Series
-    stop_y: pd.Series
-    start_inode: pd.Series
-    stop_inode: pd.Series
+    @frame.column
+    def stop_iend(self):
+        ...
 
+    @frame.column
+    def start_iend(self):
+        ...
+
+    @frame.column
+    def iline(self):
+        ...
+
+    @frame.column
+    def start_x(self):
+        ...
+
+    @frame.column
+    def start_y(self):
+        ...
+
+    @frame.column
+    def stop_x(self):
+        ...
+
+    @frame.column
+    def stop_y(self):
+        ...
+
+    @frame.column
+    def start_inode(self):
+        ...
+
+    @frame.column
+    def stop_inode(self):
+        ...
 
     def _get(
             self,
@@ -42,14 +68,29 @@ class Edges(
             owner
     ) -> Edges:
         self: Self = namespace._get(self, instance, owner)
-        cache = instance.frame.__dict__
+        cache = instance.__dict__
         key = self.__name__
         if instance is None:
             return self
         if key in cache:
-            result = instance.__dict__[self.__name__]
+            result: Self = cache[key]
+            # if result.instance is not instance:
+            #     loc = result.iline.isin(instance.iline)
+            #     result = result.loc[loc].copy()
+            #     cache[key] = result
+
+
+            if result.instance is not instance:
+                del cache[key]
+                return  self._get(instance, owner)
         else:
-            cols = 'iline geometry start_inode stop_inode start_iend stop_iend'.split()
+            msg = f'Generating {owner.__name__}.{key}'
+            logger.debug(msg)
+            # cols = 'iline geometry start_inode stop_inode start_iend stop_iend'.split()
+            cols = (
+                'iline geometry start_inode stop_inode '
+                'start_iend stop_iend start_x start_y stop_x stop_y'
+            ).split()
             _ = (
                 instance.start_inode, instance.stop_inode,
                 instance.start_iend, instance.stop_iend,
@@ -76,13 +117,13 @@ class Edges(
             concat = lines, reverse
 
             result = (
-                pd.concat(concat, )
+                pd.concat(concat)
                 .set_index('start_iend')
                 .pipe(self.from_frame, wrapper=self)
             )
             cache[key] = result
 
-        result.lines = instance
+        result.instance = instance
 
         return result
 
@@ -91,20 +132,24 @@ class Edges(
     )
     __name__ = 'edges'
 
+    # @property
+    # def lines(self) -> Lines:
+    #     try:
+    #         return self.frame.attrs['lines']
+    #     except KeyError as e:
+    #         raise AttributeError(
+    #             'Lines not set. Please set lines attribute before accessing Nodes.'
+    #         ) from e
+    #
+    # @lines.setter
+    # def lines(self, value: Lines):
+    #     self.frame.attrs['lines'] = value
+
     @property
     def lines(self) -> Lines:
-        try:
-            return self.attrs['lines']
-        except KeyError as e:
-            raise AttributeError(
-                'Lines not set. Please set lines attribute before accessing Nodes.'
-            ) from e
+        return self.instance
 
-    @lines.setter
-    def lines(self, value: Lines):
-        self.attrs['lines'] = value
-
-    @frame.column
+    @property
     def nodes(self):
         return self.lines.nodes
 
@@ -116,7 +161,6 @@ class Edges(
         else:
             return self.frame[key]
 
-
     @frame.column
     def start_degree(self) -> pd.Series:
         result = (
@@ -126,10 +170,13 @@ class Edges(
         )
         return result
 
-
     @frame.column
     def start_shared_iend(self) -> pd.Series:
-        other = self.start_other_iend.astype('UInt32')
+        # other = self.start_other_iend.astype('UInt32')
+        other = (
+            self.start_other_iend
+            .astype('UInt32')
+        )
         loc = other.notna()
         try:
             _ = self.feature
@@ -166,25 +213,34 @@ class Edges(
         return result
 
     @frame.column
-    def start_other_iend(self) -> pd.Series:
+    def start_other_iend(self):
         """Other iend of the node at self.start_iend"""
         loc = self.start_degree == 2
         edges: Edges = self.loc[loc]
         groupby = (
-            edges
+            edges.frame
             .reset_index()
             .groupby(edges.start_inode.values, sort=False)
         )
+        assert groupby.size().min() != 1
+
+        # edges = self
+        # loc = edges.start_degree.values != 2
+        # loc &= edges.nodes.degree.loc[edges.start_inode].values == 2
+        # inode = edges.start_inode.loc[loc]
+        # loc = edges.start_inode.isin(inode)
+        # edges.frame.loc[loc].sort_values('start_inode')
+
         if not len(groupby):
             result = pd.Series(dtype='UInt32')
             return result
-        groupby.size().max()
         assert groupby.size().max() <= 2
         first = groupby.start_iend.first()
         last = groupby.start_iend.last()
         index = pd.concat([first, last])
         data = pd.concat([last, first])
         result = data.set_axis(index)
+        # todo: len 1 is causing duplicates
         assert not result.index.has_duplicates
         assert not result.duplicated().any()
         return result
@@ -217,7 +273,7 @@ class Edges(
         assert not labels.has_duplicates
 
         result = (
-            polygons
+            polygons.frame
             .reset_index()
             .iunion
             .iloc[idissolved]
@@ -253,7 +309,11 @@ class Edges(
 
     @frame.column
     def feature(self) -> pd.Series:
-        feature = self.lines.feature.loc[self.iline].values
+        feature = (
+            self.lines.feature
+            .loc[self.iline]
+            .values
+        )
         return feature
 
     def __set_name__(self, owner, name):

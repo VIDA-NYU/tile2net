@@ -58,3 +58,20 @@ class namespace(
         __get__=_get,
     )
 
+    def __delete__(
+            self,
+            instance: Grid,
+    ):
+        del instance.__dict__[self.__name__]
+
+    def __set__(
+            self,
+            instance: Grid,
+            value: namespace,
+    ):
+        instance.__dict__[self.__name__] = value
+        value.instance = instance
+
+
+
+

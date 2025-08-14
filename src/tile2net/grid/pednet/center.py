@@ -35,12 +35,15 @@ class Center(
             owner: type[PedNet]
     ) -> Center:
         self: Self = FrameWrapper._get(self, instance, owner)
-        cache = instance.frame.__dict__
+        cache = instance.__dict__
         key = self.__name__
         if instance is None:
             return self
         if key in cache:
             result = cache[key]
+            if result.instance is not instance:
+                raise NotImplementedError
+
         else:
             union = instance.union
             geometry = union.geometry
@@ -71,17 +74,26 @@ class Center(
                 result = (
                     union
                     .iloc[iloc]
+                    .frame
                     .set_geometry(lines)
-                    .pipe(Lines.from_frame)
-                    .drop2nodes
+                    .pipe(Lines.from_center)
+                    .drop2nodes()
+                    .frame
                     .pipe(self.from_frame, wrapper=self)
                 )
 
             msg = f'Simplifying centerlines with tolerance 0.01'
             with benchmark(msg):
                 lines = shapely.simplify(result.geometry, .01)
-            result = result.set_geometry(lines)
-            result.index.name = 'icent'
+            # result = result.set_geometry(lines)
+            # result.index.name = 'icent'
+
+            result: Self= (
+                result.frame
+                .set_geometry(lines)
+                .pipe(self.from_frame, wrapper=self)
+            )
+            result.frame.index.name = 'icent'
 
             cache[key] = result
 
@@ -104,12 +116,17 @@ class Center(
         mutex = features.mutex.loc[loc]
 
         with benchmark(msg):
+            # self.lines.frame
             geometry = (
                 mutex
-                .intersection(self.pruned.union_all())
+                .intersection(self.pruned.frame.union_all())
                 .explode()
             )
-            result = Center(geometry=geometry, index=geometry.index)
+            result = (
+                gpd.GeoDataFrame(geometry=geometry, index=geometry.index)
+                .pipe(self.from_frame, wrapper=self)
+            )
+            # result = Center(geometry=geometry, index=geometry.index)
 
         result.instance = self.instance
         return result
@@ -117,7 +134,7 @@ class Center(
     @cached_property
     def lines(self) -> Lines:
         center = self
-        lines = Lines.from_frame(center)
+        lines = Lines.from_center(center.frame)
         lines.pednet = self.instance
         return lines
 
@@ -151,12 +168,13 @@ class Center(
                 if np.all(loc):
                     break
                 logger.debug('Resolving interstitial lines')
-                center = (
+
+                center: Center = (
                     lines
                     .loc[loc]
-                    .pipe(Lines)
-                    .drop2nodes
-                    .pipe(Center)
+                    .drop2nodes()
+                    .frame
+                    .pipe(Center.from_frame)
                 )
                 lines = center.lines
                 center.instance = self.instance

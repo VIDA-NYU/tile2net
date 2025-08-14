@@ -17,7 +17,6 @@ if False:
     from .pednet import PedNet
 
 
-
 class Features(
     FrameWrapper
 ):
@@ -35,13 +34,14 @@ class Features(
         if instance is None:
             return self
         if key in cache:
-            result = cache[key]
+            result: Self = cache[key]
+            if instance is not result.instance:
+                del cache[key]
+                return self._get(instance, owner)
         else:
             result = (
                 instance
                 .frame
-                # .make_valid()
-                # .to_frame(name='geometry')
                 .dissolve(by='feature')
                 .pipe(self.from_frame, wrapper=self)
             )
@@ -62,11 +62,14 @@ class Features(
         value.__name__ = self.__name__
         instance.__dict__[self.__name__] = value
 
-
     @frame.column
     def above(self):
         """Unary union of all features above the given feature."""
-        ordered = self.sort_values(self.z_order.name, ascending=False)
+        # ordered = self.sort_values(self.z_order.name, ascending=False)
+        ordered = (
+            self.frame
+            .sort_values(self.z_order.name, ascending=False)
+        )
         geoms = ordered.geometry.values
         out = []
         cum = GeometryCollection()
@@ -75,7 +78,6 @@ class Features(
             cum = cum.union(g)
         result = GeoSeries(out, index=ordered.index, crs=self.crs)
         return result
-
 
     @frame.column
     def mutex(self) -> GeoSeries[GeometryCollection]:
@@ -127,13 +129,12 @@ class Features(
         """Color mapping for features."""
         result = pd.Series(cfg.label2color, dtype='string')
         return result
-        
+
     @frame.column
     def z_order(self) -> pd.Series:
         """Z-order of the features."""
         result = pd.Series(cfg.polygon.z_order)
         return result
-
 
     def visualize(
             self,

@@ -78,12 +78,12 @@ class Lines(
                         columns='feature',
                         aggfunc='first'
                     )
-                    .pipe(self.__class__)
                     .reindex(instance.index)
+                    .pipe(self.from_frame, wrapper=self)
                 )
 
             for col in result.columns:
-                result[col].set_crs(
+                result.frame[col].set_crs(
                     4326,
                     inplace=True,
                     allow_override=True

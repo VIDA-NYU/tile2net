@@ -210,7 +210,6 @@ class VecGrid(Grid):
                 )
             result = instance.vecgrid
 
-        result.tiles = instance
         result.instance = instance
 
         return result
@@ -501,10 +500,17 @@ class VecGrid(Grid):
                 return
 
             net = PedNet.from_mask2poly(polys)
-            # return
-            # clipped = net.center.clipped.to_crs(4326)
-            net.center
-            # polys = polys.to_crs(4326)
+            lines = net.center.lines
+            edges = lines.edges
+
+            clipped = (
+                net.center.clipped
+                .frame.to_crs(4326)
+                .pipe(
+                    net.center.clipped.from_frame,
+                    wrapper=net.center.clipped
+                )
+            )
 
             polys = (
                 polys.frame
@@ -516,11 +522,12 @@ class VecGrid(Grid):
             )
 
             clipped = (
-                clipped
+                clipped.frame
                 .clip_by_rect(xmin, ymin, xmax, ymax)
                 .to_frame('geometry')
                 .dissolve(by='feature')
                 .explode()
+                # .pipe(clipped.from_frame, wrapper=clipped)
             )
 
             polys.to_parquet(polygons_file)
@@ -590,8 +597,8 @@ class VecGrid(Grid):
             """
             Wrapper that remembers which infile belongs to each Future.
             """
-            # fut = executor.submit(self._vectorize_submit, *args)
-            self._vectorize_submit(*args)
+            fut = executor.submit(self._vectorize_submit, *args)
+            # self._vectorize_submit(*args)
             running[fut] = args[0]  # args[0] == infile path
             return fut
 

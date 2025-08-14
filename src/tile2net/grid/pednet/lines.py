@@ -15,6 +15,7 @@ from .. import frame
 from ...grid.frame.framewrapper import FrameWrapper
 
 if False:
+    from .center import Center
     from .pednet import PedNet
     import folium
     from .stubs import Stubs
@@ -113,7 +114,7 @@ class Lines(
 ):
     start_iend: pd.Series
     stop_iend: pd.Series
-    pednet: PedNet = None
+    # pednet: PedNet = None
     stubs: Stubs
     mintrees: Mintrees
     start_x: pd.Series
@@ -122,6 +123,43 @@ class Lines(
     stop_y: pd.Series
     stop_iend: pd.Series
     start_iend: pd.Series
+
+
+    @frame.column
+    def stop_iend(self):
+        ...
+
+    @frame.column
+    def start_iend(self):
+        ...
+
+    @frame.column
+    def iline(self):
+        ...
+
+    @frame.column
+    def start_x(self):
+        ...
+
+    @frame.column
+    def start_y(self):
+        ...
+
+    @frame.column
+    def stop_x(self):
+        ...
+
+    @frame.column
+    def stop_y(self):
+        ...
+
+    @frame.column
+    def start_inode(self):
+        ...
+
+    @frame.column
+    def stop_inode(self):
+        ...
 
     __keep__ = 'geometry start_x start_y stop_x stop_y start_iend stop_iend'.split()
 
@@ -154,7 +192,7 @@ class Lines(
         cols = 'start_x start_y'.split()
         loc = pd.MultiIndex.from_frame(self.frame[cols])
         result = (
-            self.nodes
+            self.nodes.frame
             .reset_index()
             .set_index('x y'.split())
             ['inode']
@@ -169,7 +207,7 @@ class Lines(
         cols = 'stop_x stop_y'.split()
         loc = pd.MultiIndex.from_frame(self.frame[cols])
         result = (
-            self.nodes
+            self.nodes.frame
             .reset_index()
             .set_index('x y'.split())
             ['inode']
@@ -180,11 +218,12 @@ class Lines(
         return result
 
     @classmethod
-    def from_frame(
+    def from_center(
             cls,
-            frame: gpd.GeoDataFrame
+            center: GeoDataFrame
     ) -> Self:
-        geometry = frame.geometry
+
+        geometry = center.geometry
         loc = geometry.geom_type != 'LineString'
         loc &= geometry.geom_type != 'MultiLineString'
         if np.any(loc):
@@ -193,7 +232,7 @@ class Lines(
             raise ValueError(msg)
 
         result = (
-            frame
+            center
             .reset_index()
             .explode()
         )
@@ -231,18 +270,16 @@ class Lines(
         result = (
             result
             .assign(**assign)
-            .pipe(cls)
+            .pipe(cls.from_frame)
         )
 
         result.index.name = 'iline'
 
         return result
 
-    def drop2nodes(self):
+    def drop2nodes(self) -> Self:
         visited = set()
         edges = self.edges
-
-        edges.start_other_iend
 
         iloc = (
             edges.start_shared_iend
@@ -302,10 +339,14 @@ class Lines(
         iline = iline.repeat(repeat)
         lines = shapely.linestrings(coords, indices=iline)
         lines = shapely.remove_repeated_points(lines)
-        result = self.__class__(
-            geometry=lines,
-            crs=self.crs,
-            data=data,
+        # result = self.__class__(
+        #     geometry=lines,
+        #     crs=self.crs,
+        #     data=data,
+        # )
+        result = (
+            gpd.GeoDataFrame(geometry=lines, crs=self.crs, data=data)
+            .pipe(self.__class__.from_frame, wrapper=self)
         )
         return result
 
@@ -351,7 +392,7 @@ class Lines(
         loc |= nodes.index.isin(self.stop_inode.values)
         nodes = nodes.loc[loc]
         m = explore(
-            nodes,
+            nodes.frame,
             color=node_color,
             name='nodes',
             *args,

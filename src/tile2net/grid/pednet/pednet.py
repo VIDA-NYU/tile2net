@@ -123,16 +123,23 @@ class PedNet(
                 iloc = np.unique(iint[loc])
                 intersection = intersection.iloc[iloc]
 
-            geometry = (
+            result = (
                 pd.concat([intersection.geometry, border.geometry])
                 .pipe(gpd.GeoSeries)
+                .to_frame(name='geometry')
+                .pipe(cls.from_frame)
             )
-            result = cls(geometry=geometry)
 
         if save_original:
             msg = f'Dissolving the original polygons by feature'
             logger.debug(msg)
-            result.features.original = original.dissolve(level='feature').geometry
+            # result.features.original = original.dissolve(level='feature').geometry
+            result.features.original = (
+                original
+                .frame
+                .dissolve(level='feature')
+                .geometry
+            )
 
         return result
 

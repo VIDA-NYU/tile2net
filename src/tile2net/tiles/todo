@@ -88,22 +88,11 @@ investigat submission
             # loc = tiles.vectile.xtile == 4963
             # loc &= tiles.vectiles.ytile == 6057
 
-must be stitch segtiles.grayscale -> vectiles.grayscale
+problem:
+        result = (
+            self.lines.nodes.degree
+            .loc[self.start_inode]
+            .values
+        )
 
-lines
-polygons
-
-We now have this method, which behaves like a column:
-    @frame.column
-    def overlay(self) -> pd.Series:
-        grid = self.grid
-        files = grid.ingrid.outdir.vecgrid.overlay.files(grid)
-        if (
-                not grid._overlay
-                and not files.map(os.path.exists).all()
-        ):
-            grid._overlay()
-        return files
-
-
-It used to look like this:
+self.start_indoe is a superset of nodes.inode

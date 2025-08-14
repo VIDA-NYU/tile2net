@@ -26,7 +26,7 @@ class Union(
     """
     instance: PedNet = None
     __name__ = 'union'
-    
+
     def _get(
             self,
             instance: PedNet,
@@ -38,7 +38,10 @@ class Union(
         if instance is None:
             return self
         if key in cache:
-            result = cache[key]
+            result: Self = cache[key]
+            if instance is not result.instance:
+                del cache[key]
+                return self._get(instance, owner)
         else:
             loc = ~instance.feature.isin(cfg.polygon.borders)
             msg = f'Computing the geometric union of all {loc.sum()} pedestrian features.'
@@ -52,8 +55,12 @@ class Union(
                 )
             data = shapely.get_parts(collection)
             crs = instance.crs
-            geometry = gpd.GeoSeries(data, crs=crs)
-            result = self.from_frame(geometry=geometry, wrapper=self)
+            result: Self = (
+                gpd.GeoSeries(data, crs=crs)
+                .to_frame(name='geometry')
+                .pipe(instance.from_frame, wrapper=self)
+            )
+
             result.index.name = 'iunion'
             cache[key] = result
             # result.collection = collection
@@ -61,13 +68,10 @@ class Union(
 
         result.instance = instance
         return result
-        
+
     locals().update(
         __get__=_get,
     )
-    instance: PedNet = None
-    __name__ = 'union'
-
 
     def explore(
             self,
@@ -83,7 +87,7 @@ class Union(
         import folium
         features = self.instance.features
         feature2color = features.color.to_dict()
-        it = features.groupby(level='feature', observed=False)
+        it = features.frame.groupby(level='feature', observed=False)
 
         for feature, frame in it:
             color = feature2color[feature]
