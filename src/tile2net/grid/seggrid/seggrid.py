@@ -178,9 +178,9 @@ class SegGrid(
             logger.info(msg)
             cfg = instance.cfg
 
-            scale = cfg.segtile.scale
-            length = cfg.segtile.length
-            dimension = cfg.segtile.dimension
+            scale = cfg.segment.scale
+            length = cfg.segment.length
+            dimension = cfg.segment.dimension
 
             if scale:
                 instance = instance.set_segmentation(scale=scale)

@@ -27,7 +27,7 @@ from tile2net.grid.dir.indir import Indir
 from tile2net.grid.dir.outdir import Outdir
 from . import delayed
 from .segtile import SegTile
-from .source import Source
+from .source import Source, SourceNotFound
 from .vectile import VecTile
 from .. import frame
 from ..cfg import cfg
@@ -94,7 +94,6 @@ class InGrid(
         After performing InGrid.set_segmentation(), InGrid.seggrid is
         available for performing segmentation on the stitched tiles.
         """
-
 
     @cached_property
     def dimension(self) -> int:
@@ -176,12 +175,12 @@ class InGrid(
             max_workers: int = 64,  # ⇣ lower default ⇣ avoids port-exhaustion
     ) -> Self:
 
-        if self is not self.padded:
-            return self.padded.download(
-                retry=retry,
-                force=force,
-                max_workers=max_workers,
-            )
+        # if self is not self.padded:
+        #     return self.padded.download(
+        #         retry=retry,
+        #         force=force,
+        #         max_workers=max_workers,
+        #     )
 
         paths = self.file.infile
         urls = self.source.urls
@@ -306,7 +305,6 @@ class InGrid(
         logger.info("All requested grid are on disk.")
         return self
 
-
     def _make_session(
             self,
             *,
@@ -407,14 +405,20 @@ class InGrid(
         are saved to.
         """
         if source is None:
-            source = (
-                gpd.GeoSeries(
-                    [self.frame.union_all()],
-                    crs=self.frame.crs
+            source = self.cfg.source
+        if source is None:
+            try:
+                source = (
+                    gpd.GeoSeries(
+                        [self.frame.union_all()],
+                        crs=self.frame.crs
+                    )
+                    .to_crs(4326)
+                    .pipe(Source.from_inferred)
                 )
-                .to_crs(4326)
-                .pipe(Source.from_inferred)
-            )
+            except SourceNotFound as e:
+                msg = f'Unable to infer a source for {self.location=}'
+                raise ValueError(msg) from e
         elif isinstance(source, Source):
             source = copy.copy(source)
         else:
@@ -512,6 +516,8 @@ class InGrid(
         default to input/dir/x/x_y_z.png
         self.with_indir('input/dir/x')
         """
+        if indir is None:
+            indir = self.cfg.input_dir
         result = self.copy()
         if name:
             result.name = name
@@ -555,11 +561,11 @@ class InGrid(
 
         # if not outdir:
         # if not outdir:
-        #     if cfg.output_dir:
-        #         outdi = cfg.output_dir
+        #     if cfg.output:
+        #         outdi = cfg.output
 
         if not outdir:
-            outdir = cfg.output_dir
+            outdir = cfg.output
 
         if not outdir:
             raise ValueError(f'No output directory specified. ')
@@ -595,15 +601,45 @@ class InGrid(
             length: int = None,
             mosaic: int = None,
             scale: int = None,
-            fill: bool = True,
-            bs_val: int = None,
+            fill: bool = None,
+            batch_size: int = None,
     ) -> Self:
         from ..seggrid import SegGrid
         # todo: if all are None, determine dimension using VRAM
+
+        if dimension or length or scale:
+            # directly passed
+            ...
+        elif (
+                cfg.segment.dimension !=
+                cfg._default.segment.dimension
+        ):
+            # dimension in config
+            dimension = cfg.segment.dimension
+        elif (
+                cfg.segment.length !=
+                cfg._default.segment.length
+        ):
+            # length in config
+            length = cfg.segment.length
+        elif (
+                cfg.segment.scale !=
+                cfg._default.segment.scale
+        ):
+            # scale in config
+            scale = cfg.segment.scale
+        else:
+            # use defaults
+            dimension = cfg.segment.dimension
+            length = cfg.segment.length
+            scale = cfg.segment.scale
+
         scale = self._to_scale(dimension, length, mosaic, scale)
 
-        if bs_val:
-            self.cfg.model.bs_val = bs_val
+        if not batch_size:
+            self.cfg.model.bs_val = batch_size
+        if fill is None:
+            fill = self.cfg.segment.fill
 
         msg = 'Padding InGrid to align with SegGrid'
         logger.debug(msg)
@@ -639,12 +675,15 @@ class InGrid(
 
         return ingrid
 
+
+
+
     def set_vectorization(
             self,
             *,
             dimension: int = None,
             length: int = None,
-            mosaic: int = None,
+            # mosaic: int = None,
             scale: int = None,
             fill: bool = True,
     ) -> Self:
@@ -658,22 +697,51 @@ class InGrid(
         scale:
         """
 
+        if dimension or length or scale:
+            # directly passed
+            ...
+        elif (
+                cfg.vector.dimension !=
+                cfg._default.vector.dimension
+        ):
+            # dimension in config
+            dimension = cfg.vector.dimension
+        elif (
+                cfg.vector.length !=
+                cfg._default.vector.length
+        ):
+            # length in config
+            length = cfg.vector.length
+        elif (
+                cfg.vector.scale !=
+                cfg._default.vector.scale
+        ):
+            # scale in config
+            scale = cfg.vector.scale
+        else:
+            # use defaults
+            dimension = cfg.vector.dimension
+            length = cfg.vector.length
+            scale = cfg.vector.scale
+
         # todo: if all are None, determine dimension using RAM
         seggrid = self.seggrid
         if dimension:
             dimension -= 2 * seggrid.dimension
-        elif length:
+        if length:
             assert length >= 3
             length -= 2
-            # length *= seggrid.length
-        elif mosaic:
-            raise NotImplementedError
-            mosaic **= 1 / 2
-            mosaic -= 2
-            mosaic **= 2
-            mosaic = int(mosaic)
+            length *= seggrid.length
+        # if mosaic:
+        #     raise NotImplementedError
+        #     mosaic **= 1 / 2
+        #     mosaic -= 2
+        #     mosaic **= 2
+        #     mosaic = int(mosaic)
 
-        scale = self.seggrid._to_scale(dimension, length, mosaic, scale)
+        # scale = self.seggrid._to_scale(dimension, length, mosaic, scale)
+        self.cfg.vector.length
+        scale = self.seggrid._to_scale(dimension, length, scale)
 
         msg = 'Padding InGrid to align with VecGrid'
         logger.debug(msg)
@@ -717,6 +785,3 @@ class InGrid(
     @Polygons
     def polygons(self):
         ...
-
-
-

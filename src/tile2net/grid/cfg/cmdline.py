@@ -37,16 +37,18 @@ def _is_dict_like(ann) -> bool:
         return any(_is_dict_like(a) for a in get_args(ann))
     return False
 
+
 def _is_dict_like(ann) -> bool:
     """True if *ann* is (or contains) a Dict-style annotation."""
     if ann is None:
         return False
     origin = get_origin(ann)
-    if origin is dict:                              # plain Dict[…]
+    if origin is dict:  # plain Dict[…]
         return True
-    if origin in {Union, types.UnionType}:          # PEP484 / PEP604 unions
+    if origin in {Union, types.UnionType}:  # PEP484 / PEP604 unions
         return any(_is_dict_like(a) for a in get_args(ann))
     return False
+
 
 def _parse_dict_or_float(tok: str):
     if ":" in tok:
@@ -54,50 +56,23 @@ def _parse_dict_or_float(tok: str):
         return k, float(v)
     return float(tok)
 
+
 class _DictOrFloatAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         scalar: float | None = None
         mapping: dict[str, float] = {}
         for val in values:
-            if isinstance(val, tuple):                       # key:value
+            if isinstance(val, tuple):  # key:value
                 k, v = val
                 mapping[k] = v
-            else:                                           # bare float
+            else:  # bare float
                 scalar = val
         if scalar is not None and mapping:
             parser.error(f"{option_string} cannot mix scalar and key:value pairs")
         setattr(namespace, self.dest, scalar if scalar is not None else mapping)
 
+
 # ── patched cmdline.property ───────────────────────────────────────────────────
-
-
-def __get__(
-        self: property,
-        instance: Nested,
-        owner: type[Nested]
-):
-    from .cfg import Cfg
-    self.instance = instance
-    self.owner = owner
-    if issubclass(owner, Cfg):
-        self._cfg = instance
-        self._Cfg = owner
-    else:
-        self._cfg = instance._cfg
-        self._Cfg = instance._Cfg
-
-    cfg = self._cfg
-    if (
-            cfg is None
-            or not cfg._active
-    ):
-        return self
-    trace = self._trace
-    if trace in cfg:
-        return cfg[trace]
-    cfg[trace] = self.default
-    result = cfg[trace]
-    return result
 
 
 class property(
@@ -107,8 +82,46 @@ class property(
     This class allows for properties to also generate metadata
     that can be used as a command line argument.
     """
+
+    def _get(
+            self: property,
+            instance: Nested,
+            owner: type[Nested]
+    ):
+        from .cfg import Cfg
+        self.instance = instance
+        self.owner = owner
+        if issubclass(owner, Cfg):
+            self._cfg = instance
+            self._Cfg = owner
+        else:
+            self._cfg = instance._cfg
+            self._Cfg = instance._Cfg
+
+        cfg = self._cfg
+        if (
+                cfg is None
+                or not cfg._active
+        ):
+            return self
+
+        trace = self._trace
+        stack = []
+        if cfg is not cfg._default:
+            stack.append(cfg)
+        if cfg._context is not None:
+            stack.append(cfg._context)
+        if cfg._default is not None:
+            stack.append(cfg._default)
+
+        for _cfg in  stack :
+            if trace in _cfg:
+                return _cfg[trace]
+        msg = f'No default value for {self._trace!r} in {cfg!r}'
+        raise AttributeError(msg)
+
     locals().update(
-        __get__=__get__,
+        __get__=_get,
     )
 
     def __set__(
@@ -373,12 +386,3 @@ class Namespace(
                 del self._cfg[trace]
             else:
                 raise KeyError(trace)
-
-
-
-
-
-
-
-
-

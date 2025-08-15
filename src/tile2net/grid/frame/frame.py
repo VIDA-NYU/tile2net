@@ -1,13 +1,13 @@
 from __future__ import annotations
-import geopandas as gpd
-
-from .framewrapper import FrameWrapper
 
 import copy
 from functools import *
 from typing import *
-from tile2net.grid.frame.namespace import namespace
+
+import geopandas as gpd
 import pandas as pd
+
+from tile2net.grid.frame.namespace import namespace
 
 if False:
     from .framewrapper import FrameWrapper
@@ -69,6 +69,7 @@ class Column(
 
     @cached_property
     def key(self):
+        from .framewrapper import FrameWrapper
         instance = self
         names = []
         while True:

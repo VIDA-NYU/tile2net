@@ -674,35 +674,54 @@ class Model(cmdline.Namespace):
         ...
 
 
-class SegTile(cmdline.Namespace):
+class Segment(cmdline.Namespace):
+    """Segmenation configuration namespace."""
+
     @cmdline.property
     def dimension(self) -> int:
         return 1024
 
     @cmdline.property
     def length(self) -> int:
-        ...
+        """
+        Length, in input images, of each segmentation mask.
+        """
 
     @cmdline.property
     def scale(self) -> int:
-        ...
+        """
+        XYZ scale of each segmentation mask.
+        Scale=17 means the input segmentation mask comprises the same
+        area as a zoom=17 slippy tile of dimension=256.
+        """
+
+    @cmdline.property
+    def fill(self) -> bool:
+        return True
 
 
+class Vector(cmdline.Namespace):
+    """Vectorization configuration namespace."""
 
-class VecTile(cmdline.Namespace):
     @cmdline.property
     def dimension(self) -> int:
-        ...
+        """
+        Dimension of each segmentation mask input into vectorization.
+        """
 
     @cmdline.property
     def length(self) -> int:
-        ...
+        """
+        length, in segmentation masks, of each vectorization input.
+        """
 
     @cmdline.property
     def scale(self) -> int:
-        ...
-
-
+        """
+        XYZ scale of each segmentation mask.
+        Scale=17 means the input segmentation mask comprises the same
+        area as a zoom=17 slippy tile of dimension=256.
+        """
 
 
 class Loss(cmdline.Namespace):
@@ -774,28 +793,6 @@ class Polygon(cmdline.Namespace):
         return ['road']
 
 
-
-def __get__(
-        self: Cfg,
-        instance: Grid,
-        owner: type[Grid]
-) -> Self:
-    if instance is None:
-        result = self
-    elif self._trace in instance.__dict__:
-        result = instance.__dict__[self._trace]
-    else:
-        result = self.__class__(self._trace2default)
-        instance.__dict__[self._trace] = result
-    result.__name__ = self.__name__
-    result.grid = instance
-    result.Grid = owner
-    result.instance = instance
-    result.owner = owner
-    assert result is not None
-    return result
-
-
 class Cfg(
     Nested,
     UserDict,
@@ -804,8 +801,31 @@ class Cfg(
     grid: Grid
     instance: Grid = None
     owner: Type[Grid] = None
+
+    def _get(
+            self,
+            instance: Grid,
+            owner: type[Grid]
+    ) -> Self:
+        if instance is None:
+            result = self
+        elif isinstance(instance, Cfg):
+            return self
+        elif self._trace in instance.__dict__:
+            result = instance.__dict__[self._trace]
+        else:
+            result = self.__class__()
+            instance.__dict__[self._trace] = result
+        result.__name__ = self.__name__
+        result.grid = instance
+        result.Grid = owner
+        result.instance = instance
+        result.owner = owner
+        assert result is not None
+        return result
+
     locals().update(
-        __get__=__get__,
+        __get__=_get,
     )
     _nested: dict[str, cmdline.Nested] = {}
     __name__ = ''
@@ -851,12 +871,12 @@ class Cfg(
     def model(self):
         ...
 
-    @SegTile
-    def segtile(self):
+    @Segment
+    def segment(self):
         ...
 
-    @VecTile
-    def vectile(self):
+    @Vector
+    def vector(self):
         ...
 
     @Polygon
@@ -886,12 +906,12 @@ class Cfg(
         )
 
     @cmdline.property
-    def output_dir(self) -> str:
+    def output(self) -> str:
         """The path to the output directory; "~/tmp/tile2net" by default"""
 
-    output_dir.add_options(
+    output.add_options(
         short='-o',
-        long='--output',
+        # long='--output',
     )
 
     @cmdline.property
@@ -1372,9 +1392,23 @@ class Cfg(
         # return 'INFO'
 
     @classmethod
-    def from_defaults(cls):
+    def from_defaults(cls) -> Self:
         result = cls()
         result.update(result._trace2default)
+        return result
+
+    @classmethod
+    def from_parser(cls) -> Self:
+        parser = Cfg.parser
+        namespace = parser.parse_args()
+        result = cls()
+        default = cls._default
+        update = {
+            key: value
+            for key, value in namespace.__dict__.items()
+            if value != default[key]
+        }
+        result.update(update)
         return result
 
     @cached[dict[str, cmdline.property]]
@@ -1414,7 +1448,7 @@ class Cfg(
     # @cached_property
     @cached[argparse.ArgumentParser]
     @cached.classmethod
-    def _parser(cls) -> argparse.ArgumentParser:
+    def parser(cls) -> argparse.ArgumentParser:
         """
         Lazily construct an `ArgumentParser` populated with every
         collected `cmdline.property`.
@@ -1473,27 +1507,29 @@ class Cfg(
         return self
 
     def __enter__(self):
-        g = globals()
-        cfg = g['cfg']
-        g['cfg'].data = self.data
-        self._backup = cfg
+        self._backup = Cfg._context
+        Cfg._context = self
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        globals()['cfg'].data = self._backup
-        return False
+        if exc_type is not None:
+            raise exc_val
+        if Cfg._context is self:
+            Cfg._context = self._backup
 
     @property
     def _cfg(self) -> Self:
         return self
 
+    # _default: Self = None
+    _context: Self = None
+    _local: Self = None
+    _backup: Self = None
+
 
 cfg = Cfg.from_defaults()
+Cfg._default = cfg
 
-
-# -------------------------------------------------------------------------
-# Utility functions mirroring the legacy API
-# -------------------------------------------------------------------------
 def assert_and_infer_cfg(cfg, train_mode: bool = True) -> None:
     """
     Port of detectron‐style assert_and_infer_cfg for the new `Cfg`.
@@ -1537,5 +1573,3 @@ def update_dataset_cfg(num_classes: int, ignore_label: int) -> None:
 def update_dataset_inst(dataset_inst) -> None:
     """Attach a dataset instance for downstream convenience."""
     cfg.dataset_inst = dataset_inst
-
-

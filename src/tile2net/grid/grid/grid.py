@@ -166,7 +166,7 @@ class Grid(
     @classmethod
     def from_location(
             cls,
-            location,
+            location: str,
             zoom: int = None,
     ) -> Self:
         latlon = util.geocode(location)
@@ -174,7 +174,12 @@ class Grid(
             latlon=latlon,
             zoom=zoom
         )
+        result.location = location
         return result
+
+    @cached_property
+    def location(self) -> str:
+        raise ValueError
 
     @classmethod
     def from_bounds(
@@ -679,7 +684,7 @@ class Grid(
                     or (dimension & (dimension - 1)) != 0
             ):
                 raise ValueError('Dimension must be a positive power of 2.')
-            dscale = int(math.log2(dimension / self.dimension))
+            dscale = int(math.log2(self.dimension / dimension))
             scale = self.scale + dscale
 
         elif length:
@@ -787,6 +792,3 @@ class Grid(
         # See:
         self.colormap.__call__(...)
         self.colormap(...)
-
-
-Grid.__repr__

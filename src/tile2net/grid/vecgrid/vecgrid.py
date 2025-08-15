@@ -193,9 +193,9 @@ class VecGrid(Grid):
             logger.info(msg)
             cfg = instance.cfg
 
-            scale = cfg.vectile.scale
-            length = cfg.vectile.length
-            dimension = cfg.vectile.dimension
+            scale = cfg.vector.scale
+            length = cfg.vector.length
+            dimension = cfg.vector.dimension
 
             if scale:
                 instance = instance.set_segmentation(scale=scale)

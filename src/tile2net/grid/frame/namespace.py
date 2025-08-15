@@ -4,12 +4,9 @@ import copy
 from functools import *
 from typing import *
 
-import pandas as pd
-from geopandas import GeoDataFrame
-
 from tile2net.grid.util import returns_or_assigns
-
 from .wrapper import Wrapper
+
 if False:
     from tile2net.grid.grid.grid import Grid
 

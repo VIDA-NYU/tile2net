@@ -96,3 +96,14 @@ problem:
         )
 
 self.start_indoe is a superset of nodes.inode
+
+
+local > context > default
+
+
+
+Problem is:
+we are in a context config
+the local config is set
+we need to set the local config to be the context
+in doing so, we also absorb the current context into the local config

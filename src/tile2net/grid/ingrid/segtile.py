@@ -26,7 +26,7 @@ class SegTile(
 
     @property
     def length(self):
-        """Number of static grid in one dimension of the segtile"""
+        """Number of ingrid grid in one dimension of the segtile"""
         return self.ingrid.seggrid.length
 
     @property

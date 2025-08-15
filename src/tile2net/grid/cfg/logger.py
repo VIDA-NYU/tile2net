@@ -1,7 +1,7 @@
 import logging.config
 import os
 
-from .cfg import  cfg
+from .cfg import cfg
 
 fname = os.path.join(
     os.path.dirname(__file__),

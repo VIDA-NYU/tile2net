@@ -3,7 +3,7 @@ print('hello world')
 from tile2net.tiles import Tiles
 from tile2net.tiles.cfg import Cfg
 
-parser = Tiles.cfg._parser
+parser = Tiles.cfg.parser
 args = parser.parse_args()
 cfg = vars(args)
 cfg = Cfg(cfg)
