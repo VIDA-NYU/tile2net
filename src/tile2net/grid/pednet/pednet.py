@@ -184,7 +184,7 @@ class PedNet(
         _ = self.center.sidewalk
         _ = self.center.crosswalk
 
-    def visualize(
+    def explore(
             self,
             *args,
             grid='cartodbdark_matter',

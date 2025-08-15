@@ -168,7 +168,7 @@ class Mintrees(
     )
 
 
-    def visualize(
+    def explore(
             self,
             *args,
             grid='cartodbdark_matter',

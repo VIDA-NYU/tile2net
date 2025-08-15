@@ -183,10 +183,10 @@ class Center(
 
         return center
 
-    def visualize(
+    def explore(
             self,
             *args,
-            grid='cartodbdark_matter',
+            tiles='cartodbdark_matter',
             m=None,
             line_color='grey',
             node_color='red',
@@ -201,7 +201,7 @@ class Center(
         _ = features.mutex
 
         if 'original' in features:
-            it = features.groupby(
+            it = features.frame.groupby(
                 level='feature',
                 observed=False,
             )
@@ -213,7 +213,7 @@ class Center(
                     *args,
                     color=color,
                     name=f'{feature} (original)',
-                    grid=grid,
+                    tiles=tiles,
                     simplify=simplify,
                     m=m,
                     style_kwds=dict(
@@ -226,7 +226,7 @@ class Center(
                     **kwargs,
                 )
 
-        it = features.groupby(level='feature', observed=False)
+        it = features.frame.groupby(level='feature', observed=False)
 
         for feature, frame in it:
             color = feature2color[feature]
@@ -236,7 +236,7 @@ class Center(
                 *args,
                 color=color,
                 name=f'{feature} polygons',
-                grid=grid,
+                tiles=tiles,
                 simplify=simplify,
                 m=m,
                 style_kwds=dict(
@@ -259,7 +259,7 @@ class Center(
                     *args,
                     color=color,
                     name=f'{feature} lines',
-                    grid=grid,
+                    tiles=tiles,
                     simplify=simplify,
                     m=m,
                     **kwargs,
@@ -270,7 +270,7 @@ class Center(
                 *args,
                 color=line_color,
                 name='centerlines',
-                grid=grid,
+                tiles=tiles,
                 simplify=simplify,
                 m=m,
                 **kwargs,

@@ -244,7 +244,7 @@ class Lines(
         label2color = self.ingrid.cfg.label2color
         line_w = kwargs.get('width', max(1, long_side // 1400))
 
-        for feature, series in self.groupby('feature', observed=False).geometry:
+        for feature, series in self.frame.groupby('feature', observed=False).geometry:
             colour = label2color.get(feature, axis_col)
             for geom in series:
                 if simplify:
@@ -289,7 +289,7 @@ class Lines(
     def explore(
             self,
             *args,
-            grid='cartodbdark_matter',
+            tiles='cartodbdark_matter',
             m=None,
             simplify=None,
             **kwargs,
@@ -297,7 +297,7 @@ class Lines(
 
         import folium
         feature2color = cfg.label2color
-        it = self.groupby('feature', observed=False)
+        it = self.frame.groupby('feature', observed=False)
         for feature, frame in it:
             color = feature2color[feature]
             m = explore(
@@ -305,7 +305,7 @@ class Lines(
                 *args,
                 color=color,
                 name=feature,
-                grid=grid,
+                tiles=tiles,
                 simplify=simplify,
                 m=m,
                 **kwargs,

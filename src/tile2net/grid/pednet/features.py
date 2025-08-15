@@ -136,10 +136,10 @@ class Features(
         result = pd.Series(cfg.polygon.z_order)
         return result
 
-    def visualize(
+    def explore(
             self,
             *args,
-            grid='cartodbdark_matter',
+            tiles='cartodbdark_matter',
             m=None,
             simplify: float = None,
             dash='5, 20',
@@ -152,7 +152,7 @@ class Features(
         _ = features.mutex
 
         if 'original' in features:
-            it = features.groupby(
+            it = features.frame.groupby(
                 level='feature',
                 observed=False,
             )
@@ -164,7 +164,7 @@ class Features(
                     *args,
                     color=color,
                     name=f'{feature} (original)',
-                    grid=grid,
+                    tiles=tiles,
                     simplify=simplify,
                     m=m,
                     style_kwds=dict(
@@ -177,7 +177,7 @@ class Features(
                     **kwargs,
                 )
 
-        it = features.groupby(level='feature', observed=False)
+        it = features.frame.groupby(level='feature', observed=False)
         if attr:
             getattr(self, attr)
             geometry = attr
@@ -192,7 +192,7 @@ class Features(
                 *args,
                 color=color,
                 name=f'{feature} polygons',
-                grid=grid,
+                tiles=tiles,
                 simplify=simplify,
                 m=m,
                 style_kwds=dict(

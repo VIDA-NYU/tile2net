@@ -208,10 +208,10 @@ class Stubs(
         __get__=_get,
     )
 
-    def visualize(
+    def explore(
             self,
             *args,
-            grid='cartodbdark_matter',
+            tiles='cartodbdark_matter',
             m=None,
             line_color='grey',
             stub_color='yellow',
@@ -242,7 +242,7 @@ class Stubs(
                     *args,
                     color=color,
                     name=f'{feature} (original)',
-                    grid=grid,
+                    tiles=tiles,
                     simplify=simplify,
                     m=m,
                     style_kwds=dict(
@@ -262,7 +262,7 @@ class Stubs(
                 *args,
                 color=polygon_color,
                 name=f'polygons',
-                grid=grid,
+                tiles=tiles,
                 simplify=simplify,
                 m=m,
                 style_kwds=dict(
@@ -278,7 +278,7 @@ class Stubs(
             name='lines',
             *args,
             **kwargs,
-            grid=grid,
+            tiles=tiles,
             m=m,
         )
         m = explore(
@@ -287,7 +287,7 @@ class Stubs(
             name='stubs',
             *args,
             **kwargs,
-            grid=grid,
+            tiles=tiles,
             m=m,
         )
         nodes = self.nodes
@@ -300,7 +300,7 @@ class Stubs(
             name='node',
             *args,
             **kwargs,
-            grid=grid,
+            tiles=tiles,
             m=m,
         )
         folium.LayerControl().add_to(m)

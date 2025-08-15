@@ -310,12 +310,13 @@ class Mask2Poly(
         with benchmark(msg):
             result: Self = (
                 self.frame
+                .to_crs(crs)
                 .dissolve(level='feature', method='coverage')
                 .set_geometry('geometry')
                 .simplify_coverage(simplify)
                 .explode()
                 .to_frame('geometry')
-                .to_crs(crs)
+                # .to_crs(crs)
                 .make_valid(
                     method='structure',
                     keep_collapsed=False,

@@ -30,7 +30,7 @@ def explore(
             .rename(columns={'geometry': 'geometry'})
         )
         geometry = 'geometry'
-    kwargs['grid'] = kwargs.setdefault('grid', 'cartodbdark_matter')
+    kwargs['tiles'] = kwargs.setdefault('tiles', 'cartodbdark_matter')
     style_kwargs = kwargs.setdefault('style_kwds', {})
     style_kwargs.setdefault('weight', 5)
     style_kwargs.setdefault('radius', 5)

@@ -76,7 +76,7 @@ class Union(
     def explore(
             self,
             *args,
-            grid='cartodbdark_matter',
+            tiles='cartodbdark_matter',
             m=None,
             line='grey',
             node='red',
@@ -97,7 +97,7 @@ class Union(
                 *args,
                 color=color,
                 name=f'{feature} polygons',
-                grid=grid,
+                tiles=tiles,
                 simplify=simplify,
                 m=m,
                 style_kwds=dict(

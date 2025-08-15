@@ -41,7 +41,7 @@ def explore(
             .rename(columns={'geometry': 'geometry'})
         )
         geometry = 'geometry'
-    kwargs['grid'] = kwargs.setdefault('grid', 'cartodbdark_matter')
+    kwargs['tiles'] = kwargs.setdefault('tiles', 'cartodbdark_matter')
     style_kwargs = kwargs.setdefault('style_kwds', {})
     style_kwargs.setdefault('weight', 5)
     style_kwargs.setdefault('radius', 5)
@@ -114,7 +114,7 @@ class Lines(
 ):
     start_iend: pd.Series
     stop_iend: pd.Series
-    # pednet: PedNet = None
+    pednet: PedNet
     stubs: Stubs
     mintrees: Mintrees
     start_x: pd.Series
@@ -350,10 +350,10 @@ class Lines(
         )
         return result
 
-    def visualize(
+    def explore(
             self,
             *args,
-            grid='cartodbdark_matter',
+            tiles='cartodbdark_matter',
             m=None,
             line_color='grey',
             node_color='red',
@@ -364,11 +364,11 @@ class Lines(
         import folium
         if polygon_color:
             m = explore(
-                self.pednet.union,
+                self.pednet.union.frame,
                 *args,
                 color=polygon_color,
                 name=f'polygons',
-                grid=grid,
+                tiles=tiles,
                 simplify=simplify,
                 m=m,
                 style_kwds=dict(
@@ -384,7 +384,7 @@ class Lines(
             name='lines',
             *args,
             **kwargs,
-            grid=grid,
+            tiles=tiles,
             m=m,
         )
         nodes = self.nodes
@@ -397,7 +397,7 @@ class Lines(
             name='nodes',
             *args,
             **kwargs,
-            grid=grid,
+            tiles=tiles,
             m=m,
         )
         folium.LayerControl().add_to(m)
