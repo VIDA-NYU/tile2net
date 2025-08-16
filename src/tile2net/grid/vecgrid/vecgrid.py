@@ -170,21 +170,43 @@ class File(
 
 
 class VecGrid(Grid):
+    __name__ = 'vecgrid'
 
     def _get(
-            self: VecGrid,
+            self,
             instance: InGrid,
             owner: type[Grid],
     ) -> VecGrid:
         self.instance = instance
         if instance is None:
             return copy.copy(self)
-        try:
-            # result: VecGrid = instance.attrs[self.__name__]
-            result = instance.frame.__dict__[self.__name__]
-            # result.grid = instance
-            result.instance = instance
-        except KeyError as e:
+        # cache = instance.__dict__
+        # key = self.__name__
+        # if instance in cache:
+        #     # result: VecGrid = instance.attrs[self.__name__]
+        #     result: Self = cache[key]
+        #     if result.instance is not instance:
+        #         haystack = instance.vectile.index
+        #         needles = result.index
+        #         loc = needles.isin(haystack)
+        #         result = result.loc[loc]
+        #
+        #         needles = instance.vectile.index
+        #         haystack = result.index
+        #         loc = needles.isin(haystack)
+        #         if not np.all(loc):
+        #             msg = 'Not all vectorization tiles implicated by input tiles present'
+        #             logger.debug(msg)
+        #             del cache[key]
+        #             return getattr(instance, self.__name__)
+
+        cache = instance.frame.__dict__
+        key = self.__name__
+        if key in cache:
+            result = cache[key]
+
+
+        else:
             msg = (
                 f'intiles.{self.__name__} has not been set. You may '
                 f'customize the vectorization functionality by using '
@@ -598,7 +620,7 @@ class VecGrid(Grid):
             Wrapper that remembers which infile belongs to each Future.
             """
             fut = executor.submit(self._vectorize_submit, *args)
-            # self._vectorize_submit(*args)
+            # fut = self._vectorize_submit(*args)
             running[fut] = args[0]  # args[0] == infile path
             return fut
 
@@ -835,3 +857,4 @@ class VecGrid(Grid):
         result = 2 ** (ingrid.scale - self.scale)
         result += 2 * seggrid.length
         return result
+

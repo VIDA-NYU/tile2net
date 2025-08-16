@@ -562,7 +562,7 @@ class Tiles(
             msg = (
                 f'Stitching {n_missing:,} '
                 f'{small_tiles.__name__}.{small_files.name} '
-                f'into {n_total:,}'
+                f'into {n_total:,} '
                 f'{big_tiles.__name__}.{big_files.name}'
             )
             logger.info(msg)

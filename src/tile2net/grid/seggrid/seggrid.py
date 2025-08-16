@@ -158,18 +158,38 @@ class SegGrid(
     __name__ = 'seggrid'
 
     def _get(
-            self: SegGrid,
+            self,
             instance: InGrid,
             owner: type[Grid],
     ) -> SegGrid:
         self = namespace._get(self, instance, owner)
         if instance is None:
             return copy.copy(self)
-        try:
-            result = instance.frame.__dict__[self.__name__]
-            # result.grid = instance
-            result.instance = instance
-        except KeyError as e:
+        # cache = instance.__dict__
+        # key = self.__name__
+        # if key in cache:
+        #     result: Self = cache[key]
+        #     if result.instance is not instance:
+        #         haystack = instance.vectile.index
+        #         needles = result.index
+        #         loc = needles.isin(haystack)
+        #         result = result.loc[loc]
+        #
+        #         needles = instance.vectile.index
+        #         haystack = result.index
+        #         loc = needles.isin(haystack)
+        #         if not np.all(loc):
+        #             msg = 'Not all segmentation tiles implicated by input tiles present'
+        #             logger.debug(msg)
+        #             del cache[key]
+        #             return getattr(instance, self.__name__)
+
+        cache = instance.frame.__dict__
+        key = self.__name__
+        if key in cache:
+            result = cache[key]
+
+        else:
             msg = (
                 f'ingrid.{self.__name__} has not been set. You may '
                 f'customize the segmentation functionality by using '
@@ -194,6 +214,8 @@ class SegGrid(
                     'segmentation parameters: segscale, segtile.length, or segdimension.'
                 )
             result = instance.seggrid
+
+        result.instance = instance
 
         return result
 
@@ -409,29 +431,30 @@ class SegGrid(
                 batch_size=batch_size
             )
         grid = self
-        cfg = grid.cfg
+        # cfg = grid.cfg
+        with grid.cfg as cfg:
 
-        # preemptively stitch so logging apears more sequential
-        # otherwise you get "now predicting" before "now stitching"
-        _ = self.file.infile
 
-        if force is not None:
-            cfg.force = force
-        if batch_size is not None:
-            cfg.model.bs_val = batch_size
-        if not cfg.force:
-            loc = ~grid.file.grayscale.apply(os.path.exists)
-            grid = (
-                grid.frame
-                .loc[loc]
-                .pipe(grid.from_frame, wrapper=grid)
-            )
-            if not np.any(loc):
-                msg = 'All segmentation grid are on disk.'
-                logger.info(msg)
-                return grid
+            # preemptively stitch so logging apears more sequential
+            # otherwise you get "now predicting" before "now stitching"
+            _ = self.file.infile
 
-        with cfg:
+            if force is not None:
+                cfg.force = force
+            if batch_size is not None:
+                cfg.model.bs_val = batch_size
+            if not cfg.force:
+                loc = ~grid.file.grayscale.apply(os.path.exists)
+                grid = (
+                    grid.frame
+                    .loc[loc]
+                    .pipe(grid.from_frame, wrapper=grid)
+                )
+                if not np.any(loc):
+                    msg = 'All segmentation grid are on disk.'
+                    logger.info(msg)
+                    return grid
+
             if cfg.dump_percent:
                 logger.info(f'Inferencing. Segmentation results will be saved to {grid.outdir.seg_results}')
             else:
@@ -567,7 +590,7 @@ class SegGrid(
             else:
                 raise ValueError(f"Unknown evaluation mode: {cfg.model.eval}. ")
 
-        return self
+            return self
 
     def _validate(
             self,
@@ -604,11 +627,12 @@ class SegGrid(
         futures = []
         batch_size = cfg.model.bs_val
 
-        with logging_redirect_tqdm():
+        unit = f' {self.seggrid.__name__}.{self.seggrid.file.grayscale.name}'
+        with logging_redirect_tqdm(), cfg:
             pbar = tqdm(
                 total=len(GRID),  # one tick per tile
                 desc="Inferring",
-                unit=f' {self.seggrid.file.grayscale.name}',
+                unit=unit,
                 dynamic_ncols=True,
             )
 

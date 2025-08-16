@@ -95,8 +95,18 @@ class Nested(
         else:
             trace = key
 
+        # try:
+        #     return self._cfg[trace]
+        # except KeyError:
+        #     ...
+
+        # try if it's cached
+        # try:
+        #     return self._cfg._lookup(trace)
+        # except KeyError as e:
+        #     ...
         try:
-            return self._cfg[trace]
+            return self._cfg._lookup(trace)
         except KeyError:
             ...
 
@@ -133,15 +143,15 @@ class Nested(
             msg = f'{self.__class__.__name__} has no attribute {key!r} (trace: {trace})'
             raise AttributeError(msg) from e
 
-        try:
-            attrs = trace.split('.')
-            obj = self._cfg
-            for attr in attrs[:-1]:
-                obj = object.__getattribute__(obj, attr)
-            object.__setattr__(obj, attrs[-1], value)
-        except AttributeError as e:
-            msg = f'{self.__class__.__name__} has no attribute {key!r} (trace: {trace})'
-            raise AttributeError(msg) from e
+        # try:
+        #     attrs = trace.split('.')
+        #     obj = self._cfg
+        #     for attr in attrs[:-1]:
+        #         obj = object.__getattribute__(obj, attr)
+        #     object.__setattr__(obj, attrs[-1], value)
+        # except AttributeError as e:
+        #     msg = f'{self.__class__.__name__} has no attribute {key!r} (trace: {trace})'
+        #     raise AttributeError(msg) from e
 
     def __delattr__(self, key: str) -> None:
         KEY = key

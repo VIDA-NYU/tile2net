@@ -523,7 +523,7 @@ class Grid(
     frame: GeoDataFrame
 
     @property
-    def index(self):
+    def index(self) -> MultiIndex:
         return self.frame.index
 
     @property
@@ -748,8 +748,8 @@ class Grid(
             msg = (
                 f'Stitching {n_missing:,} '
                 f'{small_grid.__name__}.{small_files.name} '
-                f'into {n_total:,}'
-                f'{big_grid.__name__}.{big_files.name}'
+                f'into {n_total:,} '
+                f'{small_grid.__name__}.{big_files.name}'
             )
             logger.info(msg)
 
@@ -776,12 +776,14 @@ class Grid(
             instance: Grid,
     ):
         del instance.frame.__dict__[self.__name__]
+        # del instance.__dict__[self.__name__]
 
     def __set__(
             self,
             instance: Grid,
             value,
     ):
+        # instance.__dict__[self.__name__] = value
         instance.frame.__dict__[self.__name__] = value
 
     @ColorMap

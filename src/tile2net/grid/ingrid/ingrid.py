@@ -636,7 +636,7 @@ class InGrid(
 
         scale = self._to_scale(dimension, length, mosaic, scale)
 
-        if not batch_size:
+        if batch_size:
             self.cfg.model.bs_val = batch_size
         if fill is None:
             fill = self.cfg.segment.fill
@@ -731,7 +731,7 @@ class InGrid(
         if length:
             assert length >= 3
             length -= 2
-            length *= seggrid.length
+            # length *= seggrid.length
         # if mosaic:
         #     raise NotImplementedError
         #     mosaic **= 1 / 2
@@ -739,8 +739,6 @@ class InGrid(
         #     mosaic **= 2
         #     mosaic = int(mosaic)
 
-        # scale = self.seggrid._to_scale(dimension, length, mosaic, scale)
-        self.cfg.vector.length
         scale = self.seggrid._to_scale(dimension, length, scale)
 
         msg = 'Padding InGrid to align with VecGrid'

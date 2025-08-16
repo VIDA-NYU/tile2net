@@ -49,7 +49,7 @@ class VecTile(
         return result
 
     @property
-    def index(self):
+    def index(self) -> pd.MultiIndex:
         arrays = self.xtile, self.ytile
         names = self.xtile.name, self.ytile.name
         result = pd.MultiIndex.from_arrays(arrays, names=names)

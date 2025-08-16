@@ -801,6 +801,49 @@ class Cfg(
     grid: Grid
     instance: Grid = None
     owner: Type[Grid] = None
+    _nested: dict[str, cmdline.Nested] = {}
+    __name__ = ''
+    _active = True
+
+    _default: Self = None
+    _context: Self = None
+    _backup: Self = None
+
+
+    def _lookup(self, trace: str):
+        # try local
+        if (
+                self is not self._default
+                and trace in self
+        ):
+            return self[trace]
+        # try context
+        if (
+                self._context
+                and trace in self._context
+        ):
+            return self._context[trace]
+        # try default
+        if (
+                self._default
+                and trace in self._default
+        ):
+            return self._default[trace]
+        msg = f'No cached config value for {trace!r}'
+        raise KeyError(msg)
+        # try:
+        #     return getattr(self, trace)
+        # except AttributeError as e:
+        #     msg = f'No cached config value for {self._trace!r}'
+        #     raise KeyError(msg) from e
+
+    def _evict(self, trace: str):
+        """
+        Evict a cached value from the configuration.
+        """
+        if trace in self._cfg:
+            del self._cfg[trace]
+
 
     def _get(
             self,
@@ -827,9 +870,6 @@ class Cfg(
     locals().update(
         __get__=_get,
     )
-    _nested: dict[str, cmdline.Nested] = {}
-    __name__ = ''
-    _active = True
 
     def __init__(self, dict=None, /, **kwargs):
         if callable(dict):
@@ -1506,10 +1546,27 @@ class Cfg(
     def __call__(self, *args, **kwargs) -> Cfg:
         return self
 
+    # def __enter__(self):
+    #     self._backup = Cfg._context
+    #     Cfg._context = self
+    #     return self
+    #
+    # def __exit__(self, exc_type, exc_val, exc_tb):
+    #     if exc_type is not None:
+    #         raise exc_val
+    #     if Cfg._context is self:
+    #         Cfg._context = self._backup
+
     def __enter__(self):
-        self._backup = Cfg._context
-        Cfg._context = self
-        return self
+        context = Cfg._context
+        self._backup = context
+        if context is not None:
+            result = context.copy()
+            result.update(self)
+        else:
+            result = self.copy()
+        Cfg._context = result
+        return result
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type is not None:
@@ -1521,14 +1578,11 @@ class Cfg(
     def _cfg(self) -> Self:
         return self
 
-    # _default: Self = None
-    _context: Self = None
-    _local: Self = None
-    _backup: Self = None
 
 
 cfg = Cfg.from_defaults()
 Cfg._default = cfg
+
 
 def assert_and_infer_cfg(cfg, train_mode: bool = True) -> None:
     """
