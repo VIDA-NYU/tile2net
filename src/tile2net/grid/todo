@@ -1,97 +1,10 @@
 reminder about: https://shapely.readthedocs.io/en/latest/reference/shapely.remove_repeated_points.html
 
-with logging_redirect_tqdm():
-
-    for i, (input_images, labels, img_names, scale_float) in enumerate(tqdm(loader)):
-        if i % 20 == 0:
-            logger.debug(f'Inference [Iter: {i + 1} / {len(loader)}]')
-
-Tiles
-
-SourceTiles
-    - stitch to inference grid aggregates source grid
-SegGrid
-    - stitch to network grid aggregates inference grid
-    - does not write polygons
-NetworkTiles
-    - generates polygons for each network tile
-    - from polygons creates network grid
-    - each tile is a separate multiprocessing worker
-
-source -> inference -> network
-
-SourceTiles.stitch() -> SegGrid
-SegGrid.stitch() -> NetworkTiles
-
-pad.
-
-InTiles.stitch() -> SegGrid
-SegGrid.stitch() -> VecGrid
-
-previously, mosaic.xtile and mosaic.ytile were easy because they were 1-to-1 mappings and therefore columns
-now, each xtile and ytile can belong to two mosaics
-
-can't use mosaic(frame) because we need to first access lengt,
-
-
-pred.xtile
-out.xtile
-
-padded inherits from
-each tile subclass should get its own self.static so it can get self.static.black
-
-predict.py
-mask2poly.py
-
-minibatch.py
-
-todo: seggrid.stitch() -> vecgrid requires padding ingrid once more
-
-ingrid.stitch() -> ingrid
-seggrid.stitch() -> ingrid
-
-add cfg.stitch.dimension to cfg
-
-
-Tile descriptor has possibly bug if it's accessed for another class while in it
-return a copy
-
-
 We can use something like the majority vote + confidence mask to force the labels of the pixels with low confidence into the same label as their neighbors starting from like 50 pixels away from the edge
 
 add a changelog
 we should have vecgrid.prediction and vecgrid.mask
 we must dissolve before simplifying
 
-if exterior length along road < threshold
-and buffer is between two sidewalks
-and exterior length doesn't change > 90 degrees
-fill the gap
-
-allow cfging  max_workers for vectorization
-
-set_source(outdir='./boston')
-
-set_indir(...)
-set_outdir(...)
-what if they want to  set outdir after setting indir?
-
-vecgrid.infile and seggrid.infile must share the same extension as ingrid.infile
-
-What if extension is passed but not xy?
-
-indir should not require extension on the files
 
 stitch loader should still use threading within a process if a lot of small grid in the big tile
-
-investigat submission
-            # loc = grid.vectile.xtile == 4963
-            # loc &= grid.vecgrid.ytile == 6057
-
-must be stitch seggrid.grayscale -> vecgrid.grayscale
-
-lines
-polygons
-
-ephemeral.cached_property not preserved across grid copies
-or use sticky.cached_property for the converse?

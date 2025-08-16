@@ -56,3 +56,6 @@ include = ["tile2net*"]
 testpaths = [ "src/tile2net/tests" ]
 python_files = ["test_local.py"]
 
+# allows for `python tile2net` without `-m`
+[project.scripts]
+tile2net = "tile2net.grid.__main__:main"

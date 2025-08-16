@@ -684,7 +684,7 @@ class VecGrid(Grid):
                 for (
                 infile,
                 affine,
-                network_file,  # <- order now matches call-site
+                network_file,
                 polygons_file,
                 xmin,
                 ymin,
