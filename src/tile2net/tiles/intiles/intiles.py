@@ -626,7 +626,7 @@ class InTiles(
         #         outdi = cfg.output_dir
 
         if not outdir:
-            outdir = cfg.output
+            outdir = cfg.outdir
 
         if not outdir:
             raise ValueError(f'No output directory specified. ')

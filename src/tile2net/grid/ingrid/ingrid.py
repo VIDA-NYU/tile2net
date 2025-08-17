@@ -1,14 +1,11 @@
 from __future__ import annotations
-from pathlib import Path
-import os
-import shutil
-import sys
-
 
 import copy
 import os
 import os.path
 import shutil
+import sys
+from ..util import ensure_tempdir_for_indir
 import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -26,24 +23,25 @@ from tqdm import tqdm
 from tqdm.auto import tqdm
 from urllib3.util.retry import Retry
 
-from ..grid.static import Static
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.dir.indir import Indir
 from tile2net.grid.dir.outdir import Outdir
 from . import delayed
+from .lines import Lines
+from .polygons import Polygons
 from .segtile import SegTile
 from .source import Source, SourceNotFound
 from .vectile import VecTile
 from .. import frame
 from ..cfg import cfg
 from ..dir.dir import Dir, ExtensionNotFoundError, XYNotFoundError
+from ..dir.tempdir import TempDir
 from ..grid import file
 from ..grid.grid import Grid
+from ..grid.static import Static
 from ..seggrid.seggrid import SegGrid
 from ..vecgrid.vecgrid import VecGrid
 from ...grid.util import recursion_block, assert_perfect_overlap
-from .lines import Lines
-from .polygons import Polygons
 
 # thread-local store
 tls = threading.local()
@@ -77,7 +75,6 @@ class InGrid(
     def ingrid(self) -> InGrid:
         return self
 
-
     @File
     def file(self):
         ...
@@ -109,6 +106,18 @@ class InGrid(
             raise FileNotFoundError('No image files found to infer dimension.')
         return iio.imread(sample).shape[1]  # width
 
+    @Lines
+    def lines(self):
+        ...
+
+    @Polygons
+    def polygons(self):
+        ...
+
+    @Static
+    def static(self):
+        ...
+
     @Indir
     def indir(self):
         ingrid = self.ingrid.outdir.ingrid
@@ -135,13 +144,13 @@ class InGrid(
     def outdir(self):
         ...
 
-    # @Lines
-    # def lines(self):
-    #     ...
-    #
-    # @Polygons
-    # def polygons(self):
-    #     ...
+    @TempDir
+    def tempdir(self):
+        format = ensure_tempdir_for_indir(
+            self.indir.dir
+        ).__str__()
+        result = TempDir.from_format(format)
+        return result
 
     @SegTile
     def segtile(self):
@@ -518,7 +527,7 @@ class InGrid(
         self.with_indir('input/dir/x')
         """
         if indir is None:
-            indir = self.cfg.input_dir
+            indir = self.cfg.indir
         result = self.copy()
         if name:
             result.name = name
@@ -566,7 +575,7 @@ class InGrid(
         #         outdi = cfg.output
 
         if not outdir:
-            outdir = cfg.output
+            outdir = cfg.outdir
 
         if not outdir:
             raise ValueError(f'No output directory specified. ')
@@ -676,9 +685,6 @@ class InGrid(
 
         return ingrid
 
-
-
-
     def set_vectorization(
             self,
             *,
@@ -777,102 +783,8 @@ class InGrid(
 
         return ingrid
 
-    @Lines
-    def lines(self):
-        ...
-
-    @Polygons
-    def polygons(self):
-        ...
-
-    @Static
-    def static(self):
-        ...
-
-    # def summary(self):
-    #     self.polygons.file
-    #     self.outdir.ingrid.infile.dir
-    #     self.outdir.seggrid.colored.dir
-    #     self.outdir.vecgrid.polygons.dir
-    #     self.outdir.vecgrid.lines.dir
-    #     self.static.hrnet_checkpoint
-    #     self.static.snapshot
-    #     self.outdir.lines.file
-    #     self.outdir.polygons.file
-
-
     def summary(self) -> None:
         # prominent end-of-run banner with aligned columns
-
-        # helpers
-        def _p(v) -> Path | None:
-            if v is None:
-                return None
-            p = Path(v)
-            return p if str(p).strip() else None
-
-        def _rel(p: Path) -> str:
-            try:
-                return str(p.resolve().relative_to(Path.cwd()))
-            except Exception:
-                return str(p.resolve())
-
-        # collect resources
-        rows = [
-            ('Input imagery',              _p(self.outdir.ingrid.infile.dir)),
-            ('Segmentation (colored)',     _p(self.outdir.seggrid.colored.dir)),
-            ('Vector tiles — polygons',    _p(self.outdir.vecgrid.polygons.dir)),
-            ('Vector tiles — lines',       _p(self.outdir.vecgrid.lines.dir)),
-            ('HRNet checkpoint',           _p(self.static.hrnet_checkpoint)),
-            ('Model snapshot',             _p(self.static.snapshot)),
-            ('Merged polygons',            _p(self.outdir.polygons.file)),
-            ('Merged lines',               _p(self.outdir.lines.file)),
-        ]
-
-        # compute column widths
-        label_w = max(len(k) for k, _ in rows)
-        term_w = shutil.get_terminal_size((100, 20)).columns
-        sep = '=' * min(term_w, 80)
-
-        # color if TTY
-        use_color = sys.stdout.isatty()
-        BOLD = '\033[1m' if use_color else ''
-        DIM = '\033[2m' if use_color else ''
-        GRN = '\033[32m' if use_color else ''
-        CYN = '\033[36m' if use_color else ''
-        YEL = '\033[33m' if use_color else ''
-        RST = '\033[0m' if use_color else ''
-
-        # header
-        print(sep)
-        print(f"{BOLD}Tile2Net run complete!{RST}")
-        outdir = _p(self.outdir.dir if hasattr(self.outdir, 'dir') else self.outdir)
-        if outdir is None and hasattr(self.outdir, 'root'):
-            outdir = _p(self.outdir.root)
-        if outdir is not None:
-            print(f"{CYN}Output directory:{RST} {_rel(outdir)}")
-        print(sep)
-
-        # body
-        for label, path in rows:
-            if path is None:
-                line = f"{label:<{label_w}}  {DIM}— not set —{RST}"
-            else:
-                exists = path.exists()
-                path_str = _rel(path)
-                if exists:
-                    color = GRN if path.is_dir() else CYN
-                    line = f"{label:<{label_w}}  {color}{path_str}{RST}"
-                else:
-                    line = f"{label:<{label_w}}  {YEL}{path_str}{RST} {DIM}(missing){RST}"
-            print(line)
-
-
-    def summary(self) -> None:
-        # prominent end-of-run banner with aligned columns
-        from pathlib import Path
-        import shutil, sys
-
         # helpers
         def _p(v) -> Path | None:
             if v is None:
@@ -885,14 +797,14 @@ class InGrid(
 
         # collect resources
         rows = [
-            ('Input imagery',              _p(self.outdir.ingrid.infile.dir)),
-            ('Segmentation (colored)',     _p(self.outdir.seggrid.colored.dir)),
-            ('Vector tiles — polygons',    _p(self.outdir.vecgrid.polygons.dir)),
-            ('Vector tiles — lines',       _p(self.outdir.vecgrid.lines.dir)),
-            ('HRNet checkpoint',           _p(self.static.hrnet_checkpoint)),
-            ('Model snapshot',             _p(self.static.snapshot)),
-            ('Merged polygons',            _p(self.outdir.polygons.file)),
-            ('Merged lines',               _p(self.outdir.lines.file)),
+            ('Input imagery', _p(self.outdir.ingrid.infile.dir)),
+            ('Segmentation (colored)', _p(self.outdir.seggrid.colored.dir)),
+            # ('Polygons by tile',    _p(self.outdir.vecgrid.polygons.dir)),
+            # ('Lines by tile',       _p(self.outdir.vecgrid.lines.dir)),
+            # ('HRNet checkpoint',           _p(self.static.hrnet_checkpoint)),
+            # ('Model snapshot',             _p(self.static.snapshot)),
+            ('Polygons', _p(self.outdir.polygons.file)),
+            ('Network', _p(self.outdir.lines.file)),
         ]
 
         # compute column widths

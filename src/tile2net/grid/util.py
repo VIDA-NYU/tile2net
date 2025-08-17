@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+import base64
+import hashlib
+import tempfile
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
 if False:
     from ..grid.grid.grid import Grid
     import folium
@@ -545,3 +551,69 @@ def returns(code):
     visitor = ReturnVisitor()
     visitor.visit(tree)
     return visitor.found
+
+
+def tempdir_for_indir(
+        indir: str | os.PathLike,
+        prefix: str = "tile2net",
+        digest_bytes: int = 12,
+        algo: str = "blake2s",
+) -> Path:
+    # normalize the path
+    p = Path(indir).expanduser().resolve()
+    data = p.as_posix().encode("utf-8")
+
+    # digest → compact urlsafe token
+    h = hashlib.blake2s(data, digest_size=digest_bytes)
+    token = (
+        base64
+        .urlsafe_b64encode(h.digest())
+        .decode()
+        .rstrip("=")
+    )
+
+    # /tmp/prefix/<token>
+    parent = Path(tempfile.gettempdir()) / prefix
+    return parent / token
+
+
+def ensure_tempdir_for_indir(indir: str | os.PathLike, **kwargs) -> Path:
+    d = tempdir_for_indir(indir, **kwargs)
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+def delete_files_parallel(
+        infiles: pd.Series,
+        max_workers: int | None = None,
+) -> tuple[int, int, int]:
+
+    paths = (
+        pd.Series(infiles, copy=False)
+        .dropna()
+    )
+
+    if max_workers is None:
+        cpu = os.cpu_count() or 4
+        max_workers = min(64, max(8, cpu * 8))
+
+    def _delete_one(p: str) -> Literal['deleted', 'missing', 'error']:
+        try:
+            os.unlink(p)
+            return 'deleted'
+        except FileNotFoundError:
+            return 'missing'
+        except (IsADirectoryError, PermissionError, OSError):
+            return 'error'
+
+    deleted = missing = errored = 0
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        for status in ex.map(_delete_one, paths, chunksize=256):
+            if status == 'deleted':
+                deleted += 1
+            elif status == 'missing':
+                missing += 1
+            else:
+                errored += 1
+
+    return deleted, missing, errored
+

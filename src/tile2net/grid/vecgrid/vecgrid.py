@@ -103,7 +103,8 @@ class File(
     @frame.column
     def grayscale(self) -> pd.Series:
         grid = self.grid
-        files = grid.ingrid.outdir.vecgrid.grayscale.files(grid)
+        # files = grid.ingrid.outdir.vecgrid.grayscale.files(grid)
+        files = grid.ingrid.tempdir.vecgrid.grayscale.files(grid)
         if (
                 not grid._stitch_greyscale
                 and not files.map(os.path.exists).all()
@@ -114,7 +115,8 @@ class File(
     @frame.column
     def colored(self) -> pd.Series:
         grid = self.grid
-        files = grid.ingrid.outdir.vecgrid.colored.files(grid)
+        # files = grid.ingrid.outdir.vecgrid.colored.files(grid)
+        files = grid.ingrid.tempdir.vecgrid.colored.files(grid)
         if (
                 not grid._stitch_colored
                 and not files.map(os.path.exists).all()
@@ -125,7 +127,8 @@ class File(
     @frame.column
     def infile(self) -> pd.Series:
         grid = self.grid
-        files = grid.ingrid.outdir.vecgrid.infile.files(grid)
+        # files = grid.ingrid.outdir.vecgrid.infile.files(grid)
+        files = grid.ingrid.tempdir.vecgrid.infile.files(grid)
         self.infile = files
         if (
                 not grid._stitch_infile
@@ -138,7 +141,7 @@ class File(
     @frame.column
     def overlay(self) -> pd.Series:
         grid = self.grid
-        files = grid.ingrid.outdir.vecgrid.overlay.files(grid)
+        files = grid.ingrid.tempdir.vecgrid.overlay.files(grid)
         if (
                 not grid._overlay
                 and not files.map(os.path.exists).all()
@@ -857,4 +860,3 @@ class VecGrid(Grid):
         result = 2 ** (ingrid.scale - self.scale)
         result += 2 * seggrid.length
         return result
-

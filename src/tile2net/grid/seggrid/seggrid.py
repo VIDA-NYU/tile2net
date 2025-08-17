@@ -40,6 +40,7 @@ from .. import frame
 from ..grid import file
 from ..grid.grid import Grid
 from ..util import recursion_block
+from .. import util
 
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 
@@ -57,7 +58,6 @@ def sha256sum(path):
     return h.hexdigest()
 
 
-
 class File(
     file.File
 ):
@@ -70,7 +70,8 @@ class File(
         Stitches input files when seggrid.file is accessed
         """
         grid = self.grid
-        files = grid.ingrid.outdir.seggrid.infile.files(grid)
+        # files = grid.ingrid.outdir.seggrid.infile.files(grid)
+        files = grid.ingrid.tempdir.seggrid.infile.files(grid)
         if (
                 not grid._stitch_infile
                 and not files.map(os.path.exists).all()
@@ -218,7 +219,6 @@ class SegGrid(
         result.instance = instance
 
         return result
-
 
     locals().update(
         __get__=_get,
@@ -434,7 +434,6 @@ class SegGrid(
         # cfg = grid.cfg
         with grid.cfg as cfg:
 
-
             # preemptively stitch so logging apears more sequential
             # otherwise you get "now predicting" before "now stitching"
             _ = self.file.infile
@@ -589,6 +588,12 @@ class SegGrid(
                 )
             else:
                 raise ValueError(f"Unknown evaluation mode: {cfg.model.eval}. ")
+
+            msg = f'Finished predicting {len(grid)} segmentation tiles.'
+
+            if self.cfg.cleanup:
+                msg = f''
+                util.delete_files_parallel(self.ingrid.file.infile)
 
             return self
 

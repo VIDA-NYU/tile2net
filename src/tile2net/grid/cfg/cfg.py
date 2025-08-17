@@ -947,6 +947,15 @@ class Cfg(
         ...
 
     @cmdline.property
+    def cleanup(self) -> bool:
+        """
+        After performing segmentation, delete all input imagery.
+        After performing vectorization, delete all segmentation masks.
+        After merging tiles into single geometries, delete all tile geometries.
+        """
+        return True
+
+    @cmdline.property
     def label2id(self) -> dict[str, int]:
         """
         Mapping from label names to IDs
@@ -969,14 +978,14 @@ class Cfg(
         )
 
     @cmdline.property
-    def output(self) -> str:
+    def outdir(self) -> str:
         """
         Path to the output directory; '~/tmp/tile2net' by default.
         Using a relative path such as './cambridge' will create a
         directory in the current working directory.
         """
 
-    output.add_options(
+    outdir.add_options(
         short='-o',
     )
 
@@ -1326,10 +1335,10 @@ class Cfg(
     location.add_options(short='-l')
 
     @cmdline.property
-    def input_dir(self) -> Optional[str]:
+    def indir(self) -> Optional[str]:
         ...
 
-    input_dir.add_options(short='-i', long='--input')
+    indir.add_options(short='-i', long='--indir')
 
     @cmdline.property
     def num_class(self) -> int:

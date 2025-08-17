@@ -344,6 +344,10 @@ class Source(
             ]
     ) -> Optional['Source']:
         # todo: index index for which sources contain keyword
+        try:
+            return cls.from_name(item)
+        except SourceNotFound:
+            ...
 
         matches: GeoSeries = Source.coverage.geometry
         if isinstance(item, (GeoSeries, GeoDataFrame)):

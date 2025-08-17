@@ -6,5 +6,15 @@ add a changelog
 we should have vecgrid.prediction and vecgrid.mask
 we must dissolve before simplifying
 
-
 stitch loader should still use threading within a process if a lot of small grid in the big tile
+
+
+outdir not correctly being set
+
+
+The user wants the end result
+We should delete them by default and only keep it if explicitly passed
+
+
+
+how do we decide tempdir subdir name?

@@ -42,62 +42,64 @@ class XYNotFoundError(ValueError):
         )
 
 
-def __get__(
-        self: Dir,
-        instance: InGrid | Dir,
-        owner
-) -> Dir:
-    from ..ingrid import InGrid
-    self.instance = instance
-    if isinstance(instance, InGrid):
-        self.grid = instance
-    elif isinstance(instance, Dir):
-        self.grid = instance.grid
-    elif instance is None:
-        self.grid = None
-    else:
-        raise TypeError(f'instance must be Grid or Dir, not {type(instance).__name__}')
-    try:
-        result = self.grid.__dict__[self._trace]
-    except KeyError as e:
-        if self.__wrapped__:
-            result = self.__wrapped__(self.instance)
-        else:
-            try:
-                path = self.instance.dir
-            except (KeyError, AttributeError) as e:
-                msg = (
-                    f'{self.__name__!r} is not set. '
-                    f'See `Grid.with_indir()` to actually set an '
-                    f'input directory. See `Grid.with_source()` to download '
-                    f'grid from a source into an input directory.'
-                )
-                raise AttributeError(msg) from e
-            else:
-                if isinstance(self.instance, Dir):
-
-                    format = os.path.join(
-                        self.instance.dir,
-                        self.__name__,
-                        self.instance.suffix.rsplit('.')[0] + '.png'
-                    )
-
-                else:
-                    raise NotImplementedError
-
-                result = self.__class__.from_format(format)
-
-    result.__name__ = self.__name__
-    result.instance = self.instance
-    result.grid = self.grid
-    return result
 
 
 class Dir:
     instance: InGrid | Dir = None
     grid: InGrid = None
+
+    def _get(
+            self: Dir,
+            instance: InGrid | Dir,
+            owner
+    ) -> Dir:
+        from ..ingrid import InGrid
+        self.instance = instance
+        if isinstance(instance, InGrid):
+            self.grid = instance
+        elif isinstance(instance, Dir):
+            self.grid = instance.grid
+        elif instance is None:
+            self.grid = None
+        else:
+            raise TypeError(f'instance must be Grid or Dir, not {type(instance).__name__}')
+        try:
+            result = self.grid.__dict__[self._trace]
+        except KeyError as e:
+            if self.__wrapped__:
+                result = self.__wrapped__(self.instance)
+            else:
+                try:
+                    path = self.instance.dir
+                except (KeyError, AttributeError) as e:
+                    msg = (
+                        f'{self.__name__!r} is not set. '
+                        f'See `Grid.with_indir()` to actually set an '
+                        f'input directory. See `Grid.with_source()` to download '
+                        f'grid from a source into an input directory.'
+                    )
+                    raise AttributeError(msg) from e
+                else:
+                    if isinstance(self.instance, Dir):
+
+                        format = os.path.join(
+                            self.instance.dir,
+                            self.__name__,
+                            self.instance.suffix.rsplit('.')[0] + '.png'
+                        )
+
+                    else:
+                        raise NotImplementedError
+
+                    result = self.__class__.from_format(format)
+
+        result.__name__ = self.__name__
+        result.instance = self.instance
+        result.grid = self.grid
+        return result
+
     locals().update(
-        __get__=__get__
+        __get__=_get
     )
     __wrapped__ = None
 
