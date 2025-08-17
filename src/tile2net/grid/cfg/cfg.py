@@ -416,7 +416,7 @@ class Model(cmdline.Namespace):
     @cmdline.property
     def bs_val(self) -> int:
         """
-        Batch size for validation per GPU
+        Batch size per GPU for the validation run
         """
         return 1
 
@@ -679,12 +679,17 @@ class Segment(cmdline.Namespace):
 
     @cmdline.property
     def dimension(self) -> int:
+        """
+        Dimension of each segmentation mask input into vectorization.
+        """
         return 1024
 
     @cmdline.property
     def length(self) -> int:
         """
-        Length, in input images, of each segmentation mask.
+        Length, in input images, of each segmentation tile.
+        A length of 10, for example, means each vectorization tile
+        is 10 segmentation tiles long.
         """
 
     @cmdline.property
@@ -706,13 +711,17 @@ class Vector(cmdline.Namespace):
     @cmdline.property
     def dimension(self) -> int:
         """
-        Dimension of each segmentation mask input into vectorization.
+        Dimension of each concatenated segmentation mask before it is
+        put into vectorization. The amount of pixels wide each image
+        is before geometries are extracted.
         """
 
     @cmdline.property
     def length(self) -> int:
         """
-        length, in segmentation masks, of each vectorization input.
+        Length, in segmentation tiles, of each vectorization tile.
+        A length of 10, for example, means each vectorization tile
+        is 10 segmentation tiles long.
         """
 
     @cmdline.property
@@ -809,7 +818,6 @@ class Cfg(
     _context: Self = None
     _backup: Self = None
 
-
     def _lookup(self, trace: str):
         # try local
         if (
@@ -843,7 +851,6 @@ class Cfg(
         """
         if trace in self._cfg:
             del self._cfg[trace]
-
 
     def _get(
             self,
@@ -947,11 +954,14 @@ class Cfg(
 
     @cmdline.property
     def output(self) -> str:
-        """The path to the output directory; "~/tmp/tile2net" by default"""
+        """
+        Path to the output directory; '~/tmp/tile2net' by default.
+        Using a relative path such as './cambridge' will create a
+        directory in the current working directory.
+        """
 
     output.add_options(
         short='-o',
-        # long='--output',
     )
 
     @cmdline.property
@@ -1290,7 +1300,12 @@ class Cfg(
 
     @cmdline.property
     def location(self) -> str:
-        ...
+        """
+        Textual address or bounding box in coordinates for your batch.
+        The address can be for example 'Washington Square Park' and the
+        bounding box must be in lat, lon order such as
+        '40.729, -73.999, 40.732, -73.995'
+        """
 
     location.add_options(short='-l')
 
@@ -1577,7 +1592,6 @@ class Cfg(
     @property
     def _cfg(self) -> Self:
         return self
-
 
 
 cfg = Cfg.from_defaults()

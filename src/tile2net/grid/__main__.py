@@ -14,8 +14,6 @@ if __name__ == '__main__':
             location=cfg.location,
             zoom=cfg.zoom
         )
-        assert ingrid.cfg._context is not None
-        assert cfg.model.bs_val == ingrid.cfg.model.bs_val == 16
         if cfg.input_dir:
             ingrid = ingrid.set_indir()
         else:
