@@ -43,7 +43,11 @@ class Polygons(
             if os.path.exists(file):
                 msg = f"loading {instance.__name__}.{self.__name__} from {file}"
                 logger.info(msg)
-                result = gpd.read_parquet(file).pipe(self.__class__)
+                # result = gpd.read_parquet(file).pipe(self.__class__)
+                result = (
+                    gpd.read_parquet(file)
+                    .pipe(self.__class__.from_frame, wrapper=self)
+                )
             else:
 
                 vecgrid = instance.vecgrid
@@ -55,7 +59,7 @@ class Polygons(
                 )
 
                 n_polygons = (
-                    vecgrid.polygons
+                    vecgrid.polygons.frame
                     .apply(shapely.get_num_geometries)
                     .to_numpy()
                     .sum()
@@ -70,29 +74,33 @@ class Polygons(
 
                 with benchmark(msg, level='info'):
                     result = (
-                        instance.vecgrid.polygons
+                        instance.vecgrid.polygons.frame
                         .stack(future_stack=True)
                         .set_precision(grid_size=grid_size)
                         .to_frame(name='geometry')
-                        .pipe(Mask2Poly)
+                        .pipe(Mask2Poly.from_frame, wrapper=self)
                         .postprocess()
-                        .pipe(Polygons)
+                        .frame
+                        .pipe(Polygons.from_frame, wrapper=self)
                     )
 
                 msg = f"Writing {instance.__name__}.{self.__name__} to {file}"
                 logger.info(msg)
-                result.to_parquet(file)
+                result.frame.to_parquet(file)
 
             instance.frame.__dict__[self.__name__] = result
 
-        result.ingrid = instance
+        result.instance = instance
 
         return result
 
     locals().update(
         __get__=_get,
     )
-    ingrid: InGrid = None
+
+    @property
+    def ingrid(self) -> InGrid:
+        return self.instance
 
     @property
     def file(self):

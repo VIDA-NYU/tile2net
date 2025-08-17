@@ -22,5 +22,8 @@ if __name__ == '__main__':
         ingrid = ingrid.set_segmentation()
         ingrid = ingrid.set_vectorization()
 
-        lines = ingrid.lines
-
+        if cfg.line.concat:
+            lines = ingrid.lines
+        if cfg.polygon.convexity:
+            polygons = ingrid.polygons
+        ingrid.summary()

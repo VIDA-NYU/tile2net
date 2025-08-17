@@ -757,6 +757,13 @@ class Loss(cmdline.Namespace):
         return 0.0
 
 
+class Line(cmdline.Namespace):
+    @cmdline.property
+    def concat(self) -> bool:
+        """Concatenate the lines from each tile into a single vector."""
+        return True
+
+
 class Polygon(cmdline.Namespace):
     @cmdline.property
     def max_hole_area(self) -> float | dict[str, float]:
@@ -800,6 +807,11 @@ class Polygon(cmdline.Namespace):
         but as borders to them.
         """
         return ['road']
+
+    @cmdline.property
+    def concat(self) -> bool:
+        """Concatenate the polygons from each tile into a single vector."""
+        return True
 
 
 class Cfg(
@@ -928,6 +940,10 @@ class Cfg(
 
     @Polygon
     def polygon(self):
+        ...
+
+    @Line
+    def line(self):
         ...
 
     @cmdline.property

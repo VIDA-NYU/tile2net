@@ -1,4 +1,9 @@
 from __future__ import annotations
+from pathlib import Path
+import os
+import shutil
+import sys
+
 
 import copy
 import os
@@ -21,7 +26,7 @@ from tqdm import tqdm
 from tqdm.auto import tqdm
 from urllib3.util.retry import Retry
 
-from tile2net.grid import static
+from ..grid.static import Static
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.dir.indir import Indir
 from tile2net.grid.dir.outdir import Outdir
@@ -72,10 +77,6 @@ class InGrid(
     def ingrid(self) -> InGrid:
         return self
 
-    @static.Static
-    def static(self):
-        """
-        """
 
     @File
     def file(self):
@@ -783,3 +784,151 @@ class InGrid(
     @Polygons
     def polygons(self):
         ...
+
+    @Static
+    def static(self):
+        ...
+
+    # def summary(self):
+    #     self.polygons.file
+    #     self.outdir.ingrid.infile.dir
+    #     self.outdir.seggrid.colored.dir
+    #     self.outdir.vecgrid.polygons.dir
+    #     self.outdir.vecgrid.lines.dir
+    #     self.static.hrnet_checkpoint
+    #     self.static.snapshot
+    #     self.outdir.lines.file
+    #     self.outdir.polygons.file
+
+
+    def summary(self) -> None:
+        # prominent end-of-run banner with aligned columns
+
+        # helpers
+        def _p(v) -> Path | None:
+            if v is None:
+                return None
+            p = Path(v)
+            return p if str(p).strip() else None
+
+        def _rel(p: Path) -> str:
+            try:
+                return str(p.resolve().relative_to(Path.cwd()))
+            except Exception:
+                return str(p.resolve())
+
+        # collect resources
+        rows = [
+            ('Input imagery',              _p(self.outdir.ingrid.infile.dir)),
+            ('Segmentation (colored)',     _p(self.outdir.seggrid.colored.dir)),
+            ('Vector tiles — polygons',    _p(self.outdir.vecgrid.polygons.dir)),
+            ('Vector tiles — lines',       _p(self.outdir.vecgrid.lines.dir)),
+            ('HRNet checkpoint',           _p(self.static.hrnet_checkpoint)),
+            ('Model snapshot',             _p(self.static.snapshot)),
+            ('Merged polygons',            _p(self.outdir.polygons.file)),
+            ('Merged lines',               _p(self.outdir.lines.file)),
+        ]
+
+        # compute column widths
+        label_w = max(len(k) for k, _ in rows)
+        term_w = shutil.get_terminal_size((100, 20)).columns
+        sep = '=' * min(term_w, 80)
+
+        # color if TTY
+        use_color = sys.stdout.isatty()
+        BOLD = '\033[1m' if use_color else ''
+        DIM = '\033[2m' if use_color else ''
+        GRN = '\033[32m' if use_color else ''
+        CYN = '\033[36m' if use_color else ''
+        YEL = '\033[33m' if use_color else ''
+        RST = '\033[0m' if use_color else ''
+
+        # header
+        print(sep)
+        print(f"{BOLD}Tile2Net run complete!{RST}")
+        outdir = _p(self.outdir.dir if hasattr(self.outdir, 'dir') else self.outdir)
+        if outdir is None and hasattr(self.outdir, 'root'):
+            outdir = _p(self.outdir.root)
+        if outdir is not None:
+            print(f"{CYN}Output directory:{RST} {_rel(outdir)}")
+        print(sep)
+
+        # body
+        for label, path in rows:
+            if path is None:
+                line = f"{label:<{label_w}}  {DIM}— not set —{RST}"
+            else:
+                exists = path.exists()
+                path_str = _rel(path)
+                if exists:
+                    color = GRN if path.is_dir() else CYN
+                    line = f"{label:<{label_w}}  {color}{path_str}{RST}"
+                else:
+                    line = f"{label:<{label_w}}  {YEL}{path_str}{RST} {DIM}(missing){RST}"
+            print(line)
+
+
+    def summary(self) -> None:
+        # prominent end-of-run banner with aligned columns
+        from pathlib import Path
+        import shutil, sys
+
+        # helpers
+        def _p(v) -> Path | None:
+            if v is None:
+                return None
+            p = Path(v)
+            return p if str(p).strip() else None
+
+        def _abs(p: Path) -> str:
+            return str(p.resolve())
+
+        # collect resources
+        rows = [
+            ('Input imagery',              _p(self.outdir.ingrid.infile.dir)),
+            ('Segmentation (colored)',     _p(self.outdir.seggrid.colored.dir)),
+            ('Vector tiles — polygons',    _p(self.outdir.vecgrid.polygons.dir)),
+            ('Vector tiles — lines',       _p(self.outdir.vecgrid.lines.dir)),
+            ('HRNet checkpoint',           _p(self.static.hrnet_checkpoint)),
+            ('Model snapshot',             _p(self.static.snapshot)),
+            ('Merged polygons',            _p(self.outdir.polygons.file)),
+            ('Merged lines',               _p(self.outdir.lines.file)),
+        ]
+
+        # compute column widths
+        label_w = max(len(k) for k, _ in rows)
+        term_w = shutil.get_terminal_size((100, 20)).columns
+        sep = '=' * min(term_w, 80)
+
+        # color if TTY
+        use_color = sys.stdout.isatty()
+        BOLD = '\033[1m' if use_color else ''
+        DIM = '\033[2m' if use_color else ''
+        GRN = '\033[32m' if use_color else ''
+        CYN = '\033[36m' if use_color else ''
+        YEL = '\033[33m' if use_color else ''
+        RST = '\033[0m' if use_color else ''
+
+        # header
+        print(sep)
+        print(f"{BOLD}Tile2Net run complete!{RST}")
+        outdir = _p(self.outdir.dir if hasattr(self.outdir, 'dir') else self.outdir)
+        if outdir is None and hasattr(self.outdir, 'root'):
+            outdir = _p(self.outdir.root)
+        if outdir is not None:
+            print(f"{CYN}Output directory:{RST} {_abs(outdir)}")
+        print(sep)
+
+        # body
+        for label, path in rows:
+            if path is None:
+                line = f"{label:<{label_w}}  {DIM}— not set —{RST}"
+            else:
+                exists = path.exists()
+                path_str = _abs(path)
+                if exists:
+                    color = GRN if path.is_dir() else CYN
+                    line = f"{label:<{label_w}}  {color}{path_str}{RST}"
+                else:
+                    line = f"{label:<{label_w}}  {YEL}{path_str}{RST} {DIM}(missing){RST}"
+            print(line)
