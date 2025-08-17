@@ -560,14 +560,16 @@ class SegGrid(
                 net.module.init_mods()
             torch.cuda.empty_cache()
 
+            # preemptively stitch resources;
+            # nonessential resources are commented out
             _ = (
                 grid.file.grayscale,
-                grid.file.infile,
-                grid.file.probability,
+                # grid.file.infile,
+                # grid.file.probability,
                 # grid.file.sidebyside,
                 # grid.file.segresults,
-                grid.file.error,
-                grid.file.colored,
+                # grid.file.error,
+                # grid.file.colored,
                 # grid.file.submit,
             )
 
@@ -578,6 +580,7 @@ class SegGrid(
                     force=force,
                     grid=grid,
                 )
+
             elif cfg.model.eval == 'folder':
                 self._validate(
                     loader=val_loader,
@@ -586,14 +589,22 @@ class SegGrid(
                     force=force,
                     grid=grid,
                 )
+
             else:
                 raise ValueError(f"Unknown evaluation mode: {cfg.model.eval}. ")
 
             msg = f'Finished predicting {len(grid)} segmentation tiles.'
+            logger.info(msg)
 
             if self.cfg.cleanup:
-                msg = f''
-                util.delete_files_parallel(self.ingrid.file.infile)
+                msg = (
+                    f'Cleaning up previously downloaded imagery '
+                    f'from {self.ingrid.indir.dir} and '
+                    f'{self.ingrid.tempdir.seggrid.infile.dir}'
+                )
+                logger.info(msg)
+                util.cleanup(self.ingrid.file.infile)
+                util.cleanup(self.seggrid.file.infile)
 
             return self
 

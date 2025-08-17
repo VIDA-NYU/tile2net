@@ -253,12 +253,16 @@ class MiniBatch(
     def dump_percent(self) -> int:
         return 100
 
-    def submit_all(self) -> Iterator[Future]:
-        yield from self.submit_probability()
+    def submit_all(
+            self
+    ) -> Iterator[Future]:
+        if cfg.segment.probability:
+            yield from self.submit_probability()
         # yield from self.submit_sidebyside()
         yield from self.submit_output()
         yield from self.submit_grayscale()
-        yield from self.submit_colored()
+        if cfg.segment.colored:
+            yield from self.submit_colored()
 
     def submit_probability(self):
         if self.prob_mask is None:

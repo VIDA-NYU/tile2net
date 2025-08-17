@@ -582,10 +582,11 @@ def ensure_tempdir_for_indir(indir: str | os.PathLike, **kwargs) -> Path:
     d.mkdir(parents=True, exist_ok=True)
     return d
 
-def delete_files_parallel(
+def cleanup(
         infiles: pd.Series,
         max_workers: int | None = None,
 ) -> tuple[int, int, int]:
+    """Given a series of file paths, delete them in parallel."""
 
     paths = (
         pd.Series(infiles, copy=False)

@@ -334,7 +334,6 @@ class Source(
     # @not_found_none
     def from_inferred(
             cls,
-            # item: list[float] | str | shapely.geometry.base.BaseGeometry,
             item: Union[
                 list[float],
                 str,
@@ -343,11 +342,11 @@ class Source(
                 gpd.GeoDataFrame,
             ]
     ) -> Optional['Source']:
-        # todo: index index for which sources contain keyword
-        try:
-            return cls.from_name(item)
-        except SourceNotFound:
-            ...
+        if isinstance(item, str):
+            try:
+                return cls.from_name(item)
+            except SourceNotFound:
+                ...
 
         matches: GeoSeries = Source.coverage.geometry
         if isinstance(item, (GeoSeries, GeoDataFrame)):

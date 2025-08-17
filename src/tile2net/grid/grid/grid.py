@@ -534,6 +534,10 @@ class Grid(
     def outdir(self):
         return self.ingrid.outdir
 
+    @property
+    def tempdir(self):
+        return self.ingrid.tempdir
+
     def __len__(self):
         return len(self.frame)
 

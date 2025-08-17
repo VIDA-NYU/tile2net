@@ -704,6 +704,16 @@ class Segment(cmdline.Namespace):
     def fill(self) -> bool:
         return True
 
+    @cmdline.property
+    def colored(self) -> bool:
+        """Write colored segmentation masks to file"""
+        return False
+
+    @cmdline.property
+    def probability(self) -> bool:
+        """Write probability to file"""
+        return False
+
 
 class Vector(cmdline.Namespace):
     """Vectorization configuration namespace."""

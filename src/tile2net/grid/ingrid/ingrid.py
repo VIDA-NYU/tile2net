@@ -103,8 +103,17 @@ class InGrid(
                 if Path(p).is_file()
             )
         except StopIteration:
-            raise FileNotFoundError('No image files found to infer dimension.')
-        return iio.imread(sample).shape[1]  # width
+            self.download(one=True)
+            try:
+                sample = next(
+                    p
+                    for p in self.file.infile
+                    if Path(p).is_file()
+                )
+            except StopIteration:
+                raise FileNotFoundError('No image files found to infer dimension.')
+        result = iio.imread(sample).shape[1]  # width
+        return result
 
     @Lines
     def lines(self):
@@ -149,6 +158,10 @@ class InGrid(
         format = ensure_tempdir_for_indir(
             self.indir.dir
         ).__str__()
+        format = os.path.join(
+            format,
+            self.indir.suffix
+        )
         result = TempDir.from_format(format)
         return result
 
@@ -183,6 +196,7 @@ class InGrid(
             retry: bool = True,
             force: bool = False,
             max_workers: int = 64,  # ⇣ lower default ⇣ avoids port-exhaustion
+            one: bool = False
     ) -> Self:
 
         # if self is not self.padded:
@@ -216,7 +230,11 @@ class InGrid(
         if not mapping:
             return self
 
-        msg = f"Downloading {len(mapping):,} grid to {self.indir.dir}"
+        msg = (
+            f'Downloading {len(mapping):,} '
+            f'{self.__class__.__qualname__}.{self.file.infile.name} '
+            f'from {self.source.name} to {self.indir.dir} '
+        )
         logger.info(msg)
 
         pool_size = min(max_workers, len(mapping))
@@ -279,7 +297,16 @@ class InGrid(
                     desc="Downloading",
                     unit="tile",
             ):
-                fut.result()
+                ok = fut.result()
+                if ok and one:
+                    success = True
+                    for f in futures:
+                        f.cancel()
+                    break
+
+        if one and success:
+            logger.info("Downloaded one file successfully (one=True).")
+            return self
 
         if len(not_found) + len(failed) == len(self.file.infile):
             msg = f'All {len(not_found) + len(failed):,} grid failed to download.'
@@ -586,8 +613,8 @@ class InGrid(
         except XYNotFoundError as e:
             _dir = f'{outdir}/z/x_y'
             msg = (
-                f'XYZ format not found in output directory: {dir}. '
-                f'Defaulting to {_dir}'
+                f'XYZ format not implicated in given outdir format: '
+                f'{dir}. Defaulting to {_dir}'
             )
             logger.info(msg)
             dir = _dir

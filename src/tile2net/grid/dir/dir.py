@@ -352,34 +352,21 @@ class Dir:
         result = pd.Series(data, index=grid.index, dtype='str')
         return result
 
-    def _cleanup(
-            self,
-            base_dir: str,
-            exclude: list[str]
-    ):
+    def cleanup(self):
+        root = Path(self.dir)
 
-        exclude_paths: set[str] = {
-            os.path.normpath(os.path.abspath(p))
-            for p in exclude
-        }
+        # walk bottom-up so children are removed before parents
+        for dirpath, dirnames, filenames in os.walk(root, topdown=False):
+            p = Path(dirpath)
 
-        for entry in os.scandir(base_dir):
-            path: str = os.path.normpath(entry.path)
+            # if no files here and all subdirs already gone, remove
+            if not filenames and not any(Path(dirpath).iterdir()):
+                try:
+                    p.rmdir()
+                except OSError:
+                    # race or permission issue, ignore
+                    pass
 
-            if any(
-                    path == exc or path.startswith(f"{exc}{os.sep}")
-                    for exc in exclude_paths
-            ):
-                continue
-
-            try:
-                if entry.is_dir(follow_symlinks=False):
-                    shutil.rmtree(path)
-                else:
-                    os.remove(path)
-            except FileNotFoundError:
-                # The target may have already been removed by another process
-                continue
 
 class TestIndir:
     indir = Dir()

@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from .. import util
 
 import os
 
@@ -17,8 +17,6 @@ from ..frame.framewrapper import FrameWrapper
 if False:
     from .ingrid import InGrid
     import folium
-
-
 
 
 class Polygons(
@@ -41,7 +39,7 @@ class Polygons(
 
             file = self.file
             if os.path.exists(file):
-                msg = f"loading {instance.__name__}.{self.__name__} from {file}"
+                msg = f"Loading {owner.__name__}.{self.__name__} from {file}"
                 logger.info(msg)
                 # result = gpd.read_parquet(file).pipe(self.__class__)
                 result = (
@@ -84,9 +82,26 @@ class Polygons(
                         .pipe(Polygons.from_frame, wrapper=self)
                     )
 
-                msg = f"Writing {instance.__name__}.{self.__name__} to {file}"
+                msg = (
+                    f"Writing {owner.__qualname__}.{self.__name__} "
+                       f"to \n\t{file}"
+                )
                 logger.info(msg)
                 result.frame.to_parquet(file)
+
+                msg = (
+                    f'Finished concatenating the polygons from {len(instance.vecgrid)} '
+                    f'tiles into a single vector of {len(result)} '
+                    f'geometries'
+                )
+                logger.info(msg)
+                if instance.cfg.cleanup:
+                    msg = (
+                        f'Cleaning up the polygons for each tile from '
+                        f'\n\t{instance.ingrid.tempdir.vecgrid.polygons.dir}'
+                    )
+                    logger.info(msg)
+                    util.cleanup(instance.vecgrid.file.polygons)
 
             instance.frame.__dict__[self.__name__] = result
 
@@ -150,4 +165,3 @@ class Polygons(
 
         folium.LayerControl().add_to(m)
         return m
-

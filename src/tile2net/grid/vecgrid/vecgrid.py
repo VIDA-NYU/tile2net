@@ -1,4 +1,5 @@
 from __future__ import annotations
+from .. import util
 from .. import frame
 from .lines import Lines
 from .polygons import Polygons
@@ -592,7 +593,7 @@ class VecGrid(Grid):
         contextlib.redirect_stderr(devnull).__enter__()
 
     @recursion_block
-    def vectorize(  # noqa: D401 – no docstrings per user pref
+    def vectorize(
             self,
             force=False,
     ) -> None:
@@ -743,7 +744,20 @@ class VecGrid(Grid):
                     except StopIteration:
                         pass
 
-        return
+        msg = f'Finished vectorizing {len(grid)} vectorizing tiles.'
+        logger.info(msg)
+
+        if self.cfg.cleanup:
+            msg = (
+                f'Cleaning up segmentation masks '
+                f'from \n\t{self.outdir.seggrid.grayscale.dir} and '
+                f'\n\t{self.tempdir.vecgrid.grayscale.dir}'
+            )
+            logger.info(msg)
+            util.cleanup(self.seggrid.file.grayscale)
+            util.cleanup(self.vecgrid.file.grayscale)
+
+        return self
 
     def view(
             self,
