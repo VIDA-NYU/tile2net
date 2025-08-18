@@ -4,11 +4,12 @@ import functools
 import json
 import pathlib
 import warnings
+import xml.etree.ElementTree as ET
 from abc import ABC
 from functools import cached_property
 from typing import *
-from typing import Optional
-from typing import TypeVar
+from typing import Iterator, Optional, Iterable, TypeVar
+from urllib.parse import urlencode
 from weakref import WeakKeyDictionary
 
 import geopandas as gpd
@@ -17,12 +18,12 @@ import requests
 import shapely.geometry
 import shapely.geometry
 import shapely.ops
-from geopandas import GeoDataFrame
-from geopandas import GeoSeries
-from shapely import box
-from shapely.geometry import box
+from geopandas import GeoDataFrame, GeoSeries
+from requests.adapters import HTTPAdapter
+from shapely import box, wkt
+from urllib3.util.retry import Retry
 
-from tile2net.grid.cfg.logger import logger
+from tile2net.logger import logger
 from tile2net.raster.geocode import GeoCode
 
 if False:
@@ -31,9 +32,6 @@ if False:
 
 class SourceNotFound(Exception):
     ...
-
-
-T = TypeVar('T')
 
 
 class Coverage:
@@ -66,15 +64,17 @@ class Coverage:
             if source.outdated:
                 continue
             try:
-                axis = pd.Index([source.name] * len(source.coverage), name='source')
+                coverage = source.coverage
+                axis = pd.Index([source.name] * len(coverage), name='source')
                 coverage = (
-                    source.coverage
+                    coverage
                     .set_crs('epsg:4326')
                     .set_axis(axis)
                 )
             except Exception as e:
                 logger.error(
-                    f'Could not get coverage for {source.name}, skipping:\n'
+                    f'Could not get coverage for {source.name},'
+                    f' skipping:\n\t'
                     f'{e}'
                 )
             else:
@@ -101,18 +101,6 @@ class Coverage:
 
 
 
-def __init__(
-        self: cls_attr,
-        func: Callable[..., T],
-):
-    # if not isinstance(func, property):
-    #     raise TypeError(f'{func} must be a property')
-    # func = func.fget
-    if isinstance(func, property):
-        func = func.fget
-    self.func = func
-    functools.update_wrapper(self, func)
-
 
 class cls_attr(
     # Generic[T],
@@ -127,6 +115,18 @@ class cls_attr(
         result = self.__wrapped__(owner)
         type.__setattr__(owner, self.name, result)
         return result
+
+    def __init__(
+            self: cls_attr,
+            func: Callable[..., T],
+    ):
+        # if not isinstance(func, property):
+        #     raise TypeError(f'{func} must be a property')
+        # func = func.fget
+        if isinstance(func, property):
+            func = func.fget
+        self.func = func
+        functools.update_wrapper(self, func)
 
     cache = WeakKeyDictionary()
     locals().update(
@@ -155,11 +155,8 @@ class cls_attr(
     def __repr__(self):
         return f'<{self.__class__.__name__} {self.__name__}>'
 
-    def __hash__(self):
-        return hash(self.name)
 
-    def __eq__(self, other):
-        return self.name == other.name
+T = TypeVar('T')
 
 
 # class SourceABC(
@@ -547,32 +544,41 @@ class WashingtonDC(ArcGis):
 
 
 class NewYorkCity(ArcGis):
-    server = 'https://tiles.arcgis.com/tiles/yG5s3afENB5iO9fj/arcgis/rest/services/NYC_Orthos_-_2020/MapServer'
+    server = 'https://tiles.arcgis.com/tiles/yG5s3afENB5iO9fj/arcgis/rest/services/NYC_Orthos_2024/MapServer'
     name = 'nyc'
     keyword = 'New York City', 'City of New York'
-    year = 2020
+    year = 2024
+    coverage = wkt.loads("POLYGON ((-73.69048 40.4889, -73.69048 40.92834, -74.27615 40.92834, -74.27615 40.4889, -73.69048 40.4889))")
+    coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
 class NewYork(ArcGis):
-    server = 'https://orthos.its.ny.gov/arcgis/rest/services/wms/2020/MapServer'
+    server = 'https://orthos.its.ny.gov/arcgis/rest/services/wms/2024/MapServer'
     name = 'ny'
     keyword = 'New York'
-    year = 2020
+    year = 2024
+    coverage = wkt.loads("POLYGON ((-73.25509 40.48341, -73.25509 45.03931, -79.77922 45.03931, -79.77922 40.48341, -73.25509 40.48341))")
+    coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
 class Massachusetts(ArcGis):
-    server = 'https://tiles.arcgis.com/tiles/hGdibHYSPO59RG1h/arcgis/rest/services/USGS_Orthos_2019/MapServer'
+    server = 'https://tiles.arcgis.com/tiles/hGdibHYSPO59RG1h/arcgis/rest/services/orthos2021/MapServer'
     name = 'ma'
     keyword = 'Massachusetts'
     extension = 'jpg'
-    year = 2019
+    year = 2021
+    coverage = wkt.loads("POLYGON ((-69.92466 41.2265, -69.92466 42.89199, -73.51979 42.89199, -73.51979 41.2265, -69.92466 41.2265))")
+    coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
 class KingCountyWashington(ArcGis):
-    server = 'https://gismaps.kingcounty.gov/arcgis/rest/services/BaseMaps/KingCo_Aerial_2021/MapServer'
+    server = 'https://gismaps.kingcounty.gov/arcgis/rest/services/BaseMaps/KingCo_Aerial_2023/MapServer'
     name = 'king'
     keyword = 'King County, Washington', 'King County'
-    year = 2021
+    year = 2023
+    coverage = wkt.loads("POLYGON ((-121.03559 47.04875, -121.03559 47.96618, -122.56958 47.96618, -122.56958 47.04875, -121.03559 47.04875))")
+    coverage = GeoSeries(coverage, crs='epsg:4326')
+
 
 
 class LosAngeles(ArcGis):
@@ -580,10 +586,12 @@ class LosAngeles(ArcGis):
     name = 'la'
     keyword = 'Los Angeles'
     year = 2014
+    coverage = wkt.loads("POLYGON ((-117.63102 33.28853, -117.63102 34.83012, -118.95937 34.83012, -118.95937 33.28853, -117.63102 33.28853))")
+    coverage = GeoSeries(coverage, crs='epsg:4326')
 
     # to test case where a source raises an error due to metadata failure
     #   other sources should still function
-    # @class_attr
+    # @cls_attr
     # @property
     # def metadata(cls):
     #     raise NotImplementedError
@@ -619,6 +627,8 @@ class NewJersey(ArcGis):
     name = 'nj'
     keyword = 'New Jersey'
     year = 2020
+    coverage = wkt.loads("POLYGON ((-73.85543 38.824, -73.85543 41.3866, -75.59981 41.3866, -75.59981 38.824, -73.85543 38.824))")
+    coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
 class SpringHillTN(ArcGis):
@@ -626,6 +636,8 @@ class SpringHillTN(ArcGis):
     name = 'sh_tn'
     keyword = 'Spring Hill, Tennessee', 'Spring Hill'
     year = 2020
+    coverage = wkt.loads("POLYGON ((-86.75604 35.58884, -86.75604 35.85806, -87.13095 35.85806, -87.13095 35.58884, -86.75604 35.58884))")
+    coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
 class Virginia(ArcGis):
@@ -716,46 +728,46 @@ class SanFranciscoBase(
 
 
 class SanFrancisco2014(SanFranciscoBase):
-    name: str = "sf2014"
-    year: int = 2014
-    server: str = "https://tile.sf.gov/api/tiles/p2014_rgb8cm"
+    name = 'sf2014'
+    year = 2014
+    server = 'https://tile.sf.gov/api/tiles/p2014_rgb8cm'
 
 
 class SanFrancisco2017(SanFranciscoBase):
-    name: str = "sf2017"
-    year: int = 2017
-    server: str = "https://tile.sf.gov/api/tiles/p2017_rgb8cm"
+    name = 'sf2017'
+    year = 2017
+    server = 'https://tile.sf.gov/api/tiles/p2017_rgb8cm'
 
 
 class SanFrancisco2018(SanFranciscoBase):
-    name: str = "sf2018"
-    year: int = 2018
-    server: str = "https://tile.sf.gov/api/tiles/p2018_rgb8cm"
+    name = 'sf2018'
+    year = 2018
+    server = 'https://tile.sf.gov/api/tiles/p2018_rgb8cm'
 
 
 class SanFrancisco2019(SanFranciscoBase):
-    name: str = "sf2019"
-    year: int = 2019
-    server: str = "https://tile.sf.gov/api/tiles/p2019_rgb8cm"
+    name = 'sf2019'
+    year = 2019
+    server = 'https://tile.sf.gov/api/tiles/p2019_rgb8cm'
 
 
 class SanFrancisco2020(SanFranciscoBase):
-    name: str = "sf2020"
-    year: int = 2020
-    server: str = "https://tile.sf.gov/api/tiles/p2020_rgb8cm"
+    name = 'sf2020'
+    year = 2020
+    server = 'https://tile.sf.gov/api/tiles/p2020_rgb8cm'
 
 
 class SanFrancisco2023(SanFranciscoBase):
-    name: str = "sf2023"
-    year: int = 2023
-    server: str = "https://tile.sf.gov/api/tiles/p2023_rgb8cm"
+    name = 'sf2023'
+    year = 2023
+    server = 'https://tile.sf.gov/api/tiles/p2023_rgb8cm'
 
 
 class SanFrancisco2024(SanFranciscoBase):
-    name: str = "sf2024"
-    year: int = 2024
-    server: str = "https://tile.sf.gov/api/tiles/p2024_rgb8cm"
-    outdated: bool = False  # mark most-recent layer as current
+    name = 'sf2024'
+    year = 2024
+    server = 'https://tile.sf.gov/api/tiles/p2024_rgb8cm'
+    outdated = False
 
 
 class MaineOrthoBase(
@@ -769,60 +781,181 @@ class MaineOrthoBase(
     keyword: str = "Maine"
     extension: str = "jpeg"  # ArcGIS ImageServer delivers JPEG by default
 
+class VexCel(Source, ABC):
+    flip_y = False
+    prefer_layers: Iterable[str] = ('wide-area', 'urban', 'urban-r', 'graysky')
+    server: str = 'https://api.vexcelgroup.com/v2/ortho'
+    base: str = 'https://api.vexcelgroup.com/v2/ortho/wmts'
+    api_key: str = None
+    timeout: int = 10
+    extension = 'png'
 
-class Maine2021(MaineOrthoBase):
-    server: str = (
-        "https://gis.maine.gov/arcgis/rest/services/"
-        "imageryBaseMapsEarthCover/orthoRegional2021/ImageServer"
-    )
-    name: str = "me2021"
-    year: int = 2021
-    outdated: bool = True  # superseded by 2022 imagery
+    @cls_attr
+    def _session(self) -> requests.Session:
+        """
+        Create a requests session with
+        retries and a custom User-Agent.
+        """
+        # ascii-only UA to avoid header encoding issues
+        s = requests.Session()
+        s.headers.update({'User-Agent': 'tile2net'})
+        retry = Retry(
+            total=5,
+            backoff_factor=0.4,
+            status_forcelist=(429, 500, 502, 503, 504),
+            allowed_methods=frozenset("GET", ),
+            raise_on_status=False,
+        )
+        s.mount('https://', HTTPAdapter(max_retries=retry))
+        s.mount('http://', HTTPAdapter(max_retries=retry))
+        return s
 
+    @classmethod
+    def _raise_http(
+            cls,
+            r: requests.Response,
+            url: str,
+    ) -> None:
+        """ Raise an HTTPError with details from the response."""
+        ctype = r.headers.get('Content-Type', '')
+        if ctype.startswith('text/'):
+            body = r.text[:800]
+        else:
+            body = f'<{len(r.content):,} bytes binary>'
+        raise requests.HTTPError(
+            f"{r.status_code} {r.reason or ''} for {url}\n"
+            f"CT: {ctype}\n"
+            f"Body: {body}"
+        )
 
-class Maine2022(MaineOrthoBase):
-    server: str = (
-        "https://gis.maine.gov/arcgis/rest/services/"
-        "imageryBaseMapsEarthCover/orthoRegional2022/ImageServer"
-    )
-    name: str = "me2022"
-    year: int = 2022
-    outdated: bool = False  # current statewide layer
-    gridize: int = 512
-    extension: str = "jpeg"
-    zoom=19
+    @cls_attr
+    def layers(self) -> list[str]:
+        """
+        Layers available in the WMTS service.
+        e.g. ['wide-area', 'urban', 'urban-r', 'graysky']
+        """
+        query = dict(
+            SERVICE='WMTS',
+            REQUEST='GetCapabilities',
+            VERSION='1.0.0',
+            api_key=self.api_key,
+        )
+        url = f"{self.base}?{urlencode(query)}"
 
-    # ArcGIS ExportImage template – bbox in Web-Mercator metres
-    template: str = (
-        "https://gis.maine.gov/arcgis/rest/services/"
-        "imageryBaseMapsEarthCover/orthoRegional2022/ImageServer"
-        "/exportImage?f=image"
-        "&bbox={left}%2C{bottom}%2C{right}%2C{top}"
-        "&bboxSR=102100&imageSR=102100"
-        "&size=256%2C256"
-    )
+        with self._session as s:
+            r = s.get(url, timeout=self.timeout)
+            if r.status_code >= 400:
+                self._raise_http(r, url)
+            try:
+                root = ET.fromstring(r.content)
+            except ET.ParseError as e:
+                raise RuntimeError(f'Failed to parse WMTS capabilities: {e}') from e
 
-    @property
-    def urls(self) -> pd.Series:
-        # project tile geometries to EPSG 102100, then build URLs
-        item = self.grid
-        bounds = item.to_crs(102100).bounds
-        tmpl = self.template
+        ns = dict(
+            wmts='http://www.opengis.net/wmts/1.0',
+            ows='http://www.opengis.net/ows/1.1',
+        )
+        result = []
+        for lyr in root.findall('.//wmts:Contents/wmts:Layer', ns):
+            ident = lyr.find('ows:Identifier', ns)
+            if ident is not None and ident.text:
+                result.append(ident.text.strip())
+        return result
 
-        urls = [
-            tmpl.format(
-                left=minx, bottom=miny,
-                right=maxx, top=maxy,
-            )
-            for minx, miny, maxx, maxy in zip(
-                bounds.minx, bounds.miny, bounds.maxx, bounds.maxy
-            )
-        ]
-        result = pd.Series(urls, index=item.index, name="url")
+    @cls_attr
+    def layer(self):
+        """ Layer chosen from the WMTS layers """
+        avail = {
+            layer
+            for layer in self.layers
+            if not layer
+            .lower()
+            # exclude greyscale imagery
+            .endswith('-g')
+        }
+        for cand in self.prefer_layers:
+            if cand in avail:
+                return cand
+        if not avail:
+            raise RuntimeError('No RGB WMTS layers are available for this API key.')
+        result = sorted(avail)[0]
+        return result
+
+    @cls_attr
+    def template(self) -> str:
+        """Encoding the WMTS URL template for the tiles"""
+        query = {
+            'layer': self.layer,
+            'image-format': self.extension,
+            'api_key': self.api_key,
+        }
+        q = urlencode(query)
+        q += '&tile-x={x}&tile-y={y}&zoom={z}'
+        result = f'{self.server}/tile?{q}'
         return result
 
 
+class Maine(VexCel):
+    # https://www.maine.gov/geolib/data/index.html
+    name = 'maine'
+    api_key = "vfa_JkRqdw7HHOis.37zZe0OHVVqPlIY91FsT9arC9uGrDalMqwMW1AX4OgcfsiwtQoxDLed9OEIxKy3Ys2lMCam9C2swLrUwNqX2KrlegBRev8MRDpkqHkbSEn0fP1aEqvoDBdePjAOO9h91.4256792737"
+    keyword = 'Maine'
+    coverage = wkt.loads(
+        "MULTIPOLYGON (((-70.64573401557249 43.09008331966716, "
+        "-70.75102474636725 43.08003225358636, "
+        "-70.79761105007827 43.21973948828747, "
+        "-70.98176001655037 43.36789581966831, "
+        "-70.94416541205806 43.46633942318429, "
+        "-71.08481999999998 45.30523999999996, "
+        "-70.6600225491012 45.460222886733995, "
+        "-70.30495378282376 45.914794623389334, "
+        "-70.00014034695016 46.69317088478567, "
+        "-69.23708614772835 47.44777598732789, "
+        "-68.90478084987546 47.18479462339437, "
+        "-68.23430497910455 47.3546292181218, "
+        "-67.7903527492851 47.066248887717, "
+        "-67.79141211614706 45.702585354182794, "
+        "-67.13734351262877 45.13745189063888, "
+        "-66.96465999999998 44.809699999999935, "
+        "-68.03251999999992 44.32520000000004, "
+        "-69.05999999999996 43.980000000000096, "
+        "-70.11617000000001 43.68405, "
+        "-70.64573401557249 43.09008331966716)))"
+    )
+    coverage = GeoSeries(coverage, crs='epsg:4326')
+
+
+# todo: refactor this because SourceMeta is not used anymore
+
+# def print_coverages(
+#         simplify: Optional[float] = 5,
+# ) -> None:
+#     """
+#     utility function to print all coverages to be hard-coded
+#     get the canonical coverage series; ensure EPSG:4326 for consistency
+#     """
+#     coverages = SourceMeta.coverage
+#     # coerce to integer decimals if provided
+#     decimals: Optional[int] = None
+#     if simplify is not None:
+#         decimals = int(simplify)
+#
+#     for name, geom in coverages.items():
+#         # use text-level rounding; does not alter topology/coords
+#         if decimals is not None:
+#             txt = geom.simplify(simplify, preserve_topology=True).wkt
+#         else:
+#             txt = geom.wkt
+#
+#         # print the source name (index) and its WKT
+#         print(name)
+#         print(txt)
+
+
+
 if __name__ == '__main__':
+    assert Source.from_inferred('Portland, Maine') == Maine
+    assert Source.from_inferred('Maine') == Maine
     assert Source.from_inferred('New Brunswick, New Jersey') == NewJersey
     assert Source.from_inferred('New York City') == NewYorkCity
     assert Source.from_inferred('New York') in (NewYorkCity, NewYork)
@@ -838,8 +971,5 @@ if __name__ == '__main__':
     assert Source.from_inferred('Fremont, California') == AlamedaCounty
     assert Source.from_inferred('Oakland, California') == AlamedaCounty
     assert Source.from_inferred('San Francisco, California') == SanFrancisco2024
-    assert Source.from_inferred('Bangor, Maine') == Maine2022
 
-    Source.catalog
-    Source.coverage.geometry
 
