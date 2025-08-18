@@ -12,7 +12,7 @@ python -m tile2net \
   --outdir ./boston_common
 ```
 
-Downloading the weights will take some time. Then, downloading the imagery, performing segmentation, 
+Downloading the imagery, performing segmentation, 
 and vectorization should take only a few minutes. At the end, you you will see a printout that should look 
 something like this:
 
