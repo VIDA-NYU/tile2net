@@ -754,8 +754,8 @@ class VecGrid(Grid):
                 f'\n\t{self.tempdir.vecgrid.grayscale.dir}'
             )
             logger.info(msg)
-            util.cleanup(self.seggrid.file.grayscale)
-            util.cleanup(self.vecgrid.file.grayscale)
+            # util.cleanup(self.seggrid.file.grayscale)
+            # util.cleanup(self.vecgrid.file.grayscale)
 
         return self
 

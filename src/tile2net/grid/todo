@@ -20,3 +20,5 @@ We should delete them by default and only keep it if explicitly passed
 how do we decide tempdir subdir name?
 
 problem si, we need an infile to determine dimension
+
+--preview.maxdim 2048

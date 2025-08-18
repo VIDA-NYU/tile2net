@@ -420,6 +420,8 @@ class Model(cmdline.Namespace):
         """
         return 1
 
+    bs_val.add_options(short='-b')
+
     @cmdline.property
     def color_aug(self) -> float:
         """
@@ -733,6 +735,9 @@ class Vector(cmdline.Namespace):
         A length of 10, for example, means each vectorization tile
         is 10 segmentation tiles long.
         """
+        return 3
+
+    length.add_options(short='-v')
 
     @cmdline.property
     def scale(self) -> int:
@@ -772,6 +777,11 @@ class Line(cmdline.Namespace):
     def concat(self) -> bool:
         """Concatenate the lines from each tile into a single vector."""
         return True
+
+    @cmdline.property
+    def preview(self) -> int:
+        """Maximum dimension of the lines preview"""
+        return 4096
 
 
 class Polygon(cmdline.Namespace):
@@ -822,6 +832,11 @@ class Polygon(cmdline.Namespace):
     def concat(self) -> bool:
         """Concatenate the polygons from each tile into a single vector."""
         return True
+
+    @cmdline.property
+    def preview(self) -> int:
+        """Maximum dimension of the polygons preview"""
+        return 4096
 
 
 class Cfg(
@@ -964,6 +979,8 @@ class Cfg(
         After merging tiles into single geometries, delete all tile geometries.
         """
         return True
+
+    cleanup.add_options(long='--no-cleanup')
 
     @cmdline.property
     def label2id(self) -> dict[str, int]:
@@ -1344,11 +1361,25 @@ class Cfg(
 
     location.add_options(short='-l')
 
+
     @cmdline.property
     def indir(self) -> Optional[str]:
-        ...
+        """
+        Path to the input directory containing imagery tiles. The path
+        should implicate the format of the files, containing the xtile,
+        ytile, and extension, and possibly the zoom level.
 
-    indir.add_options(short='-i', long='--indir')
+        For example, `path/to/tiles/z/x/y.png` tells Tile2Net we are
+        working with PNG files stored under the format
+        /{zoom}/{xtile}/{ytile}.png, and searches for files as such.
+
+        If the user passes `path/to/tiles/x_y.png`, Tile2Net will look
+        for files with names `{xtile}_{ytile}.png` in the `tiles` folder.
+
+        If not specified, the tiles will be downloaded from a remote source.
+        """
+
+    indir.add_options(short='-i')
 
     @cmdline.property
     def num_class(self) -> int:
@@ -1391,7 +1422,7 @@ class Cfg(
     def source(self) -> Optional[str]:
         ...
 
-    source.add_options(long='--source', short='-s')
+    source.add_options(short='-s')
 
     @cmdline.property
     def border_window(self) -> int:

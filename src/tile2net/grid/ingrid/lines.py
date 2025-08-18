@@ -42,9 +42,15 @@ class Lines(
         else:
             file = self.file
             if os.path.exists(file):
-                msg = f"Loading {owner.__name__}.{self.__name__} from {file}"
+                msg = (
+                    f'Loading {owner.__qualname__}.{self.__name__} '
+                    f'from \n\t{file}'
+                )
                 logger.info(msg)
-                result = gpd.read_parquet(file).pipe(self.__class__)
+                result = (
+                    gpd.read_parquet(file)
+                    .pipe(self.__class__.from_frame, wrapper=self)
+                )
                 instance.__dict__[self.__name__] = result
             else:
 

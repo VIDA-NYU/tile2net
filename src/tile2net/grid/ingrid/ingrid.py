@@ -823,16 +823,31 @@ class InGrid(
             return str(p.resolve())
 
         # collect resources
+        # rows = [
+        #     ('Input imagery', _p(self.outdir.ingrid.infile.dir)),
+        #     ('Segmentation (colored)', _p(self.outdir.seggrid.colored.dir)),
+        #     # ('Polygons by tile',    _p(self.outdir.vecgrid.polygons.dir)),
+        #     # ('Lines by tile',       _p(self.outdir.vecgrid.lines.dir)),
+        #     # ('HRNet checkpoint',           _p(self.static.hrnet_checkpoint)),
+        #     # ('Model snapshot',             _p(self.static.snapshot)),
+        #     ('Polygons', _p(self.outdir.polygons.file)),
+        #     ('Network', _p(self.outdir.lines.file)),
+        # ]
+
         rows = [
             ('Input imagery', _p(self.outdir.ingrid.infile.dir)),
-            ('Segmentation (colored)', _p(self.outdir.seggrid.colored.dir)),
-            # ('Polygons by tile',    _p(self.outdir.vecgrid.polygons.dir)),
-            # ('Lines by tile',       _p(self.outdir.vecgrid.lines.dir)),
-            # ('HRNet checkpoint',           _p(self.static.hrnet_checkpoint)),
-            # ('Model snapshot',             _p(self.static.snapshot)),
-            ('Polygons', _p(self.outdir.polygons.file)),
-            ('Network', _p(self.outdir.lines.file)),
         ]
+        if self.cfg.segment.colored:
+            rows.append(('Segmentation (colored)', _p(self.outdir.seggrid.colored.dir)))
+        if self.cfg.polygon.concat:
+            rows.append(('Polygons', _p(self.outdir.polygons.file)))
+        if self.cfg.line.concat:
+            rows.append(('Network', _p(self.outdir.lines.file)))
+        if self.cfg.polygon.preview:
+            rows.append(('Polygon preview', _p(self.tempdir.polygons.preview)))
+        if self.cfg.line.preview:
+            rows.append(('Network preview', _p(self.tempdir.lines.preview)))
+
 
         # compute column widths
         label_w = max(len(k) for k, _ in rows)
