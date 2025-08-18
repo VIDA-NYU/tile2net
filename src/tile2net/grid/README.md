@@ -108,7 +108,7 @@ python -m tile2net \
 #### Portland, Maine
 ```bash
 python -m tile2net \
-  -l "Portland, Maine" \
+  -l "Deering Oaks Park" \
   -b 16 \
   -o ./portland \
   -v 10 
