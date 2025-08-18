@@ -36,18 +36,18 @@ That's it! You can open these paths to view the respective outputs.
 
 These are the core arguments to get Tile2Net configured to your needs.
 
-### `--location` (shorthand `-l`)
+### `--location` (`-l`)
 - Defines the location for which Tile2Net is run
   - A plain-text place name: `"Washington Square Park"`, `"Cambridge, MA"`  
   - A bounding box string in **lat, lon** order: `"40.729, -73.999, 40.732, -73.995"`
 
-### `--model.bs_val` (shorthand `-b`)
+### `--model.bs_val` (`-b`)
 - Key segmentation parameter for VRAM.
 - Batch size per GPU during segmentation.
 - 1 by default; increase based on available VRAM.
 - 16 worked best on an RTX 3090 with 24GB VRAM.
 
-### `--vector.length` (shorthand `-v`)
+### `--vector.length` (`-v`)
 - Key vectorization parameter for RAM.
 - Number of segmentation tiles long each vectorization tile is.
 - `vector.length=10` means each vectorization tile is 100 segmentation tiles.
@@ -55,19 +55,19 @@ These are the core arguments to get Tile2Net configured to your needs.
 - Each vectorization tile is padded by 1 segmentation tile on each side.
   - This means that `vector.length=3` is the minimum to have any output.
 
-### `--outdir` (shorthand `-o`)
+### `--outdir` (`-o`)
 - Output directory root.
 - Defaults to `/tile2net` in the system temp directory.
 - Relative paths like `./cambridge` are created under the current working directory.
 
-### `--indir` (shorthand `-i`)
+### `--indir` (`-i`)
 - Path to an input directory containing imagery tiles on disk.  
 - Tile2Net infers the layout from filenames and subdirectories:
   - `path/to/tiles/z/x/y.png` → interpreted as `{zoom}/{xtile}/{ytile}.png`  
   - `path/to/tiles/x_y.png` → interpreted as `{xtile}_{ytile}.png` in the `tiles` folder  
 - If not provided, imagery will be fetched automatically from the configured remote source.
 
-### `--source` (shorthand `-s`)
+### `--source` (`-s`)
 - Imagery source selector or override.  
 - Use this to specify a specific imagery source by name.
 
@@ -92,11 +92,12 @@ python -m tile2net \
 
 #### Local Imagery
 To demonstrate the use of local imagery, we can reuse the downloaded imagery with the last step, this time using the 
-`-i` argument to indicate the input directory. 
+`-i` argument to indicate the input directory. We'll also explicitly pass the zoom level of our images with `-z`. 
 
 ```bash
 python -m tile2net \
-  -i 
+  -i ./cambridge/ingrid/infile/19/x_y \
+  -z 19 \ 
   -l "Cambridge, MA" \
   -b 16 \
   -o ./local \

@@ -616,15 +616,23 @@ class Raster(Grid):
         None
         """
         with (
-            ThreadPoolExecutor(max_workers=5) as threads,
+            ThreadPoolExecutor() as threads,
             requests.Session() as session,
         ):
             if not self.source:
                 return
             self.project.tiles.static.path.mkdir(parents=True, exist_ok=True)
 
-            paths = np.fromiter(self.project.tiles.static.files(), dtype=object, count=self.tiles.size)
-            urls = np.fromiter(self.source[self.tiles.flat], dtype=object, count=self.tiles.size)
+            paths = np.fromiter(
+                self.project.tiles.static.files(),
+                dtype=object,
+                count=self.tiles.size
+            )
+            urls = np.fromiter(
+                self.source[self.tiles.ravel()],
+                dtype=object,
+                count=self.tiles.size
+            )
             loc = [
                 not os.path.exists(path)
                 for path in paths

@@ -29,6 +29,7 @@ def test_sources():
                 or not issubclass(cls, Source)
                 or abc.ABC in cls.__bases__
                 or getattr(cls, 'ignore', False)
+                or cls.outdated
         ):
             continue
         # assert querying by the polygon returns the same source
