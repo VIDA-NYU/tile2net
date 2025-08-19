@@ -72,7 +72,7 @@ class Polygons(
 
                 n_features = len(vecgrid.polygons.columns)
                 msg = (
-                    f'Aggregating {n_polygons} polygons from {n} grid and '
+                    f'Aggregating {n_polygons} polygons from {n} grids and '
                     f'{n_features} features into a single vector with grid '
                     f'size {grid_size:.2e}. This may take a while.'
                 )
@@ -102,13 +102,6 @@ class Polygons(
                     f'geometries'
                 )
                 logger.info(msg)
-                if instance.cfg.cleanup:
-                    msg = (
-                        f'Cleaning up the polygons for each tile from '
-                        f'\n\t{instance.ingrid.tempdir.vecgrid.polygons.dir}'
-                    )
-                    logger.info(msg)
-                    util.cleanup(instance.vecgrid.file.polygons)
 
             instance.frame.__dict__[self.__name__] = result
 

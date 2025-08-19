@@ -16,7 +16,6 @@ if __name__ == '__main__':
             zoom=cfg.zoom
         )
 
-
         if cfg.indir:
             # use input imagery
             ingrid = ingrid.set_indir()
@@ -31,6 +30,12 @@ if __name__ == '__main__':
         ingrid = ingrid.set_segmentation()
         # configure vectorization using cfg parameters
         ingrid = ingrid.set_vectorization()
+
+        # ingrid.seggrid.preview(files=ingrid.seggrid.file.colored)
+        # ingrid.vecgrid.preview(files=ingrid.vecgrid.file.colored)
+        # ingrid.preview()
+        ingrid.lines.plot()
+
 
         if cfg.line.concat:
             # concatenate lines into single file and save
@@ -60,7 +65,4 @@ if __name__ == '__main__':
             img.save(ingrid.tempdir.polygons.preview)
 
         # delete empty directories for easier browsing
-        ingrid.outdir.cleanup()
-        ingrid.tempdir.cleanup()
-
         ingrid.summary()

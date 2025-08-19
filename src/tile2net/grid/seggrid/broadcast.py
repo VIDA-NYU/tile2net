@@ -6,7 +6,13 @@ import pandas as pd
 from . import vectile
 from .seggrid import SegGrid
 
-from .. import frame
+from .. import frame, InGrid
+from functools import cached_property
+
+if False:
+    from .seggrid import SegGrid
+    from ..vecgrid.vecgrid import VecGrid
+    from ..ingrid.ingrid import InGrid
 
 
 class VecTile(
@@ -42,6 +48,10 @@ class VecTile(
         )
         return result
 
+    @property
+    def length(self) -> int:
+        return self.seggrid.vecgrid.padded.length
+        # return self.seggrid.seggrid.vectile.length + 2
 
 
 def boundary_grid(
@@ -60,62 +70,63 @@ def boundary_grid(
     return coords[mask]
 
 
-
-def __get__(
-        self: Broadcast,
-        instance: SegGrid,
-        owner,
-) -> Broadcast:
-    if instance is None:
-        result = self
-    elif self.__name__ in instance.__dict__:
-        result = instance.frame.__dict__[self.__name__]
-    else:
-        vecgrid = instance.vecgrid
-        seggrid = instance.seggrid.padded
-        corners = (
-            vecgrid
-            .to_corners(seggrid.scale)
-            .to_padding()
-        )
-        vectile = corners.index.repeat(corners.area)
-        kwargs = {
-            'vectile.xtile': vectile.get_level_values('xtile'),
-            'vectile.ytile': vectile.get_level_values('ytile'),
-        }
-
-        result = (
-            corners
-            .to_grid(drop_duplicates=False)
-            .frame
-            .assign(**kwargs)
-            .pipe(Broadcast.from_frame, wrapper=instance)
-        )
-
-        # instance.__dict__[self.__name__] = result
-        instance.frame.__dict__[self.__name__] = result
-
-        d = seggrid.scale - vecgrid.scale
-        expected = 2 ** (2 * d) + 4 * 2 ** d + 4
-        assert len(result) == expected * len(vecgrid)
-        _ = result.vectile.r, result.vectile.c
-
-    result.instance = instance
-    return result
-
 class Broadcast(
     SegGrid
 ):
+    instance: SegGrid
+
+    def _get(
+            self: Broadcast,
+            instance: SegGrid,
+            owner,
+    ) -> Broadcast:
+        if instance is None:
+            result = self
+        elif self.__name__ in instance.__dict__:
+            result = instance.frame.__dict__[self.__name__]
+        else:
+            vecgrid = instance.vecgrid
+            seggrid = instance.seggrid.filled
+            corners = (
+                vecgrid
+                .to_corners(seggrid.scale)
+                .to_padding()
+            )
+            vectile = corners.index.repeat(corners.area)
+            kwargs = {
+                'vectile.xtile': vectile.get_level_values('xtile'),
+                'vectile.ytile': vectile.get_level_values('ytile'),
+            }
+
+            result = (
+                corners
+                .to_grid(drop_duplicates=False)
+                .frame
+                .assign(**kwargs)
+                .pipe(Broadcast.from_frame, wrapper=instance)
+            )
+
+            # instance.__dict__[self.__name__] = result
+            instance.frame.__dict__[self.__name__] = result
+
+            d = seggrid.scale - vecgrid.scale
+            expected = 2 ** (2 * d) + 4 * 2 ** d + 4
+            assert len(result) == expected * len(vecgrid)
+            _ = result.vectile.r, result.vectile.c
+
+        result.instance = instance
+        return result
+
     locals().update(
-        __get__=__get__
+        __get__=_get
     )
 
     @property
-    def seggrid(self):
+    def seggrid(self) -> SegGrid:
         return self.instance.seggrid
 
     @property
-    def vecgrid(self):
+    def vecgrid(self) -> VecGrid:
         return self.instance.vecgrid
 
     @VecTile
@@ -123,5 +134,21 @@ class Broadcast(
         ...
 
     @property
-    def padded(self):
-        return self.instance.padded
+    def filled(self):
+        return self.instance.filled
+
+    @property
+    def ingrid(self) -> InGrid:
+        return self.instance.ingrid
+
+    # @cached_property
+    # def dimension(self) -> int:
+    #     result = self.instance.dimension
+    #     result += 2 * self.ingrid.dimension
+    #     return result
+    #
+    # @cached_property
+    # def length(self) -> int:
+    #     result = self.instance.length
+    #     result += 2
+    #     return result

@@ -1,29 +1,29 @@
 from __future__ import annotations
 
 if False:
-    # from tile2net.grid.seggrid import padded
-    from . import padded
+    # from tile2net.grid.seggrid import filled
+    from . import filled
     from . import broadcast
 
 """
-Padded inherits from SegGrid, but we want define `SegGrid.padded` 
+Filled inherits from SegGrid, but we want define `SegGrid.filled` 
 (causes circular dependency)
 This allows us to swap-in the real subclass after SegGrid has been defined.
 """
 
 
-class Padded(
+class Filled(
 
 ):
     def __get__(
             self,
             instance,
             owner
-    ) -> padded.Padded:
-        from . import padded
-        padded = padded.Padded()
-        setattr(owner, self.__name__, padded)
-        padded.__set_name__(owner, self.__name__)
+    ) -> filled.Filled:
+        from . import filled
+        filled = filled.Filled()
+        setattr(owner, self.__name__, filled)
+        filled.__set_name__(owner, self.__name__)
         if instance is None:
             result = getattr(owner, self.__name__)
         else:

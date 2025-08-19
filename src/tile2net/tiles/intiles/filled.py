@@ -5,10 +5,10 @@ from .intiles import InTiles
 
 
 def __get__(
-        self: Padded,
+        self: Filled,
         instance: InTiles,
         owner,
-) -> Padded:
+) -> Filled:
     if instance is None:
         result = self
     elif self.__name__ in instance.__dict__:
@@ -28,8 +28,8 @@ def __get__(
     return result
 
 
-class Padded(
-    padded.Padded,
+class Filled(
+    padded.Filled,
     InTiles,
 ):
     locals().update(

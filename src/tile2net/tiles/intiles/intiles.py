@@ -54,7 +54,7 @@ from ..vectiles.vectiles import VecTiles
 from ...tiles.util import RecursionBlock, recursion_block
 
 if False:
-    from .padded import Padded
+    from .padded import Filled
 
 
 class Tile(
@@ -854,8 +854,8 @@ class InTiles(
 
         return mosaic
 
-    @delayed.Padded
-    def padded(self) -> Padded:
+    @delayed.Filled
+    def padded(self) -> Filled:
         ...
 
     def _make_session(

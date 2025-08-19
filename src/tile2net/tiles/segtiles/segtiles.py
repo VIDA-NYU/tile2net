@@ -44,7 +44,7 @@ from ..util import recursion_block
 from ...tiles.util import RecursionBlock
 
 if False:
-    from .padded import Padded
+    from .padded import Filled
     from .broadcast import Broadcast
     from ..intiles import InTiles
 
@@ -464,8 +464,8 @@ class SegTiles(
         result = ~self.file.grayscale.apply(os.path.exists)
         return result
 
-    @delayed.Padded
-    def padded(self) -> Padded:
+    @delayed.Filled
+    def padded(self) -> Filled:
         ...
 
     @delayed.Broadcast

@@ -32,6 +32,7 @@ from toolz import curried, pipe
 
 from tile2net.grid.cfg.logger import logger
 
+
 if False:
     from ..grid.grid.grid import Grid
     import folium

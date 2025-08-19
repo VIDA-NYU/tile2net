@@ -16,9 +16,7 @@ The user wants the end result
 We should delete them by default and only keep it if explicitly passed
 
 
+vecgrid.file.colored
+vecgrid.padded.file.colored
 
-how do we decide tempdir subdir name?
-
-problem si, we need an infile to determine dimension
-
---preview.maxdim 2048
+previews are too slow

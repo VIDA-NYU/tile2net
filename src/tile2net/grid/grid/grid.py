@@ -1,40 +1,34 @@
 from __future__ import annotations
-from .colormap import ColorMap
 
 import os
 import threading
-
-from .stitcher import Stitcher
-
-import PIL.Image
-from PIL import Image
 from concurrent.futures import ThreadPoolExecutor
-
-import math
-
-from tile2net.grid.explore import explore
-from tile2net.grid.cfg.logger import logger
-
 from functools import *
-from pathlib import Path
 from typing import *
 
+import PIL.Image
 import imageio.v3 as iio
+import math
 import numpy as np
 import pandas as pd
 import pyproj
 import shapely
+from PIL import Image
 from geopandas import GeoDataFrame
 from pandas import MultiIndex
 from pandas import Series, Index
 
+from tile2net.grid.cfg.logger import logger
+from tile2net.grid.explore import explore
 from tile2net.raster import util
+from .colormap import ColorMap
 from .corners import Corners
+from .file import File
+from .stitcher import Stitcher
 from .. import frame
 from .. import util
-from ..frame.framewrapper import FrameWrapper
-from .file import File
 from ..cfg import cfg, Cfg
+from ..frame.framewrapper import FrameWrapper
 
 if False:
     import folium
@@ -87,6 +81,16 @@ class Grid(
         """
 
     @cached_property
+    def min_scale(self) -> int:
+        dim = max(self.r.max(), self.c.max()) + 1
+        scale = math.log2(dim)
+        scale = math.ceil(scale)
+        scale = int(scale)
+        result = self.scale - scale
+
+        return result
+
+    @cached_property
     def scale(self) -> int:
         """
         Tile scale; the XYZ scale of the grid.
@@ -106,9 +110,13 @@ class Grid(
         result = self.ingrid.dimension * self.length
         return result
 
+    # @property
+    # def shape(self) -> tuple[int, int, int]:
+    #     return self.dimension, self.dimension, self.ingrid.shape[2]
+
     @property
-    def shape(self) -> tuple[int, int, int]:
-        return self.dimension, self.dimension, 3
+    def shape(self) -> tuple[int, int]:
+        return self.dimension, self.dimension,
 
     @cached_property
     def length(self) -> int:
@@ -453,27 +461,27 @@ class Grid(
 
     def to_padding(self, pad: int = 1) -> Self:
         """ Pad each tile by `pad` grid in each direction. """
-        padded = (
+        filled = (
             self
             .to_corners(self.scale)
             .to_padding(pad)
             .to_grid()
             .pipe(self.from_wrapper)
         )
-        assert isinstance(padded, self.__class__)
-        padded.frame = padded.frame.sort_index()
+        assert isinstance(filled, self.__class__)
+        filled.frame = filled.frame.sort_index()
 
-        assert self.xtile.min() - pad == padded.xtile.min()
-        assert self.ytile.min() - pad == padded.ytile.min()
-        assert self.xtile.max() + pad == padded.xtile.max()
-        assert self.ytile.max() + pad == padded.ytile.max()
+        assert self.xtile.min() - pad == filled.xtile.min()
+        assert self.ytile.min() - pad == filled.ytile.min()
+        assert self.xtile.max() + pad == filled.xtile.max()
+        assert self.ytile.max() + pad == filled.ytile.max()
         if pad >= 0:
-            assert self.index.isin(padded.index).all()
+            assert self.index.isin(filled.index).all()
 
         result = self.copy()
-        result.__dict__.update(padded.__dict__)
+        result.__dict__.update(filled.__dict__)
 
-        return padded
+        return filled
 
     def to_corners(self, scale: int = None) -> Corners:
         if scale is None:
@@ -611,55 +619,6 @@ class Grid(
         folium.LayerControl().add_to(m)
         return m
 
-    def preview(
-            self,
-            maxdim: int = 2048,
-            divider: Optional[str] = 'red',
-    ) -> PIL.Image.Image:
-
-        files: pd.Series = self.file.infile
-        R: pd.Series = self.r  # 0-based row id
-        C: pd.Series = self.c  # 0-based col id
-
-        dim = self.dimension  # original tile side length
-        n_rows = int(R.max()) + 1
-        n_cols = int(C.max()) + 1
-        div_px = 1 if divider else 0
-
-        # full mosaic size before optional down-scaling
-        full_w0 = n_cols * dim + div_px * (n_cols - 1)
-        full_h0 = n_rows * dim + div_px * (n_rows - 1)
-
-        scale = 1.0
-        if max(full_w0, full_h0) > maxdim:
-            scale = maxdim / max(full_w0, full_h0)
-
-        tile_w = max(1, int(round(dim * scale)))
-        tile_h = tile_w  # square grid
-        full_w = n_cols * tile_w + div_px * (n_cols - 1)
-        full_h = n_rows * tile_h + div_px * (n_rows - 1)
-
-        canvas_col = divider if divider else (0, 0, 0)
-        mosaic = Image.new('RGB', (full_w, full_h), color=canvas_col)
-
-        def load(idx: int) -> tuple[int, int, np.ndarray]:
-            arr = iio.imread(files.iat[idx])
-            if scale != 1.0:
-                arr = np.asarray(
-                    Image.fromarray(arr).resize(
-                        (tile_w, tile_h), Image.Resampling.LANCZOS
-                    )
-                )
-            return R.iat[idx], C.iat[idx], arr
-
-        with ThreadPoolExecutor() as pool:
-            for r, c, arr in pool.map(load, range(len(files))):
-                x0 = c * (tile_w + div_px)
-                y0 = r * (tile_h + div_px)
-                mosaic.paste(Image.fromarray(arr), (x0, y0))
-
-        return mosaic
-
     def _to_scale(
             self,
             dimension: int = None,
@@ -715,7 +674,97 @@ class Grid(
             msg = 'You must specify either dimension, length, or mosaic to set the scale.'
             raise ValueError(msg)
 
+        _scale = scale
+        # scale = max(scale, self.ingrid.min_scale)
+
         return scale
+
+    def preview(
+            self,
+            maxdim: int = 2048,
+            divider: Optional[str] = 'red',
+            show: bool = True,
+            files: pd.Series | None = None,
+    ) -> PIL.Image.Image:
+
+        # input columns
+        if files is None:
+            files: pd.Series = self.file.infile
+        R: pd.Series = self.r
+        C: pd.Series = self.c
+
+        # grid geometry
+        dim = self.dimension
+        n_rows = int(R.max()) + 1
+        n_cols = int(C.max()) + 1
+        div_px = 1 if divider else 0
+
+        # full mosaic size before optional down-scaling
+        full_w0 = n_cols * dim + div_px * (n_cols - 1)
+        full_h0 = n_rows * dim + div_px * (n_rows - 1)
+
+        # scale to maxdim if needed
+        scale = 1.0 if max(full_w0, full_h0) <= maxdim else maxdim / max(full_w0, full_h0)
+
+        # derived sizes
+        tile_w = max(1, int(round(dim * scale)))
+        tile_h = tile_w
+        full_w = n_cols * tile_w + div_px * (n_cols - 1)
+        full_h = n_rows * tile_h + div_px * (n_rows - 1)
+
+        # canvas
+        canvas_col = divider if divider else (0, 0, 0)
+        mosaic = Image.new('RGB', (full_w, full_h), color=canvas_col)
+
+        # tile loader
+        def load(idx: int) -> tuple[int, int, np.ndarray]:
+            arr = iio.imread(files.iat[idx])
+            if scale != 1.0:
+                arr = np.asarray(
+                    Image.fromarray(arr).resize(
+                        (tile_w, tile_h),
+                        Image.Resampling.LANCZOS,
+                    )
+                )
+            return R.iat[idx], C.iat[idx], arr
+
+        # compose mosaic
+        with ThreadPoolExecutor() as pool:
+            for r, c, arr in pool.map(load, range(len(files))):
+                x0 = c * (tile_w + div_px)
+                y0 = r * (tile_h + div_px)
+                mosaic.paste(Image.fromarray(arr), (x0, y0))
+
+        # optional popup in PyCharm's SciView (matplotlib)
+        if show:
+            try:
+                import matplotlib.pyplot as plt
+
+                # dpi chosen to avoid oversized windows while preserving sharpness
+                dpi = 96
+                fig_w_in = max(1.0, full_w / dpi)
+                fig_h_in = max(1.0, full_h / dpi)
+
+                plt.figure(figsize=(fig_w_in, fig_h_in), dpi=dpi)
+                plt.imshow(mosaic)
+                plt.axis('off')
+                plt.tight_layout(pad=0)
+                plt.show()
+            except Exception:
+                # fallback to OS viewer if matplotlib/SciView is unavailable
+                import tempfile, os
+                tmp = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
+                try:
+                    mosaic.save(tmp.name)
+                finally:
+                    tmp.close()
+                Image.open(tmp.name).show()
+                try:
+                    os.unlink(tmp.name)
+                except OSError:
+                    pass
+
+        return mosaic
 
     @classmethod
     def from_empty(cls) -> Self:
@@ -729,8 +778,10 @@ class Grid(
             big_grid: Grid,
             r: pd.Series,
             c: pd.Series,
+            tile_shape: tuple[int, int],
+            mosaic_shape: tuple[int, int],
             background: int = 0,
-            force=False
+            force=False,
     ):
         row = r
         col = c
@@ -761,8 +812,67 @@ class Grid(
             infiles=small_files,
             row=row,
             col=col,
-            tile_shape=small_grid.shape,
-            mosaic_shape=big_grid.shape,
+            # tile_shape=(*tile_shape, small_grid.shape[2]),
+            # mosaic_shape=(*mosaic_shape, small_grid.shape[2]),
+            tile_shape=tile_shape,
+            mosaic_shape=mosaic_shape,
+            # tile_shape=small_grid.shape,
+            # mosaic_shape=big_grid.shape,
+            outfiles=big_files,
+            background=background,
+        )
+
+        loader.run(max_workers=os.cpu_count())
+        msg = 'Not all stitched mosaics were written to disk.'
+        assert big_files.map(os.path.exists).all(), msg
+
+    # grid/grid/grid.py
+
+    def _stitch(
+            self,
+            small_files: pd.Series,
+            big_files: pd.Series,
+            small_grid: Grid,
+            big_grid: Grid,
+            r: pd.Series,
+            c: pd.Series,
+            background: int = 0,
+            force=False,
+            **kwargs
+    ):
+
+        # keep original row/col
+        row = r
+        col = c
+
+        # skip mosaics that already exist unless force=True
+        if not force:
+            loc = ~big_files.map(os.path.exists)
+            small_files = small_files.loc[loc]
+            row = r.loc[loc]
+            col = c.loc[loc]
+            big_files = big_files.loc[loc]
+
+        stitched = big_files.drop_duplicates()
+        n_missing = len(small_files)
+        n_total = len(stitched)
+
+        if n_missing == 0:
+            msg = f'All {n_total:,} mosaics are already stitched.'
+            logger.info(msg)
+        else:
+            msg = (
+                f'Stitching {n_missing:,} '
+                f'{small_grid.__name__}.{small_files.name} '
+                f'into {n_total:,} '
+                f'{small_grid.__name__}.{big_files.name}'
+            )
+            logger.info(msg)
+
+        loader = Stitcher(
+            infiles=small_files,
+            row=row,
+            col=col,
             outfiles=big_files,
             background=background,
         )

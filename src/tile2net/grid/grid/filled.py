@@ -5,7 +5,7 @@ from typing import *
 from .grid import Grid
 
 
-class Padded(
+class Filled(
     Grid
 ):
 
@@ -22,5 +22,5 @@ class Padded(
         return self.instance.vecgrid
 
     @property
-    def padded(self) -> Self:
+    def filled(self) -> Self:
         return self

@@ -30,6 +30,17 @@ class SegTile(
         return self.ingrid.seggrid.length
 
     @property
+    def dimension(self):
+        return self.ingrid.dimension * self.length
+
+    # @property
+    # def shape(self) -> tuple[int, int, int]:
+    #     return self.dimension, self.dimension, self.ingrid.shape[2]
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        return self.dimension, self.dimension
+    @property
     def index(self):
         arrays = self.xtile, self.ytile
         names = self.xtile.name, self.ytile.name
@@ -41,7 +52,7 @@ class SegTile(
         """Tile integer X of this tile in the seggrid segtile"""
         ingrid = self.ingrid
 
-        seggrid = ingrid.seggrid.padded
+        seggrid = ingrid.seggrid.filled
         result: pd.Index = ingrid.xtile.__floordiv__(ingrid.segtile.length)
 
         msg = 'All segtile.xtile must be in seggrid.xtile!'
@@ -53,7 +64,7 @@ class SegTile(
         """Tile integer Y of this tile in the seggrid segtile"""
         ingrid = self.ingrid
 
-        seggrid = ingrid.seggrid.padded
+        seggrid = ingrid.seggrid.filled
         result: pd.Index = ingrid.ytile.__floordiv__(ingrid.segtile.length)
 
         msg = 'All segtile.ytile must be in seggrid.ytile!'
@@ -92,7 +103,7 @@ class SegTile(
         ingrid = self.ingrid
         result = (
             # ingrid.seggrid.file.stitched
-            ingrid.seggrid.padded.file.infile
+            ingrid.seggrid.filled.file.infile
             .loc[self.index]
             .values
         )

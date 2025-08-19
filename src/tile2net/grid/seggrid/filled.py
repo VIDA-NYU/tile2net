@@ -7,7 +7,7 @@ import pandas as pd
 
 from . import vectile
 from .seggrid import SegGrid
-from ..grid import padded
+from ..grid import filled
 from ...grid.frame.namespace import namespace
 
 
@@ -42,16 +42,16 @@ def boundary_grid(
     return coords[mask]
 
 
-class Padded(
-    padded.Padded,
+class Filled(
+    filled.Filled,
     SegGrid
 ):
 
     def _get(
-            self: Padded,
+            self: Filled,
             instance: SegGrid,
             owner,
-    ) -> Padded:
+    ) -> Filled:
         self = namespace._get(self, instance, owner)
         cache = instance.frame.__dict__
         key = self.__name__

@@ -9,6 +9,8 @@ from ..grid import grid
 
 if False:
     from .seggrid import SegGrid
+    from ..vecgrid.vecgrid import VecGrid
+    from ..ingrid.ingrid import InGrid
 
 
 class VecTile(
@@ -17,7 +19,7 @@ class VecTile(
     seggrid: SegGrid
 
     @property
-    def seggrid(self):
+    def seggrid(self) -> SegGrid:
         return self.instance
 
     @property
@@ -25,17 +27,33 @@ class VecTile(
         return self.seggrid
 
     @property
-    def vecgrid(self):
+    def vecgrid(self) -> VecGrid:
         return self.seggrid.vecgrid
 
     @property
-    def ingrid(self):
+    def ingrid(self) -> InGrid:
         return self.seggrid.ingrid
 
+    # @property
+    # def length(self):
+    #     """Number of grid in one dimension of the vectile"""
+    #     return self.vecgrid.length
+
     @property
-    def length(self):
-        """Number of grid in one dimension of the vectile"""
+    def length(self) -> int:
         return self.vecgrid.length
+
+    @property
+    def dimension(self):
+        return self.length * self.seggrid.dimension
+
+    @property
+    def shape(self) -> tuple[int,int]:
+        return self.dimension, self.dimension, self.ingrid.shape[2]
+
+    @property
+    def shape(self) -> tuple[int,int]:
+        return self.dimension, self.dimension,
 
     @frame.column
     def xtile(self) -> pd.Series:
@@ -47,7 +65,6 @@ class VecTile(
 
         msg = 'All segtile.xtile must be in seggrid.xtile!'
         assert result.isin(vecgrid.xtile).all(),msg
-        
         return result
 
     @frame.column
@@ -104,4 +121,62 @@ class VecTile(
         names = self.xtile.name, self.ytile.name
         result = pd.MultiIndex.from_arrays(arrays, names=names)
         return result
+
+    @frame.column
+    def r(self):
+        """row within the segtile of this tile"""
+
+        ytile = self.grid.ytile.to_series()
+        result = (
+            ytile
+            .groupby(self.ytile.values)
+            .min()
+            .loc[self.ytile]
+            .rsub(ytile.values)
+            .values
+        )
+        return result
+
+    @frame.column
+    def c(self):
+        """column within the segtile of this tile"""
+        xtile = self.grid.xtile.to_series()
+        result = (
+            xtile
+            .groupby(self.xtile.values)
+            .min()
+            .loc[self.xtile]
+            .rsub(xtile.values)
+            .values
+        )
+        return result
+
+    # @frame.column
+    # def r(self) -> pd.Series:
+    #     """row within the segtile of this tile"""
+    #     ingrid = self.seggrid
+    #     result = (
+    #         ingrid.ytile
+    #         .to_series(index=ingrid.index)
+    #         .floordiv(ingrid.vectile.length)
+    #         .mul(ingrid.vectile.length)
+    #         .rsub(ingrid.ytile.values)
+    #     )
+    #     return result
+    #
+    # @frame.column
+    # def c(self) -> pd.Series:
+    #     """column within the segtile of this tile"""
+    #     ingrid = self.seggrid
+    #     result = (
+    #         ingrid.xtile
+    #         .to_series(index=ingrid.index)
+    #         .floordiv(ingrid.vectile.length)
+    #         .mul(ingrid.vectile.length)
+    #         .rsub(ingrid.xtile.values)
+    #     )
+    #     return result
+
+
+
 

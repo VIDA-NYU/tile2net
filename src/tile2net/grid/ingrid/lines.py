@@ -159,15 +159,6 @@ class Lines(
                     f'geometries'
                 )
                 logger.info(msg)
-                if instance.cfg.cleanup:
-                    msg = (
-                        f'Cleaning up the lines for each tile from '
-                        f'\n\t'
-                        f'{instance.ingrid.tempdir.vecgrid.lines.dir}'
-                    )
-                    logger.info(msg)
-                    util.cleanup(instance.vecgrid.file.lines)
-
         result.instance = instance
         return result
 
@@ -199,118 +190,6 @@ class Lines(
         if os.path.exists(file):
             os.remove(file)
         del self.ingrid
-
-    def plot(
-            self,
-            *args,
-            maxdim: int = 2048,
-            background: str | tuple[int, int, int] = 'black',
-            simplify: float | None = None,
-            **kwargs,
-    ) -> PIL.Image.Image:
-        ingrid = self.ingrid
-        """
-        Render the line layer to a static image with latitude/longitude axes.
-        """
-
-        # ------------------------------------------------------------------
-        # 1. Geometry bounds & scaling
-        # ------------------------------------------------------------------
-        minx, miny, maxx, maxy = self.geometry.total_bounds
-        span_x = max(maxx - minx, 1e-12)
-        span_y = max(maxy - miny, 1e-12)
-
-        scale = maxdim / max(span_x, span_y)
-        out_w = ceil(span_x * scale)
-        out_h = ceil(span_y * scale)
-        long_side = max(out_w, out_h)
-
-        # ------------------------------------------------------------------
-        # 2. Create a Matplotlib figure sized to the requested raster dims
-        # ------------------------------------------------------------------
-        dpi = 96  # high-dpi makes large labels sharp without huge font pts
-        fig_w_in = out_w / dpi
-        fig_h_in = out_h / dpi
-        fig, ax = plt.subplots(
-            figsize=(fig_w_in, fig_h_in),
-            dpi=dpi,
-            facecolor=background,
-        )
-        ax.set_facecolor(background)
-
-        # ------------------------------------------------------------------
-        # 3. Choose axis colour that contrasts with the background
-        # ------------------------------------------------------------------
-        bg_rgb = ImageColor.getrgb(background)
-        lum = 0.2126 * bg_rgb[0] + 0.7152 * bg_rgb[1] + 0.0722 * bg_rgb[2]
-        axis_col = 'white' if lum < 128 else 'black'
-
-        # Font & tick sizes that scale with the image (in *points*)
-        # pts = px / dpi * 72
-        labelsize_pt = max(8, int(long_side / dpi * 72 * 0.04))  # 4 % of long side
-        ticklen_px = max(4, int(long_side * 0.006))
-
-        ax.tick_params(
-            axis='both',
-            which='both',
-            colors=axis_col,
-            direction='out',
-            labelsize=labelsize_pt,
-            length=ticklen_px,
-            width=max(1, ticklen_px // 3),
-        )
-        for spine in ax.spines.values():
-            spine.set_color(axis_col)
-            spine.set_linewidth(max(1, ticklen_px // 3))
-
-        # ------------------------------------------------------------------
-        # 4. Plot each feature line
-        # ------------------------------------------------------------------
-        label2color = self.ingrid.cfg.label2color
-        line_w = kwargs.get('width', max(1, long_side // 1400))
-
-        for feature, series in self.frame.groupby('feature', observed=False).geometry:
-            colour = label2color.get(feature, axis_col)
-            for geom in series:
-                if simplify:
-                    geom = geom.simplify(simplify)
-                parts = geom.geoms if geom.geom_type == 'MultiLineString' else (geom,)
-                for part in parts:
-                    coords = np.asarray(part.coords)
-                    if coords.shape[0] < 2:
-                        continue
-                    ax.plot(
-                        coords[:, 0],
-                        coords[:, 1],
-                        color=colour,
-                        linewidth=line_w,
-                    )
-
-        # ------------------------------------------------------------------
-        # 5. Configure the map frame
-        # ------------------------------------------------------------------
-        ax.set_xlim(minx, maxx)
-        ax.set_ylim(miny, maxy)
-        ax.set_aspect('equal')
-
-        # give the axes a little breathing room so labels are never cropped
-        plt.subplots_adjust(left=0.08, right=0.98, bottom=0.08, top=0.98)
-
-        # ------------------------------------------------------------------
-        # 6. Rasterise the figure to a PIL image and return
-        # ------------------------------------------------------------------
-        buf = io.BytesIO()
-        fig.savefig(
-            buf,
-            format='png',
-            facecolor=fig.get_facecolor(),
-            bbox_inches=None,  # keep axes & labels
-            pad_inches=0.0,
-        )
-        plt.close(fig)
-        buf.seek(0)
-        return Image.open(buf).convert('RGB')
-
 
     def plot(
             self,

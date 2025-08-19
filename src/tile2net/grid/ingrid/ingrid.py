@@ -1,4 +1,5 @@
 from __future__ import annotations
+from .. import util
 
 import copy
 import os
@@ -47,7 +48,7 @@ from ...grid.util import recursion_block, assert_perfect_overlap
 tls = threading.local()
 
 if False:
-    from .padded import Padded
+    from .filled import Filled
 
 
 class File(
@@ -114,6 +115,45 @@ class InGrid(
                 raise FileNotFoundError('No image files found to infer dimension.')
         result = iio.imread(sample).shape[1]  # width
         return result
+
+    # @cached_property
+    # def shape(self) -> tuple[int, int, int]:
+    #     """Tile shape; inferred from input files"""
+    #     try:
+    #         sample = next(
+    #             p
+    #             for p in self.file.infile
+    #             if Path(p).is_file()
+    #         )
+    #     except StopIteration:
+    #         self.download(one=True)
+    #         try:
+    #             sample = next(
+    #                 p
+    #                 for p in self.file.infile
+    #                 if Path(p).is_file()
+    #             )
+    #         except StopIteration:
+    #             raise FileNotFoundError('No image files found to infer shape.')
+    #
+    #     arr = iio.imread(sample)
+    #     if arr.ndim == 2:
+    #         # grayscale -> expand channel axis
+    #         h, w = arr.shape
+    #         c = 1
+    #     elif arr.ndim == 3:
+    #         h, w, c = arr.shape
+    #     else:
+    #         raise ValueError(f"Unexpected image ndim={arr.ndim} for {sample}")
+    #
+    #     return h, w, c
+
+
+    @property
+    def shape(self):
+        return self.dimension, self.dimension
+
+
 
     @Lines
     def lines(self):
@@ -199,8 +239,8 @@ class InGrid(
             one: bool = False
     ) -> Self:
 
-        # if self is not self.padded:
-        #     return self.padded.download(
+        # if self is not self.filled:
+        #     return self.filled.download(
         #         retry=retry,
         #         force=force,
         #         max_workers=max_workers,
@@ -425,8 +465,8 @@ class InGrid(
         shutil.move(tmp_path, path)
         return None
 
-    @delayed.Padded
-    def padded(self) -> Padded:
+    @delayed.Filled
+    def filled(self) -> Filled:
         ...
 
     def set_source(
@@ -690,13 +730,13 @@ class InGrid(
         seggrid = ingrid.seggrid
 
         assert (
-            ingrid.padded.segtile.index
-            .isin(seggrid.padded.index)
+            ingrid.filled.segtile.index
+            .isin(seggrid.filled.index)
             .all()
         )
         assert (
-            seggrid.padded.index
-            .isin(ingrid.padded.segtile.index)
+            seggrid.filled.index
+            .isin(ingrid.filled.segtile.index)
             .all()
         )
 
@@ -760,11 +800,11 @@ class InGrid(
 
         # todo: if all are None, determine dimension using RAM
         seggrid = self.seggrid
-        if dimension:
-            dimension -= 2 * seggrid.dimension
-        if length:
-            assert length >= 3
-            length -= 2
+        # if dimension:
+        #     dimension -= 2 * seggrid.dimension
+        # if length:
+        #     assert length >= 3
+        #     length -= 2
             # length *= seggrid.length
         # if mosaic:
         #     raise NotImplementedError
@@ -794,8 +834,8 @@ class InGrid(
 
         ingrid.seggrid = seggrid
 
-        assert ingrid.padded.segtile.index.isin(seggrid.padded.index).all()
-        assert seggrid.padded.index.isin(ingrid.padded.segtile.index).all()
+        assert ingrid.filled.segtile.index.isin(seggrid.filled.index).all()
+        assert seggrid.filled.index.isin(ingrid.filled.segtile.index).all()
         assert seggrid.scale == self.seggrid.scale
         vecgrid = VecGrid.from_rescale(ingrid, scale, fill=fill)
 
@@ -834,9 +874,10 @@ class InGrid(
         #     ('Network', _p(self.outdir.lines.file)),
         # ]
 
-        rows = [
-            ('Input imagery', _p(self.outdir.ingrid.infile.dir)),
-        ]
+        self.outdir.dir
+        self.tempdir.dir
+
+        rows = [ ('Input imagery', _p(self.outdir.ingrid.infile.dir)), ]
         if self.cfg.segment.colored:
             rows.append(('Segmentation (colored)', _p(self.outdir.seggrid.colored.dir)))
         if self.cfg.polygon.concat:
@@ -847,7 +888,6 @@ class InGrid(
             rows.append(('Polygon preview', _p(self.tempdir.polygons.preview)))
         if self.cfg.line.preview:
             rows.append(('Network preview', _p(self.tempdir.lines.preview)))
-
 
         # compute column widths
         label_w = max(len(k) for k, _ in rows)
@@ -886,3 +926,192 @@ class InGrid(
                 else:
                     line = f"{label:<{label_w}}  {YEL}{path_str}{RST} {DIM}(missing){RST}"
             print(line)
+
+    def summary(self) -> None:
+        # helpers
+        def _p(v) -> Path | None:
+            if v is None:
+                return None
+            p = Path(v)
+            return p if str(p).strip() else None
+
+        def _abs(p: Path) -> str:
+            return str(p.resolve())
+
+        # collect resources
+        rows = []
+
+        outdir = _p(getattr(self.outdir, 'dir', None) or getattr(self.outdir, 'root', None))
+        tempdir = _p(getattr(self.tempdir, 'dir', None) or getattr(self.tempdir, 'root', None))
+
+        if outdir:
+            rows.append(('Output directory', outdir))
+        if tempdir:
+            rows.append(('Temporary directory', tempdir))
+
+        rows.append(('Input imagery', _p(self.outdir.ingrid.infile.dir)))
+        if self.cfg.segment.colored:
+            rows.append(('Segmentation (colored)', _p(self.outdir.seggrid.colored.dir)))
+        if self.cfg.polygon.concat:
+            rows.append(('Polygons', _p(self.outdir.polygons.file)))
+        if self.cfg.line.concat:
+            rows.append(('Network', _p(self.outdir.lines.file)))
+        if self.cfg.polygon.preview:
+            rows.append(('Polygon preview', _p(self.tempdir.polygons.preview)))
+        if self.cfg.line.preview:
+            rows.append(('Network preview', _p(self.tempdir.lines.preview)))
+
+        # compute formatting
+        label_w = max(len(k) for k, _ in rows)
+        term_w = shutil.get_terminal_size((100, 20)).columns
+        sep = '=' * min(term_w, 80)
+
+        # color if TTY
+        use_color = sys.stdout.isatty()
+        BOLD = '\033[1m' if use_color else ''
+        DIM = '\033[2m' if use_color else ''
+        GRN = '\033[32m' if use_color else ''
+        CYN = '\033[36m' if use_color else ''
+        YEL = '\033[33m' if use_color else ''
+        RST = '\033[0m' if use_color else ''
+
+        # header
+        print(sep)
+        print(f"{BOLD}Tile2Net run complete!{RST}")
+        print(sep)
+
+        # body (two-line format for each row)
+        for label, path in rows:
+            if path is None:
+                print(f"{label:<{label_w}}")
+                print(f"{DIM}— not set —{RST}")
+            else:
+                path_str = _abs(path)
+                if path.exists():
+                    color = GRN if path.is_dir() else CYN
+                    print(f"{label:<{label_w}}")
+                    print(f"{color}{path_str}{RST}")
+                else:
+                    print(f"{label:<{label_w}}")
+                    print(f"{YEL}{path_str}{RST} {DIM}(missing){RST}")
+
+    def summary(self) -> None:
+        print('⚠️AI GENERATED🤖')
+
+        # helpers
+        def _p(v) -> Path | None:
+            if v is None:
+                return None
+            p = Path(v)
+            return p if str(p).strip() else None
+
+        def _abs(p: Path) -> str:
+            return str(p.resolve())
+
+        # collect resources
+        rows = []
+
+        outdir = _p(getattr(self.outdir, 'dir', None) or getattr(self.outdir, 'root', None))
+        tempdir = _p(getattr(self.tempdir, 'dir', None) or getattr(self.tempdir, 'root', None))
+
+        if outdir:
+            rows.append(('Output directory', outdir))
+        if tempdir:
+            rows.append(('Temporary directory', tempdir))
+
+        rows.append(('Input imagery', _p(self.outdir.ingrid.infile.dir)))
+        if self.cfg.segment.colored:
+            rows.append(('Segmentation (colored)', _p(self.outdir.seggrid.colored.dir)))
+        if self.cfg.polygon.concat:
+            rows.append(('Polygons', _p(self.outdir.polygons.file)))
+        if self.cfg.line.concat:
+            rows.append(('Network', _p(self.outdir.lines.file)))
+        if self.cfg.polygon.preview:
+            rows.append(('Polygon preview', _p(self.tempdir.polygons.preview)))
+        if self.cfg.line.preview:
+            rows.append(('Network preview', _p(self.tempdir.lines.preview)))
+
+        # compute formatting
+        label_w = max(len(k) for k, _ in rows)
+        term_w = shutil.get_terminal_size((100, 20)).columns
+        sep = '=' * min(term_w, 80)
+
+        # color if TTY
+        use_color = sys.stdout.isatty()
+        BOLD = '\033[1m' if use_color else ''
+        DIM = '\033[2m' if use_color else ''
+        GRN = '\033[32m' if use_color else ''
+        CYN = '\033[36m' if use_color else ''
+        YEL = '\033[33m' if use_color else ''
+        RST = '\033[0m' if use_color else ''
+
+        # header
+        print(sep)
+        print(f"{BOLD}Tile2Net run complete!{RST}")
+        print(sep)
+
+        # body (two-line format + blank line between rows)
+        for label, path in rows:
+            if path is None:
+                print(f"{label:<{label_w}}")
+                print(f"{DIM}— not set —{RST}")
+            else:
+                path_str = _abs(path)
+                if path.exists():
+                    color = GRN if path.is_dir() else CYN
+                    print(f"{label:<{label_w}}")
+                    print(f"{color}{path_str}{RST}")
+                else:
+                    print(f"{label:<{label_w}}")
+                    print(f"{YEL}{path_str}{RST} {DIM}(missing){RST}")
+            print()  # <-- blank line between rows
+
+
+
+    def cleanup(
+            self,
+            polygons: bool = True,
+            lines: bool = True,
+            infile: bool = True,
+            grayscale: bool = True
+    ):
+
+        self.outdir.cleanup()
+        self.tempdir.cleanup()
+
+        if polygons:
+            msg = (
+                f'Cleaning up the polygons for each tile from '
+                f'\n\t{self.ingrid.tempdir.vecgrid.polygons.dir}'
+            )
+            logger.info(msg)
+            util.cleanup(self.vecgrid.file.polygons)
+
+        if lines:
+            msg = (
+                f'Cleaning up the lines for each tile from '
+                f'\n\t'
+                f'{self.ingrid.tempdir.vecgrid.lines.dir}'
+            )
+            logger.info(msg)
+            util.cleanup(self.vecgrid.file.lines)
+
+        if infile:
+            msg = (
+                f'Cleaning up previously downloaded imagery '
+                f'from {self.ingrid.indir.dir} and '
+                f'{self.ingrid.tempdir.seggrid.infile.dir}'
+            )
+            logger.info(msg)
+            util.cleanup(self.ingrid.file.infile)
+            util.cleanup(self.seggrid.file.infile)
+
+        if grayscale:
+            msg = (
+                f'Cleaning up segmentation masks '
+                f'from \n\t{self.outdir.seggrid.grayscale.dir} and '
+                f'\n\t{self.tempdir.vecgrid.grayscale.dir}'
+            )
+            logger.info(msg)
+            util.cleanup(self.seggrid.file.grayscale)
+            util.cleanup(self.vecgrid.file.grayscale)

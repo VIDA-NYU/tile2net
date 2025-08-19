@@ -45,7 +45,7 @@ from .. import util
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 
 if False:
-    from .padded import Padded
+    from .filled import Filled
     from .broadcast import Broadcast
     from ..ingrid import InGrid
 
@@ -62,6 +62,37 @@ class File(
     file.File
 ):
     grid: SegGrid
+    
+    @recursion_block
+    def _stitch_infile(self, big_files=None) -> SegGrid:
+        grid = self.grid
+        if grid is not grid.filled:
+            return grid.filled.file._stitch_infile(big_files=big_files)
+            
+        ingrid = grid.ingrid.filled
+        seggrid = grid.filled
+        
+        small_files = ingrid.file.infile
+        if big_files is None:
+            big_files = ingrid.segtile.infile
+        assert len(small_files) == len(ingrid)
+        assert len(big_files) == len(ingrid)
+        
+        msg = f'Stitching into \n\t{ingrid.outdir.seggrid.infile.dir}'
+        logger.debug(msg)
+        
+        grid._stitch(
+            small_grid=ingrid,
+            big_grid=seggrid,
+            r=ingrid.segtile.r,
+            c=ingrid.segtile.c,
+            small_files=small_files,
+            big_files=big_files,
+            mosaic_shape=ingrid.segtile.shape,
+            tile_shape=ingrid.shape
+        )
+        
+        return grid
 
     @frame.column
     def infile(self) -> pd.Series:
@@ -73,10 +104,10 @@ class File(
         # files = grid.ingrid.outdir.seggrid.infile.files(grid)
         files = grid.ingrid.tempdir.seggrid.infile.files(grid)
         if (
-                not grid._stitch_infile
+                not self._stitch_infile
                 and not files.map(os.path.exists).all()
         ):
-            grid._stitch_infile()
+            self._stitch_infile(big_files=files)
         return files
 
     @frame.column
@@ -224,6 +255,21 @@ class SegGrid(
         __get__=_get,
     )
 
+    # @cached_property
+    # def length(self) -> int:
+    #     """How many input grid comprise a segmentation tile"""
+    #     ingrid = self.grid.ingrid
+    #     result = 2 ** (ingrid.scale - self.scale)
+    #     return result
+    #
+    # @cached_property
+    # def dimension(self):
+    #     """How many pixels in a inmentation tile"""
+    #     seggrid = self.grid
+    #     ingrid = seggrid.ingrid
+    #     result = ingrid.dimension * self.length
+    #     return result
+
     @cached_property
     def length(self) -> int:
         """How many input grid comprise a segmentation tile"""
@@ -246,33 +292,6 @@ class SegGrid(
     @property
     def grid(self):
         return self.instance
-
-    @recursion_block
-    def _stitch_infile(self) -> Self:
-        if self is not self.padded:
-            return self.padded._stitch_infile()
-
-        ingrid = self.ingrid.padded
-        seggrid = self.padded
-
-        small_files = ingrid.file.infile
-        big_files = ingrid.segtile.infile
-        assert len(small_files) == len(ingrid)
-        assert len(big_files) == len(ingrid)
-
-        msg = f'Stitching into \n\t{ingrid.outdir.seggrid.infile.dir}'
-        logger.debug(msg)
-
-        self._stitch(
-            small_grid=ingrid,
-            big_grid=seggrid,
-            r=ingrid.segtile.r,
-            c=ingrid.segtile.c,
-            small_files=small_files,
-            big_files=big_files,
-        )
-
-        return self
 
     @property
     def ingrid(self) -> InGrid:
@@ -307,112 +326,112 @@ class SegGrid(
     def seggrid(self) -> Self:
         return self
 
-    def preview(
-            self,
-            maxdim: int = 2048,
-            divider: Optional[str] = None,
-    ) -> PIL.Image.Image:
-
-        files: pd.Series = self.file.infile
-        R: pd.Series = self.r  # 0-based row id
-        C: pd.Series = self.c  # 0-based col id
-
-        dim = self.dimension  # original tile side length
-        n_rows = int(R.max()) + 1
-        n_cols = int(C.max()) + 1
-        div_px = 1 if divider else 0
-
-        # full mosaic size before optional down-scaling
-        full_w0 = n_cols * dim + div_px * (n_cols - 1)
-        full_h0 = n_rows * dim + div_px * (n_rows - 1)
-
-        scale = 1.0
-        if max(full_w0, full_h0) > maxdim:
-            scale = maxdim / max(full_w0, full_h0)
-
-        tile_w = max(1, int(round(dim * scale)))
-        tile_h = tile_w  # square grid
-        full_w = n_cols * tile_w + div_px * (n_cols - 1)
-        full_h = n_rows * tile_h + div_px * (n_rows - 1)
-
-        canvas_col = divider if divider else (0, 0, 0)
-        mosaic = Image.new('RGB', (full_w, full_h), color=canvas_col)
-
-        def load(idx: int) -> tuple[int, int, np.ndarray]:
-            arr = iio.imread(files.iat[idx])
-            if scale != 1.0:
-                arr = np.asarray(
-                    Image.fromarray(arr).resize(
-                        (tile_w, tile_h), Image.Resampling.LANCZOS
-                    )
-                )
-            return R.iat[idx], C.iat[idx], arr
-
-        with ThreadPoolExecutor() as pool:
-            for r, c, arr in pool.map(load, range(len(files))):
-                x0 = c * (tile_w + div_px)
-                y0 = r * (tile_h + div_px)
-                mosaic.paste(Image.fromarray(arr), (x0, y0))
-
-        return mosaic
-
-    def view(
-            self,
-            maxdim: int = 2048,
-            divider: Optional[str] = 'grey',
-            file: str = 'mask'
-    ) -> PIL.Image.Image:
-
-        files = getattr(self.file, file)
-        R: pd.Series = self.r  # 0-based row id
-        C: pd.Series = self.c  # 0-based col id
-
-        dim = self.dimension  # original tile side length
-        n_rows = int(R.max()) + 1
-        n_cols = int(C.max()) + 1
-        div_px = 1 if divider else 0
-
-        # full mosaic size before optional down-scaling
-        full_w0 = n_cols * dim + div_px * (n_cols - 1)
-        full_h0 = n_rows * dim + div_px * (n_rows - 1)
-
-        scale = 1.0
-        if max(full_w0, full_h0) > maxdim:
-            scale = maxdim / max(full_w0, full_h0)
-
-        tile_w = max(1, int(round(dim * scale)))
-        tile_h = tile_w  # square grid
-        full_w = n_cols * tile_w + div_px * (n_cols - 1)
-        full_h = n_rows * tile_h + div_px * (n_rows - 1)
-
-        canvas_col = divider if divider else (0, 0, 0)
-        mosaic = Image.new('RGB', (full_w, full_h), color=canvas_col)
-
-        def load(idx: int) -> tuple[int, int, np.ndarray]:
-            arr = iio.imread(files.iat[idx])
-            if scale != 1.0:
-                arr = np.asarray(
-                    Image.fromarray(arr).resize(
-                        (tile_w, tile_h), Image.Resampling.LANCZOS
-                    )
-                )
-            return R.iat[idx], C.iat[idx], arr
-
-        with ThreadPoolExecutor() as pool:
-            for r, c, arr in pool.map(load, range(len(files))):
-                x0 = c * (tile_w + div_px)
-                y0 = r * (tile_h + div_px)
-                mosaic.paste(Image.fromarray(arr), (x0, y0))
-
-        return mosaic
+    # def preview(
+    #         self,
+    #         maxdim: int = 2048,
+    #         divider: Optional[str] = None,
+    # ) -> PIL.Image.Image:
+    #
+    #     files: pd.Series = self.file.infile
+    #     R: pd.Series = self.r  # 0-based row id
+    #     C: pd.Series = self.c  # 0-based col id
+    #
+    #     dim = self.dimension  # original tile side length
+    #     n_rows = int(R.max()) + 1
+    #     n_cols = int(C.max()) + 1
+    #     div_px = 1 if divider else 0
+    #
+    #     # full mosaic size before optional down-scaling
+    #     full_w0 = n_cols * dim + div_px * (n_cols - 1)
+    #     full_h0 = n_rows * dim + div_px * (n_rows - 1)
+    #
+    #     scale = 1.0
+    #     if max(full_w0, full_h0) > maxdim:
+    #         scale = maxdim / max(full_w0, full_h0)
+    #
+    #     tile_w = max(1, int(round(dim * scale)))
+    #     tile_h = tile_w  # square grid
+    #     full_w = n_cols * tile_w + div_px * (n_cols - 1)
+    #     full_h = n_rows * tile_h + div_px * (n_rows - 1)
+    #
+    #     canvas_col = divider if divider else (0, 0, 0)
+    #     mosaic = Image.new('RGB', (full_w, full_h), color=canvas_col)
+    #
+    #     def load(idx: int) -> tuple[int, int, np.ndarray]:
+    #         arr = iio.imread(files.iat[idx])
+    #         if scale != 1.0:
+    #             arr = np.asarray(
+    #                 Image.fromarray(arr).resize(
+    #                     (tile_w, tile_h), Image.Resampling.LANCZOS
+    #                 )
+    #             )
+    #         return R.iat[idx], C.iat[idx], arr
+    #
+    #     with ThreadPoolExecutor() as pool:
+    #         for r, c, arr in pool.map(load, range(len(files))):
+    #             x0 = c * (tile_w + div_px)
+    #             y0 = r * (tile_h + div_px)
+    #             mosaic.paste(Image.fromarray(arr), (x0, y0))
+    #
+    #     return mosaic
+    #
+    # def view(
+    #         self,
+    #         maxdim: int = 2048,
+    #         divider: Optional[str] = 'grey',
+    #         file: str = 'mask'
+    # ) -> PIL.Image.Image:
+    #
+    #     files = getattr(self.file, file)
+    #     R: pd.Series = self.r  # 0-based row id
+    #     C: pd.Series = self.c  # 0-based col id
+    #
+    #     dim = self.dimension  # original tile side length
+    #     n_rows = int(R.max()) + 1
+    #     n_cols = int(C.max()) + 1
+    #     div_px = 1 if divider else 0
+    #
+    #     # full mosaic size before optional down-scaling
+    #     full_w0 = n_cols * dim + div_px * (n_cols - 1)
+    #     full_h0 = n_rows * dim + div_px * (n_rows - 1)
+    #
+    #     scale = 1.0
+    #     if max(full_w0, full_h0) > maxdim:
+    #         scale = maxdim / max(full_w0, full_h0)
+    #
+    #     tile_w = max(1, int(round(dim * scale)))
+    #     tile_h = tile_w  # square grid
+    #     full_w = n_cols * tile_w + div_px * (n_cols - 1)
+    #     full_h = n_rows * tile_h + div_px * (n_rows - 1)
+    #
+    #     canvas_col = divider if divider else (0, 0, 0)
+    #     mosaic = Image.new('RGB', (full_w, full_h), color=canvas_col)
+    #
+    #     def load(idx: int) -> tuple[int, int, np.ndarray]:
+    #         arr = iio.imread(files.iat[idx])
+    #         if scale != 1.0:
+    #             arr = np.asarray(
+    #                 Image.fromarray(arr).resize(
+    #                     (tile_w, tile_h), Image.Resampling.LANCZOS
+    #                 )
+    #             )
+    #         return R.iat[idx], C.iat[idx], arr
+    #
+    #     with ThreadPoolExecutor() as pool:
+    #         for r, c, arr in pool.map(load, range(len(files))):
+    #             x0 = c * (tile_w + div_px)
+    #             y0 = r * (tile_h + div_px)
+    #             mosaic.paste(Image.fromarray(arr), (x0, y0))
+    #
+    #     return mosaic
 
     @property
     def skip(self):
         result = ~self.file.grayscale.apply(os.path.exists)
         return result
 
-    @delayed.Padded
-    def padded(self) -> Padded:
+    @delayed.Filled
+    def filled(self) -> Filled:
         ...
 
     @delayed.Broadcast
@@ -425,8 +444,8 @@ class SegGrid(
             force=None,
             batch_size=None,
     ) -> Self:
-        if self is not self.padded:
-            return self.padded.predict(
+        if self is not self.filled:
+            return self.filled.predict(
                 force=force,
                 batch_size=batch_size
             )
@@ -595,16 +614,6 @@ class SegGrid(
 
             msg = f'Finished predicting {len(grid)} segmentation tiles.'
             logger.info(msg)
-
-            if self.cfg.cleanup:
-                msg = (
-                    f'Cleaning up previously downloaded imagery '
-                    f'from {self.ingrid.indir.dir} and '
-                    f'{self.ingrid.tempdir.seggrid.infile.dir}'
-                )
-                logger.info(msg)
-                util.cleanup(self.ingrid.file.infile)
-                util.cleanup(self.seggrid.file.infile)
 
             return self
 

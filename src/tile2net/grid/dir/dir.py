@@ -1,4 +1,6 @@
 from __future__ import annotations
+from .. import util
+from tile2net.grid.cfg.logger import logger
 import shutil
 
 import dataclasses
@@ -352,7 +354,54 @@ class Dir:
         result = pd.Series(data, index=grid.index, dtype='str')
         return result
 
-    def cleanup(self):
+    def cleanup(
+            self,
+            polygons: bool = True,
+            lines: bool = True,
+            infile: bool = True,
+            grayscale: bool = True
+    ):
+        instance = self.grid
+
+        if polygons:
+            msg = (
+                f'Cleaning up the polygons for each tile from '
+                f'\n\t{instance.ingrid.tempdir.vecgrid.polygons.dir}'
+            )
+            logger.info(msg)
+            util.cleanup(instance.vecgrid.file.polygons)
+
+        if lines:
+            msg = (
+                f'Cleaning up the lines for each tile from '
+                f'\n\t'
+                f'{instance.ingrid.tempdir.vecgrid.lines.dir}'
+            )
+            logger.info(msg)
+            util.cleanup(instance.vecgrid.file.lines)
+
+        if infile:
+            msg = (
+                f'Cleaning up previously downloaded imagery '
+                f'from {instance.ingrid.indir.dir} and '
+                f'{instance.ingrid.tempdir.seggrid.infile.dir}'
+            )
+            logger.info(msg)
+            util.cleanup(instance.ingrid.file.infile)
+            util.cleanup(instance.seggrid.file.infile)
+
+        if grayscale:
+            msg = (
+                f'Cleaning up segmentation masks '
+                f'from \n\t{instance.outdir.seggrid.grayscale.dir} and '
+                f'\n\t{instance.tempdir.vecgrid.grayscale.dir}'
+            )
+            logger.info(msg)
+            util.cleanup(instance.seggrid.file.grayscale)
+            util.cleanup(instance.vecgrid.file.grayscale)
+
+
+
         root = Path(self.dir)
 
         # walk bottom-up so children are removed before parents

@@ -5,7 +5,7 @@ from typing import *
 from .tiles import Tiles
 
 
-class Padded(
+class Filled(
     Tiles
 ):
 

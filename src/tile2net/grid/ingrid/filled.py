@@ -1,20 +1,20 @@
 from __future__ import annotations
-from ..grid import padded
+from ..grid import filled
 
 from .ingrid import InGrid
 
 
 
-class Padded(
-    padded.Padded,
+class Filled(
+    filled.Filled,
     InGrid,
 ):
 
     def _get(
-            self: Padded,
+            self: Filled,
             instance: InGrid,
             owner,
-    ) -> Padded:
+    ) -> Filled:
         self.instance = instance
         if instance is None:
             return self
