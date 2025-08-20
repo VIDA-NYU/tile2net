@@ -76,7 +76,6 @@ class Stitcher:
             col: pd.Series,
             background: int = 0,
     ):
-        print('⚠️AI GENERATED🤖')
         self.background = background
 
         # ensure aligned lengths
