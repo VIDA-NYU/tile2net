@@ -978,7 +978,8 @@ class Cfg(
         After performing vectorization, delete all segmentation masks.
         After merging tiles into single geometries, delete all tile geometries.
         """
-        return True
+        # return True
+        return False
 
     cleanup.add_options(long='--no-cleanup')
 

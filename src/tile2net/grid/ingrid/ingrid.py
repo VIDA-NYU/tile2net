@@ -718,7 +718,7 @@ class InGrid(
         if fill is None:
             fill = self.cfg.segment.fill
 
-        msg = 'Padding InGrid to align with SegGrid'
+        msg = 'Filling InGrid to align with SegGrid'
         logger.debug(msg)
         ingrid = (
             self
@@ -815,7 +815,7 @@ class InGrid(
 
         scale = self.seggrid._to_scale(dimension, length, scale)
 
-        msg = 'Padding InGrid to align with VecGrid'
+        msg = 'Filling InGrid to align with VecGrid'
         logger.debug(msg)
         ingrid = (
             self
@@ -824,7 +824,7 @@ class InGrid(
         )
 
         assert ingrid.scale == self.ingrid.scale
-        msg = 'Padding SegGrid to align with VecGrid'
+        msg = 'Filling SegGrid to align with VecGrid'
         logger.debug(msg)
         seggrid = (
             self.seggrid
@@ -851,152 +851,6 @@ class InGrid(
         return ingrid
 
     def summary(self) -> None:
-        # prominent end-of-run banner with aligned columns
-        # helpers
-        def _p(v) -> Path | None:
-            if v is None:
-                return None
-            p = Path(v)
-            return p if str(p).strip() else None
-
-        def _abs(p: Path) -> str:
-            return str(p.resolve())
-
-        # collect resources
-        # rows = [
-        #     ('Input imagery', _p(self.outdir.ingrid.infile.dir)),
-        #     ('Segmentation (colored)', _p(self.outdir.seggrid.colored.dir)),
-        #     # ('Polygons by tile',    _p(self.outdir.vecgrid.polygons.dir)),
-        #     # ('Lines by tile',       _p(self.outdir.vecgrid.lines.dir)),
-        #     # ('HRNet checkpoint',           _p(self.static.hrnet_checkpoint)),
-        #     # ('Model snapshot',             _p(self.static.snapshot)),
-        #     ('Polygons', _p(self.outdir.polygons.file)),
-        #     ('Network', _p(self.outdir.lines.file)),
-        # ]
-
-        self.outdir.dir
-        self.tempdir.dir
-
-        rows = [ ('Input imagery', _p(self.outdir.ingrid.infile.dir)), ]
-        if self.cfg.segment.colored:
-            rows.append(('Segmentation (colored)', _p(self.outdir.seggrid.colored.dir)))
-        if self.cfg.polygon.concat:
-            rows.append(('Polygons', _p(self.outdir.polygons.file)))
-        if self.cfg.line.concat:
-            rows.append(('Network', _p(self.outdir.lines.file)))
-        if self.cfg.polygon.preview:
-            rows.append(('Polygon preview', _p(self.tempdir.polygons.preview)))
-        if self.cfg.line.preview:
-            rows.append(('Network preview', _p(self.tempdir.lines.preview)))
-
-        # compute column widths
-        label_w = max(len(k) for k, _ in rows)
-        term_w = shutil.get_terminal_size((100, 20)).columns
-        sep = '=' * min(term_w, 80)
-
-        # color if TTY
-        use_color = sys.stdout.isatty()
-        BOLD = '\033[1m' if use_color else ''
-        DIM = '\033[2m' if use_color else ''
-        GRN = '\033[32m' if use_color else ''
-        CYN = '\033[36m' if use_color else ''
-        YEL = '\033[33m' if use_color else ''
-        RST = '\033[0m' if use_color else ''
-
-        # header
-        print(sep)
-        print(f"{BOLD}Tile2Net run complete!{RST}")
-        outdir = _p(self.outdir.dir if hasattr(self.outdir, 'dir') else self.outdir)
-        if outdir is None and hasattr(self.outdir, 'root'):
-            outdir = _p(self.outdir.root)
-        if outdir is not None:
-            print(f"{CYN}Output directory:{RST} {_abs(outdir)}")
-        print(sep)
-
-        # body
-        for label, path in rows:
-            if path is None:
-                line = f"{label:<{label_w}}  {DIM}— not set —{RST}"
-            else:
-                exists = path.exists()
-                path_str = _abs(path)
-                if exists:
-                    color = GRN if path.is_dir() else CYN
-                    line = f"{label:<{label_w}}  {color}{path_str}{RST}"
-                else:
-                    line = f"{label:<{label_w}}  {YEL}{path_str}{RST} {DIM}(missing){RST}"
-            print(line)
-
-    def summary(self) -> None:
-        # helpers
-        def _p(v) -> Path | None:
-            if v is None:
-                return None
-            p = Path(v)
-            return p if str(p).strip() else None
-
-        def _abs(p: Path) -> str:
-            return str(p.resolve())
-
-        # collect resources
-        rows = []
-
-        outdir = _p(getattr(self.outdir, 'dir', None) or getattr(self.outdir, 'root', None))
-        tempdir = _p(getattr(self.tempdir, 'dir', None) or getattr(self.tempdir, 'root', None))
-
-        if outdir:
-            rows.append(('Output directory', outdir))
-        if tempdir:
-            rows.append(('Temporary directory', tempdir))
-
-        rows.append(('Input imagery', _p(self.outdir.ingrid.infile.dir)))
-        if self.cfg.segment.colored:
-            rows.append(('Segmentation (colored)', _p(self.outdir.seggrid.colored.dir)))
-        if self.cfg.polygon.concat:
-            rows.append(('Polygons', _p(self.outdir.polygons.file)))
-        if self.cfg.line.concat:
-            rows.append(('Network', _p(self.outdir.lines.file)))
-        if self.cfg.polygon.preview:
-            rows.append(('Polygon preview', _p(self.tempdir.polygons.preview)))
-        if self.cfg.line.preview:
-            rows.append(('Network preview', _p(self.tempdir.lines.preview)))
-
-        # compute formatting
-        label_w = max(len(k) for k, _ in rows)
-        term_w = shutil.get_terminal_size((100, 20)).columns
-        sep = '=' * min(term_w, 80)
-
-        # color if TTY
-        use_color = sys.stdout.isatty()
-        BOLD = '\033[1m' if use_color else ''
-        DIM = '\033[2m' if use_color else ''
-        GRN = '\033[32m' if use_color else ''
-        CYN = '\033[36m' if use_color else ''
-        YEL = '\033[33m' if use_color else ''
-        RST = '\033[0m' if use_color else ''
-
-        # header
-        print(sep)
-        print(f"{BOLD}Tile2Net run complete!{RST}")
-        print(sep)
-
-        # body (two-line format for each row)
-        for label, path in rows:
-            if path is None:
-                print(f"{label:<{label_w}}")
-                print(f"{DIM}— not set —{RST}")
-            else:
-                path_str = _abs(path)
-                if path.exists():
-                    color = GRN if path.is_dir() else CYN
-                    print(f"{label:<{label_w}}")
-                    print(f"{color}{path_str}{RST}")
-                else:
-                    print(f"{label:<{label_w}}")
-                    print(f"{YEL}{path_str}{RST} {DIM}(missing){RST}")
-
-    def summary(self) -> None:
-        print('⚠️AI GENERATED🤖')
 
         # helpers
         def _p(v) -> Path | None:
@@ -1065,8 +919,6 @@ class InGrid(
                     print(f"{label:<{label_w}}")
                     print(f"{YEL}{path_str}{RST} {DIM}(missing){RST}")
             print()  # <-- blank line between rows
-
-
 
     def cleanup(
             self,

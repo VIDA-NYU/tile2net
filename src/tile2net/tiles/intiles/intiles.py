@@ -672,7 +672,7 @@ class InTiles(
         if bs_val:
             self.cfg.model.bs_val = bs_val
 
-        msg = 'Padding InTiles to align with SegTiles'
+        msg = 'Filling InTiles to align with SegTiles'
         logger.debug(msg)
         intiles = (
             self
@@ -734,7 +734,7 @@ class InTiles(
 
         scale = self.segtiles._to_scale(dimension, length, mosaic, scale)
 
-        msg = 'Padding InTiles to align with VecTiles'
+        msg = 'Filling InTiles to align with VecTiles'
         logger.debug(msg)
         intiles = (
             self
@@ -743,7 +743,7 @@ class InTiles(
         )
 
         assert intiles.tile.scale == self.intiles.tile.scale
-        msg = 'Padding SegTiles to align with VecTiles'
+        msg = 'Filling SegTiles to align with VecTiles'
         logger.debug(msg)
         segtiles = (
             self.segtiles

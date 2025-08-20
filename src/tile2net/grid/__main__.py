@@ -31,10 +31,6 @@ if __name__ == '__main__':
         # configure vectorization using cfg parameters
         ingrid = ingrid.set_vectorization()
 
-        # ingrid.seggrid.preview(files=ingrid.seggrid.file.colored)
-        # ingrid.vecgrid.preview(files=ingrid.vecgrid.file.colored)
-        # ingrid.preview()
-        ingrid.lines.plot()
 
 
         if cfg.line.concat:
@@ -51,7 +47,10 @@ if __name__ == '__main__':
                 f'\n\t{ingrid.tempdir.lines.preview}'
             )
             logger.info(msg)
-            img = ingrid.lines.plot(maxdim=cfg.line.preview)
+            img = ingrid.lines.plot(
+                maxdim=cfg.line.preview,
+                show=False
+            )
             img.save(ingrid.tempdir.lines.preview)
 
         # save a preview of the polygons to file
@@ -61,7 +60,10 @@ if __name__ == '__main__':
                 f'\n\t{ingrid.tempdir.polygons.preview}'
             )
             logger.info(msg)
-            img = ingrid.polygons.plot(maxdim=cfg.polygon.preview)
+            img = ingrid.polygons.plot(
+                maxdim=cfg.polygon.preview,
+                show=False
+            )
             img.save(ingrid.tempdir.polygons.preview)
 
         # delete empty directories for easier browsing

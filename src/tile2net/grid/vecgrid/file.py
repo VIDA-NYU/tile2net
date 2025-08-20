@@ -49,14 +49,13 @@ class File(
         files = vecgrid.ingrid.tempdir.vecgrid.infile.files(vecgrid)
         self.infile = files
         if (
-            vecgrid._stitch_infile
+            not vecgrid._stitch_infile
             and not files.map(os.path.exists).all()
         ):
             vecgrid._stitch_infile()
             assert files.map(os.path.exists).all()
 
-        result = self.infile
-        return result
+        return files
 
     @frame.column
     def overlay(self) -> pd.Series:

@@ -197,6 +197,7 @@ class Lines(
             maxdim: int = 2048,
             background: str | tuple[int, int, int] = 'black',
             simplify: float | None = None,
+            show: bool = True,
             **kwargs,
     ) -> Image.Image:
 
@@ -204,7 +205,8 @@ class Lines(
         ingrid = self.ingrid
         mosaic: Image.Image = ingrid.preview(
             maxdim=maxdim,
-            divider=None
+            divider=None,
+            show=show
         )
 
         # geometry bounds & scale to determine output pixel size
@@ -302,19 +304,6 @@ class Lines(
         ax.set_aspect('equal')
         plt.subplots_adjust(left=0.08, right=0.98, bottom=0.08, top=0.98)
 
-        # # rasterize to PIL
-        # buf = io.BytesIO()
-        # fig.savefig(
-        #     buf,
-        #     format='png',
-        #     facecolor=fig.get_facecolor(),
-        #     bbox_inches=None,
-        #     pad_inches=0.0,
-        # )
-        # plt.close(fig)
-        # buf.seek(0)
-        # return Image.open(buf).convert('RGB')
-        popup = True
         buf = io.BytesIO()
         fig.savefig(
             buf,
@@ -327,7 +316,7 @@ class Lines(
         pil_img = Image.open(buf).convert('RGB')
 
         # optionally pop a live window (don’t close the fig so it stays visible)
-        if popup:
+        if show:
             try:
                 fig.canvas.manager.set_window_title('tile2net — geometry over imagery')
             except Exception:

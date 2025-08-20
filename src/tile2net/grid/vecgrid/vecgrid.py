@@ -349,6 +349,12 @@ class VecGrid(Grid):
             small_files=seggrid.file.infile,
             big_files=seggrid.vectile.infile,
         )
+        # assert os.path.exists(seggrid.vectile.infile)
+        assert (
+            seggrid.vectile.infile
+            .map(os.path.exists)
+            .all()
+        )
         return self
 
     @recursion_block
@@ -795,7 +801,7 @@ class VecGrid(Grid):
 
     @recursion_block
     def _stitch_infile(self) -> Self:
-        seggrid = self.seggrid.broadcast
+        seggrid = self.seggrid
         outgrid = self
 
         # preemptively predict so logging appears more sequential

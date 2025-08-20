@@ -104,7 +104,7 @@ class Grid(
         """
         return self.scale
 
-    @cached_property
+    @property
     def dimension(self):
         """How many pixels in a segmentation tile"""
         result = self.ingrid.dimension * self.length
@@ -123,11 +123,11 @@ class Grid(
         """How many input grid comprise a tile of this class"""
         raise NotImplemented
 
-    @cached_property
+    @property
     def area(self):
         return self.length ** 2
 
-    @cached_property
+    @property
     def r(self) -> Series:
         """
         Row of the tile within the overall grid.
@@ -140,7 +140,7 @@ class Grid(
         )
         return result
 
-    @cached_property
+    @property
     def c(self) -> Series:
         """
         Column of the tile within the overall grid.
@@ -675,7 +675,7 @@ class Grid(
             raise ValueError(msg)
 
         _scale = scale
-        # scale = max(scale, self.ingrid.min_scale)
+        scale = max(scale, self.ingrid.min_scale)
 
         return scale
 
@@ -750,6 +750,7 @@ class Grid(
                 plt.axis('off')
                 plt.tight_layout(pad=0)
                 plt.show()
+
             except Exception:
                 # fallback to OS viewer if matplotlib/SciView is unavailable
                 import tempfile, os
@@ -869,17 +870,17 @@ class Grid(
             )
             logger.info(msg)
 
-        loader = Stitcher(
-            infiles=small_files,
-            row=row,
-            col=col,
-            outfiles=big_files,
-            background=background,
-        )
+            loader = Stitcher(
+                infiles=small_files,
+                row=row,
+                col=col,
+                outfiles=big_files,
+                background=background,
+            )
 
-        loader.run(max_workers=os.cpu_count())
-        msg = 'Not all stitched mosaics were written to disk.'
-        assert big_files.map(os.path.exists).all(), msg
+            loader.run(max_workers=os.cpu_count())
+            msg = 'Not all stitched mosaics were written to disk.'
+            assert big_files.map(os.path.exists).all(), msg
 
     @property
     def crs(self):

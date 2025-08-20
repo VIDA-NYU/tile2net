@@ -106,16 +106,63 @@ class Broadcast(
                 .pipe(Broadcast.from_frame, wrapper=instance)
             )
 
-            # instance.__dict__[self.__name__] = result
             instance.frame.__dict__[self.__name__] = result
 
             d = seggrid.scale - vecgrid.scale
             expected = 2 ** (2 * d) + 4 * 2 ** d + 4
             assert len(result) == expected * len(vecgrid)
             _ = result.vectile.r, result.vectile.c
+            #
+            # assert instance.index.unique
+        #
+        # if instance is not result.instance:
+        #     assert (
+        #         # instance.index
+        #         instance.filled.index
+        #         .symmetric_difference(result.index)
+        #         .empty
+        #     )
 
         result.instance = instance
         return result
+
+    # def _get(
+    #         self: Broadcast,
+    #         instance: SegGrid,
+    #         owner,
+    # ) -> Broadcast:
+    #     if instance is None:
+    #         result = self
+    #     elif self.__name__ in instance.__dict__:
+    #         result = instance.frame.__dict__[self.__name__]
+    #     else:
+    #         vecgrid = instance.vecgrid
+    #         seggrid = instance.seggrid
+    #         names = [
+    #             seggrid.vectile.xtile.name,
+    #             seggrid.vectile.ytile.name,
+    #         ]
+    #
+    #         result = (
+    #             seggrid.frame
+    #             .reset_index()
+    #             .set_index(names)
+    #             .loc[ vecgrid.index ]
+    #             .reset_index()
+    #             .set_index(seggrid.frame.index.names)
+    #             .pipe(Broadcast.from_frame, wrapper=instance)
+    #         )
+    #
+    #     if instance is not result.instance:
+    #         assert (
+    #             # instance.index
+    #             instance.filled.index
+    #             .symmetric_difference(result.index)
+    #             .empty
+    #         )
+    #
+    #     result.instance = instance
+    #     return result
 
     locals().update(
         __get__=_get

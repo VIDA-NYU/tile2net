@@ -62,37 +62,6 @@ class File(
     file.File
 ):
     grid: SegGrid
-    
-    @recursion_block
-    def _stitch_infile(self, big_files=None) -> SegGrid:
-        grid = self.grid
-        if grid is not grid.filled:
-            return grid.filled.file._stitch_infile(big_files=big_files)
-            
-        ingrid = grid.ingrid.filled
-        seggrid = grid.filled
-        
-        small_files = ingrid.file.infile
-        if big_files is None:
-            big_files = ingrid.segtile.infile
-        assert len(small_files) == len(ingrid)
-        assert len(big_files) == len(ingrid)
-        
-        msg = f'Stitching into \n\t{ingrid.outdir.seggrid.infile.dir}'
-        logger.debug(msg)
-        
-        grid._stitch(
-            small_grid=ingrid,
-            big_grid=seggrid,
-            r=ingrid.segtile.r,
-            c=ingrid.segtile.c,
-            small_files=small_files,
-            big_files=big_files,
-            mosaic_shape=ingrid.segtile.shape,
-            tile_shape=ingrid.shape
-        )
-        
-        return grid
 
     @frame.column
     def infile(self) -> pd.Series:
@@ -101,13 +70,14 @@ class File(
         Stitches input files when seggrid.file is accessed
         """
         grid = self.grid
-        # files = grid.ingrid.outdir.seggrid.infile.files(grid)
         files = grid.ingrid.tempdir.seggrid.infile.files(grid)
         if (
-                not self._stitch_infile
+                not grid._stitch_infile
                 and not files.map(os.path.exists).all()
         ):
-            self._stitch_infile(big_files=files)
+            grid._stitch_infile()
+            assert files.map(os.path.exists).all()
+            self.instance.index.difference(self.instance.instance.index)
         return files
 
     @frame.column
@@ -699,3 +669,58 @@ class SegGrid(
         for fut in futures:
             fut.result()
         futures.clear()
+
+    # @recursion_block
+    # def _stitch_infile(self, big_files=None) -> SegGrid:
+    #     grid = self.grid
+    #     if grid is not grid.filled:
+    #         return grid.filled.file._stitch_infile(big_files=big_files)
+    #
+    #     ingrid = grid.ingrid.filled
+    #     seggrid = grid.filled
+    #
+    #     small_files = ingrid.file.infile
+    #     if big_files is None:
+    #         big_files = ingrid.segtile.infile
+    #     assert len(small_files) == len(ingrid)
+    #     assert len(big_files) == len(ingrid)
+    #
+    #     msg = f'Stitching into \n\t{ingrid.outdir.seggrid.infile.dir}'
+    #     logger.debug(msg)
+    #
+    #     grid._stitch(
+    #         small_grid=ingrid,
+    #         big_grid=seggrid,
+    #         r=ingrid.segtile.r,
+    #         c=ingrid.segtile.c,
+    #         small_files=small_files,
+    #         big_files=big_files,
+    #         mosaic_shape=ingrid.segtile.shape,
+    #         tile_shape=ingrid.shape
+    #     )
+    #
+    #     return grid
+
+    @recursion_block
+    def _stitch_infile(self) -> Self:
+        ingrid = self.ingrid
+        seggrid = self.seggrid
+
+        _ = ingrid.file.infile
+        big_files = ingrid.segtile.infile
+        assert (
+            ingrid.file.infile
+            .map(os.path.exists)
+            .all()
+        )
+
+        self._stitch(
+            small_grid=ingrid,
+            big_grid=seggrid,
+            r=ingrid.segtile.r,
+            c=ingrid.segtile.c,
+            small_files=ingrid.file.infile,
+            big_files=big_files,
+        )
+        assert big_files.map(os.path.exists).all()
+        return self
