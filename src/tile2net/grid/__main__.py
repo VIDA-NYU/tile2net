@@ -66,5 +66,8 @@ if __name__ == '__main__':
             )
             img.save(ingrid.tempdir.polygons.preview)
 
+        if cfg.segment.to_pkl:
+            ingrid.seggrid.to_pickle(ingrid.tempdir.seggrid.pickle)
+
         # delete empty directories for easier browsing
         ingrid.summary()

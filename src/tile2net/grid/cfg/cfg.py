@@ -716,6 +716,11 @@ class Segment(cmdline.Namespace):
         """Write probability to file"""
         return False
 
+    @cmdline.property
+    def to_pkl(self) -> bool:
+        return False
+
+
 
 class Vector(cmdline.Namespace):
     """Vectorization configuration namespace."""

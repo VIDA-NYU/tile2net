@@ -54,8 +54,7 @@ def __get__(
             n_features = len(vectiles.polygons.columns)
             msg = (
                 f'Aggregating {n_polygons} polygons from {n} tiles and '
-                f'{n_features} features into a single vector with grid '
-                f'size {grid_size:.2e}. This may take a while.'
+                f'{n_features} features into a single vector'
             )
 
             with benchmark(msg, level='info'):

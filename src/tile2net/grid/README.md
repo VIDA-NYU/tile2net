@@ -40,7 +40,6 @@ Polygon preview
 
 Network preview       
 /tmp/tile2net/bRs07FIb0QB5n-8b/lines/preview/Lines-875b6ea8d9381c9b.png
-
 ```
 
 That's it! You can open these paths to view the respective outputs. 
@@ -57,12 +56,12 @@ These are the core arguments to quickly get Tile2Net up and running.
 ### `--model.bs_val` (`-b`)
 - Batch size per GPU during segmentation
 - Increase based on available VRAM
-- 16 worked best on an RTX 3090 with 24GB VRAM
+- 16 worked best with 24GB VRAM
 
 ### `--vector.length` (`-v`)
 - Batch size per core during vectorization
 - Increase based on available RAM
-- 8 worked best on a system with 64GB RAM
+- 8 worked best with 64GB RAM
 
 ### `--outdir` (`-o`)
 - Output directory root

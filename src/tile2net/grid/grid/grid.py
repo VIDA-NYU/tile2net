@@ -891,14 +891,12 @@ class Grid(
             instance: Grid,
     ):
         del instance.frame.__dict__[self.__name__]
-        # del instance.__dict__[self.__name__]
 
     def __set__(
             self,
             instance: Grid,
             value,
     ):
-        # instance.__dict__[self.__name__] = value
         instance.frame.__dict__[self.__name__] = value
 
     @ColorMap
@@ -909,3 +907,8 @@ class Grid(
         # See:
         self.colormap.__call__(...)
         self.colormap(...)
+
+    def to_pickle(self, path):
+        frame = self.frame.copy()
+        frame.attrs.update(zoom=self.zoom, scale=self.scale)
+        frame.to_pickle(path)

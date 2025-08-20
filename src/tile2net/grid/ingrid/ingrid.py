@@ -884,6 +884,8 @@ class InGrid(
             rows.append(('Polygon preview', _p(self.tempdir.polygons.preview)))
         if self.cfg.line.preview:
             rows.append(('Network preview', _p(self.tempdir.lines.preview)))
+        if self.cfg.segment.to_pkl:
+            rows.append(('Segmentation tiles (zoom and scale in attrs)', _p(self.tempdir.seggrid.pickle)))
 
         # compute formatting
         label_w = max(len(k) for k, _ in rows)

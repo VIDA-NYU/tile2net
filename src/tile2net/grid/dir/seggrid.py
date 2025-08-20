@@ -1,4 +1,11 @@
 from __future__ import annotations
+import hashlib
+import os
+import os.path
+from pathlib import Path
+
+import numpy as np
+
 from .ingrid import InGrid
 
 import os
@@ -103,3 +110,9 @@ class SegGrid(
     @Output
     def output(self):
         ...
+
+    @property
+    def pickle(self) -> str:
+        result = f'{self.dir}/seggrid.pickle'
+        return result
+

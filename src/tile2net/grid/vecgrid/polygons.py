@@ -62,7 +62,10 @@ class Polygons(
             with ThreadPoolExecutor() as ex:
                 frames = list(ex.map(_read, tasks))
 
-            msg = f'Dissolving {instance.__name__}.{self.__name__} by feature and tile'
+            msg = (
+                f'Dissolving {instance.__name__}.{self.__name__} '
+                f'by feature and tile'
+            )
 
             cols = 'xtile ytile feature'.split()
             with benchmark(msg):
@@ -106,7 +109,6 @@ class Polygons(
     locals().update(
         __get__=_get,
     )
-
 
     def explore(
             self,
