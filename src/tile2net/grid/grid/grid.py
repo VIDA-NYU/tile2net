@@ -80,7 +80,7 @@ class Grid(
         accessor for self.frame.index.get_level_values('ytile')
         """
 
-    @cached_property
+    @property
     def min_scale(self) -> int:
         dim = max(self.r.max(), self.c.max()) + 1
         scale = math.log2(dim)
