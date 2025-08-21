@@ -30,7 +30,7 @@ class PedNet(
     @classmethod
     def from_mask2poly(
             cls,
-            gdf: Mask2Poly,
+            gdf: gpd.GeoDataFrame,
             *,
             distance: float = .5,
             crs: int = 3857,
@@ -38,9 +38,8 @@ class PedNet(
     ) -> Self:
         msg = f"Creating {cls.__name__} from {len(gdf)} polygon(s) at CRS {crs}"
         logger.debug(msg)
-        polygons = gdf.postprocess(crs=crs)
         result = cls.from_polygons(
-            polygons.frame,
+            gdf,
             distance=distance,
             crs=crs,
             save_original=save_original,

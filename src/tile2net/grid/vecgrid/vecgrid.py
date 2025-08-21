@@ -1,9 +1,4 @@
 from __future__ import annotations
-from .. import util
-from .. import frame
-from .lines import Lines
-from .polygons import Polygons
-from multiprocessing import get_context
 
 import concurrent.futures as cf
 import contextlib
@@ -20,8 +15,8 @@ from concurrent.futures import (
     wait,
     FIRST_COMPLETED,
 )
-from ..grid.corners import Corners
 from functools import cached_property
+from multiprocessing import get_context
 from pathlib import Path
 from typing import *
 from typing import Iterable
@@ -39,16 +34,19 @@ from tqdm import tqdm
 from tqdm.auto import tqdm
 
 from tile2net.grid.cfg.logger import logger
-from .mask2poly import Mask2Poly
-from ..pednet import PedNet
-from ...grid.util import recursion_block
-from ...grid.frame.namespace import namespace
-from ..grid import file
 from .file import File
+from .lines import Lines
+from .mask2poly import Mask2Poly
 from .padded import Padded
+from .polygons import Polygons
+from .. import frame
+from ..cfg.cfg import Cfg
+from ..grid.corners import Corners
+from ..pednet import PedNet
+from ...grid.frame.namespace import namespace
+from ...grid.util import recursion_block
 
 if False:
-    import folium
     from ..ingrid import InGrid
 from ..grid.grid import Grid
 
@@ -394,92 +392,102 @@ class VecGrid(Grid):
             ymax: float,
             polygons_file: str,
             network_file: str,
-            cfg: Optional[dict] = None,
+            cfg: Cfg,
     ):
         polys = None
         Path(polygons_file).parent.mkdir(parents=True, exist_ok=True)
         Path(network_file).parent.mkdir(parents=True, exist_ok=True)
-        try:
-            if cfg:
-                import tile2net.grid.cfg
-                tile2net.grid.cfg.update(cfg)
+        with cfg:
+            try:
+                polys = Mask2Poly.from_path(infile, affine,crs=3857)
+                assert isinstance(polys, Mask2Poly)
+                # return
 
-            polys = Mask2Poly.from_path(infile, affine)
-            # return
-
-            if polys.empty:
-                empty_gdf = (
-                    gpd.GeoDataFrame(
-                        {"geometry": []},
-                        geometry="geometry",
-                        crs=4326,
+                if polys.empty:
+                    empty_gdf = (
+                        gpd.GeoDataFrame(
+                            {"geometry": []},
+                            geometry="geometry",
+                            crs=3857,
+                        )
+                        .set_index(
+                            pd.Index([], name="feature"),
+                        )
                     )
-                    .set_index(
-                        pd.Index([], name="feature"),
+
+                    # Persist the empty layers so downstream steps have concrete files
+                    empty_gdf.to_parquet(polygons_file)
+                    empty_gdf.to_parquet(network_file)
+
+                    msg = f'No polygons generated for {infile}; wrote empty layers instead.'
+                    logging.warning(msg)
+                    return
+
+                # net = PedNet.from_mask2poly(polys)
+                net = (
+                    polys
+                    .postprocess(
+                        min_poly_area=cfg.polygon.min_polygon_area,
+                        convexity=cfg.polygon.convexity,
+                        simplify=cfg.polygon.simplify,
+                        max_hole_area=cfg.polygon.max_hole_area,
+                    )
+                    .frame.pipe(PedNet.from_mask2poly)
+                )
+                lines = net.center.lines
+                edges = lines.edges
+
+                clipped = (
+                    net.center.clipped
+                    .frame
+                    # .frame.to_crs(4326)
+                    .pipe(
+                        net.center.clipped.from_frame,
+                        wrapper=net.center.clipped
                     )
                 )
 
-                # Persist the empty layers so downstream steps have concrete files
-                empty_gdf.to_parquet(polygons_file)
-                empty_gdf.to_parquet(network_file)
-
-                msg = f'No polygons generated for {infile}; wrote empty layers instead.'
-                logging.warning(msg)
-                return
-
-            net = PedNet.from_mask2poly(polys)
-            lines = net.center.lines
-            edges = lines.edges
-
-            clipped = (
-                net.center.clipped
-                .frame.to_crs(4326)
-                .pipe(
-                    net.center.clipped.from_frame,
-                    wrapper=net.center.clipped
+                polys = (
+                    polys.frame
+                    # .to_crs(4326)
+                    .clip_by_rect(xmin, ymin, xmax, ymax)
+                    .to_frame('geometry')
+                    .dissolve(by='feature')
+                    .explode()
                 )
-            )
 
-            polys = (
-                polys.frame
-                .to_crs(4326)
-                .clip_by_rect(xmin, ymin, xmax, ymax)
-                .to_frame('geometry')
-                .dissolve(by='feature')
-                .explode()
-            )
+                clipped = (
+                    clipped.frame
+                    .clip_by_rect(xmin, ymin, xmax, ymax)
+                    .to_frame('geometry')
+                    .dissolve(by='feature')
+                    .explode()
+                    # .pipe(clipped.from_frame, wrapper=clipped)
+                )
 
-            clipped = (
-                clipped.frame
-                .clip_by_rect(xmin, ymin, xmax, ymax)
-                .to_frame('geometry')
-                .dissolve(by='feature')
-                .explode()
-                # .pipe(clipped.from_frame, wrapper=clipped)
-            )
-
-            polys.to_parquet(polygons_file)
-            clipped.to_parquet(network_file)
-
-        except Exception as e:
-            msg = (
-                'Error vectorizing:\n'
-                f'affine={affine!r},\n'
-                f'infile={infile!r}\n'
-            )
-            if isinstance(polys, gpd.GeoDataFrame):
-                msg += f'polygons_file={polygons_file}\n'
                 polys.to_parquet(polygons_file)
-            msg += f'{e}'
-            logger.error(msg)
-            raise
+                clipped.to_parquet(network_file)
 
-        finally:
-            for name in ("polys", "clipped", "net"):
-                if name in locals():
-                    del locals()[name]
-            import gc
-            gc.collect()
+            except Exception as e:
+                msg = (
+                    'Error vectorizing:\n'
+                    f'affine={affine!r},\n'
+                    f'infile={infile!r}\n'
+                )
+                if isinstance(polys, gpd.GeoDataFrame):
+                    msg += f'polygons_file={polygons_file}\n'
+                    polys.to_parquet(polygons_file)
+                msg += f'{e}'
+                logger.error(msg)
+                raise
+
+            finally:
+                for name in ("polys", "clipped", "net"):
+                    if name in locals():
+                        del locals()[name]
+                import gc
+                gc.collect()
+
 
     @staticmethod
     def _silence_logging() -> None:
@@ -518,7 +526,7 @@ class VecGrid(Grid):
                     float,  # ymax
                     str,  # polygons_file
                     str,  # network_file
-                    dict,  # cfg
+                    Cfg,  # cfg
                 ],
                 running: Dict[cf.Future, str],
         ) -> cf.Future:
@@ -564,7 +572,8 @@ class VecGrid(Grid):
             ]
         ]:
 
-            _cfg = dict(grid.ingrid.cfg)
+            # _cfg = dict(grid.ingrid.cfg)
+            _cfg = grid.ingrid.cfg.flatten()
 
             it = zip(
                 grid.file.grayscale,

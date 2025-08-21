@@ -721,7 +721,6 @@ class Segment(cmdline.Namespace):
         return False
 
 
-
 class Vector(cmdline.Namespace):
     """Vectorization configuration namespace."""
 
@@ -740,7 +739,7 @@ class Vector(cmdline.Namespace):
         A length of 10, for example, means each vectorization tile
         is 10 segmentation tiles long.
         """
-        return 3
+        return 1
 
     length.add_options(short='-v')
 
@@ -1367,7 +1366,6 @@ class Cfg(
 
     location.add_options(short='-l')
 
-
     @cmdline.property
     def indir(self) -> Optional[str]:
         """
@@ -1664,6 +1662,39 @@ class Cfg(
     @property
     def _cfg(self) -> Self:
         return self
+
+
+    def flatten(self) -> Self:
+        merged = type(self)()  # new empty Cfg
+
+        # clear linkage/context on the flattened copy
+        merged._default = None
+        merged._context = None
+        merged._backup = None
+        merged._active = self._active
+        merged.__name__ = self.__name__
+
+        # collect allowed keys from the default config
+        allowed = set(self._default or ())
+
+        # staged updates in precedence order
+        staging: dict = {}
+        if self._default:
+            staging.update(self._default)
+        if self._context:
+            staging.update(self._context)
+        if self is not self._default:
+            staging.update(self)
+
+        # filter: only keep keys that exist in default
+        merged.update({
+            k: v
+            for k, v in staging.items()
+            if k in allowed
+        })
+
+        return merged
+
 
 
 cfg = Cfg.from_defaults()

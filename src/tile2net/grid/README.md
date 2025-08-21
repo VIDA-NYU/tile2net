@@ -7,8 +7,8 @@ Quickly run this small example to download imagery of Boston Common, segment it,
 ```bash
 python -m tile2net \
   --location "boston common" \
-  --model.bs_val 2 \
-  --vector.length 4 \
+  --model.bs_val 1 \
+  --vector.length 1 \
   --outdir ./boston_common
 ```
 
@@ -94,7 +94,7 @@ python -m tile2net \
   -l "Cambridge, MA" \
   -b 16 \
   -o ./cambridge \
-  -v 10 \
+  -v 8 \
   --no-cleanup 
 ```
 
@@ -110,14 +110,4 @@ python -m tile2net \
   -b 16 \
   -o ./local \
   -v 8 \
-```
-
-
-#### Portland, Maine
-```bash
-python -m tile2net \
-  -l "Deering Oaks Park" \
-  -b 16 \
-  -o ./portland \
-  -v 8
 ```

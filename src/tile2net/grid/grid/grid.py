@@ -45,7 +45,7 @@ class Grid(
 ):
 
     @frame.column
-    def lonmax(self) -> Series:
+    def lonmax(self):
         """
         accessor for self.frame.lonmax
         """
@@ -57,13 +57,13 @@ class Grid(
         """
 
     @frame.column
-    def latmax(self) -> Series:
+    def latmax(self):
         """
         accessor for self.frame.latmax
         """
 
     @frame.column
-    def latmin(self) -> Series:
+    def latmin(self):
         """
         accessor for self.frame.latmin
         """
@@ -280,10 +280,14 @@ class Grid(
         geometry = shapely.box(pw, pn, pe, ps)
 
         data = dict(
-            lonmin=gw,
-            latmax=gn,
-            lonmax=ge,
-            latmin=gs,
+            # lonmin=gw,
+            # latmax=gn,
+            # lonmax=ge,
+            # latmin=gs,
+            lonmin=pw,
+            latmax=pn,
+            lonmax=pe,
+            latmin=ps,
         )
         grid = GeoDataFrame(
             data=data,

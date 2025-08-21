@@ -1,4 +1,5 @@
 from __future__ import annotations
+import PIL.Image
 
 import os
 import warnings
@@ -23,6 +24,9 @@ from pandas import Series
 from rasterio.errors import NotGeoreferencedWarning
 from rasterio.features import shapes
 from shapely.geometry import shape
+import io
+from math import ceil
+import matplotlib.pyplot as plt
 
 from tile2net.grid.cfg.logger import logger
 from tile2net.raster.tile_utils.geodata_utils import _check_skimage_im_load
@@ -37,26 +41,27 @@ class Mask2Poly(
     FrameWrapper,
 ):
 
-
     @classmethod
     def from_path(
             cls,
             path: str | Path,
             affine: Affine,
+            crs: int = 3857,
     ) -> Self:
         original_max = Image.MAX_IMAGE_PIXELS
 
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', Image.DecompressionBombWarning)
-            Image.MAX_IMAGE_PIXELS = None           # avoid the error variant
+            Image.MAX_IMAGE_PIXELS = None  # avoid the error variant
             array = skimage.io.imread(str(path))
 
-        Image.MAX_IMAGE_PIXELS = original_max       # restore global state
-        result = cls.from_array(array, affine)
+        Image.MAX_IMAGE_PIXELS = original_max  # restore global state
+        result = cls.from_array(array, affine, crs=crs)
         return result
 
     @classmethod
     def from_parquets(cls, files: Iterable[str | Path], ) -> Self:
+        raise NotImplementedError
         paths = [str(Path(p)) for p in files]
         if not paths:
             return cls()
@@ -140,7 +145,7 @@ class Mask2Poly(
             cls,
             array: np.ndarray,
             affine: Affine,
-            crs=4326,
+            crs: int = 3857,
     ) -> Self:
         # todo: check over where the crs whould be what, and to support user input
         """
@@ -169,11 +174,13 @@ class Mask2Poly(
             append = gpd.GeoDataFrame(dict(
                 geometry=geometry,
                 feature=label,
-            ), crs=crs)
+            ), crs=4326)
             concat.append(append)
 
         result = (
             pd.concat(concat)
+            .pipe(gpd.GeoDataFrame)
+            .to_crs(crs)
             .set_index('feature')
             .pipe(cls.from_frame)
         )
@@ -293,10 +300,9 @@ class Mask2Poly(
             self,
             min_poly_area: Union[float, Series, dict] = None,
             simplify: Union[float, Series, dict] = None,
-            grid_size: Union[float, Series, dict] = None,
             max_hole_area: Union[float, Series, dict] = None,
             convexity: Union[float, Series, dict] = None,
-            crs: int = 3857,
+            # crs: int = 3857,
     ) -> Self:
         cls = self.__class__
         logger.debug("Starting postprocessing")
@@ -310,8 +316,10 @@ class Mask2Poly(
         with benchmark(msg):
             result: Self = (
                 self.frame
-                .to_crs(crs)
+                #
+                # .to_crs(crs)
                 .dissolve(level='feature', method='coverage')
+                # .dissolve(level='feature', method='unary')
                 .set_geometry('geometry')
                 .simplify_coverage(simplify)
                 .explode()
@@ -415,8 +423,138 @@ class Mask2Poly(
         # )
         result = (
             result.frame
-            .to_crs(self.crs)
+            # .to_crs(self.crs)
             .pipe(self.from_frame, wrapper=self)
         )
         return result
 
+    def plot(
+            self,
+            *args,
+            maxdim: int = 2048,
+            background: str | tuple[int, int, int] = 'black',
+            simplify: float | None = None,
+            show: bool = True,
+            **kwargs,
+    ) -> PIL.Image.Image:
+
+        # geometry bounds & scale to determine output pixel size
+        minx, miny, maxx, maxy = self.geometry.total_bounds
+        span_x = max(maxx - minx, 1e-12)
+        span_y = max(maxy - miny, 1e-12)
+        scale = maxdim / max(span_x, span_y)
+        out_w = ceil(span_x * scale)
+        out_h = ceil(span_y * scale)
+        long_side = max(out_w, out_h)
+
+        # figure canvas sized to raster dims
+        dpi = 96
+        fig_w_in = out_w / dpi
+        fig_h_in = out_h / dpi
+        fig, ax = plt.subplots(
+            figsize=(fig_w_in, fig_h_in),
+            dpi=dpi,
+            facecolor=background,
+        )
+        ax.set_facecolor(background)
+
+        # axis/ticks styled for dark background
+        axis_col = 'white'
+        labelsize_pt = max(8, int(long_side / dpi * 72 * 0.04))
+        ticklen_px = max(4, int(long_side * 0.006))
+        ax.tick_params(
+            axis='both',
+            which='both',
+            colors=axis_col,
+            direction='out',
+            labelsize=labelsize_pt,
+            length=ticklen_px,
+            width=max(1, ticklen_px // 3),
+        )
+        for spine in ax.spines.values():
+            spine.set_color(axis_col)
+            spine.set_linewidth(max(1, ticklen_px // 3))
+
+        # per-feature polygon edge colors and stroke width
+        label2color = cfg.label2color
+        line_w = kwargs.get('width', max(1, long_side // 1400))
+
+        # iterator yielding Polygon from (Multi)Polygon
+        def _iter_polys(g):
+            if g.geom_type == 'Polygon':
+                yield g
+            elif g.geom_type == 'MultiPolygon':
+                yield from g.geoms
+
+        # plot each feature polygon (exterior + holes)
+        it = self.frame.groupby('feature', observed=False).geometry
+        for feature, series in it:
+            colour = label2color.get(feature, axis_col)
+
+            for geom in series:
+                if simplify:
+                    geom = geom.simplify(simplify, preserve_topology=True)
+
+                for poly in _iter_polys(geom):
+                    if poly.is_empty:
+                        continue
+
+                    # exterior ring
+                    ext = poly.exterior
+                    if ext is not None:
+                        ext_xy = np.asarray(ext.coords)
+                        if ext_xy.shape[0] >= 2:
+                            ax.plot(
+                                ext_xy[:, 0],
+                                ext_xy[:, 1],
+                                color=colour,
+                                linewidth=line_w,
+                                solid_joinstyle='round',
+                                solid_capstyle='round',
+                                zorder=3,
+                            )
+
+                    # interior rings (holes)
+                    for ring in poly.interiors:
+                        ring_xy = np.asarray(ring.coords)
+                        if ring_xy.shape[0] >= 2:
+                            ax.plot(
+                                ring_xy[:, 0],
+                                ring_xy[:, 1],
+                                color=colour,
+                                linewidth=max(1, line_w // 2),
+                                solid_joinstyle='round',
+                                solid_capstyle='round',
+                                zorder=3,
+                            )
+
+        # configure map frame
+        ax.set_xlim(minx, maxx)
+        ax.set_ylim(miny, maxy)
+        ax.set_aspect('equal')
+        plt.subplots_adjust(left=0.08, right=0.98, bottom=0.08, top=0.98)
+
+        # rasterise the figure to a PIL image
+        buf = io.BytesIO()
+        fig.savefig(
+            buf,
+            format='png',
+            facecolor=fig.get_facecolor(),
+            bbox_inches=None,
+            pad_inches=0.0,
+        )
+        buf.seek(0)
+        pil_img = Image.open(buf).convert('RGB')
+
+        # optionally show live window
+        if show:
+            try:
+                fig.canvas.manager.set_window_title('tile2net — mask2poly')
+            except Exception:
+                pass
+            plt.show(block=False)
+            plt.pause(0.001)
+        else:
+            plt.close(fig)
+
+        return pil_img

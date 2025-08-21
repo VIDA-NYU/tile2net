@@ -64,7 +64,12 @@ def __get__(
                     .set_precision(grid_size=grid_size)
                     .to_frame(name='geometry')
                     .pipe(Mask2Poly)
-                    .postprocess()
+                    .postprocess(
+                        min_poly_area=cfg.polygon.min_polygon_area,
+                        convexity=cfg.polygon.convexity,
+                        simplify=cfg.polygon.simplify,
+                        max_hole_area=cfg.polygon.max_hole_area,
+                    )
                     .pipe(Polygons)
                 )
 
