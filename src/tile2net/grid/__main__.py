@@ -58,6 +58,7 @@ if __name__ == '__main__':
                 f'\n\t{ingrid.tempdir.polygons.preview}'
             )
             logger.info(msg)
+            ingrid.polygons.frame
             img = ingrid.polygons.plot(
                 maxdim=cfg.polygon.preview,
                 show=False

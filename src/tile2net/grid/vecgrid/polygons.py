@@ -66,6 +66,7 @@ class Polygons(
                 f'Dissolving {instance.__name__}.{self.__name__} '
                 f'by feature and tile'
             )
+            geometry = frames[0].feature.iat[0] # any feature
 
             cols = 'xtile ytile feature'.split()
             with benchmark(msg):
@@ -84,12 +85,14 @@ class Polygons(
                         aggfunc='first'
                     )
                     .reindex(instance.index)
+                    .set_geometry(geometry)
                     .pipe(self.from_frame, wrapper=self)
                 )
 
+            crs = frames[0].crs
             for col in result.columns:
                 result[col].set_crs(
-                    4326,
+                    crs,
                     inplace=True,
                     allow_override=True
                 )

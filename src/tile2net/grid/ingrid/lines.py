@@ -67,6 +67,7 @@ class Lines(
                     .loc[:, cols]
                     .stack(future_stack=True)
                     .rename('geometry')
+                    .set_crs(lines.crs)
                     .dropna()
                     .explode()
                     .reset_index()
@@ -196,6 +197,7 @@ class Lines(
             *args,
             maxdim: int = 2048,
             background: str | tuple[int, int, int] = 'black',
+            divider:str = 'grey',
             simplify: float | None = None,
             show: bool = True,
             **kwargs,
@@ -205,12 +207,13 @@ class Lines(
         ingrid = self.ingrid
         mosaic: Image.Image = ingrid.preview(
             maxdim=maxdim,
-            divider=None,
+            divider=divider,
             show=show
         )
+        frame = self.frame.to_crs(4326)
 
         # geometry bounds & scale to determine output pixel size
-        minx, miny, maxx, maxy = self.geometry.total_bounds
+        minx, miny, maxx, maxy = frame.geometry.to_crs(4326).total_bounds
         span_x = max(maxx - minx, 1e-12)
         span_y = max(maxy - miny, 1e-12)
         scale = maxdim / max(span_x, span_y)
@@ -278,7 +281,7 @@ class Lines(
         line_w = kwargs.get('width', max(1, long_side // 1400))
 
         # plot each linestring (or part of multilinestring) over the basemap
-        it = self.frame.groupby('feature', observed=False).geometry
+        it = frame.groupby('feature', observed=False).geometry
         for feature, series in it:
             colour = label2color.get(feature, axis_col)
             for geom in series:
