@@ -397,6 +397,7 @@ class VecGrid(Grid):
         polys = None
         Path(polygons_file).parent.mkdir(parents=True, exist_ok=True)
         Path(network_file).parent.mkdir(parents=True, exist_ok=True)
+        grid_size = 0.1
         with cfg:
             try:
                 polys = Mask2Poly.from_path(infile, affine,crs=3857)
@@ -448,18 +449,23 @@ class VecGrid(Grid):
                 )
 
                 polys = (
-                    polys.frame
+                    # polys.frame
+                    net.frame
                     # .to_crs(4326)
                     .clip_by_rect(xmin, ymin, xmax, ymax)
                     .to_frame('geometry')
-                    .dissolve(by='feature')
-                    .explode()
+                    .set_precision(grid_size=grid_size)
+                    .to_frame('geometry')
+                    # .dissolve(by='feature')
+                    # .explode()
                 )
 
                 clipped = (
                     clipped.frame
                     .clip_by_rect(xmin, ymin, xmax, ymax)
+                    .set_precision(grid_size=grid_size)
                     .to_frame('geometry')
+
                     .dissolve(by='feature')
                     .explode()
                     # .pipe(clipped.from_frame, wrapper=clipped)
@@ -557,6 +563,10 @@ class VecGrid(Grid):
         msg = f'Vectorizing to {dest}'
         logger.debug(msg)
 
+        _cfg = grid.ingrid.cfg.flatten()
+
+        assert 'dataset_inst' not in _cfg
+
         # Build *lazy* iterable ⇢ no up-front list allocation
         def _tile_iter() -> Iterable[
             tuple[
@@ -571,9 +581,6 @@ class VecGrid(Grid):
                 dict,  # cfg
             ]
         ]:
-
-            # _cfg = dict(grid.ingrid.cfg)
-            _cfg = grid.ingrid.cfg.flatten()
 
             it = zip(
                 grid.file.grayscale,

@@ -1,6 +1,9 @@
 
 from __future__ import annotations
 
+import geopandas as gpd
+
+
 from concurrent.futures import (
     ThreadPoolExecutor,
 )
@@ -64,12 +67,19 @@ class Lines(
 
             msg = f'Dissolving {instance.__name__}.{self.__name__} by feature and tile'
             cols = 'xtile ytile feature'.split()
+            # gpd.GeoDataFrame.dropna(_, axis='geometry')
+            #
+            # frame = pd.concat(frames, copy=False)
+            # frame.dropna(subset='geometry')
+            # gpd.GeoDataFrame.dropna(self=_, subset='geometry')
+
             with benchmark(msg):
                 result = (
                     pd.concat(frames, copy=False)
                     .pipe(gpd.GeoDataFrame)
                     .explode()
-                    .groupby(cols, sort=False)
+                    .loc[lambda s: ~s.geometry.is_empty]
+                    .groupby(cols, sort=False, observed=True)
                     .geometry.agg(lambda s: MultiLineString(tuple(s)))
                     .to_frame('geometry')
                     .pivot_table(

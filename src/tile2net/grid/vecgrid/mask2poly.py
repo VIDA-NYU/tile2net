@@ -165,11 +165,21 @@ class Mask2Poly(
             array = array[..., 0]  # assuming single channel for simplicity
 
         for label, id in label2id.items():
-            mask = np.array(array == id, dtype=np.uint8)
-            it = rasterio.features.shapes(array, mask, transform=affine)
+            # mask = np.array(array == id, dtype=np.uint8)
+            # it = rasterio.features.shapes(array, mask, transform=affine)
+            # geometry = [
+            #     shape(geom)
+            #     for geom, _ in it
+            # ]
+            # binary mask for this class
+            mask = (array == id).astype(np.uint8)
+
+            # polygonize the mask itself; filter val==1
+            it = rasterio.features.shapes( mask, transform=affine )
             geometry = [
                 shape(geom)
-                for geom, _ in it
+                for geom, val in it
+                if val == 1
             ]
             append = gpd.GeoDataFrame(dict(
                 geometry=geometry,
@@ -319,7 +329,7 @@ class Mask2Poly(
                 #
                 # .to_crs(crs)
                 .dissolve(level='feature', method='coverage')
-                # .dissolve(level='feature', method='unary')
+                # .dissolve(level='feature', method='unary',)
                 .set_geometry('geometry')
                 .simplify_coverage(simplify)
                 .explode()

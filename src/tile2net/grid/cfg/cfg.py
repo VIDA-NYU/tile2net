@@ -810,8 +810,8 @@ class Polygon(cmdline.Namespace):
 
     @cmdline.property
     def simplify(self) -> float | dict[str, float]:
-        return 5.
-        # return 0.8
+        # return 5.
+        return 0.8
 
     @cmdline.property
     def z_order(self) -> dict[str, int]:
@@ -1675,7 +1675,8 @@ class Cfg(
         merged.__name__ = self.__name__
 
         # collect allowed keys from the default config
-        allowed = set(self._default or ())
+        # allowed = set(self._default or ())
+        allowed = set(self.from_defaults())
 
         # staged updates in precedence order
         staging: dict = {}
