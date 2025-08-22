@@ -1,15 +1,4 @@
 from __future__ import annotations
-import hashlib
-import os
-import os.path
-from pathlib import Path
-
-import numpy as np
-
-from .ingrid import InGrid
-
-import os
-import os.path
 
 from .dir import Dir
 
@@ -82,6 +71,7 @@ class Overlay(
 class SegGrid(
     Dir,
 ):
+    padded: Padded
 
     @Grayscale
     def grayscale(self):
@@ -116,3 +106,12 @@ class SegGrid(
         result = f'{self.dir}/seggrid.pickle'
         return result
 
+
+class Padded(
+    SegGrid
+):
+    ...
+
+padded = Padded()
+SegGrid.padded = padded
+padded.__set_name__(SegGrid, 'padded')

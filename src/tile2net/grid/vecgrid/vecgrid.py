@@ -107,25 +107,6 @@ class VecGrid(Grid):
         self.instance = instance
         if instance is None:
             return copy.copy(self)
-        # cache = instance.__dict__
-        # key = self.__name__
-        # if instance in cache:
-        #     # result: VecGrid = instance.attrs[self.__name__]
-        #     result: Self = cache[key]
-        #     if result.instance is not instance:
-        #         haystack = instance.vectile.index
-        #         needles = result.index
-        #         loc = needles.isin(haystack)
-        #         result = result.loc[loc]
-        #
-        #         needles = instance.vectile.index
-        #         haystack = result.index
-        #         loc = needles.isin(haystack)
-        #         if not np.all(loc):
-        #             msg = 'Not all vectorization tiles implicated by input tiles present'
-        #             logger.debug(msg)
-        #             del cache[key]
-        #             return getattr(instance, self.__name__)
 
         cache = instance.frame.__dict__
         key = self.__name__
@@ -152,6 +133,7 @@ class VecGrid(Grid):
                 instance = instance.set_segmentation(length=length)
             elif dimension:
                 instance = instance.set_segmentation(dimension=dimension)
+
             else:
                 raise ValueError(
                     'You must set at least one of the following '
@@ -322,63 +304,6 @@ class VecGrid(Grid):
 
         # final sanity check
         assert overlay.map(os.path.exists).all(), 'some overlays are still missing'
-
-        return self
-
-    @recursion_block
-    def _stitch_infile(self) -> Self:
-        seggrid = self.seggrid
-        outgrid = self
-
-        # preemptively predict so logging appears more sequential
-        # else you get "now stitching" before "now predicting"
-        _ = seggrid.file.infile
-
-        # only stitch the seggrid which are implicated by the vecgrid
-        loc = seggrid.vectile.xtile.isin(outgrid.xtile)
-        loc &= seggrid.vectile.ytile.isin(outgrid.ytile)
-        seggrid = seggrid.loc[loc]
-
-        self._stitch(
-            small_grid=seggrid,
-            big_grid=outgrid,
-            r=seggrid.vectile.r,
-            c=seggrid.vectile.c,
-            small_files=seggrid.file.infile,
-            big_files=seggrid.vectile.infile,
-        )
-        # assert os.path.exists(seggrid.vectile.infile)
-        assert (
-            seggrid.vectile.infile
-            .map(os.path.exists)
-            .all()
-        )
-        return self
-
-    @recursion_block
-    def _stitch_colored(self) -> Self:
-        seggrid = self.seggrid
-        outgrid = self
-
-        # preemptively predict so logging appears more sequential
-        # else you get "now stitching" before "now predicting"
-        _ = seggrid.file.colored
-
-        # only stitch the seggrid which are implicated by the vecgrid
-        loc = seggrid.vectile.xtile.isin(outgrid.xtile)
-        loc &= seggrid.vectile.ytile.isin(outgrid.ytile)
-        seggrid = seggrid.loc[loc]
-
-        self._stitch(
-            small_grid=seggrid,
-            big_grid=outgrid,
-            r=seggrid.vectile.r,
-            c=seggrid.vectile.c,
-            small_files=seggrid.file.colored,
-            big_files=seggrid.vectile.colored,
-            # mosaic_shape=seggrid.vectile.shape,
-            # tile_shape=seggrid.shape
-        )
 
         return self
 
@@ -783,87 +708,7 @@ class VecGrid(Grid):
         """ The dimension of a vectile in pixels """
         return self.seggrid.dimension * self.length
 
-
-    @recursion_block
-    def _stitch_greyscale(self) -> Self:
-        seggrid = self.seggrid.broadcast
-        outgrid = self
-
-        # preemptively predict so logging appears more sequential
-        # else you get "now stitching" before "now predicting"
-        _ = seggrid.file.grayscale
-
-        # only stitch the seggrid which are implicated by the vecgrid
-        # loc = seggrid.vectile.xtile.isin(outgrid.xtile)
-        # loc &= seggrid.vectile.ytile.isin(outgrid.ytile)
-        # # seggrid = seggrid.loc[loc]
-        # seggrid = (
-        #     seggrid.frame
-        #     .loc[loc]
-        #     .pipe(seggrid.from_frame, wrapper=seggrid)
-        # )
-
-        self._stitch(
-            small_grid=seggrid,
-            big_grid=outgrid,
-            r=seggrid.vectile.r,
-            c=seggrid.vectile.c,
-            small_files=seggrid.file.grayscale,
-            big_files=seggrid.vectile.grayscale,
-            background=3,
-        )
-
-        return self
-
-    @recursion_block
-    def _stitch_infile(self) -> Self:
-        seggrid = self.seggrid
-        outgrid = self
-
-        # preemptively predict so logging appears more sequential
-        # else you get "now stitching" before "now predicting"
-        _ = seggrid.file.infile
-
-        # only stitch the seggrid which are implicated by the vecgrid
-        loc = seggrid.vectile.xtile.isin(outgrid.xtile)
-        loc &= seggrid.vectile.ytile.isin(outgrid.ytile)
-        seggrid = seggrid.loc[loc]
-
-        self._stitch(
-            small_grid=seggrid,
-            big_grid=outgrid,
-            r=seggrid.vectile.r,
-            c=seggrid.vectile.c,
-            small_files=seggrid.file.infile,
-            big_files=seggrid.vectile.infile,
-        )
-        return self
-
     @property
     def ingrid(self):
         return self.instance
 
-    @recursion_block
-    def _stitch_colored(self) -> Self:
-        seggrid = self.seggrid.broadcast
-        outgrid = self
-
-        # preemptively predict so logging appears more sequential
-        # else you get "now stitching" before "now predicting"
-        _ = seggrid.file.colored
-
-        # only stitch the seggrid which are implicated by the vecgrid
-        loc = seggrid.vectile.xtile.isin(outgrid.xtile)
-        loc &= seggrid.vectile.ytile.isin(outgrid.ytile)
-        seggrid = seggrid.loc[loc]
-
-        self._stitch(
-            small_grid=seggrid,
-            big_grid=outgrid,
-            r=seggrid.vectile.r,
-            c=seggrid.vectile.c,
-            small_files=seggrid.file.colored,
-            big_files=seggrid.vectile.colored,
-        )
-
-        return self

@@ -22,11 +22,24 @@ class File(
     def grayscale(self) -> pd.Series:
         vecgrid = self.grid
         files = vecgrid.ingrid.tempdir.vecgrid.grayscale.files(vecgrid)
-        if (
-            not vecgrid._stitch_greyscale
-            and not files.map(os.path.exists).all()
-        ):
-            vecgrid._stitch_greyscale()
+        self.grayscale = files
+        if not files.map(os.path.exists).all():
+            seggrid = vecgrid.seggrid.broadcast
+            outgrid = vecgrid
+
+            # preemptively predict so logging appears more sequential
+            # else you get "now stitching" before "now predicting"
+            _ = seggrid.file.grayscale
+
+            vecgrid._stitch(
+                small_grid=seggrid,
+                big_grid=outgrid,
+                r=seggrid.vectile.r,
+                c=seggrid.vectile.c,
+                small_files=seggrid.file.grayscale,
+                big_files=seggrid.vectile.grayscale,
+                background=3,
+            )
             assert files.map(os.path.exists).all()
         return files
 
@@ -34,11 +47,28 @@ class File(
     def colored(self) -> pd.Series:
         vecgrid = self.grid
         files = vecgrid.ingrid.tempdir.vecgrid.colored.files(vecgrid)
-        if (
-            not vecgrid._stitch_colored
-            and not files.map(os.path.exists).all()
-        ):
-            vecgrid._stitch_colored()
+        self.colored = files
+        if not files.map(os.path.exists).all():
+            seggrid = vecgrid.seggrid.broadcast
+            outgrid = vecgrid
+
+            # preemptively predict so logging appears more sequential
+            # else you get "now stitching" before "now predicting"
+            _ = seggrid.file.colored
+
+            # only stitch the seggrid which are implicated by the vecgrid
+            loc = seggrid.vectile.xtile.isin(outgrid.xtile)
+            loc &= seggrid.vectile.ytile.isin(outgrid.ytile)
+            seggrid = seggrid.loc[loc]
+
+            vecgrid._stitch(
+                small_grid=seggrid,
+                big_grid=outgrid,
+                r=seggrid.vectile.r,
+                c=seggrid.vectile.c,
+                small_files=seggrid.file.colored,
+                big_files=seggrid.vectile.colored,
+            )
             assert files.map(os.path.exists).all()
 
         return files
@@ -48,11 +78,32 @@ class File(
         vecgrid = self.grid
         files = vecgrid.ingrid.tempdir.vecgrid.infile.files(vecgrid)
         self.infile = files
-        if (
-            not vecgrid._stitch_infile
-            and not files.map(os.path.exists).all()
-        ):
-            vecgrid._stitch_infile()
+        if not files.map(os.path.exists).all():
+            seggrid = vecgrid.seggrid
+            outgrid = vecgrid
+
+            # preemptively predict so logging appears more sequential
+            # else you get "now stitching" before "now predicting"
+            _ = seggrid.file.infile
+
+            # only stitch the seggrid which are implicated by the vecgrid
+            loc = seggrid.vectile.xtile.isin(outgrid.xtile)
+            loc &= seggrid.vectile.ytile.isin(outgrid.ytile)
+            seggrid = seggrid.loc[loc]
+
+            vecgrid._stitch(
+                small_grid=seggrid,
+                big_grid=outgrid,
+                r=seggrid.vectile.r,
+                c=seggrid.vectile.c,
+                small_files=seggrid.file.infile,
+                big_files=seggrid.vectile.infile,
+            )
+            assert (
+                seggrid.vectile.infile
+                .map(os.path.exists)
+                .all()
+            )
             assert files.map(os.path.exists).all()
 
         return files
@@ -61,10 +112,8 @@ class File(
     def overlay(self) -> pd.Series:
         vecgrid = self.grid
         files = vecgrid.ingrid.tempdir.vecgrid.overlay.files(vecgrid)
-        if (
-                not vecgrid._overlay
-                and not files.map(os.path.exists).all()
-        ):
+        self.overlay = files
+        if not files.map(os.path.exists).all():
             vecgrid._overlay()
         return files
 
@@ -72,10 +121,8 @@ class File(
     def lines(self) -> pd.Series:
         vecgrid = self.grid
         files = vecgrid.ingrid.outdir.vecgrid.lines.files(vecgrid)
-        if (
-                not vecgrid.vectorize
-                and not files.map(os.path.exists).all()
-        ):
+        self.lines = files
+        if not files.map(os.path.exists).all():
             vecgrid.vectorize()
         return files
 
@@ -83,9 +130,7 @@ class File(
     def polygons(self) -> pd.Series:
         vecgrid = self.grid
         files = vecgrid.ingrid.outdir.vecgrid.polygons.files(vecgrid)
-        if (
-                not vecgrid.vectorize
-                and not files.map(os.path.exists).all()
-        ):
+        self.polygons = files
+        if not files.map(os.path.exists).all():
             vecgrid.vectorize()
         return files

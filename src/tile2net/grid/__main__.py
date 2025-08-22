@@ -23,6 +23,7 @@ if __name__ == '__main__':
             # set a source if specified or infer from location
             ingrid = ingrid.set_source()
 
+
         if cfg.outdir:
             ingrid = ingrid.set_outdir()
 
@@ -30,6 +31,8 @@ if __name__ == '__main__':
         ingrid = ingrid.set_segmentation()
         # configure vectorization using cfg parameters
         ingrid = ingrid.set_vectorization()
+
+        ingrid.seggrid.preview(show=True)
 
         if cfg.line.concat:
             # concatenate lines into single file and save

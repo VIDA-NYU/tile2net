@@ -23,4 +23,5 @@ previews are too slow
 
 problem is, seggrid.broadcast.index implicates more tiles than just seggrid.index
 
-we need to flatten cfg
+
+seggrid.padded.infile

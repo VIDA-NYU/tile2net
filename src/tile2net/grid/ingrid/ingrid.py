@@ -49,6 +49,7 @@ tls = threading.local()
 
 if False:
     from .filled import Filled
+    from .broadcast import Broadcast
 
 
 class File(
@@ -79,6 +80,7 @@ class InGrid(
     @File
     def file(self):
         ...
+
 
     @VecGrid
     def vecgrid(self) -> VecGrid:
@@ -116,44 +118,9 @@ class InGrid(
         result = iio.imread(sample).shape[1]  # width
         return result
 
-    # @cached_property
-    # def shape(self) -> tuple[int, int, int]:
-    #     """Tile shape; inferred from input files"""
-    #     try:
-    #         sample = next(
-    #             p
-    #             for p in self.file.infile
-    #             if Path(p).is_file()
-    #         )
-    #     except StopIteration:
-    #         self.download(one=True)
-    #         try:
-    #             sample = next(
-    #                 p
-    #                 for p in self.file.infile
-    #                 if Path(p).is_file()
-    #             )
-    #         except StopIteration:
-    #             raise FileNotFoundError('No image files found to infer shape.')
-    #
-    #     arr = iio.imread(sample)
-    #     if arr.ndim == 2:
-    #         # grayscale -> expand channel axis
-    #         h, w = arr.shape
-    #         c = 1
-    #     elif arr.ndim == 3:
-    #         h, w, c = arr.shape
-    #     else:
-    #         raise ValueError(f"Unexpected image ndim={arr.ndim} for {sample}")
-    #
-    #     return h, w, c
-
-
     @property
     def shape(self):
         return self.dimension, self.dimension
-
-
 
     @Lines
     def lines(self):
@@ -238,13 +205,6 @@ class InGrid(
             max_workers: int = 64,  # ⇣ lower default ⇣ avoids port-exhaustion
             one: bool = False
     ) -> Self:
-
-        # if self is not self.filled:
-        #     return self.filled.download(
-        #         retry=retry,
-        #         force=force,
-        #         max_workers=max_workers,
-        #     )
 
         paths = self.file.infile
         urls = self.source.urls
@@ -467,6 +427,10 @@ class InGrid(
 
     @delayed.Filled
     def filled(self) -> Filled:
+        ...
+
+    @delayed.Broadcast
+    def broadcast(self) -> Broadcast:
         ...
 
     def set_source(
@@ -805,7 +769,7 @@ class InGrid(
         # if length:
         #     assert length >= 3
         #     length -= 2
-            # length *= seggrid.length
+        # length *= seggrid.length
         # if mosaic:
         #     raise NotImplementedError
         #     mosaic **= 1 / 2

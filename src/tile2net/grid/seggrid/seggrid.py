@@ -41,6 +41,8 @@ from ..grid import file
 from ..grid.grid import Grid
 from ..util import recursion_block
 from .. import util
+from .padded import Padded
+from .file import File
 
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 
@@ -56,102 +58,6 @@ def sha256sum(path):
         for chunk in iter(lambda: f.read(8192), b''):
             h.update(chunk)
     return h.hexdigest()
-
-
-class File(
-    file.File
-):
-    grid: SegGrid
-
-    @frame.column
-    def infile(self) -> pd.Series:
-        """
-        A file for each segmentation tile: the stitched input grid.
-        Stitches input files when seggrid.file is accessed
-        """
-        grid = self.grid
-        files = grid.ingrid.tempdir.seggrid.infile.files(grid)
-        if (
-                not grid._stitch_infile
-                and not files.map(os.path.exists).all()
-        ):
-            grid._stitch_infile()
-            assert files.map(os.path.exists).all()
-            self.instance.index.difference(self.instance.instance.index)
-        return files
-
-    @frame.column
-    def grayscale(self) -> pd.Series:
-        """Segmentation masks, where each pixel is a class id"""
-        grid = self.grid
-        files = grid.ingrid.outdir.seggrid.grayscale.files(grid)
-        if (
-                not grid.predict
-                and not files.map(os.path.exists).all()
-        ):
-            grid.predict()
-        return files
-
-    @frame.column
-    def probability(self) -> pd.Series:
-        grid = self.grid
-        files = grid.ingrid.outdir.seggrid.prob.files(grid)
-        if (
-                not grid.predict
-                and not files.map(os.path.exists).all()
-        ):
-            grid.predict()
-        return files
-
-    @frame.column
-    def error(self) -> pd.Series:
-        grid = self.grid
-        files = grid.ingrid.outdir.seggrid.error.files(grid)
-        if (
-                not grid.predict
-                and not files.map(os.path.exists).all()
-        ):
-            grid.predict()
-        return files
-
-    @frame.column
-    def submit(self) -> pd.Series:
-        raise NotImplementedError
-        grid = self.grid
-        if (
-                not grid.predict
-                and not files.map(os.path.exists).all()
-        ):
-            grid.predict()
-        grid[key] = files
-        return grid[key]
-
-    @frame.column
-    def colored(self) -> pd.Series:
-        grid = self.grid
-        files = grid.ingrid.outdir.seggrid.colored.files(grid)
-        if (
-                not grid.predict
-                and not files.map(os.path.exists).all()
-        ):
-            grid.predict()
-        return files
-
-    def output(self, dirname: str) -> pd.Series:
-        # todo: how to handle this? can't use frame.column
-        raise NotImplementedError
-        grid = self.grid
-        key = f'file.output.{dirname}'
-        if key in grid:
-            return grid[key]
-        files = grid.ingrid.outdir.seggrid.output.files(grid, dirname)
-        if (
-                not grid.predict
-                and not files.map(os.path.exists).all()
-        ):
-            grid.predict()
-        grid[key] = files
-        return grid[key]
 
 
 class SegGrid(
@@ -296,105 +202,6 @@ class SegGrid(
     def seggrid(self) -> Self:
         return self
 
-    # def preview(
-    #         self,
-    #         maxdim: int = 2048,
-    #         divider: Optional[str] = None,
-    # ) -> PIL.Image.Image:
-    #
-    #     files: pd.Series = self.file.infile
-    #     R: pd.Series = self.r  # 0-based row id
-    #     C: pd.Series = self.c  # 0-based col id
-    #
-    #     dim = self.dimension  # original tile side length
-    #     n_rows = int(R.max()) + 1
-    #     n_cols = int(C.max()) + 1
-    #     div_px = 1 if divider else 0
-    #
-    #     # full mosaic size before optional down-scaling
-    #     full_w0 = n_cols * dim + div_px * (n_cols - 1)
-    #     full_h0 = n_rows * dim + div_px * (n_rows - 1)
-    #
-    #     scale = 1.0
-    #     if max(full_w0, full_h0) > maxdim:
-    #         scale = maxdim / max(full_w0, full_h0)
-    #
-    #     tile_w = max(1, int(round(dim * scale)))
-    #     tile_h = tile_w  # square grid
-    #     full_w = n_cols * tile_w + div_px * (n_cols - 1)
-    #     full_h = n_rows * tile_h + div_px * (n_rows - 1)
-    #
-    #     canvas_col = divider if divider else (0, 0, 0)
-    #     mosaic = Image.new('RGB', (full_w, full_h), color=canvas_col)
-    #
-    #     def load(idx: int) -> tuple[int, int, np.ndarray]:
-    #         arr = iio.imread(files.iat[idx])
-    #         if scale != 1.0:
-    #             arr = np.asarray(
-    #                 Image.fromarray(arr).resize(
-    #                     (tile_w, tile_h), Image.Resampling.LANCZOS
-    #                 )
-    #             )
-    #         return R.iat[idx], C.iat[idx], arr
-    #
-    #     with ThreadPoolExecutor() as pool:
-    #         for r, c, arr in pool.map(load, range(len(files))):
-    #             x0 = c * (tile_w + div_px)
-    #             y0 = r * (tile_h + div_px)
-    #             mosaic.paste(Image.fromarray(arr), (x0, y0))
-    #
-    #     return mosaic
-    #
-    # def view(
-    #         self,
-    #         maxdim: int = 2048,
-    #         divider: Optional[str] = 'grey',
-    #         file: str = 'mask'
-    # ) -> PIL.Image.Image:
-    #
-    #     files = getattr(self.file, file)
-    #     R: pd.Series = self.r  # 0-based row id
-    #     C: pd.Series = self.c  # 0-based col id
-    #
-    #     dim = self.dimension  # original tile side length
-    #     n_rows = int(R.max()) + 1
-    #     n_cols = int(C.max()) + 1
-    #     div_px = 1 if divider else 0
-    #
-    #     # full mosaic size before optional down-scaling
-    #     full_w0 = n_cols * dim + div_px * (n_cols - 1)
-    #     full_h0 = n_rows * dim + div_px * (n_rows - 1)
-    #
-    #     scale = 1.0
-    #     if max(full_w0, full_h0) > maxdim:
-    #         scale = maxdim / max(full_w0, full_h0)
-    #
-    #     tile_w = max(1, int(round(dim * scale)))
-    #     tile_h = tile_w  # square grid
-    #     full_w = n_cols * tile_w + div_px * (n_cols - 1)
-    #     full_h = n_rows * tile_h + div_px * (n_rows - 1)
-    #
-    #     canvas_col = divider if divider else (0, 0, 0)
-    #     mosaic = Image.new('RGB', (full_w, full_h), color=canvas_col)
-    #
-    #     def load(idx: int) -> tuple[int, int, np.ndarray]:
-    #         arr = iio.imread(files.iat[idx])
-    #         if scale != 1.0:
-    #             arr = np.asarray(
-    #                 Image.fromarray(arr).resize(
-    #                     (tile_w, tile_h), Image.Resampling.LANCZOS
-    #                 )
-    #             )
-    #         return R.iat[idx], C.iat[idx], arr
-    #
-    #     with ThreadPoolExecutor() as pool:
-    #         for r, c, arr in pool.map(load, range(len(files))):
-    #             x0 = c * (tile_w + div_px)
-    #             y0 = r * (tile_h + div_px)
-    #             mosaic.paste(Image.fromarray(arr), (x0, y0))
-    #
-    #     return mosaic
-
     @property
     def skip(self):
         result = ~self.file.grayscale.apply(os.path.exists)
@@ -406,6 +213,10 @@ class SegGrid(
 
     @delayed.Broadcast
     def broadcast(self) -> Broadcast:
+        ...
+
+    @Padded
+    def padded(self):
         ...
 
     @recursion_block
@@ -670,57 +481,3 @@ class SegGrid(
             fut.result()
         futures.clear()
 
-    # @recursion_block
-    # def _stitch_infile(self, big_files=None) -> SegGrid:
-    #     grid = self.grid
-    #     if grid is not grid.filled:
-    #         return grid.filled.file._stitch_infile(big_files=big_files)
-    #
-    #     ingrid = grid.ingrid.filled
-    #     seggrid = grid.filled
-    #
-    #     small_files = ingrid.file.infile
-    #     if big_files is None:
-    #         big_files = ingrid.segtile.infile
-    #     assert len(small_files) == len(ingrid)
-    #     assert len(big_files) == len(ingrid)
-    #
-    #     msg = f'Stitching into \n\t{ingrid.outdir.seggrid.infile.dir}'
-    #     logger.debug(msg)
-    #
-    #     grid._stitch(
-    #         small_grid=ingrid,
-    #         big_grid=seggrid,
-    #         r=ingrid.segtile.r,
-    #         c=ingrid.segtile.c,
-    #         small_files=small_files,
-    #         big_files=big_files,
-    #         mosaic_shape=ingrid.segtile.shape,
-    #         tile_shape=ingrid.shape
-    #     )
-    #
-    #     return grid
-
-    @recursion_block
-    def _stitch_infile(self) -> Self:
-        ingrid = self.ingrid
-        seggrid = self.seggrid
-
-        _ = ingrid.file.infile
-        big_files = ingrid.segtile.infile
-        assert (
-            ingrid.file.infile
-            .map(os.path.exists)
-            .all()
-        )
-
-        self._stitch(
-            small_grid=ingrid,
-            big_grid=seggrid,
-            r=ingrid.segtile.r,
-            c=ingrid.segtile.c,
-            small_files=ingrid.file.infile,
-            big_files=big_files,
-        )
-        assert big_files.map(os.path.exists).all()
-        return self

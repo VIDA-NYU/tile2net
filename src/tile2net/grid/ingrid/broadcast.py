@@ -1,22 +1,19 @@
 from __future__ import annotations
 
 import numpy as np
-import pandas as pd
 
-from . import vectile
-from .seggrid import SegGrid
-
-from .. import frame, InGrid
-from functools import cached_property
+from . import segtile
+from .. import frame
+from .ingrid import InGrid
 
 if False:
-    from .seggrid import SegGrid
-    from ..vecgrid.vecgrid import VecGrid
+    from .ingrid import InGrid
+    from ..seggrid.seggrid import SegGrid
     from ..ingrid.ingrid import InGrid
 
 
-class VecTile(
-    vectile.VecTile
+class SegTile(
+    segtile.SegTile
 ):
 
     @frame.column
@@ -50,7 +47,7 @@ class VecTile(
 
     @property
     def length(self) -> int:
-        return self.seggrid.vecgrid.padded.length
+        return self.ingrid.seggrid.padded.length
 
 
 def boundary_grid(
@@ -70,13 +67,13 @@ def boundary_grid(
 
 
 class Broadcast(
-    SegGrid
+    InGrid
 ):
-    instance: SegGrid
+    instance: InGrid
 
     def _get(
             self: Broadcast,
-            instance: SegGrid,
+            instance: InGrid,
             owner,
     ) -> Broadcast:
         if instance is None:
@@ -84,17 +81,17 @@ class Broadcast(
         elif self.__name__ in instance.__dict__:
             result = instance.frame.__dict__[self.__name__]
         else:
-            vecgrid = instance.vecgrid
-            seggrid = instance.seggrid.filled
+            seggrid = instance.seggrid
+            ingrid = instance.ingrid.filled
             corners = (
-                vecgrid
-                .to_corners(seggrid.scale)
+                seggrid
+                .to_corners(ingrid.scale)
                 .to_padding()
             )
-            vectile = corners.index.repeat(corners.area)
+            segtile = corners.index.repeat(corners.area)
             kwargs = {
-                'vectile.xtile': vectile.get_level_values('xtile'),
-                'vectile.ytile': vectile.get_level_values('ytile'),
+                'segtile.xtile': segtile.get_level_values('xtile'),
+                'segtile.ytile': segtile.get_level_values('ytile'),
             }
 
             result = (
@@ -107,10 +104,10 @@ class Broadcast(
 
             instance.frame.__dict__[self.__name__] = result
 
-            d = seggrid.scale - vecgrid.scale
+            d = ingrid.scale - seggrid.scale
             expected = 2 ** (2 * d) + 4 * 2 ** d + 4
-            assert len(result) == expected * len(vecgrid)
-            _ = result.vectile.r, result.vectile.c
+            assert len(result) == expected * len(seggrid)
+            _ = result.segtile.r, result.segtile.c
 
         result.instance = instance
         return result
@@ -120,15 +117,15 @@ class Broadcast(
     )
 
     @property
+    def ingrid(self) -> InGrid:
+        return self.instance.ingrid
+
+    @property
     def seggrid(self) -> SegGrid:
         return self.instance.seggrid
 
-    @property
-    def vecgrid(self) -> VecGrid:
-        return self.instance.vecgrid
-
-    @VecTile
-    def vectile(self):
+    @SegTile
+    def segtile(self):
         ...
 
     @property
