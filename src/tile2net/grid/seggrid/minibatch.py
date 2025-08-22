@@ -42,12 +42,12 @@ class MiniBatch(
     predictions: np.ndarray
     iou_acc: np.ndarray
     gt_images: torch.Tensor
-    # grid: Grid
     grid: SegGrid
     threads: ThreadPoolExecutor
     output: dict[str, torch.Tensor] = field(default_factory=dict)
     prob_mask: Optional[torch.Tensor] = None
     error_mask: Optional[np.ndarray] = None
+    clip: int = 0
 
     @classmethod
     def from_data(
@@ -59,6 +59,7 @@ class MiniBatch(
             val_loss: AverageMeter,
             grid: Grid,
             threads: ThreadPoolExecutor,
+            clip:int =0
     ):
         """
         Evaluate a single minibatch of images.
@@ -177,7 +178,8 @@ class MiniBatch(
             error_mask=err_mask,
             input_images=images,
             gt_images=gt_image,
-            threads=threads
+            threads=threads,
+            clip=clip
         )
         return result
 
@@ -274,7 +276,9 @@ class MiniBatch(
         )
         files = self.grid.file.probability
         for array, file in zip(arrays, files):
-            future = self.threads.submit(cv2.imwrite, file, array)
+            # Clip the image before saving
+            clipped_array = self.clip_image(array)
+            future = self.threads.submit(cv2.imwrite, file, clipped_array)
             yield future
 
     def submit_error(self):
@@ -301,6 +305,13 @@ class MiniBatch(
             self.dump_percent += cfg.dump_percent
             if self.dump_percent < 100:
                 continue
+                
+            # Apply clipping to the input image array before converting to PIL
+            if self.clip > 0:
+                input_image = self.clip_image(input_image)
+                # Also clip the prediction array
+                prediction = self.clip_image(prediction)
+                
             input_image = (
                 standard_transforms.ToPILImage()
                 (input_image)
@@ -323,7 +334,9 @@ class MiniBatch(
             if 'pred_' in dirname:
                 arrays = colorize(arrays)
             for array, file in zip(arrays, files):
-                future = self.threads.submit(cv2.imwrite, file, array)
+                # Clip the image before saving
+                clipped_array = self.clip_image(array)
+                future = self.threads.submit(cv2.imwrite, file, clipped_array)
                 yield future
 
     def submit_grayscale(self):
@@ -334,13 +347,40 @@ class MiniBatch(
 
             if array.ndim == 3:  # one-hot or logits → class map2
                 array = array.argmax(axis=-1)
+            
+            # Clip the image before saving
+            clipped_array = self.clip_image(array)
             future = self.threads.submit(
                 cv2.imwrite,
                 file,
-                array.astype('uint8')
+                clipped_array.astype('uint8')
             )
             yield future
 
+    def clip_image(self, array: np.ndarray) -> np.ndarray:
+        """
+        Clip the image by removing the specified number of pixels from each edge.
+        
+        Args:
+            array: The image array to clip
+            
+        Returns:
+            The clipped image array
+        """
+        if self.clip <= 0:
+            return array
+            
+        # Get the dimensions of the array
+        if array.ndim == 2:
+            h, w = array.shape
+            return array[self.clip:h-self.clip, self.clip:w-self.clip]
+        elif array.ndim == 3:
+            h, w, c = array.shape
+            return array[self.clip:h-self.clip, self.clip:w-self.clip, :]
+        else:
+            # If the array has an unexpected number of dimensions, return it unchanged
+            return array
+            
     def submit_colored(self):
         """
         Colorized segmentation mask where different classes (road, sidewalk, crosswalk) are represented by different colors according to a predefined color palette
@@ -351,5 +391,7 @@ class MiniBatch(
         arrays = self.grid.colormap(arrays)
         files = self.grid.file.colored
         for array, file in zip(arrays, files):
-            future = self.threads.submit(cv2.imwrite, file, array)
+            # Clip the image before saving
+            clipped_array = self.clip_image(array)
+            future = self.threads.submit(cv2.imwrite, file, clipped_array)
             yield future

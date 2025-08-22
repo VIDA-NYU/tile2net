@@ -113,8 +113,13 @@ class File(
         vecgrid = self.grid
         files = vecgrid.ingrid.tempdir.vecgrid.overlay.files(vecgrid)
         self.overlay = files
-        if not files.map(os.path.exists).all():
-            vecgrid._overlay()
+        # if not files.map(os.path.exists).all():
+        #     vecgrid._overlay()
+        if (
+            not vecgrid.vectorize
+            and not files.map(os.path.exists).all()
+        ):
+            vecgrid.vectorize()
         return files
 
     @frame.column
@@ -122,7 +127,12 @@ class File(
         vecgrid = self.grid
         files = vecgrid.ingrid.outdir.vecgrid.lines.files(vecgrid)
         self.lines = files
-        if not files.map(os.path.exists).all():
+        # if not files.map(os.path.exists).all():
+        #     vecgrid.vectorize()
+        if (
+            not vecgrid.vectorize
+            and not files.map(os.path.exists).all()
+        ):
             vecgrid.vectorize()
         return files
 
@@ -131,6 +141,12 @@ class File(
         vecgrid = self.grid
         files = vecgrid.ingrid.outdir.vecgrid.polygons.files(vecgrid)
         self.polygons = files
-        if not files.map(os.path.exists).all():
+        # if not files.map(os.path.exists).all():
+        #     vecgrid.vectorize()
+        if (
+            not vecgrid.vectorize
+            and not files.map(os.path.exists).all()
+        ):
             vecgrid.vectorize()
+
         return files

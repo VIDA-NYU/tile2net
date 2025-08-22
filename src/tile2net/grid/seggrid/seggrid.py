@@ -19,7 +19,7 @@ import torch
 import torch.distributed as dist
 from PIL import Image
 from torch.nn.parallel.data_parallel import DataParallel
-from torch.utils.data import DataLoader
+from ..tileseg.datasets.satellite import Loader
 from tqdm import tqdm
 from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
@@ -237,6 +237,7 @@ class SegGrid(
             # preemptively stitch so logging apears more sequential
             # otherwise you get "now predicting" before "now stitching"
             _ = self.file.infile
+            _ = self.padded.infile
 
             if force is not None:
                 cfg.force = force
@@ -400,7 +401,7 @@ class SegGrid(
 
     def _validate(
             self,
-            loader: DataLoader,
+            loader: Loader,
             net: torch.nn.parallel.DataParallel,
             force,
             grid: SegGrid,
@@ -432,6 +433,7 @@ class SegGrid(
         threads = ThreadPoolExecutor()
         futures = []
         batch_size = cfg.model.bs_val
+        clip = self.ingrid.dimension
 
         unit = f' {self.seggrid.__name__}.{self.seggrid.file.grayscale.name}'
         with logging_redirect_tqdm(), cfg:
@@ -462,6 +464,7 @@ class SegGrid(
                     val_loss=val_loss,
                     grid=grid,
                     threads=threads,
+                    clip=clip
                 )
                 futures.extend(batch.submit_all())
 

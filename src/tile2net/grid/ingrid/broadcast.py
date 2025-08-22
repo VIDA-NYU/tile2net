@@ -49,6 +49,15 @@ class SegTile(
     def length(self) -> int:
         return self.ingrid.seggrid.padded.length
 
+    @frame.column
+    def infile(self):
+        result = (
+            self.grid.ingrid.seggrid.padded.infile
+            .loc[self.index]
+            .values
+        )
+        return result
+
 
 def boundary_grid(
         shape: tuple[int, int],

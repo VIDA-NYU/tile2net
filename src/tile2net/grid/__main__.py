@@ -32,7 +32,7 @@ if __name__ == '__main__':
         # configure vectorization using cfg parameters
         ingrid = ingrid.set_vectorization()
 
-        ingrid.seggrid.preview(show=True)
+        # ingrid.seggrid.preview(show=True)
 
         if cfg.line.concat:
             # concatenate lines into single file and save

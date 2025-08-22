@@ -24,6 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 Mapillary Dataset Loader
 """
 from __future__ import annotations
+import os
 import itertools
 import os.path
 
@@ -113,8 +114,7 @@ class Loader(BaseLoader):
         self.trainid_to_name = trainId2name
         self.fill_colormap()
 
-        files = tiles.file.infile
-        import os
+        files = tiles.padded.infile
         it = zip(files.tolist(), itertools.repeat(''))
         imgs = list(it)
         self.all_imgs = imgs

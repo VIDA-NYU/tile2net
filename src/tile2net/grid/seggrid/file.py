@@ -102,7 +102,12 @@ class File(
         grid = self.grid
         files = grid.ingrid.outdir.seggrid.grayscale.files(grid)
         self.grayscale = files
-        if not files.map(os.path.exists).all():
+        # if not files.map(os.path.exists).all():
+        #     grid.predict()
+        if (
+            not grid.predict
+            and not files.map(os.path.exists).all()
+        ):
             grid.predict()
         return files
 
@@ -111,7 +116,12 @@ class File(
         grid = self.grid
         files = grid.ingrid.outdir.seggrid.prob.files(grid)
         self.probability = files
-        if not files.map(os.path.exists).all():
+        # if not files.map(os.path.exists).all():
+        #     grid.predict()
+        if (
+            not grid.predict
+            and not files.map(os.path.exists).all()
+        ):
             grid.predict()
         return files
 
@@ -120,7 +130,12 @@ class File(
         grid = self.grid
         files = grid.ingrid.outdir.seggrid.error.files(grid)
         self.error = files
-        if not files.map(os.path.exists).all():
+        # if not files.map(os.path.exists).all():
+        #     grid.predict()
+        if (
+            not grid.predict
+            and not files.map(os.path.exists).all()
+        ):
             grid.predict()
         return files
 
@@ -129,7 +144,12 @@ class File(
         grid = self.grid
         files = grid.ingrid.outdir.seggrid.submit.files(grid)
         self.submit = files
-        if not files.map(os.path.exists).all():
+        # if not files.map(os.path.exists).all():
+        #     grid.predict()
+        if (
+            not grid.predict
+            and not files.map(os.path.exists).all()
+        ):
             grid.predict()
         return files
 
@@ -138,7 +158,12 @@ class File(
         grid = self.grid
         files = grid.ingrid.outdir.seggrid.colored.files(grid)
         self.colored = files
-        if not files.map(os.path.exists).all():
+        # if not files.map(os.path.exists).all():
+        #     grid.predict()
+        if (
+            not grid.predict
+            and not files.map(os.path.exists).all()
+        ):
             grid.predict()
         return files
 
@@ -148,6 +173,11 @@ class File(
         files = grid.ingrid.outdir.seggrid.output.files(grid, dirname)
         key = f'output.{dirname}'
         setattr(self, key, files)
-        if not files.map(os.path.exists).all():
+        # if not files.map(os.path.exists).all():
+        #     grid.predict()
+        if (
+            not grid.predict
+            and not files.map(os.path.exists).all()
+        ):
             grid.predict()
         return files
