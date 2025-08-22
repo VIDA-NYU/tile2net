@@ -16,7 +16,6 @@ if False:
     import tile2net.grid.ingrid
 
 
-
 class Probability(
     Dir,
 ):
@@ -43,43 +42,27 @@ class Polygons(
     def file(self) -> str:
         key = f'{self._trace}.polygons'
         cache = self.grid.__dict__
-
         if key in cache:
             return cache[key]
 
-        # ───── deterministic UUID from tile indices ───── #
-        # unique (x, y) pairs ensure ordering does not alter digest
-        stack = [self.grid.xtile.to_numpy(), self.grid.ytile.to_numpy()]
-        pairs = np.unique(
-            np.column_stack(stack),
-            axis=0,
-        )
-        digest = hashlib.blake2b(pairs.tobytes(), digest_size=8).hexdigest()  # 16 hex
+        hash = self.grid.ingrid.hash
 
         Path(self.dir).mkdir(parents=True, exist_ok=True)
-        filename = os.path.join(self.dir, f'Polygons-{digest}.parquet')
+        filename = os.path.join(self.dir, f'Polygons-{hash}.parquet')
         cache[key] = filename
         return filename
-        
+
     @property
     def preview(self) -> str:
         key = f'{self._trace}.preview'
         cache = self.grid.__dict__
-        
         if key in cache:
             return cache[key]
-            
-        # ───── deterministic UUID from tile indices ───── #
-        # unique (x, y) pairs ensure ordering does not alter digest
-        stack = [self.grid.xtile.to_numpy(), self.grid.ytile.to_numpy()]
-        pairs = np.unique(
-            np.column_stack(stack),
-            axis=0,
-        )
-        digest = hashlib.blake2b(pairs.tobytes(), digest_size=8).hexdigest()  # 16 hex
-        
+
+        hash = self.grid.ingrid.hash
+
         Path(os.path.join(self.dir, 'preview')).mkdir(parents=True, exist_ok=True)
-        filename = os.path.join(self.dir, 'preview', f'Polygons-{digest}.png')
+        filename = os.path.join(self.dir, 'preview', f'Polygons-{hash}.png')
         cache[key] = filename
         return filename
 
@@ -95,32 +78,24 @@ class Lines(
         if key in cache:
             return cache[key]
 
-        pairs = np.unique(
-            np.column_stack([self.grid.xtile.to_numpy(), self.grid.ytile.to_numpy()]),
-            axis=0,
-        )
-        digest = hashlib.blake2b(pairs.tobytes(), digest_size=8).hexdigest()  # 16-hex UUID
+        hash = self.grid.ingrid.hash
 
         Path(self.dir).mkdir(parents=True, exist_ok=True)
-        filename = os.path.join(self.dir, f'Lines-{digest}.parquet')
+        filename = os.path.join(self.dir, f'Lines-{hash}.parquet')
         cache[key] = filename
         return filename
-        
+
     @property
     def preview(self) -> str:
         key = f'{self._trace}.preview'
         cache = self.grid.__dict__
         if key in cache:
             return cache[key]
-            
-        pairs = np.unique(
-            np.column_stack([self.grid.xtile.to_numpy(), self.grid.ytile.to_numpy()]),
-            axis=0,
-        )
-        digest = hashlib.blake2b(pairs.tobytes(), digest_size=8).hexdigest()  # 16-hex UUID
-        
+
+        hash = self.grid.ingrid.hash
+
         Path(os.path.join(self.dir, 'preview')).mkdir(parents=True, exist_ok=True)
-        filename = os.path.join(self.dir, 'preview', f'Lines-{digest}.png')
+        filename = os.path.join(self.dir, 'preview', f'Lines-{hash}.png')
         cache[key] = filename
         return filename
 
@@ -129,7 +104,6 @@ class SideBySide(
     Dir
 ):
     ...
-
 
 
 # class SegResults(
@@ -263,7 +237,6 @@ class Outdir(
         result = InGrid.from_format(format)
         return result
 
-
     @Lines
     def lines(self):
         ...
@@ -271,10 +244,6 @@ class Outdir(
     @Polygons
     def polygons(self):
         ...
-
-
-
-
 
     # def preview(self) -> str:
     #     self.seg_results.error.format

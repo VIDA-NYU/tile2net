@@ -1699,6 +1699,68 @@ class Cfg(
 
         return merged
 
+    def hash(self) -> str:
+        # compute a stable digest of the flattened config using only elementary JSON-safe types
+        print('⚠️AI GENERATED🤖')
+        import hashlib
+        import json
+        import math
+        from collections.abc import Mapping, Sequence
+
+        # sentinel to drop disallowed values
+        _SKIP = object()
+
+        # accept str, int, float (finite), bool
+        def _is_elem(x) -> bool:
+            if isinstance(x, bool):
+                return True
+            if isinstance(x, (str, int)):
+                return True
+            if isinstance(x, float):
+                return math.isfinite(x)
+            return False
+
+        # recursively filter to {str: elem|list|dict} and lists of elem|list|dict
+        def _sanitize(obj):
+            if _is_elem(obj):
+                return obj
+            if isinstance(obj, Mapping):
+                # keep only string keys
+                kept = []
+                for k, v in obj.items():
+                    if not isinstance(k, str):
+                        continue
+                    sv = _sanitize(v)
+                    if sv is not _SKIP:
+                        kept.append((k, sv))
+                # sort for deterministic serialization
+                return {k: v for k, v in sorted(kept, key=lambda kv: kv[0])}
+            if isinstance(obj, Sequence) and not isinstance(obj, (str, bytes, bytearray)):
+                out = []
+                for el in obj:
+                    se = _sanitize(el)
+                    if se is not _SKIP:
+                        out.append(se)
+                return out
+            return _SKIP
+
+        # flatten then sanitize
+        flat = self.flatten()
+        sanitized = _sanitize(flat)
+
+        # deterministic JSON encoding
+        payload = json.dumps(
+            sanitized,
+            sort_keys=True,
+            separators=(',', ':'),
+            ensure_ascii=False,
+            allow_nan=False,
+        )
+
+        # short but strong digest
+        result = hashlib.blake2b(payload.encode('utf-8'), digest_size=16).hexdigest()
+        return result
+
 
 cfg = Cfg.from_defaults()
 Cfg._default = cfg

@@ -29,6 +29,7 @@ from .. import frame
 from .. import util
 from ..cfg import cfg, Cfg
 from ..frame.framewrapper import FrameWrapper
+import hashlib
 
 if False:
     import folium
@@ -79,6 +80,26 @@ class Grid(
         """
         accessor for self.frame.index.get_level_values('ytile')
         """
+
+    @cached_property
+    def hash(self) -> str:
+        """Hash of the Tiles in the grid and the configuration."""
+        # pairs = self.index.to_numpy(copy=False)
+        pairs = (
+            self.index
+            .to_frame(index=False)                       # -> DataFrame with ['xtile', 'ytile']
+            .astype({'xtile': 'int64', 'ytile': 'int64'}, copy=False)
+            .to_numpy(copy=False)                        # -> (n, 2) int64 ndarray
+        )
+        tiles = hashlib.blake2b(
+            np.ascontiguousarray(pairs).tobytes(),
+            digest_size=8,
+        ).hexdigest()
+        cfg = self.cfg.hash()
+        result = f'{tiles}-{cfg}'
+        return result
+
+
 
     @property
     def min_scale(self) -> int:

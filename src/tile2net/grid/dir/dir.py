@@ -167,6 +167,10 @@ class Dir:
         except KeyError:
             raise AttributeError('Indir.suffix is not set.')
 
+    @property
+    def hash(self):
+        return self.grid.hash
+
     @suffix.setter
     def suffix(self, value: str | None):
         self.__dict__['suffix'] = value
