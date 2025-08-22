@@ -27,3 +27,5 @@ problem is, seggrid.broadcast.index implicates more tiles than just seggrid.inde
 seggrid.padded.infile
 
 seggrid.broadcast.infile
+
+filename hash based

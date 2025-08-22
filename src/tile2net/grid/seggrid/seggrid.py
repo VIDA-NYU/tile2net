@@ -433,7 +433,7 @@ class SegGrid(
         threads = ThreadPoolExecutor()
         futures = []
         batch_size = cfg.model.bs_val
-        clip = self.ingrid.dimension
+        clip = self.ingrid.dimension * cfg.segment.pad
 
         unit = f' {self.seggrid.__name__}.{self.seggrid.file.grayscale.name}'
         with logging_redirect_tqdm(), cfg:

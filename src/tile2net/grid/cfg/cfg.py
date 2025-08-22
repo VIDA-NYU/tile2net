@@ -720,6 +720,10 @@ class Segment(cmdline.Namespace):
     def to_pkl(self) -> bool:
         return False
 
+    @cmdline.property
+    def pad(self) -> int:
+        return 1
+
 
 class Vector(cmdline.Namespace):
     """Vectorization configuration namespace."""
@@ -1663,7 +1667,6 @@ class Cfg(
     def _cfg(self) -> Self:
         return self
 
-
     def flatten(self) -> Self:
         merged = type(self)()  # new empty Cfg
 
@@ -1695,7 +1698,6 @@ class Cfg(
         })
 
         return merged
-
 
 
 cfg = Cfg.from_defaults()
