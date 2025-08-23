@@ -92,7 +92,6 @@ network of lines. With less RAM, you must reduce `-v` and with less VRAM, you mu
 python -m tile2net \
   -l "Cambridge, MA" \
   -b 8 \
-  -o ./cambridge \
   -v 8 \
   --no-cleanup 
 ```
@@ -103,10 +102,9 @@ To demonstrate the use of local imagery, we can reuse the downloaded imagery wit
 
 ```bash
 python -m tile2net \
-  -i ./cambridge/ingrid/infile/20/x_y \
+  -i [todo] \
   -z 20 \ 
   -l "Cambridge, MA" \
   -b 8 \
-  -o . /local \
   -v 8 \
 ```
