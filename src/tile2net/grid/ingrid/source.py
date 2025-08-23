@@ -196,7 +196,7 @@ class Source(
                 f'Source has not yet been set. To set the source, you '
                 f'must call `InGrid.with_source()`.'
             )
-            raise KeyError(msg) from e
+            raise ValueError(msg) from e
         return result
 
     locals().update(

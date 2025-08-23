@@ -178,7 +178,7 @@ class Lines(
 
     @property
     def file(self):
-        return self.ingrid.outdir.lines.file
+        return self.ingrid.outdir.lines.parquet
 
     def unlink(self):
         """Delete the lines file."""

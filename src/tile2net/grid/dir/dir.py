@@ -193,7 +193,8 @@ class Dir:
     @classmethod
     def from_format(
             cls,
-            format: str
+            format: str,
+            force_xy: bool = True,
     ) -> Self:  # noqa: A002
 
         # value = os.path.normpath(format)
@@ -238,9 +239,10 @@ class Dir:
             # raise ValueError(f'No extension found in {value!r}')
 
         failed = [c for c in 'xy' if c not in CHARACTERS]
-        if failed:
+        # if failed:
+        #     raise XYNotFoundError(value, failed)
+        if force_xy and failed:
             raise XYNotFoundError(value, failed)
-            # raise ValueError(f'indir failed to parse {value!r}')
 
         parts = []
         r = result[0]
@@ -251,6 +253,20 @@ class Dir:
         indir.dir = parts[0].rsplit('/', 1)[0]
         indir.suffix = os.path.relpath(indir.original, indir.dir)
         return indir
+
+    def with_suffix(
+            self,
+            suffix: str = '/z/x_y'
+    ):
+
+        format = os.path.join(
+            self.dir,
+            suffix,
+        )
+        result = self.__class__.from_format(format )
+        return result
+
+
 
     def __set__(self, instance: 'Grid', value: str | PathLike):
         if value is None:

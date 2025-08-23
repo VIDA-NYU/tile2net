@@ -6,12 +6,15 @@ from __future__ import unicode_literals
 
 import argparse
 import functools
+import hashlib
+import json
 import re
 from collections import deque, UserDict
 from types import MappingProxyType
 from typing import *
 from typing import TypeVar, Callable
 
+import math
 import torch
 from toolz.curried import *
 
@@ -847,6 +850,33 @@ class Polygon(cmdline.Namespace):
         return 4096
 
 
+class Indir(
+    cmdline.Namespace
+):
+    @cmdline.property
+    def path(self) -> Optional[str]:
+        """
+        Path to the input directory containing imagery tiles. The path
+        should implicate the format of the files, containing the xtile,
+        ytile, and extension, and possibly the zoom level.
+
+        For example, `path/to/tiles/z/x/y.png` tells Tile2Net we are
+        working with PNG files stored under the format
+        /{zoom}/{xtile}/{ytile}.png, and searches for files as such.
+
+        If the user passes `path/to/tiles/x_y.png`, Tile2Net will look
+        for files with names `{xtile}_{ytile}.png` in the `tiles` folder.
+
+        If not specified, the tiles will be downloaded from a remote source.
+        """
+
+    path.add_options(short='-i')
+
+    @cmdline.property
+    def name(self) -> Optional[str]:
+        ...
+
+
 class Cfg(
     Nested,
     UserDict,
@@ -975,6 +1005,10 @@ class Cfg(
     def polygon(self):
         ...
 
+    @Indir
+    def indir(self):
+        ...
+
     @Line
     def line(self):
         ...
@@ -986,7 +1020,6 @@ class Cfg(
         After performing vectorization, delete all segmentation masks.
         After merging tiles into single geometries, delete all tile geometries.
         """
-        # return True
         return False
 
     cleanup.add_options(long='--no-cleanup')
@@ -1020,6 +1053,7 @@ class Cfg(
         Using a relative path such as './cambridge' will create a
         directory in the current working directory.
         """
+        return './outdir'
 
     outdir.add_options(
         short='-o',
@@ -1371,25 +1405,6 @@ class Cfg(
     location.add_options(short='-l')
 
     @cmdline.property
-    def indir(self) -> Optional[str]:
-        """
-        Path to the input directory containing imagery tiles. The path
-        should implicate the format of the files, containing the xtile,
-        ytile, and extension, and possibly the zoom level.
-
-        For example, `path/to/tiles/z/x/y.png` tells Tile2Net we are
-        working with PNG files stored under the format
-        /{zoom}/{xtile}/{ytile}.png, and searches for files as such.
-
-        If the user passes `path/to/tiles/x_y.png`, Tile2Net will look
-        for files with names `{xtile}_{ytile}.png` in the `tiles` folder.
-
-        If not specified, the tiles will be downloaded from a remote source.
-        """
-
-    indir.add_options(short='-i')
-
-    @cmdline.property
     def num_class(self) -> int:
         return 4
 
@@ -1399,7 +1414,7 @@ class Cfg(
 
     @cmdline.property
     def zoom(self) -> int:
-        return 19
+        return 20
 
     zoom.add_options(short='-z')
 
@@ -1702,10 +1717,6 @@ class Cfg(
     def hash(self) -> str:
         # compute a stable digest of the flattened config using only elementary JSON-safe types
         print('⚠️AI GENERATED🤖')
-        import hashlib
-        import json
-        import math
-        from collections.abc import Mapping, Sequence
 
         # sentinel to drop disallowed values
         _SKIP = object()

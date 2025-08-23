@@ -113,8 +113,6 @@ class File(
         vecgrid = self.grid
         files = vecgrid.ingrid.tempdir.vecgrid.overlay.files(vecgrid)
         self.overlay = files
-        # if not files.map(os.path.exists).all():
-        #     vecgrid._overlay()
         if (
             not vecgrid.vectorize
             and not files.map(os.path.exists).all()

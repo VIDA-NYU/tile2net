@@ -485,7 +485,7 @@ class VecGrid(Grid):
             .rpartition(os.sep)
             [0]
         )
-        msg = f'Vectorizing to {dest}'
+        msg = f'Vectorizing to \n\t{dest}'
         logger.debug(msg)
 
         _cfg = grid.ingrid.cfg.flatten()

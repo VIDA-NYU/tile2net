@@ -1,16 +1,10 @@
 from __future__ import annotations
 
-import hashlib
 import os
 import os.path
-from pathlib import Path
-
-import numpy as np
 
 from .dir import Dir
-from .ingrid import InGrid
-from .seggrid import SegGrid
-from .vecgrid import VecGrid
+from .sourcedir import SourceDir
 
 if False:
     import tile2net.grid.ingrid
@@ -32,72 +26,6 @@ class Error(
     Dir
 ):
     extension = 'npy'
-
-
-class Polygons(
-    Dir
-):
-
-    @property
-    def file(self) -> str:
-        key = f'{self._trace}.polygons'
-        cache = self.grid.__dict__
-        if key in cache:
-            return cache[key]
-
-        hash = self.grid.ingrid.hash
-
-        Path(self.dir).mkdir(parents=True, exist_ok=True)
-        filename = os.path.join(self.dir, f'Polygons-{hash}.parquet')
-        cache[key] = filename
-        return filename
-
-    @property
-    def preview(self) -> str:
-        key = f'{self._trace}.preview'
-        cache = self.grid.__dict__
-        if key in cache:
-            return cache[key]
-
-        hash = self.grid.ingrid.hash
-
-        Path(os.path.join(self.dir, 'preview')).mkdir(parents=True, exist_ok=True)
-        filename = os.path.join(self.dir, 'preview', f'Polygons-{hash}.png')
-        cache[key] = filename
-        return filename
-
-
-class Lines(
-    Dir
-):
-
-    @property
-    def file(self) -> str:
-        key = f'{self._trace}.lines'
-        cache = self.grid.__dict__
-        if key in cache:
-            return cache[key]
-
-        hash = self.grid.ingrid.hash
-
-        Path(self.dir).mkdir(parents=True, exist_ok=True)
-        filename = os.path.join(self.dir, f'Lines-{hash}.parquet')
-        cache[key] = filename
-        return filename
-
-    @property
-    def preview(self) -> str:
-        key = f'{self._trace}.preview'
-        cache = self.grid.__dict__
-        if key in cache:
-            return cache[key]
-
-        hash = self.grid.ingrid.hash
-
-        Path(os.path.join(self.dir, 'preview')).mkdir(parents=True, exist_ok=True)
-        filename = os.path.join(self.dir, 'preview', f'Lines-{hash}.png')
-        cache[key] = filename
-        return filename
 
 
 class SideBySide(
@@ -207,50 +135,46 @@ class Outdir(
     #     result = BestImages.from_format(format)
     #     return result
 
-    @VecGrid
-    def vecgrid(self):
+    @SourceDir
+    def sourcedir(self):
+        grid = self.grid
+        name = None
+        try:
+            name = grid.source.name
+        except ValueError:
+            ...
+        if name is None:
+            name = grid.cfg.indir.name
+        if name is None:
+            name = grid.indir.dir.rsplit(os.sep, 1)[-1]
         format = os.path.join(
             self.dir,
-            'vecgrid',
+            name,
             self.suffix
         )
-        result = VecGrid.from_format(format)
+        result = SourceDir.from_format(format)
         return result
 
-    @SegGrid
-    def seggrid(self):
-        format = os.path.join(
-            self.dir,
-            'seggrid',
-            self.suffix
-        )
-        result = SegGrid.from_format(format)
-        return result
-
-    @InGrid
-    def ingrid(self):
-        format = os.path.join(
-            self.dir,
-            'ingrid',
-            self.suffix
-        )
-        result = InGrid.from_format(format)
-        return result
-
-    @Lines
+    @property
     def lines(self):
-        ...
+        return self.sourcedir.lines
 
-    @Polygons
+    @property
     def polygons(self):
-        ...
+        return self.sourcedir.polygons
 
-    # def preview(self) -> str:
-    #     self.seg_results.error.format
-    #     self.seg_results.prob.format
-    #     self.seg_results.sidebyside.format
-    #     self.format
-    #     self.mask.format
-    #     self.mask.raw.format
-    #     self.polygons.path
-    #     self.network.path
+    @property
+    def vecgrid(self):
+        return self.sourcedir.namedir.vecgrid
+
+    @property
+    def seggrid(self):
+        return self.sourcedir.namedir.seggrid
+
+    @property
+    def namedir(self):
+        return self.sourcedir.namedir
+
+    @property
+    def ingrid(self):
+        return self.sourcedir.ingrid

@@ -1,21 +1,10 @@
 from __future__ import annotations
-from .seggrid import SegGrid
 
 import os
-import hashlib
-import numpy as np
-import pandas as pd
-from pathlib import Path
-import os
-
-import datetime
 import os.path
 
-import pandas as pd
-from pandas.tseries.holiday import USPresidentsDay
-
-from .batchiterator import BatchIterator
-from .dir import Dir, Dir, Dir, Dir
+from .dir import Dir
+from .seggrid import SegGrid
 
 
 class Polygons(
@@ -30,7 +19,6 @@ class Network(
     ...
 
 
-
 class VecGrid(
     SegGrid
 ):
@@ -42,10 +30,10 @@ class VecGrid(
             'polygons',
             self.suffix,
         )
-        try:
-            format = format.replace(self.extension, 'parquet')
-        except AttributeError:
-            format = format + '.parquet'
+        # try:
+        #     format = format.replace(self.extension, 'parquet')
+        # except AttributeError:
+        format = format + '.parquet'
         result = Polygons.from_format(format)
         return result
 
@@ -56,9 +44,9 @@ class VecGrid(
             'lines',
             self.suffix,
         )
-        try:
-            format = format.replace(self.extension, 'parquet')
-        except AttributeError:
-            format = format + '.parquet'
+        # try:
+        #     format = format.replace(self.extension, 'parquet')
+        # except AttributeError:
+        format = format + '.parquet'
         result = Network.from_format(format)
         return result

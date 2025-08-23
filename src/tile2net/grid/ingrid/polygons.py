@@ -124,7 +124,7 @@ class Polygons(
 
     @property
     def file(self):
-        return self.ingrid.outdir.polygons.file
+        return self.ingrid.outdir.polygons.parquet
 
     def unlink(self):
         """Delete the polygons file."""

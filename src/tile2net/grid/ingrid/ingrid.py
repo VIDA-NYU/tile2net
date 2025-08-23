@@ -81,7 +81,6 @@ class InGrid(
     def file(self):
         ...
 
-
     @VecGrid
     def vecgrid(self) -> VecGrid:
         """
@@ -118,6 +117,25 @@ class InGrid(
         result = iio.imread(sample).shape[1]  # width
         return result
 
+    @cached_property
+    def name(self) -> str:
+        name = None
+        # if name is None:
+        #     name = self.cfg.name
+        # if name is None:
+        #     name = self.cfg.indir.name
+        # if name is None
+        #     name = self.location
+        # if name is None:
+        #     name = self.indir.dir.rsplit(os.sep, 1)[-1]
+        name = (
+            self.cfg.name
+            or self.cfg.indir.name
+            or self.location
+            or self.indir.dir.rsplit(os.sep, 1)[-1]
+        )
+        return name
+
     @property
     def shape(self):
         return self.dimension, self.dimension
@@ -136,6 +154,7 @@ class InGrid(
 
     @Indir
     def indir(self):
+        raise ValueError('No input directory specified. ')
         ingrid = self.ingrid.outdir.ingrid
         format = os.path.join(
             ingrid.dir,
@@ -162,11 +181,16 @@ class InGrid(
 
     @TempDir
     def tempdir(self):
-        format = ensure_tempdir_for_indir(
-            self.indir.dir
-        ).__str__()
+        # format = ensure_tempdir_for_indir(
+        #     self.indir.dir
+        # ).__str__()
+        # format = os.path.join(
+        #     format,
+        #     self.indir.suffix
+        # )
         format = os.path.join(
-            format,
+            tempfile.gettempdir(),
+            'tile2net',
             self.indir.suffix
         )
         result = TempDir.from_format(format)
@@ -481,9 +505,16 @@ class InGrid(
         )
         logger.info(msg)
 
+        # if not outdir:
+        #     outdir = (
+        #         Path(f'./{source.name}')
+        #         .expanduser()
+        #         .resolve()
+        #         .__str__()
+        #     )
         if not outdir:
             outdir = (
-                Path(f'./{source.name}')
+                Path(cfg.outdir)
                 .expanduser()
                 .resolve()
                 .__str__()
@@ -492,12 +523,10 @@ class InGrid(
         try:
             dir = Dir.from_format(outdir)
         except ExtensionNotFoundError:
-            # dir = f'{outdir}.{source.extension}'
             dir = outdir
             try:
                 dir = Dir.from_format(dir)
             except XYNotFoundError as e:
-                # dir = f'{outdir}/z/x_y.{source.extension}'
                 dir = f'{outdir}/z/x_y'
                 dir = Dir.from_format(dir)
 
@@ -510,20 +539,17 @@ class InGrid(
             dir = f'{outdir}/z/x_y'
             dir = Dir.from_format(dir)
 
-        # if result.source.extension != dir.extension:
-        #     msg = (
-        #         f'Output directory {outdir} has a different '
-        #         f'extension ({dir.extension}) than the source '
-        #         f'({result.source.extension}).'
-        #     )
-        #     raise ValueError(msg)
         outdir = dir.original
 
         result = result.set_outdir(outdir)
 
-        # infile = result.outdir.ingrid.infile
-        # indir = infile.format.replace(infile.extension, source.extension)
-        # result = result.set_indir(indir)
+        ingrid = result.outdir.ingrid
+        format = os.path.join(
+            ingrid.dir,
+            'infile',
+            f'z/x_y'
+        )
+        result = result.set_indir(format)
 
         return result
 
@@ -558,7 +584,7 @@ class InGrid(
         self.with_indir('input/dir/x')
         """
         if indir is None:
-            indir = self.cfg.indir
+            indir = self.cfg.indir.path
         result = self.copy()
         if name:
             result.name = name
@@ -841,13 +867,13 @@ class InGrid(
         if self.cfg.segment.colored:
             rows.append(('Segmentation (colored)', _p(self.outdir.seggrid.colored.dir)))
         if self.cfg.polygon.concat:
-            rows.append(('Polygons', _p(self.outdir.polygons.file)))
+            rows.append(('Polygons', _p(self.outdir.polygons.parquet)))
         if self.cfg.line.concat:
-            rows.append(('Network', _p(self.outdir.lines.file)))
+            rows.append(('Network', _p(self.outdir.lines.parquet)))
         if self.cfg.polygon.preview:
-            rows.append(('Polygon preview', _p(self.tempdir.polygons.preview)))
+            rows.append(('Polygon preview', _p(self.outdir.polygons.preview)))
         if self.cfg.line.preview:
-            rows.append(('Network preview', _p(self.tempdir.lines.preview)))
+            rows.append(('Network preview', _p(self.outdir.lines.preview)))
         if self.cfg.segment.to_pkl:
             rows.append(('Segmentation tiles (zoom and scale in attrs)', _p(self.tempdir.seggrid.pickle)))
 

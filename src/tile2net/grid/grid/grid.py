@@ -84,7 +84,6 @@ class Grid(
     @cached_property
     def hash(self) -> str:
         """Hash of the Tiles in the grid and the configuration."""
-        # pairs = self.index.to_numpy(copy=False)
         pairs = (
             self.index
             .to_frame(index=False)                       # -> DataFrame with ['xtile', 'ytile']
@@ -826,11 +825,12 @@ class Grid(
             logger.info(msg)
             # return
         else:
+            name = small_grid.__class__.__qualname__
             msg = (
                 f'Stitching {n_missing:,} '
-                f'{small_grid.__name__}.{small_files.name} '
+                f'{name}.{small_files.name} '
                 f'into {n_total:,} '
-                f'{small_grid.__name__}.{big_files.name}'
+                f'{name}.{big_files.name}'
             )
             logger.info(msg)
 

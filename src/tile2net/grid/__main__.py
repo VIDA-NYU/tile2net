@@ -16,13 +16,12 @@ if __name__ == '__main__':
             zoom=cfg.zoom
         )
 
-        if cfg.indir:
+        if cfg.indir.path:
             # use input imagery
             ingrid = ingrid.set_indir()
         else:
             # set a source if specified or infer from location
             ingrid = ingrid.set_source()
-
 
         if cfg.outdir:
             ingrid = ingrid.set_outdir()
@@ -32,7 +31,6 @@ if __name__ == '__main__':
         # configure vectorization using cfg parameters
         ingrid = ingrid.set_vectorization()
 
-        # ingrid.seggrid.preview(show=True)
 
         if cfg.line.concat:
             # concatenate lines into single file and save
@@ -43,30 +41,27 @@ if __name__ == '__main__':
 
         # save a preview of the lines to file
         if cfg.line.preview:
+            dest = ingrid.outdir.lines.preview
             msg = (
                 f'Saving preview of lines to '
-                f'\n\t{ingrid.tempdir.lines.preview}'
+                f'\n\t{dest}'
             )
             logger.info(msg)
-            img = ingrid.lines.plot(
-                maxdim=cfg.line.preview,
-                show=False
-            )
-            img.save(ingrid.tempdir.lines.preview)
+            maxdim = cfg.line.preview
+            img = ingrid.lines.plot(maxdim=maxdim, show=False)
+            img.save(dest)
 
         # save a preview of the polygons to file
         if cfg.polygon.preview:
+            dest = ingrid.outdir.polygons.preview
             msg = (
                 f'Saving preview of polygons to '
-                f'\n\t{ingrid.tempdir.polygons.preview}'
+                f'\n\t{dest}'
             )
             logger.info(msg)
-            ingrid.polygons.frame
-            img = ingrid.polygons.plot(
-                maxdim=cfg.polygon.preview,
-                show=False
-            )
-            img.save(ingrid.tempdir.polygons.preview)
+            maxdim = cfg.polygon.preview
+            img = ingrid.polygons.plot(maxdim=maxdim, show=False)
+            img.save(dest)
 
         if cfg.segment.to_pkl:
             ingrid.seggrid.to_pickle(ingrid.tempdir.seggrid.pickle)
