@@ -38,7 +38,6 @@ python -m tile2net --location "boston common"    --outdir ./l=boston_common__zoo
 python -m tile2net --location 'boston common' --name segment.pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8
 --location "boston common" --name segment.pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8
 
-
 python -m tile2net --location "boston common" --name pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8
 python -m tile2net --location "boston common" --name pad=1 --segment.pad 1 --zoom 20 --model.bs_val 4 --vector.length 8
 python -m tile2net --location "boston common" --name pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8
@@ -47,3 +46,17 @@ python -m tile2net --location "boston common" --name pad=4 --segment.pad 4 --zoo
 
 
 --location "boston common" --name pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8
+
+python -m tile2net \
+  -l "Cambridge, MA" \
+  -b 16 \
+  -o ./cambridge \
+  -v 8 \
+  --no-cleanup
+
+
+python -m tile2net -l "Cambridge, MA" --name pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8
+python -m tile2net -l "Cambridge, MA" --name pad=1 --segment.pad 1 --zoom 20 --model.bs_val 4 --vector.length 8
+python -m tile2net -l "Cambridge, MA" --name pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8
+python -m tile2net -l "Cambridge, MA" --name pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8
+python -m tile2net -l "Cambridge, MA" --name pad=4 --segment.pad 4 --zoom 20 --model.bs_val 1 --vector.length 8

@@ -7,8 +7,6 @@ Quickly run this small example to download imagery of Boston Common, segment it,
 ```bash
 python -m tile2net \
   --location "boston common" \
-  --model.bs_val 1 \
-  --vector.length 1 \
   --outdir ./boston_common
 ```
 
@@ -56,7 +54,6 @@ These are the core arguments to quickly get Tile2Net up and running.
 ### `--model.bs_val` (`-b`)
 - Batch size per GPU during segmentation
 - Increase based on available VRAM
-- 16 worked best with 24GB VRAM
 
 ### `--vector.length` (`-v`)
 - Batch size per core during vectorization
@@ -65,9 +62,11 @@ These are the core arguments to quickly get Tile2Net up and running.
 
 ### `--outdir` (`-o`)
 - Output directory root
-- Defaults to `/tile2net` in the system temp directory
-- Relative paths like `./cambridge` are created under the current working directory
-- Downloaded imagery is stored in outdir
+- Defaults to `./outdir` 
+
+### `--name` (`-n`)
+- Batch name
+- Defaults to the location passed
 
 ### `--indir` (`-i`)
 - Path to input directory containing imagery tiles on disk
@@ -92,7 +91,7 @@ network of lines. With less RAM, you must reduce `-v` and with less VRAM, you mu
 ```bash
 python -m tile2net \
   -l "Cambridge, MA" \
-  -b 16 \
+  -b 8 \
   -o ./cambridge \
   -v 8 \
   --no-cleanup 
@@ -104,10 +103,10 @@ To demonstrate the use of local imagery, we can reuse the downloaded imagery wit
 
 ```bash
 python -m tile2net \
-  -i ./cambridge/ingrid/infile/19/x_y \
-  -z 19 \ 
+  -i ./cambridge/ingrid/infile/20/x_y \
+  -z 20 \ 
   -l "Cambridge, MA" \
-  -b 16 \
-  -o ./local \
+  -b 8 \
+  -o . /local \
   -v 8 \
 ```
