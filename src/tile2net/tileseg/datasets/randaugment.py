@@ -6,7 +6,7 @@ import numpy as np
 import torch
 
 from PIL import Image, ImageOps, ImageEnhance, ImageDraw
-from tile2net.tileseg.config import cfg
+from tile2net.grid.tileseg.config import cfg
 
 
 fillmask = cfg.DATASET.IGNORE_LABEL

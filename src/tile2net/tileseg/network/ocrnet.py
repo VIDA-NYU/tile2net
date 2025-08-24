@@ -29,14 +29,14 @@ POSSIBILITY OF SUCH DAMAGE.
 """
 from torch import nn
 
-from tile2net.tileseg.network.mynn import initialize_weights, Upsample, scale_as
-from tile2net.tileseg.network.mynn import ResizeX
-from tile2net.tileseg.network.utils import get_trunk
-from tile2net.tileseg.network.utils import BNReLU, get_aspp
-from tile2net.tileseg.network.utils import make_attn_head
-from tile2net.tileseg.network.ocr_utils import SpatialGather_Module, SpatialOCR_Module
-from tile2net.tileseg.config import cfg
-from tile2net.tileseg.utils.misc import fmt_scale
+from tile2net.grid.tileseg.network import initialize_weights, Upsample, scale_as
+from tile2net.grid.tileseg.network import ResizeX
+from tile2net.grid.tileseg.network import get_trunk
+from tile2net.grid.tileseg.network import BNReLU, get_aspp
+from tile2net.grid.tileseg.network import make_attn_head
+from tile2net.grid.tileseg.network.ocr_utils import SpatialGather_Module, SpatialOCR_Module
+from tile2net.grid.tileseg.config import cfg
+from tile2net.grid.tileseg.utils.misc import fmt_scale
 
 
 class OCR_block(nn.Module):

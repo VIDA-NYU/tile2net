@@ -38,7 +38,7 @@ from skimage.restoration import denoise_bilateral
 import torch
 from PIL import Image, ImageEnhance
 import torchvision.transforms as torch_tr
-from tile2net.tileseg.config import cfg
+from tile2net.grid.tileseg.config import cfg
 from scipy.ndimage.interpolation import shift
 
 from skimage.segmentation import find_boundaries

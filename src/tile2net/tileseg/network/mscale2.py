@@ -34,11 +34,11 @@ features from both lower and higher resolution images into the attention head.
 import torch
 from torch import nn
 
-from tile2net.tileseg.network.mynn import initialize_weights, Norm2d, Upsample
-from tile2net.tileseg.network.mynn import ResizeX, scale_as
-from tile2net.tileseg.network.utils import get_aspp, get_trunk
-from tile2net.tileseg.network.utils import make_seg_head, make_attn_head
-from tile2net.tileseg.config import cfg
+from tile2net.grid.tileseg.network import initialize_weights, Norm2d, Upsample
+from tile2net.grid.tileseg.network import ResizeX, scale_as
+from tile2net.grid.tileseg.network import get_aspp, get_trunk
+from tile2net.grid.tileseg.network import make_seg_head, make_attn_head
+from tile2net.grid.tileseg.config import cfg
 
 
 class MscaleBase(nn.Module):

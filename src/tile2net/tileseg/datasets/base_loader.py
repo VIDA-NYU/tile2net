@@ -35,9 +35,9 @@ import numpy as np
 
 from PIL import Image
 from torch.utils import data
-from tile2net.tileseg.config import cfg
-from tile2net.tileseg.datasets import uniform
-from tile2net.tileseg.utils.misc import tensor_to_pil
+from tile2net.grid.tileseg.config import cfg
+from tile2net.grid.tileseg.datasets import uniform
+from tile2net.grid.tileseg.utils.misc import tensor_to_pil
 
 
 class BaseLoader(data.Dataset):

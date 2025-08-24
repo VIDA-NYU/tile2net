@@ -43,8 +43,8 @@ from toolz import pipe
 
 from tile2net.logger import logger
 from tile2net.raster.project import Project
-from tile2net.tileseg.config import cfg
-from tile2net.tileseg.utils.attr_dict import AttrDict
+from tile2net.grid.tileseg.config import cfg
+from tile2net.grid.tileseg import AttrDict
 
 
 def torch_version_float():

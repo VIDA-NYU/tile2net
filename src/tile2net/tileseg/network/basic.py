@@ -29,10 +29,10 @@ POSSIBILITY OF SUCH DAMAGE.
 """
 from torch import nn
 
-from tile2net.tileseg.network.mynn import initialize_weights, Upsample
-from tile2net.tileseg.network.mynn import scale_as
-from tile2net.tileseg.network.utils import get_aspp, get_trunk, make_seg_head
-from tile2net.tileseg.config import cfg
+from tile2net.grid.tileseg.network import initialize_weights, Upsample
+from tile2net.grid.tileseg.network import scale_as
+from tile2net.grid.tileseg.network import get_aspp, get_trunk, make_seg_head
+from tile2net.grid.tileseg.config import cfg
 
 
 class Basic(nn.Module):

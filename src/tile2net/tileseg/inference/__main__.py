@@ -1,4 +1,5 @@
 import argh
-from tile2net.tileseg.inference import inference
+from tile2net.grid.tileseg.inference import inference
+
 argh.dispatch_command(inference)
 

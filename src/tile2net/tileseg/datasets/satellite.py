@@ -24,15 +24,13 @@ POSSIBILITY OF SUCH DAMAGE.
 Mapillary Dataset Loader
 """
 import os
-from tile2net.logger import logger
-import json
 
 from collections import namedtuple
-from tile2net.tileseg.config import cfg
+from tile2net.grid.tileseg.config import cfg
 from tile2net.logger import logger
-from tile2net.tileseg.datasets.base_loader import BaseLoader
-from tile2net.tileseg.datasets.utils import make_dataset_folder
-from tile2net.tileseg.datasets import uniform
+from tile2net.grid.tileseg.datasets.base_loader import BaseLoader
+from tile2net.grid.tileseg.datasets import make_dataset_folder
+from tile2net.grid.tileseg.datasets import uniform
 
 Label = namedtuple( 'Label' , [
 

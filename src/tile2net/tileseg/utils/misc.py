@@ -32,10 +32,7 @@ Miscellanous Functions
 """
 
 from __future__ import annotations
-from typing import *
-from geopandas import GeoDataFrame
 
-import tempfile
 from typing import Optional
 
 import cv2
@@ -50,7 +47,7 @@ import torchvision.utils as vutils
 from tabulate import tabulate
 from PIL import Image
 
-from tile2net.tileseg.config import cfg
+from tile2net.grid.tileseg.config import cfg
 from tile2net.namespace import Namespace
 from concurrent.futures import Future, ThreadPoolExecutor
 

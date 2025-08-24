@@ -31,14 +31,13 @@ POSSIBILITY OF SUCH DAMAGE.
 # Optimizer and scheduler related tasks
 
 import math
-from tile2net.logger import logger
 import torch
 
 from torch import optim
 from tile2net.logger import logger
 
-from tile2net.tileseg.config import cfg
-from tile2net.tileseg.loss.radam import RAdam
+from tile2net.grid.tileseg.config import cfg
+from tile2net.grid.tileseg.loss.radam import RAdam
 
 
 def get_optimizer(args, net):

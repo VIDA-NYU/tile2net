@@ -28,14 +28,13 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 """
 import numpy as np
-from tile2net.logger import logger
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from tile2net.logger import logger
-from tile2net.tileseg.config import cfg
-from tile2net.tileseg.loss.rmi import RMILoss
+from tile2net.grid.tileseg.config import cfg
+from tile2net.grid.tileseg.loss.rmi import RMILoss
 from tile2net.namespace import Namespace
 
 

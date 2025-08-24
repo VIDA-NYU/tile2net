@@ -53,7 +53,7 @@ Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses
 import numpy as np
 from multiprocessing import Pool
 from tqdm import tqdm
-from tile2net.tileseg.config import cfg
+from tile2net.grid.tileseg.config import cfg
 
 
 """ Utilities for computing, reading and saving benchmark evaluation."""

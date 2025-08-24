@@ -32,8 +32,8 @@ Null Loader
 import numpy as np
 import torch
 
-from tile2net.tileseg.config import cfg
-from tile2net.tileseg.datasets.base_loader import BaseLoader
+from tile2net.grid.tileseg.config import cfg
+from tile2net.grid.tileseg.datasets.base_loader import BaseLoader
 
 
 class Loader(BaseLoader):

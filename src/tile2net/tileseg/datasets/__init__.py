@@ -29,17 +29,16 @@ POSSIBILITY OF SUCH DAMAGE.
 
 Dataset setup and loaders
 """
-from tile2net.logger import logger
 import importlib
 import torchvision.transforms as standard_transforms
 from torch.utils.data import DataLoader
 
-import tile2net.tileseg.transforms.joint_transforms as joint_transforms
-import tile2net.tileseg.transforms.transforms as extended_transforms
+import tile2net.grid.tileseg.transforms.joint_transforms as joint_transforms
+import tile2net.grid.tileseg.transforms.transforms as extended_transforms
 from tile2net.logger import logger
 
-from tile2net.tileseg.config import cfg, update_dataset_cfg, update_dataset_inst
-from tile2net.tileseg.datasets.randaugment import RandAugment
+from tile2net.grid.tileseg.config import cfg, update_dataset_cfg, update_dataset_inst
+from tile2net.grid.tileseg.datasets import RandAugment
 from toolz import pipe, curried
 
 def setup_loaders(args):
@@ -155,7 +154,7 @@ def setup_loaders(args):
     update_dataset_inst(dataset_inst=val_set)
 
     if cfg.DISTRIBUTED:
-        from tile2net.tileseg.datasets.sampler import DistributedSampler
+        from tile2net.grid.tileseg.datasets import DistributedSampler
         val_sampler = DistributedSampler(val_set, pad=False, permutation=False,
                                          consecutive_sample=False)
     else:
@@ -178,7 +177,7 @@ def setup_loaders(args):
             label_transform=target_train_transform)
 
         if cfg.DISTRIBUTED:
-            from tile2net.tileseg.datasets.sampler import DistributedSampler
+            from tile2net.grid.tileseg.datasets import DistributedSampler
             train_sampler = DistributedSampler(train_set, pad=True,
                                                permutation=True,
                                                consecutive_sample=False)

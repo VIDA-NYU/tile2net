@@ -31,7 +31,7 @@ import numbers
 from PIL import Image, ImageOps
 import numpy as np
 import random
-from tile2net.tileseg.config import cfg
+from tile2net.grid.tileseg.config import cfg
 
 
 class Compose(object):

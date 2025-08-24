@@ -18,10 +18,9 @@ import torch.nn as nn
 import torch._utils
 import torch.nn.functional as F
 
-from tile2net.tileseg.network.mynn import Norm2d
+from tile2net.grid.tileseg.network import Norm2d
 from tile2net.logger import logger
-from tile2net.logger import logger
-from tile2net.tileseg.config import cfg
+from tile2net.grid.tileseg.config import cfg
 
 
 BN_MOMENTUM = 0.1

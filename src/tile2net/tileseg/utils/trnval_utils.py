@@ -26,13 +26,12 @@ POSSIBILITY OF SUCH DAMAGE.
 import os
 import torch
 import numpy as np
-import pandas as pd
 
-from tile2net.tileseg.config import cfg
-from tile2net.tileseg.utils.misc import fast_hist, fmt_scale
-from tile2net.tileseg.utils.misc import AverageMeter, eval_metrics
-from tile2net.tileseg.utils.misc import metrics_per_image
-from tile2net.tileseg.utils.misc import ImageDumper
+from tile2net.grid.tileseg.config import cfg
+from tile2net.grid.tileseg.utils.misc import fast_hist, fmt_scale
+from tile2net.grid.tileseg.utils.misc import AverageMeter, eval_metrics
+from tile2net.grid.tileseg.utils.misc import metrics_per_image
+from tile2net.grid.tileseg.utils.misc import ImageDumper
 from tile2net.logger import logger
 
 
@@ -349,7 +348,7 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args, dump_assets=Tr
     # html_fn = os.path.join(args.result_dir, 'seg_results',
     #                        'topn_failures.html')
     html_fn = set
-    from tile2net.tileseg.utils.results_page import ResultsPage
+    from tile2net.grid.tileseg.utils.results_page import ResultsPage
     ip = ResultsPage('topn failures', html_fn)
     for classid in class_to_images:
         class_name = cfg.DATASET_INST.trainid_to_name[classid]

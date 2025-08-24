@@ -10,14 +10,10 @@ from concurrent.futures import wait
 from functools import *
 from typing import *
 
-import PIL.Image
-import imageio.v3 as iio
 import numpy
 import numpy as np
-import pandas as pd
 import torch
 import torch.distributed as dist
-from PIL import Image
 from torch.nn.parallel.data_parallel import DataParallel
 from ..tileseg.datasets.satellite import Loader
 from tqdm import tqdm
@@ -27,20 +23,16 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 from tile2net.grid.cfg.cfg import assert_and_infer_cfg
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.grid.static import Static
-from tile2net.grid.tileseg import datasets
-from tile2net.grid.tileseg import network
-from tile2net.grid.tileseg.loss.optimizer import get_optimizer, restore_opt, restore_net
-from tile2net.grid.tileseg.loss.utils import get_loss
+from ..tileseg import datasets, network
+from tile2net.grid.tileseg import get_optimizer, restore_opt, restore_net
+from tile2net.grid.tileseg import get_loss
 from tile2net.grid.tileseg.network.ocrnet import MscaleOCR
 from tile2net.grid.tileseg.utils.misc import AverageMeter, prep_experiment
 from . import delayed
 from .minibatch import MiniBatch
 from .vectile import VecTile
-from .. import frame
-from ..grid import file
 from ..grid.grid import Grid
 from ..util import recursion_block
-from .. import util
 from .padded import Padded
 from .file import File
 
@@ -405,7 +397,7 @@ class SegGrid(
             net: torch.nn.parallel.DataParallel,
             force,
             grid: SegGrid,
-            criterion: Optional[tile2net.grid.tileseg.loss.utils.CrossEntropyLoss2d] = None,
+            criterion: Optional[tile2net.tileseg.loss.utils.CrossEntropyLoss2d] = None,
     ):
         """
         Run validation for one epoch
