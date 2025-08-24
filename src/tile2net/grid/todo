@@ -126,3 +126,14 @@ python -m tile2net --location "uc berkeley" --name berkeley/unscaled/pad=0 --seg
 python -m tile2net --location "cambridge, MA" --name cambridge/unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --line.preview 8192 --polygon.preview 8192
 
 python -m tile2net --location "zuccotti park" --name zuccotti/unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+
+
+python -m tile2net --location "financial district, new york city" --name fidi/unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "financial district, new york city" --name fidi/unscaled/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 4 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "financial district, new york city" --name fidi/unscaled/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "financial district, new york city" --name fidi/unscaled/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+
+python -m tile2net --location "financial district, new york city" --name fidi/scales=0.5,2/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "financial district, new york city" --name fidi/scales=0.5,2/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "financial district, new york city" --name fidi/scales=0.5,2/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "financial district, new york city" --name fidi/scales=0.5,2/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192

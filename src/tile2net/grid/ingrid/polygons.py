@@ -179,202 +179,104 @@ class Polygons(
             divider: str = 'grey',
             simplify: float | None = None,
             show: bool = True,
+            thickness: float = 0.5,
+            opacity: float = 1.,
             **kwargs,
     ) -> PIL.Image.Image:
-        z_order = self.ingrid.cfg.polygon.z_order
+        # AI banner
+        print('⚠️AI GENERATED🤖')
 
-        # use the grid's own imagery preview as a basemap
+        # local imports
+        from matplotlib.collections import LineCollection
+
+        # z-order per feature
+        z_map: dict[str, int] = self.ingrid.cfg.polygon.z_order
+
+        # basemap (must match exactly what preview() produces)
         ingrid = self.ingrid
         mosaic: Image.Image = ingrid.preview(
             maxdim=maxdim,
             divider=divider,
             show=show
         )
-        frame = self.frame.to_crs(4326)
 
-        # geometry bounds & scale to determine output pixel size
-        minx, miny, maxx, maxy = ingrid.frame.geometry.to_crs(4326).total_bounds
-        span_x = max(maxx - minx, 1e-12)
-        span_y = max(maxy - miny, 1e-12)
-        scale = maxdim / max(span_x, span_y)
-        out_w = ceil(span_x * scale)
-        out_h = ceil(span_y * scale)
-        long_side = max(out_w, out_h)
+        # plot CRS must match the mosaic’s extent CRS (Web-Mercator)
+        crs_plot = 3857
+        frame = self.frame.to_crs(crs_plot)
+        minx, miny, maxx, maxy = (
+            ingrid.frame
+            .geometry
+            .to_crs(crs_plot)
+            .total_bounds
+        )
 
-        # figure canvas sized to raster dims
+        # figure size locked to mosaic pixels; no rescale
+        w_px, h_px = mosaic.size
         dpi = 96
-        fig_w_in = out_w / dpi
-        fig_h_in = out_h / dpi
+        fig_w_in = w_px / dpi
+        fig_h_in = h_px / dpi
+        long_side = max(w_px, h_px)
+
+        # figure & axes (full-bleed)
         fig, ax = plt.subplots(
             figsize=(fig_w_in, fig_h_in),
             dpi=dpi,
             facecolor=background,
         )
-        ax.set_facecolor(background)
+        ax.set_axis_off()
+        ax.set_position([0, 0, 1, 1])
+        ax.margins(0)
 
-        # determine axis/tick color from mosaic luminance for contrast
-        w, h = mosaic.size
+        # fallback color for unknown features based on luminance
         ds_w = 96
-        ds_h = max(1, int(round(h * ds_w / max(1, w))))
-        sample = mosaic.resize((ds_w, ds_h), Image.BILINEAR)
-        arr = np.asarray(sample).astype(np.float32)
+        ds_h = max(1, int(round(h_px * ds_w / max(1, w_px))))
+        arr = np.asarray(mosaic.resize((ds_w, ds_h), Image.BILINEAR)).astype(np.float32)
         if arr.ndim == 2:
             lum = float(arr.mean())
         else:
-            # Rec. 709 luma
-            lum = float(
-                0.2126 * arr[..., 0].mean() +
-                0.7152 * arr[..., 1].mean() +
-                0.0722 * arr[..., 2].mean()
-            )
+            lum = float(0.2126 * arr[..., 0].mean() + 0.7152 * arr[..., 1].mean() + 0.0722 * arr[..., 2].mean())
         axis_col = 'white' if lum < 128 else 'black'
 
-        # ticks and spines sized to image
-        labelsize_pt = max(8, int(long_side / dpi * 72 * 0.04))
-        ticklen_px = max(4, int(long_side * 0.006))
-        ax.tick_params(
-            axis='both',
-            which='both',
-            colors=axis_col,
-            direction='out',
-            labelsize=labelsize_pt,
-            length=ticklen_px,
-            width=max(1, ticklen_px // 3),
-        )
-        for spine in ax.spines.values():
-            spine.set_color(axis_col)
-            spine.set_linewidth(max(1, ticklen_px // 3))
-
-        # draw the imagery with geographic extent
-        img_alpha = float(kwargs.pop('alpha', 1.0))
+        # draw mosaic exactly, no padding/border
+        base_alpha = float(kwargs.pop('alpha', 1.0))
         ax.imshow(
             mosaic,
             extent=(minx, maxx, miny, maxy),
             origin='upper',
             interpolation='bilinear',
-            alpha=img_alpha,
+            alpha=max(0.0, min(1.0, base_alpha)),
             zorder=1,
         )
 
-        # per-feature polygon edge colors and stroke width
+        # stroke setup
         label2color = self.ingrid.cfg.label2color
-        line_w = kwargs.get('width', max(1, long_side // 1400))
+        base_width = kwargs.get('width', max(1, long_side // 1400))
+        line_w = max(1, int(round(float(base_width) * float(thickness))))
+        lw_hole = max(1, line_w // 2)
+        coll_alpha = max(0.0, min(1.0, float(opacity)))
 
-        # # supports None/NA/empty geometries
-        # def _iter_polys(g) -> typing.Iterator:
-        #     # skip completely missing
-        #     if g is None:
-        #         return
-        #     # skip pandas.NA/np.nan masquerading as objects
-        #     if g is pd.NA or (isinstance(g, float) and np.isnan(g)):
-        #         return
-        #     # skip empties
-        #     if getattr(g, 'is_empty', False):
-        #         return
-        #     gt = getattr(g, 'geom_type', None)
-        #     if gt == 'Polygon':
-        #         yield g
-        #     elif gt == 'MultiPolygon':
-        #         # guard: MultiPolygon may be empty
-        #         for gg in getattr(g, 'geoms', ()):
-        #             if gg is not None and not getattr(gg, 'is_empty', False):
-        #                 yield gg
-        #
-        # # plot each feature polygon (exterior + holes) over the basemap
-        # it = frame.groupby('feature', observed=False).geometry
-        # for feature, series in it:
-        #     # dropna handles None/pandas.NA; also filter empties
-        #     series = (
-        #         series
-        #         .dropna()
-        #         .loc[lambda s: s.map(lambda g: g is not None and not getattr(g, 'is_empty', False))]
-        #     )
-        #     if series.empty:
-        #         continue
-        #
-        #     colour = label2color.get(feature, axis_col)
-        #
-        #     for geom in series:
-        #         # optional simplify with guard for weird sentinels
-        #         if simplify and hasattr(geom, 'simplify'):
-        #             # preserve_topology avoids self-crossing
-        #             geom = geom.simplify(simplify, preserve_topology=True)
-        #
-        #         for poly in _iter_polys(geom):
-        #             if poly.is_empty:
-        #                 continue
-        #
-        #             # exterior ring
-        #             ext = poly.exterior
-        #             if ext is not None:
-        #                 ext_xy = np.asarray(ext.coords)
-        #                 if ext_xy.shape[0] >= 2:
-        #                     ax.plot(
-        #                         ext_xy[:, 0],
-        #                         ext_xy[:, 1],
-        #                         color=colour,
-        #                         linewidth=line_w,
-        #                         solid_joinstyle='round',
-        #                         solid_capstyle='round',
-        #                         zorder=3,
-        #                     )
-        #
-        #             # interior rings (holes)
-        #             for ring in poly.interiors:
-        #                 ring_xy = np.asarray(ring.coords)
-        #                 if ring_xy.shape[0] >= 2:
-        #                     ax.plot(
-        #                         ring_xy[:, 0],
-        #                         ring_xy[:, 1],
-        #                         color=colour,
-        #                         linewidth=max(1, line_w // 2),
-        #                         solid_joinstyle='round',
-        #                         solid_capstyle='round',
-        #                         zorder=3,
-        #                     )
-
-        # --- vectorized polygon outline rendering (replaces the per-ring ax.plot loops) ---
-        # --- vectorized polygon outline rendering with z-order ---
-        z_map: dict[str, int] = self.ingrid.cfg.polygon.z_order
-
+        # vectorized polygon outlines grouped by z-order
         gdf = frame.reset_index()
-
-        # normalize MultiPolygon → Polygon rows
-        geoms = (
-            gdf
-            .explode(index_parts=False)
-            .geometry
-        )
-
-        # optional topology-preserving simplification
+        geoms = gdf.explode(index_parts=False).geometry
         if simplify:
             geoms = geoms.simplify(simplify, preserve_topology=True)
 
-        # keep only non-empty Polygons
         mask = (
                 geoms.notna()
                 & geoms.map(lambda g: getattr(g, 'geom_type', None) == 'Polygon')
                 & geoms.map(lambda g: not getattr(g, 'is_empty', True))
         )
-        if mask.any():
-            # align features with the exploded geometry index
-            feats = gdf.loc[geoms.index, 'feature'][mask]
 
-            # precompute per-geometry color and z-layer
+        if mask.any():
+            feats = gdf.loc[geoms.index, 'feature'][mask]
             colors = feats.map(lambda f: label2color.get(f, axis_col)).to_numpy()
             zvals = feats.map(lambda f: z_map.get(f, 0)).to_numpy()
 
-            # accumulate segments per z-layer
             layers: dict[int, dict[str, list]] = {}
             polys = geoms[mask].to_numpy()
-
-            # thinner stroke for holes
-            lw_hole = max(1, line_w // 2)
-
             for poly, colour, z in zip(polys, colors, zvals):
                 bucket = layers.setdefault(z, {'segments': [], 'colors': [], 'widths': []})
 
-                # exterior
                 ext = poly.exterior
                 if ext is not None:
                     xy = np.asarray(ext.coords)
@@ -383,7 +285,6 @@ class Polygons(
                         bucket['colors'].append(colour)
                         bucket['widths'].append(line_w)
 
-                # interiors (holes)
                 if poly.interiors:
                     for ring in poly.interiors:
                         xy = np.asarray(ring.coords)
@@ -392,8 +293,7 @@ class Polygons(
                             bucket['colors'].append(colour)
                             bucket['widths'].append(lw_hole)
 
-            # draw each z-layer in ascending order so higher z overlays lower z
-            base_z = 3  # keeps above imagery (which you set to zorder=1)
+            base_z = 3
             for z in sorted(layers):
                 segs = layers[z]['segments']
                 if not segs:
@@ -404,18 +304,18 @@ class Polygons(
                     linewidths=layers[z]['widths'],
                     joinstyle='round',
                     capstyle='round',
+                    alpha=coll_alpha,
                     zorder=base_z + int(z),
                 )
                 ax.add_collection(lc)
-        # --- end vectorized polygon outline rendering with z-order ---
 
-        # configure the map frame
+        # lock bounds & aspect; full-bleed
         ax.set_xlim(minx, maxx)
         ax.set_ylim(miny, maxy)
         ax.set_aspect('equal')
-        plt.subplots_adjust(left=0.08, right=0.98, bottom=0.08, top=0.98)
+        plt.subplots_adjust(left=0, right=1, bottom=0, top=1)
 
-        # rasterise the figure to a PIL image
+        # render with zero padding (no border)
         buf = io.BytesIO()
         fig.savefig(
             buf,
@@ -427,7 +327,6 @@ class Polygons(
         buf.seek(0)
         pil_img = Image.open(buf).convert('RGB')
 
-        # optionally pop a live window (don’t close the fig so it stays visible)
         if show:
             try:
                 fig.canvas.manager.set_window_title('tile2net — polygons over imagery')
