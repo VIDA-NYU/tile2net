@@ -77,7 +77,7 @@ sota_iu_results = {
     255: 0}
 
 
-class ResultsPage(object):
+class ResultsPage:
     '''
     This creates an HTML page of embedded images, useful for showing evaluation results.
 
@@ -185,10 +185,12 @@ th, td {
         for i in row:
             self.outfile.write('    <td>{}</td>'.format(i))
         # Create Links
-        fp_link = '<a href="{}_fp.html">false positive Top N</a>'.format(row[
-                                                                         1])
-        fn_link = '<a href="{}_fn.html">false_negative Top N</a>'.format(row[
-                                                                         1])
+        fp_link = '<a href="{}_fp.html">false positive Top N</a>'.format(
+            row[1]
+        )
+        fn_link = '<a href="{}_fn.html">false_negative Top N</a>'.format(
+            row[1]
+        )
         self.outfile.write('    <td>{}</td>'.format(fp_link))
         self.outfile.write('    <td>{}</td>'.format(fn_link))
         self.outfile.write('  </tr>')
@@ -218,13 +220,17 @@ th, td {
             total_pixels = hist.sum()
             tp = '{:5.2f}'.format(100 * iu_true_positive[index] / total_pixels)
             fp = '{:5.2f}'.format(
-                iu_false_positive[index] / iu_true_positive[index])
+                iu_false_positive[index] / iu_true_positive[index]
+            )
             fn = '{:5.2f}'.format(
-                iu_false_negative[index] / iu_true_positive[index])
+                iu_false_negative[index] / iu_true_positive[index]
+            )
             precision = '{:5.2f}'.format(
-                iu_true_positive[index] / (iu_true_positive[index] + iu_false_positive[index]))
+                iu_true_positive[index] / (iu_true_positive[index] + iu_false_positive[index])
+            )
             recall = '{:5.2f}'.format(
-                iu_true_positive[index] / (iu_true_positive[index] + iu_false_negative[index]))
+                iu_true_positive[index] / (iu_true_positive[index] + iu_false_negative[index])
+            )
             sota = '{:5.2f}'.format(sota_iu_results[index])
             row = (index, class_name, iu_string, sota,
                    tp, fp, fn, precision, recall)

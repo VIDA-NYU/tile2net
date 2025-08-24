@@ -49,7 +49,7 @@ include = ["tile2net*"]
 "tile2net.artifacts.sample.brk_sw_lines" = ["*"]
 "tile2net" = ["logging.conf"]
 # include .npy for testing; this is 9 MB!
-"tile2net.raster.resources.segmentation" = ["**/*.npy"]
+"tile2net.tileseg.resources.segmentation" = ["**/*.npy"]
 
 
 [tool.pytest.ini_options]

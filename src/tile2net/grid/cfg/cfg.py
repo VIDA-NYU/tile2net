@@ -848,6 +848,11 @@ class Polygon(cmdline.Namespace):
     def preview(self) -> int:
         """Maximum dimension of the polygons preview"""
         return 4096
+        
+    @cmdline.property
+    def thickness(self) -> float:
+        """Line thickness for polygon preview"""
+        return 0.5
 
 
 class Indir(

@@ -1,1 +1,0 @@
-from tile2net.raster.generate.generate import generate

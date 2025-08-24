@@ -31,29 +31,37 @@ Null Loader
 """
 import numpy as np
 import torch
-
-from tile2net.grid.tileseg.config import cfg
-from tile2net.grid.tileseg.datasets.base_loader import BaseLoader
+from typing import Optional, List, Tuple, Union
+from tile2net.tileseg.datasets.base_loader import BaseLoader
+from tile2net.grid.cfg import cfg
 
 
 class Loader(BaseLoader):
-    """
-    Null Dataset for Performance
-    """
+    """ Null Dataset for Performance """
     num_classes = 19
     ignore_label = 255
     trainid_to_name = {}
     color_mapping = []
- 
-    def __init__(self, mode, quality=None, joint_transform_list=None,
-                 img_transform=None, label_transform=None, eval_folder=None):
-        super(Loader, self).__init__(quality=quality,
-                                     mode=mode,
-                                     joint_transform_list=joint_transform_list,
-                                     img_transform=img_transform,
-                                     label_transform=label_transform)
 
-    def __getitem__(self, index):
+    def __init__(
+            self,
+            mode: str,
+            tiles: 'Grid',
+            quality: Optional[str] = None,
+            joint_transform_list: Optional[list] = None,
+            img_transform: Optional[object] = None,
+            label_transform: Optional[object] = None,
+    ) -> None:
+        super(Loader, self).__init__(
+            quality=quality,
+            mode=mode,
+            joint_transform_list=joint_transform_list,
+            img_transform=img_transform,
+            label_transform=label_transform,
+            tiles=tiles
+        )
+
+    def __getitem__(self, index: int) -> Tuple[torch.FloatTensor, torch.LongTensor, str, float]:
         # return img, mask, img_name, scale_float
         crop_size = cfg.DATASET.CROP_SIZE
         if ',' in crop_size:
@@ -61,12 +69,12 @@ class Loader(BaseLoader):
         else:
             crop_size = int(crop_size)
             crop_size = [crop_size, crop_size]
-        
+
         img = torch.FloatTensor(np.zeros([3] + crop_size))
         mask = torch.LongTensor(np.zeros(crop_size))
         img_name = f'img{index}'
         scale_float = 0.0
         return img, mask, img_name, scale_float
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 3000

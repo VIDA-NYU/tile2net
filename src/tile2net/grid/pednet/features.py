@@ -1,16 +1,17 @@
 from __future__ import annotations
-from ..frame.framewrapper import FrameWrapper
-from .. import frame
-from ..explore import explore
-from tile2net.grid.cfg.logger import logger
-from ..cfg import cfg
-from ...grid.frame.namespace import namespace
 
 from typing import *
 
 import pandas as pd
 from geopandas import GeoSeries
 from shapely import *
+
+from tile2net.grid.cfg.logger import logger
+from .. import frame
+from ..cfg import cfg
+from ..explore import explore
+from ..frame.framewrapper import FrameWrapper
+from ...grid.frame.namespace import namespace
 
 if False:
     import folium

@@ -1,14 +1,14 @@
 from __future__ import annotations
-from tile2net.grid.cfg.logger import logger
-import geopandas as gpd
 
 from typing import Self
 
+import geopandas as gpd
 import numpy as np
 import pandas as pd
+import shapely
 import shapely.ops
-from pandas import Series
 
+from tile2net.grid.cfg.logger import logger
 from .. import frame
 from ...grid.frame.framewrapper import FrameWrapper
 from ...grid.frame.namespace import namespace

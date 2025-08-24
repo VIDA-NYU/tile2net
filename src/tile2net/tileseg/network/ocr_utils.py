@@ -10,8 +10,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from tile2net.grid.tileseg.config import cfg
-from tile2net.grid.tileseg.network import BNReLU, get_aspp
+from tile2net.grid.cfg import cfg
+from tile2net.tileseg.network.utils import BNReLU, get_aspp
 
 
 class SpatialGather_Module(nn.Module):

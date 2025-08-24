@@ -6,6 +6,7 @@ from typing import *
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import shapely
 import shapely.ops
 from geopandas import GeoDataFrame
 
@@ -15,7 +16,6 @@ from .. import frame
 from ...grid.frame.framewrapper import FrameWrapper
 
 if False:
-    from .center import Center
     from .pednet import PedNet
     import folium
     from .stubs import Stubs

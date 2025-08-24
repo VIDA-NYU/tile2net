@@ -33,12 +33,12 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
-
-
 import math
 import torch
+from typing import List, Iterator, Optional, Any, Union
 from torch.distributed import get_world_size, get_rank
 from torch.utils.data import Sampler
+
 
 class DistributedSampler(Sampler):
     """Sampler that restricts data loading to a subset of the dataset.
@@ -58,7 +58,15 @@ class DistributedSampler(Sampler):
         rank (optional): Rank of the current process within num_replicas.
     """
 
-    def __init__(self, dataset, pad=False, consecutive_sample=False, permutation=False, num_replicas=None, rank=None):
+    def __init__(
+            self, 
+            dataset: Any,
+            pad: bool = False,
+            consecutive_sample: bool = False,
+            permutation: bool = False,
+            num_replicas: Optional[int] = None,
+            rank: Optional[int] = None
+    ) -> None:
         if num_replicas is None:
             num_replicas = get_world_size()
         if rank is None:
@@ -75,7 +83,7 @@ class DistributedSampler(Sampler):
             self.num_samples = int(math.floor(len(self.dataset) * 1.0 / self.num_replicas))
         self.total_size = self.num_samples * self.num_replicas
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[int]:
         # deterministically shuffle based on epoch
         g = torch.Generator()
         g.manual_seed(self.epoch)
@@ -84,7 +92,7 @@ class DistributedSampler(Sampler):
             indices = list(torch.randperm(len(self.dataset), generator=g))
         else:
             indices = list([x for x in range(len(self.dataset))])
-        
+
         # add extra samples to make it evenly divisible
         if self.total_size > len(indices):
             indices += indices[:(self.total_size - len(indices))]

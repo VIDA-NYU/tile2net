@@ -3,6 +3,8 @@ from __future__ import annotations
 from functools import *
 from typing import Self
 
+import geopandas as gpd
+import numpy as np
 import shapely.wkt
 from centerline.geometry import Centerline
 from tqdm import tqdm
@@ -15,7 +17,6 @@ from ..cfg import cfg
 from ..frame.framewrapper import FrameWrapper
 
 _ = mintrees, stubs
-from tile2net.raster.tile_utils.topology import *
 from ..explore import explore
 
 if False:

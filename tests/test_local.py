@@ -1,4 +1,4 @@
-from tile2net.raster.raster import Raster
+from tile2net.tileseg.raster import Raster
 
 def test_small():
     raster = Raster(

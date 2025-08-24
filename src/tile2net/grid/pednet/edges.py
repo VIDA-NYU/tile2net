@@ -1,11 +1,11 @@
 from __future__ import annotations
-from tile2net.grid.cfg.logger import logger
 
 from typing import *
 
 import numpy as np
 import pandas as pd
 
+from tile2net.grid.cfg.logger import logger
 from .. import frame
 from ...grid.frame.framewrapper import FrameWrapper
 from ...grid.frame.namespace import namespace
@@ -223,13 +223,6 @@ class Edges(
             .groupby(edges.start_inode.values, sort=False)
         )
         assert groupby.size().min() != 1
-
-        # edges = self
-        # loc = edges.start_degree.values != 2
-        # loc &= edges.nodes.degree.loc[edges.start_inode].values == 2
-        # inode = edges.start_inode.loc[loc]
-        # loc = edges.start_inode.isin(inode)
-        # edges.frame.loc[loc].sort_values('start_inode')
 
         if not len(groupby):
             result = pd.Series(dtype='UInt32')

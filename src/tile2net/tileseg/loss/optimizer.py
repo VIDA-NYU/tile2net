@@ -34,13 +34,13 @@ import math
 import torch
 
 from torch import optim
-from tile2net.logger import logger
+from tile2net.grid.cfg.logger import logger
 
-from tile2net.grid.tileseg.config import cfg
-from tile2net.grid.tileseg.loss.radam import RAdam
+from tile2net.grid.cfg import cfg
+from tile2net.tileseg.loss.radam import RAdam
 
 
-def get_optimizer(args, net):
+def get_optimizer(net):
     """
     Decide Optimizer (Adam or SGD)
     """
@@ -48,43 +48,43 @@ def get_optimizer(args, net):
 
     if cfg.MODEL.OPTIMIZER == 'sgd':
         optimizer = optim.SGD(param_groups,
-                              lr=args.lr,
-                              weight_decay=args.weight_decay,
-                              momentum=args.momentum,
+                              lr=cfg.lr,
+                              weight_decay=cfg.weight_decay,
+                              momentum=cfg.momentum,
                               nesterov=False)
     elif cfg.MODEL.OPTIMIZER == 'adam':
         optimizer = optim.Adam(param_groups,
-                               lr=args.lr,
-                               weight_decay=args.weight_decay,
-                               amsgrad=args.amsgrad)
+                               lr=cfg.lr,
+                               weight_decay=cfg.weight_decay,
+                               amsgrad=cfg.amsgrad)
     elif cfg.MODEL.OPTIMIZER == 'radam':
         optimizer = RAdam(param_groups,
-                          lr=args.lr,
-                          weight_decay=args.weight_decay)
+                          lr=cfg.lr,
+                          weight_decay=cfg.weight_decay)
     else:
         raise ValueError('Not a valid optimizer')
 
     def poly_schd(epoch):
-        return math.pow(1 - epoch / args.max_epoch, args.poly_exp)
+        return math.pow(1 - epoch / cfg.max_epoch, cfg.poly_exp)
 
     def poly2_schd(epoch):
-        if epoch < args.poly_step:
-            poly_exp = args.poly_exp
+        if epoch < cfg.poly_step:
+            poly_exp = cfg.poly_exp
         else:
-            poly_exp = 2 * args.poly_exp
-        return math.pow(1 - epoch / args.max_epoch, poly_exp)
+            poly_exp = 2 * cfg.poly_exp
+        return math.pow(1 - epoch / cfg.max_epoch, poly_exp)
 
     if cfg.MODEL.LR_SCHEDULER == 'scl-poly':
         if cfg.REDUCE_BORDER_EPOCH == -1:
             raise ValueError('ERROR Cannot Do Scale Poly')
 
         rescale_thresh = cfg.REDUCE_BORDER_EPOCH
-        scale_value = args.rescale
+        scale_value = cfg.rescale
         lambda1 = lambda epoch: \
              math.pow(1 - epoch / cfg.MODEL.MAX_EPOCH,
-                      args.poly_exp) if epoch < rescale_thresh else scale_value * math.pow(
-                          1 - (epoch - rescale_thresh) / (args.max_epoch - rescale_thresh),
-                          args.repoly)
+                      cfg.poly_exp) if epoch < rescale_thresh else scale_value * math.pow(
+                          1 - (epoch - rescale_thresh) / (cfg.max_epoch - rescale_thresh),
+                          cfg.repoly)
         scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
     elif cfg.MODEL.LR_SCHEDULER == 'poly2':
         scheduler = optim.lr_scheduler.LambdaLR(optimizer,
@@ -93,7 +93,7 @@ def get_optimizer(args, net):
         scheduler = optim.lr_scheduler.LambdaLR(optimizer,
                                                 lr_lambda=poly_schd)
     else:
-        raise ValueError('unknown lr schedule {}'.format(args.model.lr_scheduler))
+        raise ValueError('unknown lr schedule {}'.format(cfg.model.lr_scheduler))
 
     return optimizer, scheduler
 
@@ -103,7 +103,7 @@ def load_weights(net, optimizer, snapshot_file, restore_optimizer_bool=False):
     Load weights from snapshot file
     """
     # logger.debug("Loading weights from model {}".format(snapshot_file))
-    logger.info("Loading weights from model {}".format(snapshot_file))
+    logger.debug("Loading weights from model {}".format(snapshot_file))
     net, optimizer = restore_snapshot(net, optimizer, snapshot_file, restore_optimizer_bool)
     return net, optimizer
 

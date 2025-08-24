@@ -14,8 +14,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from tile2net.grid.tileseg.loss import rmi_utils
-from tile2net.grid.tileseg.config import cfg
+from tile2net.tileseg.loss import rmi_utils
+from tile2net.grid.cfg import cfg
 from torch.cuda import amp
 
 _euler_num = 2.718281828        # euler number
@@ -36,15 +36,17 @@ class RMILoss(nn.Module):
     I(A, B) = H(A) + H(B) - H(A, B)
     This version need a lot of memory if do not dwonsample.
     """
-    def __init__(self,
-                 num_classes=21,
-                 rmi_radius=3,
-                 rmi_pool_way=1,
-                 rmi_pool_size=4,
-                 rmi_pool_stride=4,
-                 loss_weight_lambda=0.5,
-                 lambda_way=1,
-                 ignore_index=255):
+    def __init__(
+            self,
+            num_classes=21,
+            rmi_radius=3,
+            rmi_pool_way=1,
+            rmi_pool_size=4,
+            rmi_pool_stride=4,
+            loss_weight_lambda=0.5,
+            lambda_way=1,
+            ignore_index=255
+    ):
         super(RMILoss, self).__init__()
         self.num_classes = num_classes
         # radius choices
@@ -135,7 +137,7 @@ class RMILoss(nn.Module):
 
     def inverse(self, x):
         return torch.inverse(x)
-    
+
     def rmi_lower_bound(self, labels_4D, probs_4D):
         """
         calculate the lower bound of the region mutual information.

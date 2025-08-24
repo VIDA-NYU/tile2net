@@ -1,5 +1,5 @@
 import argparse
-from tile2net.grid.tileseg.config import cfg
+from tile2net.grid.cfg import cfg
 import os
 import shutil
 import time
@@ -463,7 +463,7 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
         shutil.copyfile(filename, 'model_best.pth.tar')
 
 
-class AverageMeter(object):
+class AverageMeter:
     """Computes and stores the average and current value"""
     def __init__(self):
         self.reset()

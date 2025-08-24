@@ -130,58 +130,64 @@ python -m tile2net --location "zuccotti park" --name zuccotti/unscaled/pad=0 --s
 
 python -m tile2net --location "financial district, new york city" --name fidi/unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --line.preview 8192 --polygon.preview 8192
 python -m tile2net --location "financial district, new york city" --name fidi/unscaled/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 4 --vector.length 8 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "financial district, new york city" --name fidi/unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --line.preview 8192 --polygon.preview 8192
 python -m tile2net --location "financial district, new york city" --name fidi/unscaled/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8 --line.preview 8192 --polygon.preview 8192
 python -m tile2net --location "financial district, new york city" --name fidi/unscaled/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "financial district, new york city" --name fidi/unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+
 
 python -m tile2net --location "financial district, new york city" --name fidi/scales=0.5,2/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
 python -m tile2net --location "financial district, new york city" --name fidi/scales=0.5,2/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+
+start here
 python -m tile2net --location "financial district, new york city" --name fidi/scales=0.5,2/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
 python -m tile2net --location "financial district, new york city" --name fidi/scales=0.5,2/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
 
 
-python -m tile2net --location "chicago loop" --name loop/unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "chicago loop" --name loop/unscaled/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 4 --vector.length 8 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "chicago loop" --name loop/unscaled/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "chicago loop" --name loop/unscaled/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --line.preview 8192 --polygon.preview 8192
 
-python -m tile2net --location "chicago loop" --name loop/scales=0.5,2/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "chicago loop" --name loop/scales=0.5,2/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "chicago loop" --name loop/scales=0.5,2/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "chicago loop" --name loop/scales=0.5,2/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+# Chicago Loop
+python -m tile2net --location "chicago loop" --name unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "chicago loop" --name unscaled/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 4 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "chicago loop" --name unscaled/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "chicago loop" --name unscaled/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --line.preview 8192 --polygon.preview 8192
 
-
-
-python -m tile2net --location "uc berkeley" --name berkeley/unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "uc berkeley" --name berkeley/unscaled/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 4 --vector.length 8 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "uc berkeley" --name berkeley/unscaled/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "uc berkeley" --name berkeley/unscaled/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --line.preview 8192 --polygon.preview 8192
-
-python -m tile2net --location "uc berkeley" --name berkeley/scales=0.5,2/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "uc berkeley" --name berkeley/scales=0.5,2/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "uc berkeley" --name berkeley/scales=0.5,2/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "uc berkeley" --name berkeley/scales=0.5,2/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "chicago loop" --name scales=0.5,2/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "chicago loop" --name scales=0.5,2/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "chicago loop" --name scales=0.5,2/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "chicago loop" --name scales=0.5,2/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
 
 
+# UC Berkeley
+python -m tile2net --location "uc berkeley" --name unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "uc berkeley" --name unscaled/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 4 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "uc berkeley" --name unscaled/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "uc berkeley" --name unscaled/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --line.preview 8192 --polygon.preview 8192
 
-python -m tile2net --location "financial district, san francisco" --name sf/fidi/unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "financial district, san francisco" --name sf/fidi/unscaled/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 4 --vector.length 8 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "financial district, san francisco" --name sf/fidi/unscaled/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "financial district, san francisco" --name sf/fidi/unscaled/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --line.preview 8192 --polygon.preview 8192
-
-python -m tile2net --location "financial district, san francisco" --name sf/fidi/scales=0.5,2/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "financial district, san francisco" --name sf/fidi/scales=0.5,2/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "financial district, san francisco" --name sf/fidi/scales=0.5,2/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "financial district, san francisco" --name sf/fidi/scales=0.5,2/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "uc berkeley" --name scales=0.5,2/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "uc berkeley" --name scales=0.5,2/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "uc berkeley" --name scales=0.5,2/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "uc berkeley" --name scales=0.5,2/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
 
 
+# Financial District, San Francisco
+python -m tile2net --location "37.788350436883455, -122.40401477058349, 37.79723443121796, -122.38859286107203" --name unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "financial district, san francisco" --name unscaled/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 4 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "financial district, san francisco" --name unscaled/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "financial district, san francisco" --name unscaled/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --line.preview 8192 --polygon.preview 8192
 
-python -m tile2net --location "downtown richmond, virginia" --name richmond/downtown/unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "downtown richmond, virginia" --name richmond/downtown/unscaled/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 4 --vector.length 8 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "downtown richmond, virginia" --name richmond/downtown/unscaled/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "downtown richmond, virginia" --name richmond/downtown/unscaled/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "financial district, san francisco" --name scales=0.5,2/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "financial district, san francisco" --name scales=0.5,2/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "financial district, san francisco" --name scales=0.5,2/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "financial district, san francisco" --name scales=0.5,2/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
 
-python -m tile2net --location "downtown richmond, virginia" --name richmond/downtown/scales=0.5,2/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "downtown richmond, virginia" --name richmond/downtown/scales=0.5,2/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "downtown richmond, virginia" --name richmond/downtown/scales=0.5,2/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
-python -m tile2net --location "downtown richmond, virginia" --name richmond/downtown/scales=0.5,2/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+
+# Downtown Richmond, Virginia
+python -m tile2net --location "downtown richmond, virginia" --name unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "downtown richmond, virginia" --name unscaled/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 4 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "downtown richmond, virginia" --name unscaled/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "downtown richmond, virginia" --name unscaled/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+
+python -m tile2net --location "downtown richmond, virginia" --name scales=0.5,2/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "downtown richmond, virginia" --name scales=0.5,2/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "downtown richmond, virginia" --name scales=0.5,2/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "downtown richmond, virginia" --name scales=0.5,2/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --line.preview 8192 --polygon.preview 8192
+

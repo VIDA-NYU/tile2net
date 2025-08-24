@@ -38,7 +38,6 @@ from skimage.restoration import denoise_bilateral
 import torch
 from PIL import Image, ImageEnhance
 import torchvision.transforms as torch_tr
-from tile2net.grid.tileseg.config import cfg
 from scipy.ndimage.interpolation import shift
 
 from skimage.segmentation import find_boundaries
@@ -49,14 +48,14 @@ except ImportError:
     accimage = None
 
 
-class RandomVerticalFlip(object):
+class RandomVerticalFlip:
     def __call__(self, img):
         if random.random() < 0.5:
             return img.transpose(Image.FLIP_TOP_BOTTOM)
         return img
 
 
-class DeNormalize(object):
+class DeNormalize:
     def __init__(self, mean, std):
         self.mean = mean
         self.std = std
@@ -67,17 +66,20 @@ class DeNormalize(object):
         return tensor
 
 
-class MaskToTensor(object):
+class MaskToTensor:
     def __call__(self, img, blockout_predefined_area=False):
         return torch.from_numpy(np.array(img, dtype=np.int32)).long()
 
-class RelaxedBoundaryLossToTensor(object):
+class RelaxedBoundaryLossToTensor:
     """
     Boundary Relaxation
     """
-    def __init__(self,ignore_id, num_classes):
-        self.ignore_id=ignore_id
-        self.num_classes= num_classes
+    if False:
+        from tile2net.grid.tiles.tiles import  Tiles
+
+    def __init__(self, tiles: 'Tiles', ignore_id, num_classes, ):
+        self.ignore_id = ignore_id
+        self.num_classes = num_classes
 
 
     def new_one_hot_converter(self,a):
@@ -91,38 +93,38 @@ class RelaxedBoundaryLossToTensor(object):
 
         img_arr = np.array(img)
         img_arr[img_arr==self.ignore_id]=self.num_classes
-        
-        if cfg.STRICTBORDERCLASS != None:
+
+        if cfg.strictborderclass != None:
             one_hot_orig = self.new_one_hot_converter(img_arr)
             mask = np.zeros((img_arr.shape[0],img_arr.shape[1]))
-            for cls in cfg.STRICTBORDERCLASS:
+            for cls in cfg.strictborderclass:
                 mask = np.logical_or(mask,(img_arr == cls))
         one_hot = 0
 
-        border = cfg.BORDER_WINDOW
-        if (cfg.REDUCE_BORDER_EPOCH !=-1 and cfg.EPOCH > cfg.REDUCE_BORDER_EPOCH):
+        border = cfg.border_window
+        if (cfg.reduce_border_epoch !=-1 and cfg.epoch > cfg.reduce_border_epoch):
             border = border // 2
             border_prediction = find_boundaries(img_arr, mode='thick').astype(np.uint8)
-        
+
         for i in range(-border,border+1):
             for j in range(-border, border+1):
                 shifted= shift(img_arr,(i,j), cval=self.num_classes)
                 one_hot += self.new_one_hot_converter(shifted)       
-        
-        one_hot[one_hot>1] = 1
-        
-        if cfg.STRICTBORDERCLASS != None:
-            one_hot = np.where(np.expand_dims(mask,2), one_hot_orig, one_hot)
-    
-        one_hot = np.moveaxis(one_hot,-1,0)
-    
 
-        if (cfg.REDUCE_BORDER_EPOCH !=-1 and cfg.EPOCH > cfg.REDUCE_BORDER_EPOCH):
+        one_hot[one_hot>1] = 1
+
+        if cfg.strictborderclass != None:
+            one_hot = np.where(np.expand_dims(mask,2), one_hot_orig, one_hot)
+
+        one_hot = np.moveaxis(one_hot,-1,0)
+
+
+        if (cfg.reduce_border_epoch !=-1 and cfg.epoch > cfg.reduce_border_epoch):
                 one_hot = np.where(border_prediction,2*one_hot,1*one_hot)
                 # print(one_hot.shape)
         return torch.from_numpy(one_hot).byte()
 
-class ResizeHeight(object):
+class ResizeHeight:
     def __init__(self, size, interpolation=Image.BILINEAR):
         self.target_h = size
         self.interpolation = interpolation
@@ -133,7 +135,7 @@ class ResizeHeight(object):
         return img.resize((target_w, self.target_h), self.interpolation)
 
 
-class FreeScale(object):
+class FreeScale:
     def __init__(self, size, interpolation=Image.BILINEAR):
         self.size = tuple(reversed(size))  # size: (h, w)
         self.interpolation = interpolation
@@ -142,7 +144,7 @@ class FreeScale(object):
         return img.resize(self.size, self.interpolation)
 
 
-class FlipChannels(object):
+class FlipChannels:
     """
     Flip around the x-axis
     """
@@ -151,7 +153,7 @@ class FlipChannels(object):
         return Image.fromarray(img.astype(np.uint8))
 
 
-class RandomGaussianBlur(object):
+class RandomGaussianBlur:
     """
     Apply Gaussian Blur
     """
@@ -162,7 +164,7 @@ class RandomGaussianBlur(object):
         return Image.fromarray(blurred_img.astype(np.uint8))
 
 
-class RandomBrightness(object):
+class RandomBrightness:
     def __call__(self, img):
         if random.random() < 0.5:
             return img
@@ -170,7 +172,7 @@ class RandomBrightness(object):
         return ImageEnhance.Brightness(img).enhance(v)
 
 
-class RandomBilateralBlur(object):
+class RandomBilateralBlur:
     """
     Apply Bilateral Filtering
 
@@ -294,7 +296,7 @@ def adjust_hue(img, hue_factor):
     return img
 
 
-class ColorJitter(object):
+class ColorJitter:
     """Randomly change the brightness, contrast and saturation of an image.
 
     Args:
@@ -327,22 +329,46 @@ class ColorJitter(object):
         if brightness > 0:
             brightness_factor = np.random.uniform(max(0, 1 - brightness), 1 + brightness)
             transforms.append(
-                torch_tr.Lambda(lambda img: adjust_brightness(img, brightness_factor)))
+                torch_tr.Lambda(
+                    lambda img: adjust_brightness(
+                        img=img,
+                        brightness_factor=brightness_factor
+                    )
+                )
+            )
 
         if contrast > 0:
             contrast_factor = np.random.uniform(max(0, 1 - contrast), 1 + contrast)
             transforms.append(
-                torch_tr.Lambda(lambda img: adjust_contrast(img, contrast_factor)))
+                torch_tr.Lambda(
+                    lambda img: adjust_contrast(
+                        img=img,
+                        contrast_factor=contrast_factor
+                    )
+                )
+            )
 
         if saturation > 0:
             saturation_factor = np.random.uniform(max(0, 1 - saturation), 1 + saturation)
             transforms.append(
-                torch_tr.Lambda(lambda img: adjust_saturation(img, saturation_factor)))
+                torch_tr.Lambda(
+                    lambda img: adjust_saturation(
+                        img=img,
+                        saturation_factor=saturation_factor
+                    )
+                )
+            )
 
         if hue > 0:
             hue_factor = np.random.uniform(-hue, hue)
             transforms.append(
-                torch_tr.Lambda(lambda img: adjust_hue(img, hue_factor)))
+                torch_tr.Lambda(
+                    lambda img: adjust_hue(
+                        img=img,
+                        hue_factor=hue_factor
+                    )
+                )
+            )
 
         np.random.shuffle(transforms)
         transform = torch_tr.Compose(transforms)

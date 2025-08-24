@@ -14,8 +14,8 @@ import torchvision.transforms as standard_transforms
 from PIL import Image
 
 from tile2net.grid.cfg import cfg
-from tile2net.grid.tileseg.utils.misc import AverageMeter
-from tile2net.grid.tileseg.utils.misc import fast_hist, fmt_scale
+from tile2net.tileseg.utils.misc import AverageMeter
+from tile2net.tileseg.utils.misc import fast_hist, fmt_scale
 
 if False:
     from .seggrid import SegGrid

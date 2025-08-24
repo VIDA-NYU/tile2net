@@ -29,21 +29,32 @@ POSSIBILITY OF SUCH DAMAGE.
 
 Generic dataloader base class
 """
+from __future__ import annotations
 import os
 import glob
 import numpy as np
+from typing import List, Tuple, Optional, Union, Any, Dict
 
 from PIL import Image
 from torch.utils import data
-from tile2net.grid.tileseg.config import cfg
-from tile2net.grid.tileseg.datasets import uniform
-from tile2net.grid.tileseg.utils.misc import tensor_to_pil
+from tile2net.tileseg.datasets import uniform
+from tile2net.tileseg.utils.misc import tensor_to_pil
+from tile2net.grid.cfg import cfg
+
+if False:
+    from ...grid import Grid
 
 
 class BaseLoader(data.Dataset):
-    def __init__(self, quality, mode, joint_transform_list, img_transform,
-                 label_transform):
-
+    def __init__(
+            self,
+            quality: Optional[str],
+            mode: str,
+            joint_transform_list: Optional[List[Any]],
+            img_transform: Optional[Any],
+            label_transform: Optional[Any],
+            tiles: 'Grid',
+    ) -> None:
         super(BaseLoader, self).__init__()
         self.quality = quality
         self.mode = mode
@@ -56,20 +67,23 @@ class BaseLoader(data.Dataset):
         self.all_imgs = None
         self.drop_mask = np.zeros((1024, 2048))
         self.drop_mask[15:840, 14:2030] = 1.0
+        self.tiles = tiles
 
-    def build_epoch(self):
+    def build_epoch(self) -> None:
         """
         For class uniform sampling ... every epoch, we want to recompute
         which tiles from which images we want to sample from, so that the
         sampling is uniformly random.
         """
-        self.imgs = uniform.build_epoch(self.all_imgs,
-                                        self.centroids,
-                                        self.num_classes,
-                                        self.train)
+        self.imgs = uniform.build_epoch(
+            self.all_imgs,
+            self.centroids,
+            self.num_classes,
+            self.train
+        )
 
     @staticmethod
-    def find_images(img_root, mask_root, img_ext, mask_ext):
+    def find_images(img_root: str, mask_root: str, img_ext: str, mask_ext: str) -> List[Tuple[str, str]]:
         """
         Find image and segmentation mask files and return a list of
         tuples of them.
@@ -77,6 +91,7 @@ class BaseLoader(data.Dataset):
         img_path = '{}/*.{}'.format(img_root, img_ext)
         imgs = glob.glob(img_path)
         items = []
+        raise NotImplementedError
         for full_img_fn in imgs:
             img_dir, img_fn = os.path.split(full_img_fn)
             img_name, _ = os.path.splitext(img_fn)
@@ -86,10 +101,10 @@ class BaseLoader(data.Dataset):
             items.append((full_img_fn, full_mask_fn))
         return items
 
-    def disable_coarse(self):
+    def disable_coarse(self) -> None:
         pass
 
-    def colorize_mask(self, image_array):
+    def colorize_mask(self, image_array: np.ndarray) -> Image.Image:
         """
         Colorize the segmentation mask
         """
@@ -97,13 +112,15 @@ class BaseLoader(data.Dataset):
         new_mask.putpalette(self.color_mapping)
         return new_mask
 
-    def dump_images(self, img_name, mask, centroid, class_id, img):
+    def dump_images(self, img_name: str, mask: Any, centroid: Optional[Tuple[int, int]], class_id: Optional[int], img: Any) -> None:
         img = tensor_to_pil(img)
         outdir = 'new_dump_imgs_{}'.format(self.mode)
         os.makedirs(outdir, exist_ok=True)
         if centroid is not None:
-            dump_img_name = '{}_{}'.format(self.trainid_to_name[class_id],
-                                           img_name)
+            dump_img_name = '{}_{}'.format(
+                self.trainid_to_name[class_id],
+                img_name
+            )
         else:
             dump_img_name = img_name
         out_img_fn = os.path.join(outdir, dump_img_name + '.png')
@@ -115,7 +132,8 @@ class BaseLoader(data.Dataset):
         mask_img.save(out_msk_fn)
         raw_img.save(out_raw_fn)
 
-    def do_transforms(self, img, mask, centroid, img_name, class_id):
+    def do_transforms(self, img: Image.Image, mask: Image.Image, centroid: Optional[Tuple[int, int]],
+                      img_name: str, class_id: Optional[int]) -> Tuple[Any, Any, float]:
         """
         Do transformations to image and mask
 
@@ -147,7 +165,7 @@ class BaseLoader(data.Dataset):
 
         return img, mask, scale_float
 
-    def read_images(self, img_path, mask_path):
+    def read_images(self, img_path: str, mask_path: Optional[str]) -> Tuple[Image.Image, Image.Image, str]:
         img = Image.open(img_path).convert('RGB')
         if mask_path is None or mask_path == '':
             w, h = img.size
@@ -166,7 +184,10 @@ class BaseLoader(data.Dataset):
         mask = Image.fromarray(mask.astype(np.uint8))
         return img, mask, img_name
 
-    def __getitem__(self, index):
+    def __getitem__(
+            self,
+            index: int
+    ) -> Tuple[Any, Any, str, float]:
         """
         Generate data:
 
@@ -176,12 +197,18 @@ class BaseLoader(data.Dataset):
         - image_name: basename of file, string
         """
         # Pick an image, fill in defaults if not using class uniform
-        if len(self.imgs[index]) == 2:
-            img_path, mask_path = self.imgs[index]
+        tup = self.imgs[index]
+        if len(tup) == 2:
+            img_path, mask_path = tup
             centroid = None
             class_id = None
+        elif len(tup) == 4:
+            img_path, mask_path, centroid, class_id = tup
         else:
-            img_path, mask_path, centroid, class_id = self.imgs[index]
+            msg = 'Unexpected number of items in self.imgs[{}]: {}'.format(
+                index, len(tup)
+            )
+            raise ValueError(msg)
 
         img, mask, img_name = self.read_images(img_path, mask_path)
 
@@ -190,17 +217,22 @@ class BaseLoader(data.Dataset):
             prob_mask_path = mask_path.replace('.png', '_prob.png')
             # put it in 0 to 1
             prob_map = np.array(Image.open(prob_mask_path)) / 255.0
-            prob_map_threshold = (prob_map < cfg.DATASET.CUSTOM_COARSE_PROB)
+            prob_map_threshold = prob_map < cfg.DATASET.CUSTOM_COARSE_PROB
             mask[prob_map_threshold] = cfg.DATASET.IGNORE_LABEL
             mask = Image.fromarray(mask.astype(np.uint8))
 
-        img, mask, scale_float = self.do_transforms(img, mask, centroid,
-                                                    img_name, class_id)
+        img, mask, scale_float = self.do_transforms(
+            img,
+            mask,
+            centroid,
+            img_name,
+            class_id
+        )
 
         return img, mask, img_name, scale_float
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.imgs)
 
-    def calculate_weights(self):
+    def calculate_weights(self) -> None:
         raise BaseException("not supported yet")

@@ -179,7 +179,7 @@ class Polygons(
             divider: str = 'grey',
             simplify: float | None = None,
             show: bool = True,
-            thickness: float = 0.5,
+            thickness: float | None = None,
             opacity: float = 1.,
             **kwargs,
     ) -> PIL.Image.Image:
@@ -251,7 +251,9 @@ class Polygons(
         # stroke setup
         label2color = self.ingrid.cfg.label2color
         base_width = kwargs.get('width', max(1, long_side // 1400))
-        line_w = max(1, int(round(float(base_width) * float(thickness))))
+        # Use cfg.polygon.thickness if thickness is None
+        actual_thickness = thickness if thickness is not None else self.ingrid.cfg.polygon.thickness
+        line_w = max(1, int(round(float(base_width) * float(actual_thickness))))
         lw_hole = max(1, line_w // 2)
         coll_alpha = max(0.0, min(1.0, float(opacity)))
 

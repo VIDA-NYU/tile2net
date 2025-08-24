@@ -17,7 +17,7 @@ import magicpandas as magic
 import shutil
 
 import pytest
-from tile2net.raster.raster import Raster
+from tile2net.tileseg.raster import Raster
 
 import ast
 from types import SimpleNamespace

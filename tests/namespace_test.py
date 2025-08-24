@@ -11,7 +11,7 @@ import logging
 
 @pytest.fixture
 def c() -> AttrDict:
-    from tile2net.grid.tileseg.config import cfg
+    from tile2net.tileseg.config import cfg
     return cfg
 
 @pytest.fixture
@@ -97,7 +97,7 @@ def test_set(c: AttrDict, args: Namespace):
     pass
 
 if __name__ == '__main__':
-    from tile2net.grid.tileseg.config import cfg
+    from tile2net.tileseg.config import cfg
     args = Namespace()
     test_found(cfg, args)
     test_set(cfg, args)

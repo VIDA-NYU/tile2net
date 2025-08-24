@@ -1,8 +1,8 @@
 import abc
 
 import pytest
-import tile2net.raster.source
-from tile2net.raster.raster import Raster
+import tile2net.tileseg.source
+from tile2net.tileseg.raster import Raster
 
 
 def test_small():
@@ -20,10 +20,10 @@ def test_small():
 
 
 def test_sources():
-    import tile2net.raster.source as source
-    from tile2net.raster.source import Source
-    for key in dir(tile2net.raster.source):
-        cls = getattr(tile2net.raster.source, key)
+    import tile2net.tileseg.source as source
+    from tile2net.tileseg.source import Source
+    for key in dir(tile2net.tileseg.source):
+        cls = getattr(tile2net.tileseg.source, key)
         if (
                 not isinstance(cls, type)
                 or not issubclass(cls, Source)

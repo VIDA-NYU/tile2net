@@ -1,8 +1,4 @@
 from __future__ import annotations
-from ..frame.framewrapper import FrameWrapper
-from ..benchmark import benchmark
-from ..cfg import cfg
-from ..explore import explore
 
 from typing import *
 from typing import Self
@@ -10,6 +6,10 @@ from typing import Self
 import geopandas as gpd
 import shapely
 
+from ..benchmark import benchmark
+from ..cfg import cfg
+from ..explore import explore
+from ..frame.framewrapper import FrameWrapper
 from ...grid.frame.namespace import namespace
 
 if False:

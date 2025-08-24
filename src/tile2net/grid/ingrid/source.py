@@ -24,7 +24,7 @@ from shapely import box, wkt
 from urllib3.util.retry import Retry
 
 from tile2net.logger import logger
-from tile2net.raster.geocode import GeoCode
+from tile2net.grid.geocode import GeoCode
 
 if False:
     from .ingrid import InGrid

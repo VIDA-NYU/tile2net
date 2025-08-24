@@ -18,10 +18,9 @@ import torch.nn as nn
 import torch._utils
 import torch.nn.functional as F
 
-from tile2net.grid.tileseg.network import Norm2d
-from tile2net.logger import logger
-from tile2net.grid.tileseg.config import cfg
-
+from tile2net.tileseg.network.mynn import Norm2d
+from tile2net.grid.cfg.logger import logger
+from tile2net.grid.cfg import cfg
 
 BN_MOMENTUM = 0.1
 relu_inplace = True
@@ -147,8 +146,8 @@ class HighResolutionModule(nn.Module):
                          stride=1):
         downsample = None
         if stride != 1 or \
-           self.num_inchannels[branch_index] != (num_channels[branch_index] *
-                                                 block.expansion):
+                self.num_inchannels[branch_index] != (num_channels[branch_index] *
+                                                      block.expansion):
             downsample = nn.Sequential(
                 nn.Conv2d(self.num_inchannels[branch_index],
                           num_channels[branch_index] * block.expansion,
@@ -200,7 +199,7 @@ class HighResolutionModule(nn.Module):
                     fuse_layer.append(None)
                 else:
                     conv3x3s = []
-                    for k in range(i-j):
+                    for k in range(i - j):
                         if k == i - j - 1:
                             num_outchannels_conv3x3 = num_inchannels[i]
                             conv3x3s.append(nn.Sequential(
@@ -275,11 +274,13 @@ class HighResolutionNet(nn.Module):
         self.relu = nn.ReLU(inplace=relu_inplace)
 
         self.stage1_cfg = extra['STAGE1']
+        self.stage1_cfg.num_modules
+        extra['STAGE1']._trace
         num_channels = self.stage1_cfg['NUM_CHANNELS'][0]
         block = blocks_dict[self.stage1_cfg['BLOCK']]
         num_blocks = self.stage1_cfg['NUM_BLOCKS'][0]
         self.layer1 = self._make_layer(block, 64, num_channels, num_blocks)
-        stage1_out_channel = block.expansion*num_channels
+        stage1_out_channel = block.expansion * num_channels
 
         self.stage2_cfg = extra['STAGE2']
         num_channels = self.stage2_cfg['NUM_CHANNELS']
@@ -336,10 +337,10 @@ class HighResolutionNet(nn.Module):
                     transition_layers.append(None)
             else:
                 conv3x3s = []
-                for j in range(i+1-num_branches_pre):
+                for j in range(i + 1 - num_branches_pre):
                     inchannels = num_channels_pre_layer[-1]
                     outchannels = num_channels_cur_layer[i] \
-                        if j == i-num_branches_pre else inchannels
+                        if j == i - num_branches_pre else inchannels
                     conv3x3s.append(nn.Sequential(
                         nn.Conv2d(
                             inchannels, outchannels, 3, 2, 1, bias=False),
@@ -466,16 +467,15 @@ class HighResolutionNet(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
         if os.path.isfile(pretrained):
-            pretrained_dict = torch.load(pretrained,
-                                         map_location={'cuda:0': 'cpu'})
-            # logger.debug('=> loading pretrained model {}'.format(pretrained))
-            logger.info('loading pretrained model {}'.format(pretrained))
+            pretrained_dict = torch.load(
+                pretrained,
+                map_location={'cuda:0': 'cpu'}
+            )
+            logger.info('Loading pretrained model \n\t{}'.format(pretrained))
             model_dict = self.state_dict()
             pretrained_dict = {k.replace('last_layer',
                                          'aux_head').replace('model.', ''): v
                                for k, v in pretrained_dict.items()}
-            #print(set(model_dict) - set(pretrained_dict))
-            #print(set(pretrained_dict) - set(model_dict))
             pretrained_dict = {k: v for k, v in pretrained_dict.items()
                                if k in model_dict.keys()}
             model_dict.update(pretrained_dict)

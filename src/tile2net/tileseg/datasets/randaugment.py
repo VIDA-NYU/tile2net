@@ -4,39 +4,50 @@
 import random
 import numpy as np
 import torch
+from typing import List, Tuple, Optional, Union, Any, Callable
 
 from PIL import Image, ImageOps, ImageEnhance, ImageDraw
-from tile2net.grid.tileseg.config import cfg
+from tile2net.grid.cfg import cfg
 
 
 fillmask = cfg.DATASET.IGNORE_LABEL
 fillcolor = (0, 0, 0)
 
 
-def affine_transform(pair, affine_params):
+def affine_transform(pair: Tuple[Image.Image, Image.Image], affine_params: Tuple[float, float, float, float, float, float]) -> Tuple[Image.Image, Image.Image]:
     img, mask = pair
-    img = img.transform(img.size, Image.AFFINE, affine_params,
-                        resample=Image.BILINEAR, fillcolor=fillcolor)
-    mask = mask.transform(mask.size, Image.AFFINE, affine_params,
-                          resample=Image.NEAREST, fillcolor=fillmask)
+    img = img.transform(
+        img.size, 
+        Image.AFFINE, 
+        affine_params,
+        resample=Image.BILINEAR, 
+        fillcolor=fillcolor
+    )
+    mask = mask.transform(
+        mask.size, 
+        Image.AFFINE, 
+        affine_params,
+        resample=Image.NEAREST, 
+        fillcolor=fillmask
+    )
     return img, mask
 
 
-def ShearX(pair, v):  # [-0.3, 0.3]
+def ShearX(pair: Tuple[Image.Image, Image.Image], v: float) -> Tuple[Image.Image, Image.Image]:  # [-0.3, 0.3]
     assert -0.3 <= v <= 0.3
     if random.random() > 0.5:
         v = -v
     return affine_transform(pair, (1, v, 0, 0, 1, 0))
 
 
-def ShearY(pair, v):  # [-0.3, 0.3]
+def ShearY(pair: Tuple[Image.Image, Image.Image], v: float) -> Tuple[Image.Image, Image.Image]:  # [-0.3, 0.3]
     assert -0.3 <= v <= 0.3
     if random.random() > 0.5:
         v = -v
     return affine_transform(pair, (1, 0, 0, v, 1, 0))
 
 
-def TranslateX(pair, v):  # [-150, 150] => percentage: [-0.45, 0.45]
+def TranslateX(pair: Tuple[Image.Image, Image.Image], v: float) -> Tuple[Image.Image, Image.Image]:  # [-150, 150] => percentage: [-0.45, 0.45]
     assert -0.45 <= v <= 0.45
     if random.random() > 0.5:
         v = -v
@@ -201,7 +212,7 @@ def augment_list():  # 16 oeprations and their ranges
     return l
 
 
-class Lighting(object):
+class Lighting:
     """Lighting noise(AlexNet - style PCA - based noise)"""
 
     def __init__(self, alphastd, eigval, eigvec):
@@ -222,7 +233,7 @@ class Lighting(object):
         return img.add(rgb.view(3, 1, 1).expand_as(img))
 
 
-class CutoutDefault(object):
+class CutoutDefault:
     """
     Reference : https://github.com/quark0/darts/blob/master/cnn/utils.py
     """

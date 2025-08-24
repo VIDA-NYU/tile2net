@@ -5,7 +5,7 @@ import syncbn
 import os
 import argparse
 import torch.optim as optim
-import tile2net.grid.tileseg.config as cfg
+import tile2net.tileseg.config as cfg
 
 def compare(desc, inp1, inp2, error):
     a = inp1.clone().detach().cpu().numpy()

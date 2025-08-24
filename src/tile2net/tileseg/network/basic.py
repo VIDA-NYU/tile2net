@@ -29,10 +29,10 @@ POSSIBILITY OF SUCH DAMAGE.
 """
 from torch import nn
 
-from tile2net.grid.tileseg.network import initialize_weights, Upsample
-from tile2net.grid.tileseg.network import scale_as
-from tile2net.grid.tileseg.network import get_aspp, get_trunk, make_seg_head
-from tile2net.grid.tileseg.config import cfg
+from tile2net.tileseg.network.mynn import initialize_weights, Upsample
+from tile2net.tileseg.network.mynn import scale_as
+from tile2net.tileseg.network.utils import get_aspp, get_trunk, make_seg_head
+from tile2net.grid.cfg import cfg
 
 
 class Basic(nn.Module):
@@ -43,9 +43,13 @@ class Basic(nn.Module):
         super(Basic, self).__init__()
         self.criterion = criterion
         self.backbone, _, _, high_level_ch = get_trunk(
-            trunk_name=trunk, output_stride=8)
-        self.seg_head = make_seg_head(in_ch=high_level_ch,
-                                      out_ch=num_classes)
+            trunk_name=trunk, 
+            output_stride=8
+        )
+        self.seg_head = make_seg_head(
+            in_ch=high_level_ch,
+            out_ch=num_classes
+        )
         initialize_weights(self.seg_head)
 
     def forward(self, inputs):
@@ -72,12 +76,16 @@ class ASPP(nn.Module):
         super(ASPP, self).__init__()
         self.criterion = criterion
         self.backbone, _, _, high_level_ch = get_trunk(trunk)
-        self.aspp, aspp_out_ch = get_aspp(high_level_ch,
-                                          bottleneck_ch=cfg.MODEL.ASPP_BOT_CH,
-                                          output_stride=8)
+        self.aspp, aspp_out_ch = get_aspp(
+            high_level_ch,
+            bottleneck_ch=cfg.MODEL.ASPP_BOT_CH,
+            output_stride=8
+        )
         self.bot_aspp = nn.Conv2d(aspp_out_ch, 256, kernel_size=1, bias=False)
-        self.final = make_seg_head(in_ch=256,
-                                   out_ch=num_classes)
+        self.final = make_seg_head(
+            in_ch=256,
+            out_ch=num_classes
+        )
 
         initialize_weights(self.final, self.bot_aspp, self.aspp)
 
@@ -102,10 +110,16 @@ class ASPP(nn.Module):
 
 
 def HRNet(num_classes, criterion, s2s4=None):
-    return Basic(num_classes=num_classes, criterion=criterion,
-                 trunk='hrnetv2')
+    return Basic(
+        num_classes=num_classes, 
+        criterion=criterion,
+        trunk='hrnetv2'
+    )
 
 
 def HRNet_ASP(num_classes, criterion, s2s4=None):
-    return ASPP(num_classes=num_classes, criterion=criterion,
-                trunk='hrnetv2')
+    return ASPP(
+        num_classes=num_classes, 
+        criterion=criterion,
+        trunk='hrnetv2'
+    )

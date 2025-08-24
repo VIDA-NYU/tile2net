@@ -29,8 +29,8 @@ POSSIBILITY OF SUCH DAMAGE.
 """
 import torch
 from torch import nn
-from tile2net.grid.tileseg.network import Upsample2
-from tile2net.grid.tileseg.network import ConvBnRelu, get_trunk, get_aspp
+from tile2net.tileseg.network.mynn import Upsample2
+from tile2net.tileseg.network.utils import ConvBnRelu, get_trunk, get_aspp
 
 
 class DeeperS8(nn.Module):

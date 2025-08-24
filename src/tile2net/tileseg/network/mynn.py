@@ -5,7 +5,8 @@ initialization
 # import re
 import torch
 import torch.nn as nn
-from tile2net.grid.tileseg.config import cfg
+from tile2net.grid.cfg import cfg
+
 
 
 def Norm2d(in_channels, **kwargs):
@@ -37,8 +38,12 @@ def Upsample(x, size):
     """
     Wrapper Around the Upsample Call
     """
-    return nn.functional.interpolate(x, size=size, mode='bilinear',
-                                     align_corners=cfg.MODEL.ALIGN_CORNERS)
+    return nn.functional.interpolate(
+        x, 
+        size=size, 
+        mode='bilinear',
+        align_corners=cfg.MODEL.ALIGN_CORNERS
+    )
 
 
 # @amp.float_function
@@ -46,18 +51,30 @@ def Upsample2(x):
     """
     Wrapper Around the Upsample Call
     """
-    return nn.functional.interpolate(x, scale_factor=2, mode='bilinear',
-                                     align_corners=cfg.MODEL.ALIGN_CORNERS)
+    return nn.functional.interpolate(
+        x, 
+        scale_factor=2, 
+        mode='bilinear',
+        align_corners=cfg.MODEL.ALIGN_CORNERS
+    )
 
 
 def Down2x(x):
     return torch.nn.functional.interpolate(
-        x, scale_factor=0.5, mode='bilinear', align_corners=cfg.MODEL.ALIGN_CORNERS)
+        x, 
+        scale_factor=0.5, 
+        mode='bilinear', 
+        align_corners=cfg.MODEL.ALIGN_CORNERS
+    )
 
 
 def Up15x(x):
     return torch.nn.functional.interpolate(
-        x, scale_factor=1.5, mode='bilinear', align_corners=cfg.MODEL.ALIGN_CORNERS)
+        x,
+        scale_factor=1.5,
+        mode='bilinear',
+        align_corners=cfg.MODEL.ALIGN_CORNERS
+    )
 
 
 def scale_as(x, y):
@@ -68,12 +85,18 @@ def scale_as(x, y):
 
     if cfg.OPTIONS.TORCH_VERSION >= 1.5:
         x_scaled = torch.nn.functional.interpolate(
-            x, size=y_size, mode='bilinear',
-            align_corners=cfg.MODEL.ALIGN_CORNERS)
+            x, 
+            size=y_size, 
+            mode='bilinear',
+            align_corners=cfg.MODEL.ALIGN_CORNERS
+        )
     else:
         x_scaled = torch.nn.functional.interpolate(
-            x, size=y_size, mode='bilinear',
-            align_corners=cfg.MODEL.ALIGN_CORNERS)
+            x, 
+            size=y_size, 
+            mode='bilinear',
+            align_corners=cfg.MODEL.ALIGN_CORNERS
+        )
     return x_scaled
 
 
@@ -83,12 +106,19 @@ def DownX(x, scale_factor):
     '''
     if cfg.OPTIONS.TORCH_VERSION >= 1.5:
         x_scaled = torch.nn.functional.interpolate(
-            x, scale_factor=scale_factor, mode='bilinear',
-            align_corners=cfg.MODEL.ALIGN_CORNERS, recompute_scale_factor=True)
+            x, 
+            scale_factor=scale_factor, 
+            mode='bilinear',
+            align_corners=cfg.MODEL.ALIGN_CORNERS, 
+            recompute_scale_factor=True
+        )
     else:
         x_scaled = torch.nn.functional.interpolate(
-            x, scale_factor=scale_factor, mode='bilinear',
-            align_corners=cfg.MODEL.ALIGN_CORNERS)
+            x, 
+            scale_factor=scale_factor, 
+            mode='bilinear',
+            align_corners=cfg.MODEL.ALIGN_CORNERS
+        )
     return x_scaled
 
 
@@ -98,10 +128,17 @@ def ResizeX(x, scale_factor):
     '''
     if cfg.OPTIONS.TORCH_VERSION >= 1.5:
         x_scaled = torch.nn.functional.interpolate(
-            x, scale_factor=scale_factor, mode='bilinear',
-            align_corners=cfg.MODEL.ALIGN_CORNERS, recompute_scale_factor=True)
+            x, 
+            scale_factor=scale_factor, 
+            mode='bilinear',
+            align_corners=cfg.MODEL.ALIGN_CORNERS, 
+            recompute_scale_factor=True
+        )
     else:
         x_scaled = torch.nn.functional.interpolate(
-            x, scale_factor=scale_factor, mode='bilinear',
-            align_corners=cfg.MODEL.ALIGN_CORNERS)
+            x, 
+            scale_factor=scale_factor, 
+            mode='bilinear',
+            align_corners=cfg.MODEL.ALIGN_CORNERS
+        )
     return x_scaled

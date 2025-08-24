@@ -39,6 +39,8 @@ We would like to thank Peter Kontschieder for the inspiration of this idea.
 """
 
 import sys
+
+import pandas as pd
 import os
 import json
 import numpy as np
@@ -49,8 +51,8 @@ from collections import defaultdict
 from scipy.ndimage.measurements import center_of_mass
 from PIL import Image
 from tqdm import tqdm
-from tile2net.grid.tileseg.config import cfg
-from tile2net.logger import logger
+from tile2net.grid.cfg import cfg
+from tile2net.grid.cfg.logger import logger
 
 pbar = None
 
@@ -59,12 +61,12 @@ class Point():
     """
     Point Class For X and Y Location
     """
-    def __init__(self, x, y):
+    def __init__(self, x: int, y: int) -> None:
         self.x = x
         self.y = y
 
 
-def calc_tile_locations(tile_size, image_size):
+def calc_tile_locations(tile_size: int, image_size: tuple) -> list:
     """
     Divide an image into tiles to help us cover classes that are spread out.
     tile_size: size of tile to distribute
@@ -81,7 +83,7 @@ def calc_tile_locations(tile_size, image_size):
     return locations
 
 
-def class_centroids_image(item, tile_size, num_classes, id2trainid):
+def class_centroids_image(item: tuple, tile_size: int, num_classes: int, id2trainid: dict) -> dict:
     """
     For one image, calculate centroids for all classes present in image.
     item: image, image_name
@@ -106,7 +108,7 @@ def class_centroids_image(item, tile_size, num_classes, id2trainid):
             gtCoarse_mask_path = gtCoarse_mask_path.replace('leftImg8bit','gtCoarse_labelIds')          
             gtCoarse=np.array(Image.open(gtCoarse_mask_path))
 
-    
+
     ####
 
     mask_copy = mask.copy()
@@ -129,13 +131,19 @@ def class_centroids_image(item, tile_size, num_classes, id2trainid):
                 centroid_y = int(centroid_y) + y_offs
                 centroid_x = int(centroid_x) + x_offs
                 centroid = (centroid_x, centroid_y)
-                centroids[class_id].append((image_fn, label_fn, centroid,
-                                            class_id))
+                centroids[class_id].append(
+                    (image_fn, label_fn, centroid, class_id)
+                )
     pbar.update(1)
     return centroids
 
 
-def pooled_class_centroids_all(items, num_classes, id2trainid, tile_size=1024):
+def pooled_class_centroids_all(
+        items: list,
+        num_classes: int,
+        id2trainid: dict,
+        tile_size: int = 1024
+) -> dict:
     """
     Calculate class centroids for all classes for all images for all tiles.
     items: list of (image_fn, label_fn)
@@ -147,10 +155,12 @@ def pooled_class_centroids_all(items, num_classes, id2trainid, tile_size=1024):
     pool = Pool(80)
     global pbar
     pbar = tqdm(total=len(items), desc='pooled centroid extraction', file=sys.stdout)
-    class_centroids_item = partial(class_centroids_image,
-                                   num_classes=num_classes,
-                                   id2trainid=id2trainid,
-                                   tile_size=tile_size)
+    class_centroids_item = partial(
+        class_centroids_image,
+        num_classes=num_classes,
+        id2trainid=id2trainid,
+        tile_size=tile_size
+    )
 
     centroids = defaultdict(list)
     new_centroids = pool.map(class_centroids_item, items)
@@ -164,8 +174,12 @@ def pooled_class_centroids_all(items, num_classes, id2trainid, tile_size=1024):
     return centroids
 
 
-def unpooled_class_centroids_all(items, num_classes, id2trainid,
-                                 tile_size=1024):
+def unpooled_class_centroids_all(
+        items: list,
+        num_classes: int,
+        id2trainid: dict,
+        tile_size: int = 1024
+) -> dict:
     """
     Calculate class centroids for all classes for all images for all tiles.
     items: list of (image_fn, label_fn)
@@ -176,28 +190,43 @@ def unpooled_class_centroids_all(items, num_classes, id2trainid,
     global pbar
     pbar = tqdm(total=len(items), desc='centroid extraction', file=sys.stdout)
     for image, label in items:
-        new_centroids = class_centroids_image(item=(image, label),
-                                              tile_size=tile_size,
-                                              num_classes=num_classes,
-                                              id2trainid=id2trainid)
+        new_centroids = class_centroids_image(
+            item=(image, label),
+            tile_size=tile_size,
+            num_classes=num_classes,
+            id2trainid=id2trainid
+        )
         for class_id in new_centroids:
             centroids[class_id].extend(new_centroids[class_id])
 
     return centroids
 
 
-def class_centroids_all(items, num_classes, id2trainid, tile_size=1024):
+def class_centroids_all(
+        items: list,
+        num_classes: int,
+        id2trainid: dict,
+        tile_size: int = 1024
+) -> dict:
     """
     intermediate function to call pooled_class_centroid
     """
-    pooled_centroids = pooled_class_centroids_all(items, num_classes,
-                                                  id2trainid, tile_size)
-    # pooled_centroids = unpooled_class_centroids_all(items, num_classes,
-    #                                                id2trainid, tile_size)
+    pooled_centroids = pooled_class_centroids_all(
+        items,
+        num_classes,
+        id2trainid,
+        tile_size
+    )
+    # pooled_centroids = unpooled_class_centroids_all(
+    #     items,
+    #     num_classes,
+    #     id2trainid,
+    #     tile_size
+    # )
     return pooled_centroids
 
 
-def random_sampling(alist, num):
+def random_sampling(alist: list, num: int) -> list:
     """
     Randomly sample num items from the list
     alist: list of centroids to sample from
@@ -216,8 +245,15 @@ def random_sampling(alist, num):
     return sampling
 
 
-def build_centroids(imgs, num_classes, train, cv=None, coarse=False,
-                    custom_coarse=False, id2trainid=None):
+def build_centroids(
+        imgs: list | pd.Series,
+        num_classes: int,
+        train: bool,
+        cv=None,
+        coarse: bool = False,
+        custom_coarse: bool = False,
+        id2trainid: dict = None
+) -> dict:
     """
     The first step of uniform sampling is to decide sampling centers.
     The idea is to divide each image into tiles and within each tile,
@@ -230,7 +266,7 @@ def build_centroids(imgs, num_classes, train, cv=None, coarse=False,
         return []
 
     centroid_fn = cfg.DATASET.NAME
-    
+
     if coarse or custom_coarse:
         if coarse:
             centroid_fn += '_coarse'
@@ -239,8 +275,10 @@ def build_centroids(imgs, num_classes, train, cv=None, coarse=False,
     else:
         centroid_fn += '_cv{}'.format(cv)
     centroid_fn += '_tile{}.json'.format(cfg.DATASET.CLASS_UNIFORM_TILE)
-    json_fn = os.path.join(cfg.DATASET.CENTROID_ROOT,
-                           centroid_fn)
+    json_fn = os.path.join(
+        cfg.DATASET.CENTROID_ROOT,
+        centroid_fn
+    )
     if os.path.isfile(json_fn):
         logger.debug('Loading centroid file {}'.format(json_fn))
         with open(json_fn, 'r') as json_data:
@@ -253,7 +291,7 @@ def build_centroids(imgs, num_classes, train, cv=None, coarse=False,
         if cfg.GLOBAL_RANK==0:
 
             os.makedirs(cfg.DATASET.CENTROID_ROOT, exist_ok=True)
-            # centroids is a dict (indexed by class) of lists of centroids
+            # centroids is a dict (grayscale by class) of lists of centroids
             centroids = class_centroids_all(
                 imgs,
                 num_classes,
@@ -271,11 +309,11 @@ def build_centroids(imgs, num_classes, train, cv=None, coarse=False,
             with open(json_fn, 'r') as json_data:
                 centroids = json.load(json_data)
             centroids = {int(idx): centroids[idx] for idx in centroids}
-        
+
     return centroids
 
 
-def build_epoch(imgs, centroids, num_classes, train):
+def build_epoch(imgs: list, centroids: dict, num_classes: int, train: bool) -> list:
     """
     Generate an epoch of crops using uniform sampling.
     Needs to be called every epoch.

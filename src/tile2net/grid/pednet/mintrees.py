@@ -1,15 +1,17 @@
 from __future__ import annotations
-import logging
-import tqdm.auto
-import tqdm
 
 import heapq
-
-from tile2net.raster.tile_utils.topology import *
-from ..explore import explore
-from tile2net.grid.cfg.logger import logger
-from ...grid.frame.namespace import namespace
+import logging
 from typing import Self
+
+import numpy as np
+import pandas as pd
+import tqdm
+import tqdm.auto
+
+from tile2net.grid.cfg.logger import logger
+from ..explore import explore
+from ...grid.frame.namespace import namespace
 
 INF = float('inf')
 from .standalone import Lines

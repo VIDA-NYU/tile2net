@@ -3,8 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import *
 
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import shapely
+
 from tile2net.grid.cfg.logger import logger
-from tile2net.raster.tile_utils.topology import *
 from .center import Center
 from .features import Features
 from .union import Union
@@ -14,7 +18,6 @@ from ..explore import explore
 from ..frame.framewrapper import FrameWrapper
 
 if False:
-    from ..vecgrid.mask2poly import Mask2Poly
     import folium
 
 
