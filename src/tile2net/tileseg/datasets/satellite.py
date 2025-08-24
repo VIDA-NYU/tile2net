@@ -116,7 +116,6 @@ class Loader(BaseLoader):
         imgs = list(it)
         self.all_imgs = imgs
 
-        logger.debug('all imgs {}'.format(len(self.all_imgs)))
         self.fine_centroids = uniform.build_centroids(
             self.all_imgs,
             self.num_classes,

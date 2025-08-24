@@ -792,7 +792,7 @@ class Line(cmdline.Namespace):
     @cmdline.property
     def preview(self) -> int:
         """Maximum dimension of the lines preview"""
-        return 4096
+        return 2048
 
 
 class Polygon(cmdline.Namespace):
@@ -847,12 +847,12 @@ class Polygon(cmdline.Namespace):
     @cmdline.property
     def preview(self) -> int:
         """Maximum dimension of the polygons preview"""
-        return 4096
+        return 2048
         
     @cmdline.property
     def thickness(self) -> float:
         """Line thickness for polygon preview"""
-        return 0.5
+        return 1.
 
 
 class Indir(
@@ -1047,7 +1047,9 @@ class Cfg(
         """
         return dict(
             sidewalk='red',
-            road='green',
+            # road='green',
+            # road='orange',
+            road='cyan',
             crosswalk='yellow',
         )
 
@@ -1058,7 +1060,7 @@ class Cfg(
         Using a relative path such as './cambridge' will create a
         directory in the current working directory.
         """
-        return './outdir'
+        return './outdir/z/x_y'
 
     outdir.add_options(
         short='-o',

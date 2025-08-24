@@ -510,37 +510,37 @@ class ArcGis(
     def template(cls):
         return cls.server + '/tile/{z}/{y}/{x}'
 
-
-class WashingtonDC(ArcGis):
-    # ignore = True
-    server = 'https://imagery.dcgis.dc.gov/dcgis/rest/services/Ortho/Ortho_2021/ImageServer'
-    name = 'dc'
-    gridize = 512
-    extension = 'jpeg'
-    keyword = 'District of Columbia', 'DC'
-    year = 2021
-
-    template = (
-        'https://imagery.dcgis.dc.gov/dcgis/rest/services/Ortho/Ortho_2021/ImageServer'
-        '/exportImage?f=image&bbox={bottom}%2C{right}%2C{top}%2C{left}'
-        '&imageSR=102100&bboxSR=102100&size=512%2C512'
-    )
-
-    def __getitem__(self, item: InGrid) -> pd.Series[str]:
-        bounds = item.bounds
-        it = zip(bounds.minx, bounds.miny, bounds.maxx, bounds.maxy)
-        template = self.template
-        data = [
-            template.format(
-                bottom=miny,
-                right=maxx,
-                top=maxy,
-                left=minx
-            )
-            for minx, miny, maxx, maxy in it
-        ]
-        result = pd.Series(data, index=item.index, name='url')
-        return result
+# todo: needs update
+# class WashingtonDC(ArcGis):
+#     # ignore = True
+#     server = 'https://imagery.dcgis.dc.gov/dcgis/rest/services/Ortho/Ortho_2021/ImageServer'
+#     name = 'dc'
+#     gridize = 512
+#     extension = 'jpeg'
+#     keyword = 'District of Columbia', 'DC'
+#     year = 2021
+#
+#     template = (
+#         'https://imagery.dcgis.dc.gov/dcgis/rest/services/Ortho/Ortho_2021/ImageServer'
+#         '/exportImage?f=image&bbox={bottom}%2C{right}%2C{top}%2C{left}'
+#         '&imageSR=102100&bboxSR=102100&size=512%2C512'
+#     )
+#
+#     def __getitem__(self, item: InGrid) -> pd.Series[str]:
+#         bounds = item.bounds
+#         it = zip(bounds.minx, bounds.miny, bounds.maxx, bounds.maxy)
+#         template = self.template
+#         data = [
+#             template.format(
+#                 bottom=miny,
+#                 right=maxx,
+#                 top=maxy,
+#                 left=minx
+#             )
+#             for minx, miny, maxx, maxy in it
+#         ]
+#         result = pd.Series(data, index=item.index, name='url')
+#         return result
 
 
 class NewYorkCity(ArcGis):
@@ -672,7 +672,7 @@ class AlamedaCounty(
 
     @cls_attr
     @property
-    def grid(cls):
+    def template(cls):
         return cls.server + '/{z}/{x}/{y}.png'
 
     @cls_attr
@@ -961,7 +961,7 @@ if __name__ == '__main__':
     assert Source.from_inferred('New York') in (NewYorkCity, NewYork)
     assert Source.from_inferred('Massachusetts') == Massachusetts
     assert Source.from_inferred('King County, Washington') == KingCountyWashington
-    assert Source.from_inferred('Washington, DC') == WashingtonDC
+    # assert Source.from_inferred('Washington, DC') == WashingtonDC
     assert Source.from_inferred('Los Angeles') == LosAngeles
     assert Source.from_inferred('Jersey City') == NewJersey
     assert Source.from_inferred('Hoboken') == NewJersey
