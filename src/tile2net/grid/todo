@@ -44,6 +44,36 @@ python -m tile2net --location "boston common" --name pad=2 --segment.pad 2 --zoo
 python -m tile2net --location "boston common" --name pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8
 python -m tile2net --location "boston common" --name pad=4 --segment.pad 4 --zoom 20 --model.bs_val 1 --vector.length 8
 
+python -m tile2net --location "boston common" --name pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8
+python -m tile2net --location "boston common" --name pad=1 --segment.pad 1 --zoom 20 --model.bs_val 4 --vector.length 8
+python -m tile2net --location "boston common" --name pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8
+python -m tile2net --location "boston common" --name pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8
+python -m tile2net --location "boston common" --name pad=4 --segment.pad 4 --zoom 20 --model.bs_val 1 --vector.length 8
+
+python -m tile2net --location "boston common" --name multiscale/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5 1.5 2
+python -m tile2net --location "boston common" --name multiscale/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 4 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5 1.5 2
+python -m tile2net --location "boston common" --name multiscale/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5 1.5 2
+python -m tile2net --location "boston common" --name multiscale/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5 1.5 2
+python -m tile2net --location "boston common" --name multiscale/pad=4 --segment.pad 4 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5 1.5 2
+
+python -m tile2net --location "boston common" --name multiscale/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 2 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,1.5,2
+python -m tile2net --location "boston common" --name multiscale/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,1.5,2
+python -m tile2net --location "boston common" --name multiscale/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,1.5,2
+python -m tile2net --location "boston common" --name multiscale/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,1.5,2
+python -m tile2net --location "boston common" --name multiscale/pad=4 --segment.pad 4 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,1.5,2
+
+
+bounding box seems to fail?
+
+python -m tile2net --location "boston common" --name scales=0.5,2/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "boston common" --name scales=0.5,2/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "boston common" --name scales=0.5,2/pad=1 --segment.pad 3 --zoom 20 --model.bs_val 3 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+
+python -m tile2net --location "boston common" --name singlescale/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8
+python -m tile2net --location "boston common" --name singlescale/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 4 --vector.length 8
+python -m tile2net --location "boston common" --name singlescale/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8
+python -m tile2net --location "boston common" --name singlescale/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8
+python -m tile2net --location "boston common" --name singlescale/pad=4 --segment.pad 4 --zoom 20 --model.bs_val 1 --vector.length 8
 
 --location "boston common" --name pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8
 
@@ -55,8 +85,44 @@ python -m tile2net \
   --no-cleanup
 
 
-python -m tile2net -l "Cambridge, MA" --name pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8
-python -m tile2net -l "Cambridge, MA" --name pad=1 --segment.pad 1 --zoom 20 --model.bs_val 4 --vector.length 8
-python -m tile2net -l "Cambridge, MA" --name pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8
-python -m tile2net -l "Cambridge, MA" --name pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8
-python -m tile2net -l "Cambridge, MA" --name pad=4 --segment.pad 4 --zoom 20 --model.bs_val 1 --vector.length 8
+python -m tile2net -l "Cambridge, MA" --name cambridge/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net -l "Cambridge, MA" --name cambridge/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 4 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net -l "Cambridge, MA" --name cambridge/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net -l "Cambridge, MA" --name cambridge/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8  --line.preview 8192 --polygon.preview 8192
+python -m tile2net -l "Cambridge, MA" --name cambridge/pad=4 --segment.pad 4 --zoom 20 --model.bs_val 1 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+
+
+python -m tile2net --location "boston common" --name singlescale/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8
+python -m tile2net --location "boston common" --name singlescale/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 4 --vector.length 8
+python -m tile2net --location "boston common" --name singlescale/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8
+python -m tile2net --location "boston common" --name singlescale/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8
+python -m tile2net --location "boston common" --name scales=0.5,2/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "boston common" --name scales=0.5,2/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "boston common" --name scales=0.5,2/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "boston common" --name scales=0.5,2/pad=1 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+
+
+python -m tile2net --location "madison square park" --name unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8
+python -m tile2net --location "madison square park" --name unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8
+python -m tile2net --location "madison square park" --name unscaled/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 4 --vector.length 8
+python -m tile2net --location "madison square park" --name unscaled/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8
+python -m tile2net --location "madison square park" --name unscaled/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8
+python -m tile2net --location "madison square park" --name scales=0.5,2/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "madison square park" --name scales=0.5,2/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "madison square park" --name scales=0.5,2/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "madison square park" --name scales=0.5,2/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+
+python -m tile2net --location "financial district, new york city" --name fidi/unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+python -m tile2net --location "Zuccotti Park" --name zucotti/unscaled/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 4 --vector.length 8
+python -m tile2net --location "Zuccotti Park" --name zucotti/unscaled/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8
+python -m tile2net --location "Zuccotti Park" --name zucotti/unscaled/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8
+python -m tile2net --location "Zuccotti Park" --name zucotti/scales=0.5,2/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "Zuccotti Park" --name zucotti/scales=0.5,2/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "Zuccotti Park" --name zucotti/scales=0.5,2/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "Zuccotti Park" --name zucotti/scales=0.5,2/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+
+python -m tile2net --location "uc berkeley" --name berkeley/unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+
+python -m tile2net --location "cambridge, MA" --name cambridge/unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --line.preview 8192 --polygon.preview 8192
+
+python -m tile2net --location "zuccotti park" --name zuccotti/unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --line.preview 8192 --polygon.preview 8192

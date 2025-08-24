@@ -1,27 +1,26 @@
 from __future__ import annotations
+from matplotlib.collections import LineCollection
+
 
 import io
 import os
+from pathlib import Path
 
 import PIL.Image
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 import shapely
-from PIL import Image, ImageColor
+from PIL import Image
 from math import ceil
+from matplotlib.collections import LineCollection
 
 from tile2net.grid.cfg.logger import logger
-from .. import util
 from ..benchmark import benchmark
 from ..cfg import cfg
 from ..explore import explore
 from ..frame.framewrapper import FrameWrapper
 from ..vecgrid.mask2poly import Mask2Poly
-import pandas as pd
-import geopandas as gpd
-
-import typing
 
 if False:
     from .ingrid import InGrid
@@ -47,6 +46,7 @@ class Polygons(
         else:
 
             file = self.file
+            Path(os.path.dirname(file)).mkdir(parents=True, exist_ok=True)
             if os.path.exists(file):
                 msg = (
                     f'Loading {owner.__qualname__}.{self.__name__} '
@@ -171,17 +171,17 @@ class Polygons(
         folium.LayerControl().add_to(m)
         return m
 
-
-    def plot(
+    def preview(
             self,
             *args,
             maxdim: int = 2048,
             background: str | tuple[int, int, int] = 'black',
-            divider:str = 'grey',
+            divider: str = 'grey',
             simplify: float | None = None,
             show: bool = True,
             **kwargs,
     ) -> PIL.Image.Image:
+        z_order = self.ingrid.cfg.polygon.z_order
 
         # use the grid's own imagery preview as a basemap
         ingrid = self.ingrid
@@ -193,7 +193,7 @@ class Polygons(
         frame = self.frame.to_crs(4326)
 
         # geometry bounds & scale to determine output pixel size
-        minx, miny, maxx, maxy = frame.geometry.to_crs(4326).total_bounds
+        minx, miny, maxx, maxy = ingrid.frame.geometry.to_crs(4326).total_bounds
         span_x = max(maxx - minx, 1e-12)
         span_y = max(maxy - miny, 1e-12)
         scale = maxdim / max(span_x, span_y)
@@ -260,78 +260,154 @@ class Polygons(
         label2color = self.ingrid.cfg.label2color
         line_w = kwargs.get('width', max(1, long_side // 1400))
 
-        # supports None/NA/empty geometries
-        def _iter_polys(g) -> typing.Iterator:
-            # skip completely missing
-            if g is None:
-                return
-            # skip pandas.NA/np.nan masquerading as objects
-            if g is pd.NA or (isinstance(g, float) and np.isnan(g)):
-                return
-            # skip empties
-            if getattr(g, 'is_empty', False):
-                return
-            gt = getattr(g, 'geom_type', None)
-            if gt == 'Polygon':
-                yield g
-            elif gt == 'MultiPolygon':
-                # guard: MultiPolygon may be empty
-                for gg in getattr(g, 'geoms', ()):
-                    if gg is not None and not getattr(gg, 'is_empty', False):
-                        yield gg
+        # # supports None/NA/empty geometries
+        # def _iter_polys(g) -> typing.Iterator:
+        #     # skip completely missing
+        #     if g is None:
+        #         return
+        #     # skip pandas.NA/np.nan masquerading as objects
+        #     if g is pd.NA or (isinstance(g, float) and np.isnan(g)):
+        #         return
+        #     # skip empties
+        #     if getattr(g, 'is_empty', False):
+        #         return
+        #     gt = getattr(g, 'geom_type', None)
+        #     if gt == 'Polygon':
+        #         yield g
+        #     elif gt == 'MultiPolygon':
+        #         # guard: MultiPolygon may be empty
+        #         for gg in getattr(g, 'geoms', ()):
+        #             if gg is not None and not getattr(gg, 'is_empty', False):
+        #                 yield gg
+        #
+        # # plot each feature polygon (exterior + holes) over the basemap
+        # it = frame.groupby('feature', observed=False).geometry
+        # for feature, series in it:
+        #     # dropna handles None/pandas.NA; also filter empties
+        #     series = (
+        #         series
+        #         .dropna()
+        #         .loc[lambda s: s.map(lambda g: g is not None and not getattr(g, 'is_empty', False))]
+        #     )
+        #     if series.empty:
+        #         continue
+        #
+        #     colour = label2color.get(feature, axis_col)
+        #
+        #     for geom in series:
+        #         # optional simplify with guard for weird sentinels
+        #         if simplify and hasattr(geom, 'simplify'):
+        #             # preserve_topology avoids self-crossing
+        #             geom = geom.simplify(simplify, preserve_topology=True)
+        #
+        #         for poly in _iter_polys(geom):
+        #             if poly.is_empty:
+        #                 continue
+        #
+        #             # exterior ring
+        #             ext = poly.exterior
+        #             if ext is not None:
+        #                 ext_xy = np.asarray(ext.coords)
+        #                 if ext_xy.shape[0] >= 2:
+        #                     ax.plot(
+        #                         ext_xy[:, 0],
+        #                         ext_xy[:, 1],
+        #                         color=colour,
+        #                         linewidth=line_w,
+        #                         solid_joinstyle='round',
+        #                         solid_capstyle='round',
+        #                         zorder=3,
+        #                     )
+        #
+        #             # interior rings (holes)
+        #             for ring in poly.interiors:
+        #                 ring_xy = np.asarray(ring.coords)
+        #                 if ring_xy.shape[0] >= 2:
+        #                     ax.plot(
+        #                         ring_xy[:, 0],
+        #                         ring_xy[:, 1],
+        #                         color=colour,
+        #                         linewidth=max(1, line_w // 2),
+        #                         solid_joinstyle='round',
+        #                         solid_capstyle='round',
+        #                         zorder=3,
+        #                     )
 
-        # plot each feature polygon (exterior + holes) over the basemap
-        it = frame.groupby('feature', observed=False).geometry
-        for feature, series in it:
-            # dropna handles None/pandas.NA; also filter empties
-            series = (
-                series
-                .dropna()
-                .loc[lambda s: s.map(lambda g: g is not None and not getattr(g, 'is_empty', False))]
-            )
-            if series.empty:
-                continue
+        # --- vectorized polygon outline rendering (replaces the per-ring ax.plot loops) ---
+        # --- vectorized polygon outline rendering with z-order ---
+        z_map: dict[str, int] = self.ingrid.cfg.polygon.z_order
 
-            colour = label2color.get(feature, axis_col)
+        gdf = frame.reset_index()
 
-            for geom in series:
-                # optional simplify with guard for weird sentinels
-                if simplify and hasattr(geom, 'simplify'):
-                    # preserve_topology avoids self-crossing
-                    geom = geom.simplify(simplify, preserve_topology=True)
+        # normalize MultiPolygon → Polygon rows
+        geoms = (
+            gdf
+            .explode(index_parts=False)
+            .geometry
+        )
 
-                for poly in _iter_polys(geom):
-                    if poly.is_empty:
-                        continue
+        # optional topology-preserving simplification
+        if simplify:
+            geoms = geoms.simplify(simplify, preserve_topology=True)
 
-                    # exterior ring
-                    ext = poly.exterior
-                    if ext is not None:
-                        ext_xy = np.asarray(ext.coords)
-                        if ext_xy.shape[0] >= 2:
-                            ax.plot(
-                                ext_xy[:, 0],
-                                ext_xy[:, 1],
-                                color=colour,
-                                linewidth=line_w,
-                                solid_joinstyle='round',
-                                solid_capstyle='round',
-                                zorder=3,
-                            )
+        # keep only non-empty Polygons
+        mask = (
+                geoms.notna()
+                & geoms.map(lambda g: getattr(g, 'geom_type', None) == 'Polygon')
+                & geoms.map(lambda g: not getattr(g, 'is_empty', True))
+        )
+        if mask.any():
+            # align features with the exploded geometry index
+            feats = gdf.loc[geoms.index, 'feature'][mask]
 
-                    # interior rings (holes)
+            # precompute per-geometry color and z-layer
+            colors = feats.map(lambda f: label2color.get(f, axis_col)).to_numpy()
+            zvals = feats.map(lambda f: z_map.get(f, 0)).to_numpy()
+
+            # accumulate segments per z-layer
+            layers: dict[int, dict[str, list]] = {}
+            polys = geoms[mask].to_numpy()
+
+            # thinner stroke for holes
+            lw_hole = max(1, line_w // 2)
+
+            for poly, colour, z in zip(polys, colors, zvals):
+                bucket = layers.setdefault(z, {'segments': [], 'colors': [], 'widths': []})
+
+                # exterior
+                ext = poly.exterior
+                if ext is not None:
+                    xy = np.asarray(ext.coords)
+                    if xy.shape[0] >= 2:
+                        bucket['segments'].append(xy)
+                        bucket['colors'].append(colour)
+                        bucket['widths'].append(line_w)
+
+                # interiors (holes)
+                if poly.interiors:
                     for ring in poly.interiors:
-                        ring_xy = np.asarray(ring.coords)
-                        if ring_xy.shape[0] >= 2:
-                            ax.plot(
-                                ring_xy[:, 0],
-                                ring_xy[:, 1],
-                                color=colour,
-                                linewidth=max(1, line_w // 2),
-                                solid_joinstyle='round',
-                                solid_capstyle='round',
-                                zorder=3,
-                            )
+                        xy = np.asarray(ring.coords)
+                        if xy.shape[0] >= 2:
+                            bucket['segments'].append(xy)
+                            bucket['colors'].append(colour)
+                            bucket['widths'].append(lw_hole)
+
+            # draw each z-layer in ascending order so higher z overlays lower z
+            base_z = 3  # keeps above imagery (which you set to zorder=1)
+            for z in sorted(layers):
+                segs = layers[z]['segments']
+                if not segs:
+                    continue
+                lc = LineCollection(
+                    segs,
+                    colors=layers[z]['colors'],
+                    linewidths=layers[z]['widths'],
+                    joinstyle='round',
+                    capstyle='round',
+                    zorder=base_z + int(z),
+                )
+                ax.add_collection(lc)
+        # --- end vectorized polygon outline rendering with z-order ---
 
         # configure the map frame
         ax.set_xlim(minx, maxx)

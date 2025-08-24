@@ -1,6 +1,8 @@
 from __future__ import annotations
+from matplotlib.collections import LineCollection
 from .. import util
 
+from pathlib import Path
 import io
 import os
 
@@ -41,6 +43,7 @@ class Lines(
             result = instance.__dict__[self.__name__]
         else:
             file = self.file
+            Path(os.path.dirname(file)).mkdir(parents=True, exist_ok=True)
             if os.path.exists(file):
                 msg = (
                     f'Loading {owner.__qualname__}.{self.__name__} '
@@ -149,7 +152,7 @@ class Lines(
 
                 msg = (
                     f"Writing {owner.__qualname__}.{self.__name__} "
-                       f"to \n\t{file}"
+                    f"to \n\t{file}"
                 )
                 logger.info(msg)
                 result.frame.to_parquet(file)
@@ -192,12 +195,12 @@ class Lines(
             os.remove(file)
         del self.ingrid
 
-    def plot(
+    def preview(
             self,
             *args,
             maxdim: int = 2048,
             background: str | tuple[int, int, int] = 'black',
-            divider:str = 'grey',
+            divider: str = 'grey',
             simplify: float | None = None,
             show: bool = True,
             **kwargs,
@@ -213,7 +216,7 @@ class Lines(
         frame = self.frame.to_crs(4326)
 
         # geometry bounds & scale to determine output pixel size
-        minx, miny, maxx, maxy = frame.geometry.to_crs(4326).total_bounds
+        minx, miny, maxx, maxy = ingrid.frame.geometry.to_crs(4326).total_bounds
         span_x = max(maxx - minx, 1e-12)
         span_y = max(maxy - miny, 1e-12)
         scale = maxdim / max(span_x, span_y)
@@ -281,25 +284,65 @@ class Lines(
         line_w = kwargs.get('width', max(1, long_side // 1400))
 
         # plot each linestring (or part of multilinestring) over the basemap
-        it = frame.groupby('feature', observed=False).geometry
-        for feature, series in it:
-            colour = label2color.get(feature, axis_col)
-            for geom in series:
-                g = geom.simplify(simplify) if simplify else geom
-                parts = g.geoms if g.geom_type == 'MultiLineString' else (g,)
-                for part in parts:
-                    coords = np.asarray(part.coords)
-                    if coords.shape[0] < 2:
-                        continue
-                    ax.plot(
-                        coords[:, 0],
-                        coords[:, 1],
-                        color=colour,
-                        linewidth=line_w,
-                        solid_joinstyle='round',
-                        solid_capstyle='round',
-                        zorder=3,
-                    )
+        # it = frame.groupby('feature', observed=False).geometry
+        # for feature, series in it:
+        #     colour = label2color.get(feature, axis_col)
+        #     for geom in series:
+        #         g = geom.simplify(simplify) if simplify else geom
+        #         parts = g.geoms if g.geom_type == 'MultiLineString' else (g,)
+        #         for part in parts:
+        #             coords = np.asarray(part.coords)
+        #             if coords.shape[0] < 2:
+        #                 continue
+        #             ax.plot(
+        #                 coords[:, 0],
+        #                 coords[:, 1],
+        #                 color=colour,
+        #                 linewidth=line_w,
+        #                 solid_joinstyle='round',
+        #                 solid_capstyle='round',
+        #                 zorder=3,
+        #             )
+
+        gdf = frame.reset_index()
+
+        # explode multilinestrings → only LineString per row
+        geoms = (
+            gdf
+            .explode(index_parts=False)
+            .geometry
+        )
+
+        # optional simplification
+        if simplify:
+            geoms = geoms.simplify(simplify)
+
+        # convert to sequences of xy arrays
+        # only keep lines with ≥2 coords
+        segments = [
+            np.asarray(g.coords)
+            for g in geoms
+            if g is not None and g.geom_type == "LineString" and len(g.coords) >= 2
+        ]
+
+        # feature → color mapping, broadcasted per geometry
+        features = gdf.loc[geoms.index, "feature"]
+        colors = [
+            label2color.get(feat, axis_col)
+            for feat in features
+        ]
+
+        # make one LineCollection for all features
+        lc = LineCollection(
+            segments,
+            colors=colors,
+            linewidths=line_w,
+            joinstyle='round',
+            capstyle='round',
+            zorder=3,
+        )
+
+        ax.add_collection(lc)
 
         # axes bounds, aspect, padding
         ax.set_xlim(minx, maxx)

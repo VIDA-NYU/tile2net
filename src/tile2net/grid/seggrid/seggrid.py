@@ -435,11 +435,13 @@ class SegGrid(
         batch_size = cfg.model.bs_val
         clip = self.ingrid.dimension * cfg.segment.pad
 
+        msg = f'Inferring to {grid.outdir.seggrid.grayscale.dir}'
+
         unit = f' {self.seggrid.__name__}.{self.seggrid.file.grayscale.name}'
         with logging_redirect_tqdm(), cfg:
             pbar = tqdm(
                 total=len(GRID),  # one tick per tile
-                desc="Inferring",
+                desc=msg,
                 unit=unit,
                 dynamic_ncols=True,
             )

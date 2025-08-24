@@ -48,7 +48,7 @@ if __name__ == '__main__':
             )
             logger.info(msg)
             maxdim = cfg.line.preview
-            img = ingrid.lines.plot(maxdim=maxdim, show=False)
+            img = ingrid.lines.preview(maxdim=maxdim, show=False)
             img.save(dest)
 
         # save a preview of the polygons to file
@@ -60,7 +60,7 @@ if __name__ == '__main__':
             )
             logger.info(msg)
             maxdim = cfg.polygon.preview
-            img = ingrid.polygons.plot(maxdim=maxdim, show=False)
+            img = ingrid.polygons.preview(maxdim=maxdim, show=False)
             img.save(dest)
 
         if cfg.segment.to_pkl:

@@ -16,15 +16,15 @@ class Polygons(
     @property
     def parquet(self) -> str:
         name = self.grid.name
-        Path(os.path.join(self.dir, 'parquet')).mkdir(parents=True, exist_ok=True)
         filename = os.path.join(self.dir, 'parquet', f'{name}.parquet')
+        Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
         return filename
 
     @property
     def preview(self) -> str:
         name = self.grid.name
-        Path(os.path.join(self.dir, 'preview')).mkdir(parents=True, exist_ok=True)
         filename = os.path.join(self.dir, 'preview', f'{name}.png')
+        Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
         return filename
 
 
@@ -35,15 +35,15 @@ class Lines(
     @property
     def parquet(self) -> str:
         name = self.grid.name
-        Path(os.path.join(self.dir, 'parquet')).mkdir(parents=True, exist_ok=True)
         filename = os.path.join(self.dir, 'parquet', f'{name}.parquet')
+        Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
         return filename
 
     @property
     def preview(self) -> str:
         name = self.grid.name
-        Path(os.path.join(self.dir, 'preview')).mkdir(parents=True, exist_ok=True)
         filename = os.path.join(self.dir, 'preview', f'{name}.png')
+        Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
         return filename
 
 

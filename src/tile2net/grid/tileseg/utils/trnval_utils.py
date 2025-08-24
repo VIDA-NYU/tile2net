@@ -123,7 +123,7 @@ def eval_minibatch(
     if cfg.multi_scale_inference:
         it = (
             float(x)
-            for x in cfg.extra_scales.split(',')
+            for x in cfg.model.extra_scales.split(',')
         )
         scales.extend(it)
         if val_idx == 0:

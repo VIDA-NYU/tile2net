@@ -363,7 +363,7 @@ class InGrid(
                 )
             raise FileNotFoundError(f"{len(failed):,} grid failed.")
 
-        logger.info("All requested grid are on disk.")
+        logger.info(f"All requested {paths.name} on disk.")
         return self
 
     def _make_session(
