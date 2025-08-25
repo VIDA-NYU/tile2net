@@ -438,7 +438,7 @@ class SegGrid(
 
         msg = (
             f'Using stitched imagery from '
-            f'\n\t{self.tempdir.seggrid.infile.dir} '
+            f'\n\t{self.outdir.seggrid.infile.dir} '
             f'\nand predicting segmentation to '
             f'\n\t{self.outdir.seggrid.grayscale.dir}'
         )

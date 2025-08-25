@@ -70,7 +70,7 @@ if __name__ == '__main__':
             img.save(dest)
 
         if cfg.segment.to_pkl:
-            ingrid.seggrid.to_pickle(ingrid.tempdir.seggrid.pickle)
+            ingrid.seggrid.to_pickle(ingrid.outdir.seggrid.pickle)
 
         # delete empty directories for easier browsing
         ingrid.summary()

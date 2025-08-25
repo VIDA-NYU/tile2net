@@ -61,7 +61,7 @@ class Padded(
         Stitches input files when seggrid.file is accessed
         """
         seggrid = self.grid
-        files = seggrid.ingrid.tempdir.seggrid.padded.infile.files(seggrid)
+        files = seggrid.ingrid.outdir.seggrid.padded.infile.files(seggrid)
 
         self.infile = files
         if not files.map(os.path.exists).all():

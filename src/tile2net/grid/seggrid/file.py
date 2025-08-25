@@ -35,7 +35,7 @@ class File(
         Stitches input files when seggrid.file is accessed
         """
         grid = self.grid
-        files = grid.ingrid.tempdir.seggrid.infile.files(grid)
+        files = grid.ingrid.outdir.seggrid.infile.files(grid)
         self.infile = files
         if not files.map(os.path.exists).all():
             ingrid = grid.ingrid

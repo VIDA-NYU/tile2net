@@ -798,64 +798,6 @@ class Grid(
     def from_empty(cls) -> Self:
         ...
 
-    def _stitch(
-            self,
-            small_files: pd.Series,
-            big_files: pd.Series,
-            small_grid: Grid,
-            big_grid: Grid,
-            r: pd.Series,
-            c: pd.Series,
-            tile_shape: tuple[int, int],
-            mosaic_shape: tuple[int, int],
-            background: int = 0,
-            force=False,
-    ):
-        row = r
-        col = c
-        if not force:
-            loc = ~big_files.map(os.path.exists)
-            small_files = small_files.loc[loc]
-            row = r.loc[loc]
-            col = c.loc[loc]
-            big_files: pd.Series = big_files.loc[loc]
-
-        stitched = big_files.drop_duplicates()
-        n_missing = len(small_files)
-        n_total = len(stitched)
-        if n_missing == 0:  # nothing to do
-            msg = f'All {n_total:,} mosaics are already stitched.'
-            logger.info(msg)
-            # return
-        else:
-            name = small_grid.__class__.__name__
-            msg = (
-                f'Stitching {n_missing:,} '
-                f'{name}.{small_files.name} '
-                f'into {n_total:,} '
-                f'{name}.{big_files.name}'
-            )
-            logger.info(msg)
-
-        loader = Stitcher(
-            infiles=small_files,
-            row=row,
-            col=col,
-            # tile_shape=(*tile_shape, small_grid.shape[2]),
-            # mosaic_shape=(*mosaic_shape, small_grid.shape[2]),
-            tile_shape=tile_shape,
-            mosaic_shape=mosaic_shape,
-            # tile_shape=small_grid.shape,
-            # mosaic_shape=big_grid.shape,
-            outfiles=big_files,
-            background=background,
-        )
-
-        loader.run(max_workers=os.cpu_count())
-        msg = 'Not all stitched mosaics were written to disk.'
-        assert big_files.map(os.path.exists).all(), msg
-
-    # grid/grid/grid.py
 
     def _stitch(
             self,
@@ -898,15 +840,17 @@ class Grid(
             )
             logger.info(msg)
 
-            loader = Stitcher(
+            stitcher = Stitcher(
                 infiles=small_files,
                 row=row,
                 col=col,
                 outfiles=big_files,
                 background=background,
             )
+            temp = self.tempdir
 
-            loader.run(max_workers=os.cpu_count())
+            stitcher.run(max_workers=os.cpu_count())
+
             msg = 'Not all stitched mosaics were written to disk.'
             assert big_files.map(os.path.exists).all(), msg
 

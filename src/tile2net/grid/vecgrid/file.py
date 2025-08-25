@@ -21,7 +21,7 @@ class File(
     @frame.column
     def grayscale(self) -> pd.Series:
         vecgrid = self.grid
-        files = vecgrid.ingrid.tempdir.vecgrid.grayscale.files(vecgrid)
+        files = vecgrid.ingrid.outdir.vecgrid.grayscale.files(vecgrid)
         self.grayscale = files
         if not files.map(os.path.exists).all():
             seggrid = vecgrid.seggrid.broadcast
@@ -46,7 +46,7 @@ class File(
     @frame.column
     def colored(self) -> pd.Series:
         vecgrid = self.grid
-        files = vecgrid.ingrid.tempdir.vecgrid.colored.files(vecgrid)
+        files = vecgrid.ingrid.outdir.vecgrid.colored.files(vecgrid)
         self.colored = files
         if not files.map(os.path.exists).all():
             seggrid = vecgrid.seggrid.broadcast
@@ -76,7 +76,7 @@ class File(
     @frame.column
     def infile(self) -> pd.Series:
         vecgrid = self.grid
-        files = vecgrid.ingrid.tempdir.vecgrid.infile.files(vecgrid)
+        files = vecgrid.ingrid.outdir.vecgrid.infile.files(vecgrid)
         self.infile = files
         if not files.map(os.path.exists).all():
             seggrid = vecgrid.seggrid
@@ -111,7 +111,7 @@ class File(
     @frame.column
     def overlay(self) -> pd.Series:
         vecgrid = self.grid
-        files = vecgrid.ingrid.tempdir.vecgrid.overlay.files(vecgrid)
+        files = vecgrid.ingrid.outdir.vecgrid.overlay.files(vecgrid)
         self.overlay = files
         if (
             not vecgrid.vectorize

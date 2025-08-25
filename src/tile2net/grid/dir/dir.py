@@ -44,8 +44,6 @@ class XYNotFoundError(ValueError):
         )
 
 
-
-
 class Dir:
     instance: InGrid | Dir = None
     grid: InGrid = None
@@ -263,10 +261,8 @@ class Dir:
             self.dir,
             suffix,
         )
-        result = self.__class__.from_format(format )
+        result = self.__class__.from_format(format)
         return result
-
-
 
     def __set__(self, instance: 'Grid', value: str | PathLike):
         if value is None:
@@ -386,7 +382,7 @@ class Dir:
         if polygons:
             msg = (
                 f'Cleaning up the polygons for each tile from '
-                f'\n\t{instance.ingrid.tempdir.vecgrid.polygons.dir}'
+                f'\n\t{instance.ingrid.outdir.vecgrid.polygons.dir}'
             )
             logger.info(msg)
             util.cleanup(instance.vecgrid.file.polygons)
@@ -395,7 +391,7 @@ class Dir:
             msg = (
                 f'Cleaning up the lines for each tile from '
                 f'\n\t'
-                f'{instance.ingrid.tempdir.vecgrid.lines.dir}'
+                f'{instance.ingrid.outdir.vecgrid.lines.dir}'
             )
             logger.info(msg)
             util.cleanup(instance.vecgrid.file.lines)
@@ -404,7 +400,7 @@ class Dir:
             msg = (
                 f'Cleaning up previously downloaded imagery '
                 f'from {instance.ingrid.indir.dir} and '
-                f'{instance.ingrid.tempdir.seggrid.infile.dir}'
+                f'{instance.ingrid.outdir.seggrid.infile.dir}'
             )
             logger.info(msg)
             util.cleanup(instance.ingrid.file.infile)
@@ -414,13 +410,11 @@ class Dir:
             msg = (
                 f'Cleaning up segmentation masks '
                 f'from \n\t{instance.outdir.seggrid.grayscale.dir} and '
-                f'\n\t{instance.tempdir.vecgrid.grayscale.dir}'
+                f'\n\t{instance.outdir.vecgrid.grayscale.dir}'
             )
             logger.info(msg)
             util.cleanup(instance.seggrid.file.grayscale)
             util.cleanup(instance.vecgrid.file.grayscale)
-
-
 
         root = Path(self.dir)
 
@@ -435,6 +429,22 @@ class Dir:
                 except OSError:
                     # race or permission issue, ignore
                     pass
+    def clear(
+            self,
+            *keeps: str,
+    ) -> None:
+        base = Path(self.dir)
+        if not base.is_dir():
+            raise NotADirectoryError(f"{base!s} is not a directory")
+
+        for entry in base.iterdir():
+            if entry.name in keeps:
+                continue
+
+            if entry.is_dir():
+                shutil.rmtree(entry)
+            else:
+                entry.unlink()
 
 
 class TestIndir:
@@ -445,7 +455,6 @@ class TestIndir:
         self.zoom = 20
         self.extension = '.png'
         self.indir = indir
-
 
 
 if __name__ == '__main__':

@@ -584,9 +584,8 @@ class InTiles(
             result.name = name
         try:
             result.indir = indir
-            # result.outdir.intiles.infile = indir
             indir: Indir = result.indir
-            msg = f'Setting input directory to \n\t{indir.original}. '
+            msg = f'Setting input directory to \n\t{indir.original} '
 
             logger.info(msg)
 

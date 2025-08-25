@@ -1,12 +1,10 @@
 from __future__ import annotations
-from .. import util
 
 import copy
 import os
 import os.path
 import shutil
 import sys
-from ..util import ensure_tempdir_for_indir
 import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -34,6 +32,7 @@ from .segtile import SegTile
 from .source import Source, SourceNotFound
 from .vectile import VecTile
 from .. import frame
+from .. import util
 from ..cfg import cfg
 from ..dir.dir import Dir, ExtensionNotFoundError, XYNotFoundError
 from ..dir.tempdir import TempDir
@@ -620,7 +619,7 @@ class InGrid(
             result.indir = indir
             # result.outdir.ingrid.infile = indir
             indir: Indir = result.indir
-            msg = f'Setting input directory to \n\t{indir.original}. '
+            msg = f'Setting input directory to \n\t{indir.original} '
 
             logger.info(msg)
 
@@ -903,7 +902,7 @@ class InGrid(
         if self.cfg.line.preview:
             rows.append(('Network preview', _p(self.outdir.lines.preview)))
         if self.cfg.segment.to_pkl:
-            rows.append(('Segmentation tiles (zoom and scale in attrs)', _p(self.tempdir.seggrid.pickle)))
+            rows.append(('Segmentation tiles (zoom and scale in attrs)', _p(self.outdir.seggrid.pickle)))
 
         # compute formatting
         label_w = max(len(k) for k, _ in rows)
@@ -954,7 +953,7 @@ class InGrid(
         if polygons:
             msg = (
                 f'Cleaning up the polygons for each tile from '
-                f'\n\t{self.ingrid.tempdir.vecgrid.polygons.dir}'
+                f'\n\t{self.ingrid.outdir.vecgrid.polygons.dir}'
             )
             logger.info(msg)
             util.cleanup(self.vecgrid.file.polygons)
@@ -963,7 +962,7 @@ class InGrid(
             msg = (
                 f'Cleaning up the lines for each tile from '
                 f'\n\t'
-                f'{self.ingrid.tempdir.vecgrid.lines.dir}'
+                f'{self.ingrid.outdir.vecgrid.lines.dir}'
             )
             logger.info(msg)
             util.cleanup(self.vecgrid.file.lines)
@@ -972,7 +971,7 @@ class InGrid(
             msg = (
                 f'Cleaning up previously downloaded imagery '
                 f'from {self.ingrid.indir.dir} and '
-                f'{self.ingrid.tempdir.seggrid.infile.dir}'
+                f'{self.ingrid.outdir.seggrid.infile.dir}'
             )
             logger.info(msg)
             util.cleanup(self.ingrid.file.infile)
@@ -982,7 +981,7 @@ class InGrid(
             msg = (
                 f'Cleaning up segmentation masks '
                 f'from \n\t{self.outdir.seggrid.grayscale.dir} and '
-                f'\n\t{self.tempdir.vecgrid.grayscale.dir}'
+                f'\n\t{self.outdir.vecgrid.grayscale.dir}'
             )
             logger.info(msg)
             util.cleanup(self.seggrid.file.grayscale)
