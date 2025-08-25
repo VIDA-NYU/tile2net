@@ -13,7 +13,7 @@ from ..explore import explore
 from ...grid.frame.namespace import namespace
 
 INF = float('inf')
-from .standalone import Lines
+from .lines import Lines
 
 if False:
     from .pednet import PedNet

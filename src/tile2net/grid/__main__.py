@@ -31,6 +31,12 @@ if __name__ == '__main__':
         # configure vectorization using cfg parameters
         ingrid = ingrid.set_vectorization()
 
+        # ingrid.seggrid.padded.infile
+        # ingrid.seggrid.padded.infile
+        ingrid.seggrid.file.grayscale
+        ingrid.seggrid.padded
+
+
 
         if cfg.line.concat:
             # concatenate lines into single file and save

@@ -64,6 +64,7 @@ class File(
                 not grid.download
                 and not files.map(os.path.exists).all()
         ):
+            grid.file.infile = files
             grid.download()
         return files
 
@@ -242,7 +243,6 @@ class InGrid(
 
         exists = paths.map(os.path.exists).to_numpy(bool)
         if exists.all() and not force:
-            # logger.info(f"All {len(paths):,} {self.__class__.__qualname__}.{self.file.infile.name} on disk.")
             msg = (
                 f'All {len(paths):,} '
                 f'{self.__class__.__qualname__}.{self.file.infile.name} '
@@ -343,6 +343,7 @@ class InGrid(
                     total=len(futures),
                     desc="Downloading",
                     unit=f" {self.__class__.__name__}.{paths.name}",
+                    mininterval=10,
             ):
                 ok = fut.result()
                 if ok and one:
@@ -360,15 +361,7 @@ class InGrid(
             raise FileNotFoundError(msg)
 
         if not_found:
-            # black = self.static.black
-            # black = getattr(self.static.black, self.)
-            try:
-                black = getattr(self.static.black, self.source.extension)
-            # except AttributeError as e:
-            except AttributeError as e:
-                msg = f'No black placeholder found for extension {self.source.extension}.'
-
-                raise FileNotFoundError(msg) from e
+            black = self.static.black
             logger.warning("%d grid returned 404 – linking placeholder.", len(not_found))
             for p in not_found:
                 try:
@@ -430,51 +423,6 @@ class InGrid(
         )
         tls.session = self._make_session(pool=8, retry=retry_get)
 
-    @staticmethod
-    def _head(url: str) -> int:  # signature unchanged
-        try:
-            return (
-                tls.s_head
-                .head(url, timeout=(3, 10))
-                .status_code
-            )
-        except requests.RequestException:
-            return -1
-
-    @staticmethod
-    def _stream_get(url: str) -> requests.Response:
-        return tls.s_get.get(url, stream=True, timeout=(3, 30))
-
-    @staticmethod
-    def _atomic_write(
-            path: Path,
-            resp: requests.Response,
-            /,
-            chunk: int = 8192,
-    ) -> Path | None:  # returns failed path or None
-
-        with tempfile.NamedTemporaryFile(
-                dir=path.parent,
-                suffix=".tmp",
-                delete=False,
-        ) as tmp:
-            for block in resp.iter_content(chunk):
-                tmp.write(block)
-            tmp_path = Path(tmp.name)
-
-        hdr_len = int(resp.headers.get("Content-Length", -1))
-        if hdr_len > 0 and tmp_path.stat().st_size != hdr_len:
-            tmp_path.unlink(missing_ok=True)
-            return path  # size mismatch ➜ fail
-
-        try:
-            iio.imread(tmp_path)  # quick validity check
-        except ValueError:
-            tmp_path.unlink(missing_ok=True)
-            return path
-
-        shutil.move(tmp_path, path)
-        return None
 
     @delayed.Filled
     def filled(self) -> Filled:

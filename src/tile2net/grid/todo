@@ -123,4 +123,12 @@ python -m tile2net --location "Deering Oaks Park" --name deering/scales=0.5,2/pa
 
 python -m tile2net --location "Deering Oaks Park" --name deering/unscaled/pad=0__simplify=3 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --polygon.simplify 3
 
+python -m tile2net --location "43.73982934358233, -70.36009908310434 ; 43.63293463137132, -70.22757630255016
+" --name test --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --polygon.simplify 3
+
 --no_inference
+
+remove standalone.py
+
+43.73982934358233, -70.36009908310434
+43.63293463137132, -70.22757630255016

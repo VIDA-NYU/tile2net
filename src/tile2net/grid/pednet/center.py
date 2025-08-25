@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 from tile2net.grid.cfg.logger import logger
 from . import mintrees, stubs
-from .standalone import Lines
+from .lines import Lines
 from ..benchmark import benchmark
 from ..cfg import cfg
 from ..frame.framewrapper import FrameWrapper
