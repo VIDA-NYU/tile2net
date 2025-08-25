@@ -5,9 +5,7 @@
 Quickly run this small example to download imagery of Boston Common, segment it, and vectorize it:
 
 ```bash
-python -m tile2net \
-  --location "boston common" \
-  --outdir ./boston_common
+python -m tile2net --location "boston common" 
 ```
 
 Downloading the imagery, performing segmentation, 
@@ -15,29 +13,7 @@ and vectorization should take only a few minutes. At the end, you you will see a
 something like this:
 
 ```
-Output directory      
-/home/arstneio/PycharmProjects/tile2net/src/boston_common
-
-Temporary directory   
-/tmp/tile2net/bRs07FIb0QB5n-8b
-
-Input imagery         
-/home/arstneio/PycharmProjects/tile2net/src/boston_common/ingrid/infile
-
-Segmentation (colored)
-/home/arstneio/PycharmProjects/tile2net/src/boston_common/seggrid/colored
-
-Polygons              
-/home/arstneio/PycharmProjects/tile2net/src/boston_common/polygons/Polygons-875b6ea8d9381c9b.parquet
-
-Network               
-/home/arstneio/PycharmProjects/tile2net/src/boston_common/lines/Lines-875b6ea8d9381c9b.parquet
-
-Polygon preview       
-/tmp/tile2net/bRs07FIb0QB5n-8b/polygons/preview/Polygons-875b6ea8d9381c9b.png
-
-Network preview       
-/tmp/tile2net/bRs07FIb0QB5n-8b/lines/preview/Lines-875b6ea8d9381c9b.png
+TODO
 ```
 
 That's it! You can open these paths to view the respective outputs. 
@@ -66,7 +42,10 @@ These are the core arguments to quickly get Tile2Net up and running.
 
 ### `--name` (`-n`)
 - Batch name
-- Defaults to the location passed
+- Defaults to `--location` value
+- Determines path directory nested in `--outdir`
+- `boston_common` will store resources in `./outdir/ma/boston_common`
+- `boston/boston_common` will store resources in `./outdir/ma/boston/boston_common`
 
 ### `--indir` (`-i`)
 - Path to input directory containing imagery tiles on disk

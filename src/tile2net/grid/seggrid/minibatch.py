@@ -10,8 +10,6 @@ from typing import Optional
 import cv2
 import numpy as np
 import torch
-import torchvision.transforms as standard_transforms
-from PIL import Image
 
 from tile2net.grid.cfg import cfg
 from tile2net.tileseg.utils.misc import AverageMeter
@@ -260,7 +258,6 @@ class MiniBatch(
     ) -> Iterator[Future]:
         if cfg.segment.probability:
             yield from self.submit_probability()
-        # yield from self.submit_sidebyside()
         yield from self.submit_output()
         yield from self.submit_grayscale()
         if cfg.segment.colored:
@@ -288,44 +285,6 @@ class MiniBatch(
         #   it just saves the prediction, will return to this later
         raise NotImplementedError
 
-    def submit_sidebyside(self):
-        it = zip(cfg.DATASET.MEAN, cfg.DATASET.STD)
-        inv_mean = [-mean / std for mean, std in it]
-        inv_std = [1 / std for std in cfg.DATASET.STD]
-        if not cfg.dump_percent:
-            return
-        INPUT_IMAGE = to_numpy(
-            standard_transforms
-            .Normalize(mean=inv_mean, std=inv_std)
-            (self.input_images)
-        )
-        files = self.grid.file.sidebyside
-        it = zip(INPUT_IMAGE, self.predictions, files)
-        for input_image, prediction, file in it:
-            self.dump_percent += cfg.dump_percent
-            if self.dump_percent < 100:
-                continue
-                
-            # Apply clipping to the input image array before converting to PIL
-            if self.clip > 0:
-                input_image = self.clip_image(input_image)
-                # Also clip the prediction array
-                prediction = self.clip_image(prediction)
-                
-            input_image = (
-                standard_transforms.ToPILImage()
-                (input_image)
-                .convert('RGB')
-            )
-            prediction_pil = cfg.DATASET_INST.colorize_mask(prediction)
-
-            size = input_image.width * 2, input_image.height
-            composited = Image.new('RGB', size)
-            composited.paste(input_image, (0, 0))
-            composited.paste(prediction_pil, (prediction_pil.width, 0))
-            future = self.threads.submit(composited.save, file)
-            yield future
-
     def submit_output(self):
         colorize = self.grid.colormap
         it = to_numpy(self.output).items()
@@ -347,7 +306,7 @@ class MiniBatch(
 
             if array.ndim == 3:  # one-hot or logits → class map2
                 array = array.argmax(axis=-1)
-            
+
             # Clip the image before saving
             clipped_array = self.clip_image(array)
             future = self.threads.submit(

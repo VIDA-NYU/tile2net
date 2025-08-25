@@ -1,22 +1,26 @@
 from __future__ import annotations
 
-import os
-import threading
 from concurrent.futures import ThreadPoolExecutor
-from functools import *
-from typing import *
 
 import PIL.Image
+import hashlib
 import imageio.v3 as iio
 import math
+import matplotlib.pyplot as plt
 import numpy as np
+import os
 import pandas as pd
 import pyproj
 import shapely
+import tempfile
+import threading
 from PIL import Image
+from PIL import Image
+from functools import *
 from geopandas import GeoDataFrame
 from pandas import MultiIndex
 from pandas import Series, Index
+from typing import *
 
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.explore import explore
@@ -28,7 +32,6 @@ from .. import frame
 from .. import util
 from ..cfg import cfg, Cfg
 from ..frame.framewrapper import FrameWrapper
-import hashlib
 
 if False:
     import folium
@@ -761,8 +764,6 @@ class Grid(
         # optional popup in PyCharm's SciView (matplotlib)
         if show:
             try:
-                import matplotlib.pyplot as plt
-
                 # dpi chosen to avoid oversized windows while preserving sharpness
                 dpi = 96
                 fig_w_in = max(1.0, full_w / dpi)
@@ -776,17 +777,20 @@ class Grid(
 
             except Exception:
                 # fallback to OS viewer if matplotlib/SciView is unavailable
-                import tempfile, os
                 tmp = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
                 try:
                     mosaic.save(tmp.name)
                 finally:
                     tmp.close()
-                Image.open(tmp.name).show()
+
+                with Image.open(tmp.name) as im:
+                    im.show()
+
                 try:
                     os.unlink(tmp.name)
                 except OSError:
                     pass
+
 
         return mosaic
 

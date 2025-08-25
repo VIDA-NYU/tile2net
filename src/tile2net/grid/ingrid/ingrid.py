@@ -129,10 +129,10 @@ class InGrid(
         # if name is None:
         #     name = self.indir.dir.rsplit(os.sep, 1)[-1]
         name = (
-            self.cfg.name
-            or self.cfg.indir.name
-            or self.location
-            or self.indir.dir.rsplit(os.sep, 1)[-1]
+                self.cfg.name
+                or self.cfg.indir.name
+                or self.location
+                or self.indir.dir.rsplit(os.sep, 1)[-1]
         )
         return name
 
@@ -243,7 +243,13 @@ class InGrid(
 
         exists = paths.map(os.path.exists).to_numpy(bool)
         if exists.all() and not force:
-            logger.info("All grid already on disk.")
+            # logger.info(f"All {len(paths):,} {self.__class__.__qualname__}.{self.file.infile.name} on disk.")
+            msg = (
+                f'All {len(paths):,} '
+                f'{self.__class__.__qualname__}.{self.file.infile.name} '
+                f'on disk at {self.indir.dir}. '
+            )
+            logger.info(msg)
             return self
 
         if not force:
@@ -257,7 +263,7 @@ class InGrid(
         msg = (
             f'Downloading {len(mapping):,} '
             f'{self.__class__.__qualname__}.{self.file.infile.name} '
-            f'from {self.source.name} to {self.indir.dir} '
+            f'from {self.source.name} to \n\t{self.indir.dir} '
         )
         logger.info(msg)
 
@@ -265,42 +271,60 @@ class InGrid(
         not_found: list[Path] = []
         failed: list[Path] = []
 
-        # ── helper that both downloads *and* writes inside the same thread
         def _fetch_write(
                 path: Path,
                 url: str,
         ) -> None:
-            resp = tls.session.get(url, stream=True, timeout=(3, 30))
-            status = resp.status_code
-            if status == 404:
-                not_found.append(path)
-                resp.close()
-                return
-            if status != 200:
-                failed.append(path)
-                resp.close()
-                return
-
-            # atomic write
-            tmp = Path(
-                tempfile.mkstemp(
-                    dir=path.parent,
-                    suffix=".part",
-                )[1]
-            )
-            with tmp.open("wb") as fh:
-                for chunk in resp.iter_content(1 << 15):
-                    fh.write(chunk)
-            resp.close()
-
-            # quick sanity check + move
+            # use Response as a context manager so the socket/FD is always released
             try:
-                iio.imread(tmp)
-            except ValueError:
-                tmp.unlink(missing_ok=True)
+                with tls.session.get(url, stream=True, timeout=(3, 30)) as resp:
+                    status = resp.status_code
+                    if status == 404:
+                        # not found: nothing to write
+                        not_found.append(path)
+                        return
+                    if status != 200:
+                        # other error: mark as failed
+                        failed.append(path)
+                        return
+
+                    # atomic write into a sibling temp file
+                    fd, tmp_path = tempfile.mkstemp(
+                        dir=path.parent,
+                        suffix=".part",
+                    )
+                    os.close(fd)
+                    tmp = Path(tmp_path)
+
+                    try:
+                        # stream body to disk
+                        with tmp.open("wb") as fh:
+                            for chunk in resp.iter_content(1 << 15):
+                                if not chunk:
+                                    continue
+                                fh.write(chunk)
+
+                        # quick sanity check
+                        try:
+                            iio.imread(tmp)
+                        except ValueError:
+                            tmp.unlink(missing_ok=True)
+                            failed.append(path)
+                            return
+
+                        # promote temp into place
+                        shutil.move(tmp, path)
+
+                    except Exception:
+                        # any unexpected error during write → remove temp
+                        tmp.unlink(missing_ok=True)
+                        failed.append(path)
+                        return
+
+            except Exception:
+                # network/requests‑level failure before we could write
                 failed.append(path)
                 return
-            shutil.move(tmp, path)
 
         # ── threaded execution
         with ThreadPoolExecutor(
@@ -319,7 +343,7 @@ class InGrid(
                     as_completed(futures),
                     total=len(futures),
                     desc="Downloading",
-                    unit="tile",
+                    unit=f" {self.__class__.__name__}.{paths.name}",
             ):
                 ok = fut.result()
                 if ok and one:
@@ -361,9 +385,13 @@ class InGrid(
                     force=False,
                     max_workers=max_workers,
                 )
-            raise FileNotFoundError(f"{len(failed):,} grid failed.")
+            raise FileNotFoundError(f"{len(failed):,} files failed.")
 
-        logger.info(f"All requested {paths.name} on disk.")
+        msg = (
+            f"All requested {self.__class__.__name__}.{paths.name} "
+            f"on disk at \n\t{self.indir.dir} "
+        )
+        logger.info(msg)
         return self
 
     def _make_session(

@@ -1,3 +1,5 @@
+NOTE: SF imagery is dim=512, not 256
+
 # ── unscaled pad=0 ──────────────────────────────────────────────
 python -m tile2net --location "40.7053, -74.0111, 40.7119, -73.9900" --name manhattan/unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8
 python -m tile2net --location "37.7872, -122.4017, 37.7939, -122.3873" --name frisco/unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8
@@ -14,14 +16,14 @@ python -m tile2net --location "35.7526, -86.9171, 35.7664, -86.8819" --name "spr
 
 # ── unscaled pad=2 ──────────────────────────────────────────────
 python -m tile2net --location "40.7053, -74.0111, 40.7119, -73.9900" --name manhattan/unscaled/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8
-python -m tile2net --location "37.7872, -122.4017, 37.7939, -122.3873" --name frisco/unscaled/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8
+# python -m tile2net --location "37.7872, -122.4017, 37.7939, -122.3873" --name frisco/unscaled/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8
 python -m tile2net --location "37.8684, -122.2658, 37.8809, -122.2441" --name berkeley/unscaled/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8
 python -m tile2net --location "44.3112, -69.7708, 44.3185, -69.7505" --name augusta/unscaled/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8
 python -m tile2net --location "35.7526, -86.9171, 35.7664, -86.8819" --name "spring hill/unscaled/pad=2" --segment.pad 2 --zoom 20 --model.bs_val 2 --vector.length 8
 
 # ── unscaled pad=3 ──────────────────────────────────────────────
 python -m tile2net --location "40.7053, -74.0111, 40.7119, -73.9900" --name manhattan/unscaled/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8
-python -m tile2net --location "37.7872, -122.4017, 37.7939, -122.3873" --name frisco/unscaled/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8
+# python -m tile2net --location "37.7872, -122.4017, 37.7939, -122.3873" --name frisco/unscaled/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8
 python -m tile2net --location "37.8684, -122.2658, 37.8809, -122.2441" --name berkeley/unscaled/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8
 python -m tile2net --location "44.3112, -69.7708, 44.3185, -69.7505" --name augusta/unscaled/pad=3 --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8
 python -m tile2net --location "35.7526, -86.9171, 35.7664, -86.8819" --name "spring hill/unscaled/pad=3" --segment.pad 3 --zoom 20 --model.bs_val 1 --vector.length 8
@@ -34,15 +36,15 @@ python -m tile2net --location "44.3112, -69.7708, 44.3185, -69.7505" --name augu
 python -m tile2net --location "35.7526, -86.9171, 35.7664, -86.8819" --name "spring hill/scales=0.5,2/pad=0" --segment.pad 0 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
 
 # ── scales pad=1 ───────────────────────────────────────────────
-python -m tile2net --location "40.7053, -74.0111, 40.7119, -73.9900" --name manhattan/scales=0.5,2/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
-python -m tile2net --location "37.7872, -122.4017, 37.7939, -122.3873" --name frisco/scales=0.5,2/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
-python -m tile2net --location "37.8684, -122.2658, 37.8809, -122.2441" --name berkeley/scales=0.5,2/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
-python -m tile2net --location "44.3112, -69.7708, 44.3185, -69.7505" --name augusta/scales=0.5,2/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
-python -m tile2net --location "35.7526, -86.9171, 35.7664, -86.8819" --name "spring hill/scales=0.5,2/pad=1" --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "40.7053, -74.0111, 40.7119, -73.9900" --name manhattan/scales=0.5,2/pad=1 --segment.pad 1 --segment.dimension 768 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "37.7872, -122.4017, 37.7939, -122.3873" --name frisco/scales=0.5,2/pad=1 --segment.pad 1 --segment.dimension 512 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "37.8684, -122.2658, 37.8809, -122.2441" --name berkeley/scales=0.5,2/pad=1 --segment.pad 1 --segment.dimension 768 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "44.3112, -69.7708, 44.3185, -69.7505" --name augusta/scales=0.5,2/pad=1 --segment.pad 1 --segment.dimension 768 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "35.7526, -86.9171, 35.7664, -86.8819" --name "spring hill/scales=0.5,2/pad=1" --segment.pad 1 --segment.dimension 768 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
 
 # ── scales pad=2 ───────────────────────────────────────────────
-python -m tile2net --location "40.7053, -74.0111, 40.7119, -73.9900" --name manhattan/scales=0.5,2/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
-python -m tile2net --location "37.7872, -122.4017, 37.7939, -122.3873" --name frisco/scales=0.5,2/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
-python -m tile2net --location "37.8684, -122.2658, 37.8809, -122.2441" --name berkeley/scales=0.5,2/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
-python -m tile2net --location "44.3112, -69.7708, 44.3185, -69.7505" --name augusta/scales=0.5,2/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
-python -m tile2net --location "35.7526, -86.9171, 35.7664, -86.8819" --name "spring hill/scales=0.5,2/pad=2" --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "40.7053, -74.0111, 40.7119, -73.9900" --name manhattan/scales=0.5,2/pad=2 --segment.pad 2 --segment.dimension 512 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+# python -m tile2net --location "37.7872, -122.4017, 37.7939, -122.3873" --name frisco/scales=0.5,2/pad=2 --segment.pad 2 --segment.dimension 512 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "37.8684, -122.2658, 37.8809, -122.2441" --name berkeley/scales=0.5,2/pad=2 --segment.pad 2 --segment.dimension 512 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "44.3112, -69.7708, 44.3185, -69.7505" --name augusta/scales=0.5,2/pad=2 --segment.pad 2 --segment.dimension 512 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "35.7526, -86.9171, 35.7664, -86.8819" --name "spring hill/scales=0.5,2/pad=2" --segment.pad 2 --segment.dimension 512 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2

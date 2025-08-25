@@ -471,7 +471,7 @@ class HighResolutionNet(nn.Module):
                 pretrained,
                 map_location={'cuda:0': 'cpu'}
             )
-            logger.info('Loading pretrained model \n\t{}'.format(pretrained))
+            logger.info('Loading pretrained model from \n\t{}'.format(pretrained))
             model_dict = self.state_dict()
             pretrained_dict = {k.replace('last_layer',
                                          'aux_head').replace('model.', ''): v

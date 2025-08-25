@@ -792,7 +792,7 @@ class Line(cmdline.Namespace):
     @cmdline.property
     def preview(self) -> int:
         """Maximum dimension of the lines preview"""
-        return 2048
+        return 3072
 
 
 class Polygon(cmdline.Namespace):
@@ -847,7 +847,7 @@ class Polygon(cmdline.Namespace):
     @cmdline.property
     def preview(self) -> int:
         """Maximum dimension of the polygons preview"""
-        return 2048
+        return 3072
         
     @cmdline.property
     def thickness(self) -> float:

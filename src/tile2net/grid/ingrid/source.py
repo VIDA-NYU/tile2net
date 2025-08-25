@@ -1,4 +1,5 @@
 from __future__ import annotations
+import contextlib
 
 import functools
 import json
@@ -469,13 +470,21 @@ class ArcGis(
         """ base URL for the ArcGIS server."""
 
     @cls_attr
-    def layer_info(cls):
-        response = requests.get(cls.metadata)
-        response.raise_for_status()
-        text = response.text
+    def layer_info(cls) -> dict[str, Any] | list[Any]:
+        print('⚠️AI GENERATED🤖')
+        # ensure the Response is closed on all paths
+        with (
+            contextlib
+            .closing(requests.get(cls.metadata, timeout=10))
+        ) as response:
+            response.raise_for_status()
+            text = response.text
+
+        # parse after the response is closed
         try:
             res = json.loads(text)
         except json.JSONDecodeError as e:
+            # include raw text in logs for debugging malformed payloads
             logger.error(f'Could not parse JSON from stdin: {e}')
             logger.error(f'{cls.metadata=}; {cls.server=}')
             logger.error(f'JSON: {text}')

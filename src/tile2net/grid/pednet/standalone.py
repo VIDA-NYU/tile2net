@@ -21,7 +21,7 @@ one to extract node information
 if __name__ == '__main__':
     import geopandas as gpd
 
-    file = '/home/arstneio/PycharmProjects/kashi/src/tile2net/artifacts/static/brooklyn.feather'
+    file = '~/PycharmProjects/kashi/src/tile2net/artifacts/static/brooklyn.feather'
     result = (
         gpd.read_feather(file)
         .pipe(Lines.from_center)

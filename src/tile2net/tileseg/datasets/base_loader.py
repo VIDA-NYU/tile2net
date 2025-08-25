@@ -40,6 +40,7 @@ from torch.utils import data
 from tile2net.tileseg.datasets import uniform
 from tile2net.tileseg.utils.misc import tensor_to_pil
 from tile2net.grid.cfg import cfg
+from tile2net.logger import logger
 
 if False:
     from ...grid import Grid
@@ -83,7 +84,12 @@ class BaseLoader(data.Dataset):
         )
 
     @staticmethod
-    def find_images(img_root: str, mask_root: str, img_ext: str, mask_ext: str) -> List[Tuple[str, str]]:
+    def find_images(
+            img_root: str,
+            mask_root: str,
+            img_ext: str,
+            mask_ext: str,
+    ) -> List[Tuple[str, str]]:
         """
         Find image and segmentation mask files and return a list of
         tuples of them.
@@ -112,7 +118,14 @@ class BaseLoader(data.Dataset):
         new_mask.putpalette(self.color_mapping)
         return new_mask
 
-    def dump_images(self, img_name: str, mask: Any, centroid: Optional[Tuple[int, int]], class_id: Optional[int], img: Any) -> None:
+    def dump_images(
+            self,
+            img_name: str,
+            mask: Any,
+            centroid: Optional[Tuple[int, int]],
+            class_id: Optional[int],
+            img: Any,
+    ) -> None:
         img = tensor_to_pil(img)
         outdir = 'new_dump_imgs_{}'.format(self.mode)
         os.makedirs(outdir, exist_ok=True)
@@ -132,8 +145,14 @@ class BaseLoader(data.Dataset):
         mask_img.save(out_msk_fn)
         raw_img.save(out_raw_fn)
 
-    def do_transforms(self, img: Image.Image, mask: Image.Image, centroid: Optional[Tuple[int, int]],
-                      img_name: str, class_id: Optional[int]) -> Tuple[Any, Any, float]:
+    def do_transforms(
+            self,
+            img: Image.Image,
+            mask: Image.Image,
+            centroid: Optional[Tuple[int, int]],
+            img_name: str,
+            class_id: Optional[int],
+    ) -> Tuple[Any, Any, float]:
         """
         Do transformations to image and mask
 
@@ -165,13 +184,27 @@ class BaseLoader(data.Dataset):
 
         return img, mask, scale_float
 
-    def read_images(self, img_path: str, mask_path: Optional[str]) -> Tuple[Image.Image, Image.Image, str]:
-        img = Image.open(img_path).convert('RGB')
+    def read_images(
+            self,
+            img_path: str,
+            mask_path: Optional[str],
+    ) -> Tuple[Image.Image, Image.Image, str]:
+        try:
+            img = Image.open(img_path).convert('RGB')
+        except Exception as e:
+            msg = f'Failed to open image \n\t{img_path}\nError: {e}'
+            logger.error(msg)
+            raise
         if mask_path is None or mask_path == '':
             w, h = img.size
             mask = np.zeros((h, w))
         else:
-            mask = Image.open(mask_path)
+            try:
+                mask = Image.open(mask_path)
+            except Exception as e:
+                msg = f'Failed to open mask \n\t{mask_path}\nError: {e}'
+                logger.error(msg)
+                raise
 
         img_name = os.path.splitext(os.path.basename(img_path))[0]
 
@@ -216,7 +249,12 @@ class BaseLoader(data.Dataset):
             mask = np.array(mask)
             prob_mask_path = mask_path.replace('.png', '_prob.png')
             # put it in 0 to 1
-            prob_map = np.array(Image.open(prob_mask_path)) / 255.0
+            try:
+                prob_map = np.array(Image.open(prob_mask_path)) / 255.0
+            except Exception as e:
+                msg = f'Failed to open prob map \n\t{prob_mask_path}\nError: {e}'
+                logger.error(msg)
+                raise
             prob_map_threshold = prob_map < cfg.DATASET.CUSTOM_COARSE_PROB
             mask[prob_map_threshold] = cfg.DATASET.IGNORE_LABEL
             mask = Image.fromarray(mask.astype(np.uint8))

@@ -423,15 +423,19 @@ class VecGrid(Grid):
     @staticmethod
     def _silence_logging() -> None:
         """
-        Disable *all* log records below ERROR **and** swallow bare prints.
+        Disable log records below ERROR and route stdout/stderr to /dev/null
+        without leaking file descriptors.
         """
-        # ❶ Kill log noise (anything < ERROR vanishes)
+        # suppress anything below ERROR
         logging.disable(logging.ERROR)
 
-        # ❷ Black-hole stdout / stderr
-        devnull = open(os.devnull, "w")
-        contextlib.redirect_stdout(devnull).__enter__()
-        contextlib.redirect_stderr(devnull).__enter__()
+        # dup stdout/stderr to /dev/null, then close the temporary fd
+        fd = os.open(os.devnull, os.O_WRONLY)
+        try:
+            os.dup2(fd, 1)
+            os.dup2(fd, 2)
+        finally:
+            os.close(fd)
 
     @recursion_block
     def vectorize(

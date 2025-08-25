@@ -10,6 +10,8 @@ from pathlib import Path
 import imageio.v3 as iio
 import numpy as np
 import pandas as pd
+import logging
+import multiprocessing as mp
 from tqdm import tqdm
 from tqdm.auto import tqdm
 
@@ -141,6 +143,13 @@ class Stitcher:
             col=self.col.values.astype(int, copy=False),
         ))
         groups = df.groupby('outfile', sort=False)
+
+        # silence multiprocessing connection/info logs that spam "Connected to: ..."
+        logger = mp.util.get_logger()
+        if logger.handlers:
+            logger.setLevel(logging.WARNING)
+        else:
+            mp.util.log_to_stderr(logging.WARNING)
 
         with ProcessPoolExecutor(max_workers=max_workers) as ex:
             tasks: list[Future[str]] = []

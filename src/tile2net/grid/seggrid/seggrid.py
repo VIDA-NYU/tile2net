@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import wait
 from functools import *
 from typing import *
+from typing import TYPE_CHECKING
 
 import numpy
 import numpy as np
@@ -37,6 +38,9 @@ from .padded import Padded
 from .file import File
 
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
+
+if TYPE_CHECKING:
+    from tile2net.tileseg.loss.utils import CrossEntropyLoss2d
 
 if False:
     from .filled import Filled
@@ -325,7 +329,7 @@ class SegGrid(
             criterion, criterion_val = get_loss(cfg)
 
             cfg.restore_net = True
-            msg = "Loading weights \n\t{}".format(cfg.model.snapshot)
+            msg = "Loading weights from \n\t{}".format(cfg.model.snapshot)
             logger.debug(msg)
             if cfg.model.snapshot != Static.snapshot:
                 msg = (
@@ -397,7 +401,7 @@ class SegGrid(
             net: torch.nn.parallel.DataParallel,
             force,
             grid: SegGrid,
-            criterion: Optional[tile2net.tileseg.loss.utils.CrossEntropyLoss2d] = None,
+            criterion: Optional[CrossEntropyLoss2d] = None,
     ):
         """
         Run validation for one epoch
@@ -420,61 +424,93 @@ class SegGrid(
         val_loss = AverageMeter()
         iou_acc = 0
         scales = [cfg.default_scale]
-        logger.debug(f'Using multi-scale inference (AVGPOOL) with scales {scales}')
+        if cfg.multi_scale_inference:
+            scales.extend(cfg.model.extra_scales.split(','))
+            msg = f'Using multi-scale inference (AVGPOOL) with scales {scales}'
+        else:
+            msg = f'Using single-scale inference with scale {scales}'
+        logger.debug(msg)
 
         threads = ThreadPoolExecutor()
         futures = []
         batch_size = cfg.model.bs_val
         clip = self.ingrid.dimension * cfg.segment.pad
 
-        msg = f'Inferring to {grid.outdir.seggrid.grayscale.dir}'
+        msg = (
+            f'Using stitched imagery from '
+            f'\n\t{self.tempdir.seggrid.infile.dir} '
+            f'\nand predicting segmentation to '
+            f'\n\t{self.outdir.seggrid.grayscale.dir}'
+        )
+        logger.info(msg)
 
         unit = f' {self.seggrid.__name__}.{self.seggrid.file.grayscale.name}'
-        with logging_redirect_tqdm(), cfg:
-            pbar = tqdm(
-                total=len(GRID),  # one tick per tile
-                desc=msg,
-                unit=unit,
-                dynamic_ncols=True,
-            )
-
-            for (
-                    i,
-                    (input_images, labels, img_names, scale_float)
-            ) in enumerate(loader):
-                start = i * batch_size
-                # grid = GRID.iloc[start: start + len(input_images)]
-                grid = (
-                    GRID.frame
-                    .iloc[start: start + len(input_images)]
-                    .pipe(GRID.from_frame, wrapper=GRID)
+        msg = 'Predicting Segmentation Tiles'
+        pbar = None
+        try:
+            with logging_redirect_tqdm(), cfg:
+                pbar = tqdm(
+                    total=len(GRID),  # one tick per tile
+                    desc=msg,
+                    unit=unit,
+                    dynamic_ncols=True,
                 )
 
-                batch = MiniBatch.from_data(
-                    images=input_images,
-                    net=net,
-                    gt_image=labels,
-                    criterion=criterion,
-                    val_loss=val_loss,
-                    grid=grid,
-                    threads=threads,
-                    clip=clip
-                )
-                futures.extend(batch.submit_all())
+                for (
+                        i,
+                        (input_images, labels, img_names, scale_float)
+                ) in enumerate(loader):
+                    start = i * batch_size
+                    # grid = GRID.iloc[start: start + len(input_images)]
+                    grid = (
+                        GRID.frame
+                        .iloc[start: start + len(input_images)]
+                        .pipe(GRID.from_frame, wrapper=GRID)
+                    )
 
-                iou_acc += batch.iou_acc
-                pbar.update(len(input_images))
+                    batch = MiniBatch.from_data(
+                        images=input_images,
+                        net=net,
+                        gt_image=labels,
+                        criterion=criterion,
+                        val_loss=val_loss,
+                        grid=grid,
+                        threads=threads,
+                        clip=clip
+                    )
+                    futures.extend(batch.submit_all())
 
-                if (
-                        cfg.options.test_mode
-                        and i >= 5
-                ):
-                    break
+                    iou_acc += batch.iou_acc
+                    pbar.update(len(input_images))
 
-            pbar.close()
-
-        wait(futures)
-        for fut in futures:
-            fut.result()
-        futures.clear()
-
+                    if (
+                            cfg.options.test_mode
+                            and i >= 5
+                    ):
+                        break
+        finally:
+            # ensure progress bar is closed
+            if pbar is not None:
+                try:
+                    pbar.close()
+                except Exception:
+                    pass
+            # wait for all submitted futures and drain results to avoid resource leaks
+            if futures:
+                try:
+                    wait(futures)
+                except Exception:
+                    pass
+                for fut in futures:
+                    try:
+                        fut.result()
+                    except Exception:
+                        # suppress exceptions during cleanup
+                        pass
+                futures.clear()
+            # always shutdown the thread pool to prevent FD/thread leaks
+            try:
+                # cancel_futures available on Python 3.9+
+                threads.shutdown(wait=True, cancel_futures=True)
+            except TypeError:
+                threads.shutdown(wait=True)
