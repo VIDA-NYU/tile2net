@@ -113,3 +113,14 @@ python -m tile2net --location "37.788350436883455, -122.40401477058349, 37.79723
 python -m tile2net --location "37.788350436883455, -122.40401477058349, 37.79723443121796, -122.38859286107203" --name sf/scales=0.5,2/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
 python -m tile2net --location "37.788350436883455, -122.40401477058349, 37.79723443121796, -122.38859286107203" --name sf/scales=0.5,2/pad=1 --segment.pad 1 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
 python -m tile2net --location "37.788350436883455, -122.40401477058349, 37.79723443121796, -122.38859286107203" --name sf/scales=0.5,2/pad=2 --segment.pad 2 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+
+
+python -m tile2net --location "Deering Oaks Park" --name deering/unscaled/pad=0 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8
+python -m tile2net --location "Deering Oaks Park" --name deering/scales=0.5,2/pad=2 --segment.pad 2 --segment.dimension 512 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+
+python -m tile2net --location "Deering Oaks Park" --name deering/scales=0.5,2/pad=2 --segment.pad 2 --segment.dimension 512 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --polygon.simplify 3
+python -m tile2net --location "Deering Oaks Park" --name deering/scales=0.5,2/pad=1__simplify=2 --segment.pad 1 --segment.dimension 768 --zoom 20 --model.bs_val 1 --vector.length 8 --multi_scale_inference --model.extra_scales 0.5,2 --polygon.simplify 2
+
+python -m tile2net --location "Deering Oaks Park" --name deering/unscaled/pad=0__simplify=3 --segment.pad 0 --zoom 20 --model.bs_val 8 --vector.length 8 --polygon.simplify 3
+
+--no_inference
