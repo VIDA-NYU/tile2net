@@ -362,7 +362,7 @@ class InGrid(
 
         if not_found:
             black = self.static.black
-            logger.warning("%d grid returned 404 – linking placeholder.", len(not_found))
+            logger.warning("%d tile(s) returned 404 – linking placeholder.", len(not_found))
             for p in not_found:
                 try:
                     os.symlink(black, p)
@@ -371,7 +371,7 @@ class InGrid(
 
         if failed:
             if retry:
-                logger.error("%d failed; retrying once.", len(failed))
+                logger.error("%d tile(s) failed; retrying once.", len(failed))
                 return self.download(
                     retry=False,
                     force=False,

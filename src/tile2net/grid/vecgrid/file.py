@@ -125,8 +125,6 @@ class File(
         vecgrid = self.grid
         files = vecgrid.ingrid.outdir.vecgrid.lines.files(vecgrid)
         self.lines = files
-        # if not files.map(os.path.exists).all():
-        #     vecgrid.vectorize()
         if (
             not vecgrid.vectorize
             and not files.map(os.path.exists).all()
@@ -139,8 +137,6 @@ class File(
         vecgrid = self.grid
         files = vecgrid.ingrid.outdir.vecgrid.polygons.files(vecgrid)
         self.polygons = files
-        # if not files.map(os.path.exists).all():
-        #     vecgrid.vectorize()
         if (
             not vecgrid.vectorize
             and not files.map(os.path.exists).all()
@@ -148,3 +144,16 @@ class File(
             vecgrid.vectorize()
 
         return files
+
+    @frame.column
+    def curbs(self) -> pd.Series:
+        vecgrid = self.grid
+        files = vecgrid.ingrid.outdir.vecgrid.curbs.files(vecgrid)
+        self.curbs = files
+        if (
+                not vecgrid.vectorize
+                and not files.map(os.path.exists).all()
+        ):
+            vecgrid.vectorize()
+        return files
+

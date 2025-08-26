@@ -57,14 +57,15 @@ class Lines(
                 instance.__dict__[self.__name__] = result
             else:
 
-                msg = f"Stacking geometric columns into a single geometry column."
-                logger.debug(msg)
                 lines: gpd.GeoDataFrame = instance.vecgrid.lines.frame.copy()
                 lines.columns = (
                     lines.columns.str
                     .removeprefix('lines.')
                 )
                 cols = lines.dtypes == 'geometry'
+
+                msg = f"Stacking geometric columns into a single geometry column."
+                logger.debug(msg)
                 result: Lines = (
                     lines
                     .loc[:, cols]

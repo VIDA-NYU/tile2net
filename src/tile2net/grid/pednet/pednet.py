@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import cached_property
 from pathlib import Path
 from typing import *
 
@@ -223,3 +224,22 @@ class PedNet(
         import folium
         folium.LayerControl().add_to(m)
         return m
+
+    @cached_property
+    def road(self) -> Self:
+        loc = self.feature == 'road'
+        result = self.loc[loc].copy()
+        return result
+
+    @cached_property
+    def sidewalk(self) -> Self:
+        loc = self.feature == 'sidewalk'
+        result = self.loc[loc].copy()
+        return result
+
+    @cached_property
+    def crosswalk(self) -> Self:
+        loc = self.feature == 'crosswalk'
+        result = self.loc[loc].copy()
+        return result
+

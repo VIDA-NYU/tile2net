@@ -30,9 +30,6 @@ class VecGrid(
             'polygons',
             self.suffix,
         )
-        # try:
-        #     format = format.replace(self.extension, 'parquet')
-        # except AttributeError:
         format = format + '.parquet'
         result = Polygons.from_format(format)
         return result
@@ -44,9 +41,17 @@ class VecGrid(
             'lines',
             self.suffix,
         )
-        # try:
-        #     format = format.replace(self.extension, 'parquet')
-        # except AttributeError:
+        format = format + '.parquet'
+        result = Network.from_format(format)
+        return result
+
+    @Network
+    def curbs(self):
+        format = os.path.join(
+            self.dir,
+            'curbs',
+            self.suffix,
+        )
         format = format + '.parquet'
         result = Network.from_format(format)
         return result

@@ -1019,6 +1019,15 @@ class Cfg(
         ...
 
     @cmdline.property
+    def inference(self) -> bool:
+        """
+        Run inference only, skipping training
+        """
+        return True
+
+    inference.add_options(long='--no-inference')
+
+    @cmdline.property
     def cleanup(self) -> bool:
         """
         After performing segmentation, delete all input imagery.

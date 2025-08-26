@@ -1,12 +1,6 @@
-
 from __future__ import annotations
 
-import geopandas as gpd
-
-
-from concurrent.futures import (
-    ThreadPoolExecutor,
-)
+from concurrent.futures import ThreadPoolExecutor
 from typing import Self
 
 import geopandas as gpd
@@ -67,12 +61,7 @@ class Lines(
 
             msg = f'Dissolving {instance.__name__}.{self.__name__} by feature and tile'
             cols = 'xtile ytile feature'.split()
-            # gpd.GeoDataFrame.dropna(_, axis='geometry')
-            #
-            # frame = pd.concat(frames, copy=False)
-            # frame.dropna(subset='geometry')
-            # gpd.GeoDataFrame.dropna(self=_, subset='geometry')
-            geometry = frames[0].feature.iat[0] # any feature
+            geometry = frames[0].feature.iat[0]  # any feature
 
             with benchmark(msg):
                 result = (
