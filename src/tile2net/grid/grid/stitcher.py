@@ -6,6 +6,9 @@ from concurrent.futures import (
     as_completed,
 )
 from pathlib import Path
+import os
+import shutil
+import tempfile
 
 import imageio.v3 as iio
 import numpy as np
@@ -59,8 +62,29 @@ def _assemble_and_save(  # top-level → pickle-friendly
 
     # drop alpha, write RGB
     rgb = mosaic[..., :3]
-    Path(outfile).parent.mkdir(parents=True, exist_ok=True)
-    iio.imwrite(outfile, rgb, plugin='pillow')
+    out_path = Path(outfile)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # atomic write: write to a sibling temp file then move into place
+    fd, tmp_path = tempfile.mkstemp(
+        dir=out_path.parent,
+        suffix=".part",
+    )
+    os.close(fd)
+    tmp = Path(tmp_path)
+    try:
+        iio.imwrite(tmp, rgb, plugin='pillow')
+        # sanity check: ensure the written file is readable
+        try:
+            _ = iio.imread(tmp)
+        except Exception:
+            tmp.unlink(missing_ok=True)
+            raise
+        shutil.move(tmp, out_path)
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        raise
+
     return outfile
 
 
