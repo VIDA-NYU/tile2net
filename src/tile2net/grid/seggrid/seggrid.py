@@ -1,4 +1,7 @@
 from __future__ import annotations
+
+import pandas as pd
+
 from ...grid.frame.namespace import namespace
 
 import copy
@@ -36,6 +39,7 @@ from ..grid.grid import Grid
 from ..util import recursion_block
 from .padded import Padded
 from .file import File
+from ..dataset.val import ValDataLoader, ValDataSet, DataWrapper
 
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 
@@ -232,8 +236,8 @@ class SegGrid(
 
             # preemptively stitch so logging apears more sequential
             # otherwise you get "now predicting" before "now stitching"
-            _ = self.file.infile
-            _ = self.padded.infile
+            # _ = self.file.infile
+            # _ = self.padded.infile
 
             if force is not None:
                 cfg.force = force
@@ -324,8 +328,30 @@ class SegGrid(
             assert_and_infer_cfg(cfg)
             prep_experiment()
 
-            struct = datasets.setup_loaders(tiles=grid)
-            val_loader = struct.val_loader
+            # struct = datasets.setup_loaders(tiles=grid)
+            # val_loader = struct.val_loader
+            # val_loader
+
+            # infile: pd.Series = self.ingrid.broadcast.file.infile
+            # mask = [None] * len(infile)
+            # ValDataSet.from_tiles(
+            #     raster=infile,
+            #     mask=mask,
+            #     row=self.ingrid.broadcast.segtile.r,
+            #     col=self.ingrid.broadcast.segtile.c,
+            #     background=0,
+            #     i=self.ingrid.
+            # )
+            ingrid = self.ingrid.broadcast
+            dataset = ValDataSet.from_tiles(
+                raster=ingrid.file.infile,
+                mask=[None] * len(ingrid),
+                row=ingrid.segtile.r,
+                col=ingrid.segtile.c,
+                i=ingrid.segtile.itile,
+                background=0,
+            )
+            loader = dataset.loader
             criterion, criterion_val = get_loss(cfg)
 
             cfg.restore_net = True
@@ -372,7 +398,8 @@ class SegGrid(
 
             if cfg.model.eval == 'test':
                 self._validate(
-                    loader=val_loader,
+                    # loader=val_loader,
+                    loader=loader,
                     net=net,
                     force=force,
                     grid=grid,
@@ -380,7 +407,8 @@ class SegGrid(
 
             elif cfg.model.eval == 'folder':
                 self._validate(
-                    loader=val_loader,
+                    # loader=val_loader,
+                    loader=loader,
                     net=net,
                     criterion=criterion_val,
                     force=force,
@@ -397,7 +425,8 @@ class SegGrid(
 
     def _validate(
             self,
-            loader: Loader,
+            # loader: Loader,
+            loader: ValDataLoader,
             net: torch.nn.parallel.DataParallel,
             force,
             grid: SegGrid,
@@ -458,7 +487,8 @@ class SegGrid(
 
                 for (
                         i,
-                        (input_images, labels, img_names, scale_float)
+                        # (input_images, labels, img_names, scale_float)
+                        (input_images, labels, scale_float)
                 ) in enumerate(loader):
                     start = i * batch_size
                     # grid = GRID.iloc[start: start + len(input_images)]

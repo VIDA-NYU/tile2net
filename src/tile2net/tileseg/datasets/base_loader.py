@@ -221,6 +221,8 @@ class BaseLoader(data.Dataset):
             self,
             index: int
     ) -> Tuple[Any, Any, str, float]:
+        from PIL import Image, ImageFile
+        ImageFile.LOAD_TRUNCATED_IMAGES = True
         """
         Generate data:
 

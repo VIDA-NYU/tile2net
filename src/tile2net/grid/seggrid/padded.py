@@ -1,35 +1,11 @@
 from __future__ import annotations
 
-from .. import util
-
-import copy
 import os
 import os.path
-import shutil
-import sys
-from ..util import ensure_tempdir_for_indir
-import tempfile
-import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import *
-from pathlib import Path
-from typing import *
 
-import certifi
-import geopandas as gpd
-import imageio.v3 as iio
 import pandas as pd
-import requests
-from requests.adapters import HTTPAdapter
-from tqdm import tqdm
-from tqdm.auto import tqdm
-from urllib3.util.retry import Retry
 
-from tile2net.grid.cfg.logger import logger
-from tile2net.grid.dir.indir import Indir
-from tile2net.grid.dir.outdir import Outdir
 from .. import frame
-
 from ...grid.frame.namespace import namespace
 
 if False:

@@ -35,6 +35,8 @@ def _assemble_and_save(  # top-level → pickle-friendly
         dtype: np.dtype,
         background: int = 0,
 ) -> str:
+    from PIL import Image, ImageFile
+    ImageFile.LOAD_TRUNCATED_IMAGES = True
     # allocate RGBA working canvas (α + RGB); write RGB only at the end
     mosaic = np.full((mos_h, mos_w, 4), background, dtype=dtype)
     mosaic[..., 3] = 255

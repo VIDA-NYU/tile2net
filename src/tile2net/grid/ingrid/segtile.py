@@ -1,4 +1,7 @@
 from __future__ import annotations
+
+import numpy as np
+
 from .. import frame
 
 import copy
@@ -40,12 +43,24 @@ class SegTile(
     @property
     def shape(self) -> tuple[int, int]:
         return self.dimension, self.dimension
+
     @property
     def index(self):
         arrays = self.xtile, self.ytile
         names = self.xtile.name, self.ytile.name
         result = pd.MultiIndex.from_arrays(arrays, names=names)
         return result
+
+    @frame.column
+    def itile(self):
+        """Integer identifier for each segtile"""
+        result = (
+            self.grid.seggrid.itile
+            .loc[self.index]
+            .values
+        )
+        return result
+
 
     @frame.column
     def xtile(self):
