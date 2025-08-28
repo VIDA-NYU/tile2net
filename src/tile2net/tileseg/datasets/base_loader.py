@@ -175,6 +175,8 @@ class BaseLoader(data.Dataset):
         - mask: mask, tensor
         - image_name: basename of file, string
         """
+        from PIL import Image, ImageFile
+        ImageFile.LOAD_TRUNCATED_IMAGES = True
         # Pick an image, fill in defaults if not using class uniform
         if len(self.imgs[index]) == 2:
             img_path, mask_path = self.imgs[index]

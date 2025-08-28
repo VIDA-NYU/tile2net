@@ -198,10 +198,11 @@ class Inference:
             else:
                 from tile2net.raster.raster import Raster
                 # boundary_path = args.boundary_path
-                city_info_path = cfg.CITY_INFO_PATH
+                # city_info_path = cfg.CITY_INFO_PATH
                 # @maryam boundary path is unused in original
                 # boundary_path = cfg.MODEL.boundary_path
-                city_data = Raster.from_info(city_info_path)
+                # city_data = Raster.from_info(city_info_path)
+                city_data = None
         else:
             city_data = None
 

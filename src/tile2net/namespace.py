@@ -280,7 +280,7 @@ class Model(AttrDesc):
     attnscale_bn_head = None
     bnfunc = None
     bn = None
-    extra_scales = None
+    extra_scales = "0.5, 2"
     grad_ckpt = None
     lr_scheduler: str = None
     mscale_cat_scale_flt = None
@@ -526,10 +526,10 @@ class Namespace(
                     city_info = json.load(f)
                 project = city_info['project']
 
-        for key, value in city_info.items():
-            if key not in self.__dict__:
-                continue
-            setattr(self, key, value)
+            # for key, value in city_info.items():
+            #     if key not in self.__dict__:
+            #         continue
+            #     setattr(self, key, value)
 
 
         #   get project structure if piped
@@ -581,9 +581,10 @@ class Namespace(
             )
             logger.info(
                 f'No hrnet_checkpoint specified, using default: {self.model.hrnet_checkpoint}'
+
             )
-        if not self.city_info_path:
-            raise ValueError('city_info_path must be set')
+        # if not self.city_info_path:
+        #     raise ValueError('city_info_path must be set')
 
 
 
