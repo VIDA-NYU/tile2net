@@ -56,6 +56,7 @@ class DataWrapper(
             row: ArrayLike,
             col: ArrayLike,
             background: int = 0,
+            **kwargs,
     ) -> Self:
         """
         infiles:
@@ -74,6 +75,7 @@ class DataWrapper(
             i=i,
             row=row,
             col=col,
+            **kwargs
         )
         cols = 'i row col'.split()
         frame = (

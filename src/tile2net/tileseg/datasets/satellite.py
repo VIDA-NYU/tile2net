@@ -111,20 +111,19 @@ class Loader(BaseLoader):
         self.trainid_to_name = trainId2name
         self.fill_colormap()
 
-        files = tiles.padded.infile
-        it = zip(files.tolist(), itertools.repeat(''))
-        imgs = list(it)
-        self.all_imgs = imgs
-
-        self.fine_centroids = uniform.build_centroids(
-            self.all_imgs,
-            self.num_classes,
-            self.train,
-            cv=cfg.DATASET.CV,
-            id2trainid=self.id_to_trainid
-        )
-        self.centroids = self.fine_centroids
-        self.build_epoch()
+        # it = zip(files.tolist(), itertools.repeat(''))
+        # imgs = list(it)
+        # self.all_imgs = imgs
+        #
+        # self.fine_centroids = uniform.build_centroids(
+        #     self.all_imgs,
+        #     self.num_classes,
+        #     self.train,
+        #     cv=cfg.DATASET.CV,
+        #     id2trainid=self.id_to_trainid
+        # )
+        # self.centroids = self.fine_centroids
+        # self.build_epoch()
 
     def fill_colormap(self) -> None:
 

@@ -27,7 +27,8 @@ from tile2net.grid.explore import explore
 from .colormap import ColorMap
 from .corners import Corners
 from .file import File
-from .stitcher import Stitcher
+# from .stitcher import Stitcher
+from ._stitcher3 import Stitcher
 from .. import frame
 from .. import util
 from ..cfg import cfg, Cfg

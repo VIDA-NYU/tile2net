@@ -131,9 +131,9 @@ class Broadcast(
     def vectile(self):
         ...
 
-    @property
-    def filled(self):
-        return self.instance.filled
+    # @property
+    # def filled(self):
+    #     return self.instance.filled
 
     @property
     def ingrid(self) -> InGrid:

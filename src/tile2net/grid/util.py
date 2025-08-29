@@ -453,6 +453,22 @@ class RecursionBlock:
             del self.grid.__dict__[self.__name__]
         return False
 
+    def __set__(
+            self,
+            instance,
+            value,
+    ):
+        raise NotImplementedError
+
+    def __delete__(
+            self,
+            instance,
+    ):
+        raise NotImplementedError
+
+
+
+
 
 if False:
     def recursion_block(

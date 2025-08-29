@@ -48,7 +48,7 @@ class Filled(
 ):
 
     def _get(
-            self: Filled,
+            self,
             instance: SegGrid,
             owner,
     ) -> Filled:
@@ -61,14 +61,15 @@ class Filled(
         if key in cache:
             result = cache[key]
         else:
-            result = (
+            result: SegGrid = (
                 instance
                 .to_padding()
-                .pipe(self.__class__.from_wrapper)
+                .pipe(self.__class__)
             )
 
             result.__dict__.update(instance.__dict__)
             result.instance = instance
+
             cache[key] = result
 
         return result

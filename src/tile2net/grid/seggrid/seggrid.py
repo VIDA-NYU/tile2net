@@ -41,6 +41,7 @@ from .padded import Padded
 from .file import File
 from ..dataset.val import ValDataLoader, ValDataSet
 from ..dataset.datawrapper import DataWrapper
+from ..dataset.sample import SampleDataWrapper
 
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 
@@ -225,20 +226,17 @@ class SegGrid(
             self,
             force=None,
             batch_size=None,
-    ) -> Self:
+    ) -> None:
         if self is not self.filled:
             return self.filled.predict(
                 force=force,
                 batch_size=batch_size
             )
         grid = self
-        # cfg = grid.cfg
         with grid.cfg as cfg:
 
             # preemptively stitch so logging apears more sequential
             # otherwise you get "now predicting" before "now stitching"
-            # _ = self.file.infile
-            # _ = self.padded.infile
 
             if force is not None:
                 cfg.force = force
@@ -254,9 +252,10 @@ class SegGrid(
                 if not np.any(loc):
                     msg = 'All segmentation grid are on disk.'
                     logger.info(msg)
-                    return grid
+                    return
 
             if cfg.dump_percent:
+                raise NotImplementedError
                 logger.info(f'Inferencing. Segmentation results will be saved to {grid.outdir.seg_results}')
             else:
                 logger.info('Inferencing. Segmentation results will not be saved.')
@@ -329,7 +328,7 @@ class SegGrid(
             assert_and_infer_cfg(cfg)
             prep_experiment()
 
-            # struct = datasets.setup_loaders(tiles=grid)
+            struct = datasets.setup_loaders(tiles=grid)
             # val_loader = struct.val_loader
             # val_loader
 
@@ -344,15 +343,29 @@ class SegGrid(
             #     i=self.ingrid.
             # )
             ingrid = self.ingrid.broadcast
-            dataset = ValDataSet.from_tiles(
-                raster=ingrid.file.infile,
+            # dataset = ValDataSet.from_tiles(
+            #     raster=ingrid.file.infile,
+            #     mask=[None] * len(ingrid),
+            #     row=ingrid.segtile.r,
+            #     col=ingrid.segtile.c,
+            #     i=ingrid.segtile.itile,
+            #     background=0,
+            # )
+            # todo: how to exclude files that exist?
+            wrapper = SampleDataWrapper.from_tiles(
+                infiles=ingrid.file.infile,
                 mask=[None] * len(ingrid),
-                row=ingrid.segtile.r,
-                col=ingrid.segtile.c,
                 i=ingrid.segtile.itile,
                 background=0,
+                row=ingrid.segtile.r,
+                col=ingrid.segtile.c,
             )
+            if not force:
+                loc = ~wrapper.i.map(os.path.exists)
+                wrapper = wrapper.loc[loc]
+            dataset = ValDataSet.from_wrapper(wrapper)
             loader = dataset.loader
+
             criterion, criterion_val = get_loss(cfg)
 
             cfg.restore_net = True
@@ -407,8 +420,6 @@ class SegGrid(
 
             msg = f'Finished predicting {len(grid)} segmentation tiles.'
             logger.info(msg)
-
-            return self
 
     def _validate(
             self,
@@ -478,22 +489,16 @@ class SegGrid(
                     dynamic_ncols=True,
                 )
 
-                # for (
-                #         i,
-                #         # (input_images, labels, img_names, scale_float)
-                #         # (input_images, labels, scale_float)
-                #     batch
-                # ) in enumerate(loader):
                 for batch in loader:
                     input_images = batch['input']
                     labels = batch['mask']
                     scale_float = batch['scale']
                     i = batch['i']
-                    grid = (
-                        frame
-                        .loc[i]
-                        .pipe(GRID.from_frame, wrapper=GRID)
-                    )
+                    # grid = (
+                    #     frame
+                    #     .loc[i]
+                    #     .pipe(grid.from_frame, wrapper=grid)
+                    # )
 
                     batch = MiniBatch.from_data(
                         images=input_images,
@@ -505,6 +510,7 @@ class SegGrid(
                         threads=threads,
                         clip=clip
                     )
+                    batch.submit_all()
                     futures.extend(batch.submit_all())
 
                     iou_acc += batch.iou_acc

@@ -12,7 +12,7 @@ from .dataloader import TensorDataLoader
 from .dataset import TensorDataSet
 from .raster import RasterDataSet
 from .mask import MaskDataSet
-from .datawrapper import DataWrapper
+from .datawrapper import DataWrapper, frame
 
 ArrayLike = Union[
     pd.Series,
@@ -20,6 +20,35 @@ ArrayLike = Union[
     list[Any],
     np.ndarray,
 ]
+
+
+class SampleDataWrapper(
+    DataWrapper
+):
+    @classmethod
+    def from_tiles(
+            cls,
+            *,
+            infiles: ArrayLike,
+            i: ArrayLike,
+            row: ArrayLike,
+            col: ArrayLike,
+            background: int = 0,
+            mask: Optional[ArrayLike] = None,
+    ) -> Self:
+        return super().from_tiles(
+            infiles=infiles,
+            i=i,
+            row=row,
+            col=col,
+            background=background,
+            mask=mask,
+        )
+
+    @frame.column
+    def mask(self):
+        ...
+
 
 
 class SampleDataSet(
@@ -37,23 +66,16 @@ class SampleDataSet(
         return result
 
     @classmethod
-    def from_tiles(
+    def from_wrapper(
             cls,
-            *,
-            raster: ArrayLike,
-            mask: ArrayLike,
-            i: ArrayLike,
-            row: ArrayLike,
-            col: ArrayLike,
-            background: int = 0,
+            wrapper: DataWrapper
     ) -> Self:
-        wrapper = DataWrapper.from_tiles(
-            infiles=raster,
-            i=i,
-            row=row,
-            col=col,
-            background=background,
-        )
+        raster = wrapper.infiles
+        mask = wrapper.mask
+        i = wrapper.i
+        row = wrapper.row
+        col = wrapper.col
+        background = wrapper.background
         raster = RasterDataSet.from_tiles(
             raster=raster,
             i=i,
@@ -72,6 +94,27 @@ class SampleDataSet(
         result.raster = raster
         result.mask = mask
         return result
+
+    @classmethod
+    def from_tiles(
+            cls,
+            *,
+            raster: ArrayLike,
+            mask: ArrayLike,
+            i: ArrayLike,
+            row: ArrayLike,
+            col: ArrayLike,
+            background: int = 0,
+    ) -> Self:
+        wrapper = DataWrapper.from_tiles(
+            infiles=raster,
+            mask=mask,
+            i=i,
+            row=row,
+            col=col,
+            background=background,
+        )
+        return cls.from_wrapper(wrapper)
 
 
 class SampleDataLoader(

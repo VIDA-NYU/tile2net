@@ -65,13 +65,13 @@ class File(
         grid = self.grid
         files = grid.ingrid.outdir.seggrid.grayscale.files(grid)
         self.grayscale = files
-        # if not files.map(os.path.exists).all():
-        #     grid.predict()
         if (
             not grid.predict
             and not files.map(os.path.exists).all()
         ):
+            # grid.filled.predict()
             grid.predict()
+            assert files.map(os.path.exists).all()
         return files
 
     @frame.column
@@ -86,6 +86,7 @@ class File(
             and not files.map(os.path.exists).all()
         ):
             grid.predict()
+            assert files.map(os.path.exists).all()
         return files
 
     @frame.column
@@ -100,6 +101,7 @@ class File(
             and not files.map(os.path.exists).all()
         ):
             grid.predict()
+            assert files.map(os.path.exists).all()
         return files
 
     @frame.column
@@ -107,13 +109,12 @@ class File(
         grid = self.grid
         files = grid.ingrid.outdir.seggrid.submit.files(grid)
         self.submit = files
-        # if not files.map(os.path.exists).all():
-        #     grid.predict()
         if (
             not grid.predict
             and not files.map(os.path.exists).all()
         ):
             grid.predict()
+            assert files.map(os.path.exists).all()
         return files
 
     @frame.column
@@ -121,13 +122,12 @@ class File(
         grid = self.grid
         files = grid.ingrid.outdir.seggrid.colored.files(grid)
         self.colored = files
-        # if not files.map(os.path.exists).all():
-        #     grid.predict()
         if (
             not grid.predict
             and not files.map(os.path.exists).all()
         ):
             grid.predict()
+            assert files.map(os.path.exists).all()
         return files
 
     def output(self, dirname: str) -> pd.Series:
@@ -143,4 +143,5 @@ class File(
             and not files.map(os.path.exists).all()
         ):
             grid.predict()
+        assert files.map(os.path.exists).all()
         return files
