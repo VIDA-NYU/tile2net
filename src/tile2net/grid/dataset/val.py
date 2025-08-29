@@ -1,43 +1,17 @@
 from __future__ import annotations
-from typing import NamedTuple, Optional
 
-import torchvision.transforms as standard_transforms
-from toolz import pipe, curried
-from torch.utils.data import DataLoader, Sampler
-from torch.utils.data.dataloader import _collate_fn_t, _worker_init_fn_t
-
-import tile2net.tileseg.transforms.joint_transforms as joint_transforms
-import tile2net.tileseg.transforms.transforms as extended_transforms
-import numpy as np
-from numpy import ndarray
-from geopandas import GeoDataFrame, GeoSeries
-from pandas import IndexSlice as idx, Series, DataFrame, Index, MultiIndex, Categorical, CategoricalDtype
-import pandas as pd
-from pandas.core.groupby import DataFrameGroupBy, SeriesGroupBy
-import geopandas as gpd
 from functools import *
-from typing import *
-from types import *
-from shapely import *
-from dataclasses import dataclass, field
-from concurrent.futures import ThreadPoolExecutor, Future, as_completed
-from pathlib import Path
-from itertools import *
-from pandas.api.extensions import ExtensionArray
-from .dataloader import TensorDataLoader
-from .datawrapper import DataWrapper
-from torch.utils.data.dataloader import (
-    _T_co,
-    _collate_fn_t,
-    _worker_init_fn_t,
 
-)
-from .sampler import DistributedSampler
+import numpy as np
+import torchvision.transforms as standard_transforms
 
 from tile2net.grid.cfg import cfg
-from .dataset import TensorDataSet, T
-from tile2net.tileseg.datasets.randaugment import RandAugment
+from .labels import label2trainid, trainId2name
 from .sample import SampleDataSet, SampleDataLoader
+from .sampler import DistributedSampler
+
+id_to_trainid = label2trainid
+trainid_to_name = trainId2name
 
 
 class ValDataSet(
@@ -48,8 +22,13 @@ class ValDataSet(
         scale_float = 1.0
         img = self.raster[item]
         img = self.img_transform(img)
+
+        # only one channel
+        mask = np.zeros(img.shape[1::])
+
         result = dict(
             input=img,
+            mask=mask,
             scale=scale_float,
             i=item,
         )
@@ -95,9 +74,15 @@ class ValDataSet(
         result = ValDataLoader(
             self,
             batch_size=cfg.MODEL.BS_VAL,
-            num_workers=cfg.NUM_WORKERS // 2,
+            # num_workers=cfg.NUM_WORKERS // 2,
             shuffle=False, drop_last=False,
-            sampler=self.sampler,
+            # sampler=self.sampler,
+            sampler=None,
+
+            # todo: just debugging, be sure to remove this later!
+            num_workers=0,
+            pin_memory=False,
+            persistent_workers=False,
         )
         return result
 

@@ -39,7 +39,8 @@ from ..grid.grid import Grid
 from ..util import recursion_block
 from .padded import Padded
 from .file import File
-from ..dataset.val import ValDataLoader, ValDataSet, DataWrapper
+from ..dataset.val import ValDataLoader, ValDataSet
+from ..dataset.datawrapper import DataWrapper
 
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 
@@ -383,22 +384,8 @@ class SegGrid(
                 net.module.init_mods()
             torch.cuda.empty_cache()
 
-            # preemptively stitch resources;
-            # nonessential resources are commented out
-            _ = (
-                grid.file.grayscale,
-                # grid.file.infile,
-                # grid.file.probability,
-                # grid.file.sidebyside,
-                # grid.file.segresults,
-                # grid.file.error,
-                # grid.file.colored,
-                # grid.file.submit,
-            )
-
             if cfg.model.eval == 'test':
                 self._validate(
-                    # loader=val_loader,
                     loader=loader,
                     net=net,
                     force=force,
@@ -476,6 +463,12 @@ class SegGrid(
         unit = f' {self.seggrid.__name__}.{self.seggrid.file.grayscale.name}'
         msg = 'Predicting Segmentation Tiles'
         pbar = None
+        frame = (
+            GRID.frame
+            .reset_index()
+            .set_index(GRID.itile.values)
+            .sort_index()
+        )
         try:
             with logging_redirect_tqdm(), cfg:
                 pbar = tqdm(
@@ -485,16 +478,20 @@ class SegGrid(
                     dynamic_ncols=True,
                 )
 
-                for (
-                        i,
-                        # (input_images, labels, img_names, scale_float)
-                        (input_images, labels, scale_float)
-                ) in enumerate(loader):
-                    start = i * batch_size
-                    # grid = GRID.iloc[start: start + len(input_images)]
+                # for (
+                #         i,
+                #         # (input_images, labels, img_names, scale_float)
+                #         # (input_images, labels, scale_float)
+                #     batch
+                # ) in enumerate(loader):
+                for batch in loader:
+                    input_images = batch['input']
+                    labels = batch['mask']
+                    scale_float = batch['scale']
+                    i = batch['i']
                     grid = (
-                        GRID.frame
-                        .iloc[start: start + len(input_images)]
+                        frame
+                        .loc[i]
                         .pipe(GRID.from_frame, wrapper=GRID)
                     )
 

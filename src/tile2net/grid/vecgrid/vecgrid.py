@@ -474,7 +474,7 @@ class VecGrid(Grid):
             return fut
 
         # _ = self.file.grayscale, self.file.colored
-        _ = self.file.grayscale
+        # _ = self.file.grayscale
         grid = self
 
         if not force:
