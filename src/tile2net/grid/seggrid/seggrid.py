@@ -32,7 +32,7 @@ from .minibatch import MiniBatch
 from .padded import Padded
 from .vectile import VecTile
 from ..dataset.sample import SampleDataWrapper
-from ..dataset.val import ValDataSet
+from ..dataset.val import ValDataSet, ValDataLoader
 from ..grid.grid import Grid
 from ..util import recursion_block
 from ...grid.frame.namespace import namespace
@@ -405,7 +405,7 @@ class SegGrid(
                 force=force,
             )
             dataset = ValDataSet.from_wrapper(wrapper)
-            loader = dataset.loader
+            loader: ValDataLoader = dataset.loader
 
             GRID = self.filled
             frame = GRID
