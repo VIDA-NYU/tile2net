@@ -54,8 +54,10 @@ class SegTile(
     @frame.column
     def itile(self):
         """Integer identifier for each segtile"""
+        seggrid = self.grid.seggrid.broadcast
         result = (
             self.grid.seggrid.broadcast.itile
+            .loc[~seggrid.index.duplicated()]
             .loc[self.index]
             .values
         )
@@ -139,14 +141,13 @@ class SegTile(
     def grayscale(self) -> pd.Series:
         """seggrid.file broadcasted to ingrid"""
         ingrid = self.ingrid
+        seggrid = ingrid.seggrid.broadcast
         result = (
-            ingrid.seggrid.broadcast.file.grayscale
+            seggrid.file.grayscale
+            .loc[~seggrid.index.duplicated()]
             .loc[self.index]
             .values
         )
         return result
 
 
-    @frame.column
-    def polygno(self):
-        ...

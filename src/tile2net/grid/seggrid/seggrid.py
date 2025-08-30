@@ -1,4 +1,6 @@
 from __future__ import annotations
+from concurrent.futures import ThreadPoolExecutor, wait, as_completed
+from contextlib import ExitStack
 
 import copy
 import hashlib
@@ -15,6 +17,7 @@ import numpy as np
 import torch
 import torch.distributed as dist
 from torch.nn.parallel.data_parallel import DataParallel
+
 from tqdm import tqdm
 from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
@@ -225,6 +228,9 @@ class SegGrid(
             )
             self.file.grayscale.map(os.path.exists)
         grid = self
+
+        errors = []
+        outer_exc = None
         with grid.cfg as cfg:
 
             # preemptively stitch so logging apears more sequential
@@ -317,7 +323,6 @@ class SegGrid(
             prep_experiment()
             struct = datasets.setup_loaders(tiles=grid)
 
-
             criterion, criterion_val = get_loss(cfg)
 
             cfg.restore_net = True
@@ -379,9 +384,9 @@ class SegGrid(
                 msg = f'Using single-scale inference with scale {scales}'
             logger.debug(msg)
 
-            threads = ThreadPoolExecutor()
-            futures = []
-            batch_size = cfg.model.bs_val
+            # threads = ThreadPoolExecutor()
+            # futures = []
+            # batch_size = cfg.model.bs_val
             clip = self.ingrid.dimension * cfg.segmentation.pad
 
             msg = (
@@ -411,75 +416,89 @@ class SegGrid(
             frame = GRID
             assert wrapper.index.difference(frame.index).empty
 
+            expected: Self = (
+                self.broadcast
+                .loc[~self.broadcast.index.duplicated()]
+                .loc[wrapper.index.unique()]
+            )
+            expected.file.grayscale.map(os.path.exists)
+
+            frame = self.loc[~self.index.duplicated()]
+
             unit = f' {self.__class__.__name__}.{self.file.grayscale.name}'
             msg = 'Predicting Segmentation Tiles'
-            pbar = None
+            futures = []
 
-            try:
-
-                with logging_redirect_tqdm(), cfg:
-                    pbar = tqdm(
-                        total=len(dataset),
-                        desc=msg,
-                        unit=unit,
-                        dynamic_ncols=True,
-                    )
-
+            with ExitStack() as stack, ThreadPoolExecutor() as threads:
+                stack.enter_context(logging_redirect_tqdm())
+                stack.enter_context(cfg)
+                pbar = tqdm(
+                    total=len(dataset),
+                    desc=msg,
+                    unit=unit,
+                    dynamic_ncols=True,
+                )
+                try:
                     for batch in loader:
                         input_images = batch['input']
                         labels = batch['mask']
                         i = batch['i']
                         i = i.detach().cpu().numpy()
                         loc = dataset.index[i]
-                        grid = frame.loc[loc]
+                        grid = frame.loc[loc].copy()
 
-                        batch = MiniBatch.from_data(
+                        mb = MiniBatch.from_data(
                             images=input_images,
                             net=net,
                             gt_image=labels,
-                            criterion=criterion,
-                            val_loss=val_loss,
                             grid=grid,
                             threads=threads,
-                            clip=clip
+                            clip=clip,
                         )
-                        futures.extend(batch.submit_all())
+                        futures.extend(mb.submit_all())
 
-                        iou_acc += batch.iou_acc
+                        iou_acc += mb.iou_acc
                         pbar.update(len(input_images))
 
-                        if (
-                                cfg.options.test_mode
-                                and i >= 5
-                        ):
-                            break
-            finally:
-                # ensure progress bar is closed
-                if pbar is not None:
+                        # todo: reintroduce
+                        # if cfg.options.test_mode and (i >= 5 if hasattr(i, "__len__") is False else i[0] >= 5):
+                        #     break
+                finally:
                     try:
                         pbar.close()
                     except Exception:
                         pass
-                # wait for all submitted futures and drain results to avoid resource leaks
-                if futures:
+
+                # wait for all submitted tasks and collect exceptions
+                wait(futures)
+                for fut in futures:
                     try:
-                        wait(futures)
+                        exc = fut.exception()
                     except Exception:
-                        pass
-                    for fut in futures:
-                        try:
-                            fut.result()
-                        except Exception:
-                            # suppress exceptions during cleanup
-                            pass
-                    futures.clear()
-                # always shutdown the thread pool to prevent FD/thread leaks
+                        exc = None
+                    if exc is not None:
+                        errors.append(exc)
+                futures.clear()
+
+            if errors:
                 try:
-                    # cancel_futures available on Python 3.9+
-                    threads.shutdown(wait=True, cancel_futures=True)
-                except TypeError:
-                    threads.shutdown(wait=True)
+                    raise ExceptionGroup("worker task errors", errors)  # Py 3.11+
+                except NameError:
+                    primary, *rest = errors
+                    for ex in rest:
+                        if not hasattr(primary, "__notes__"):
+                            try:
+                                primary.add_note(str(ex))  # Py 3.11 add_note if available
+                            except Exception:
+                                pass
+                    raise primary
 
             msg = f'Finished predicting {len(dataset)} segmentation tiles.'
             logger.info(msg)
+
+        # assert len(list_loc)  == len(list_i) == len(visited) == len(frame)
+        # print(f'{len(list_loc)=}; {len(list_i)=}; {len(visited)=}; {len(expected)=}')
         assert ingrid.segtile.grayscale.map(os.path.exists).all()
+        frame.file.grayscale.map(os.path.exists)
+        dataset.wrapper
+        ingrid

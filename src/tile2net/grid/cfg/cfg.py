@@ -8,6 +8,7 @@ import argparse
 import functools
 import hashlib
 import json
+import multiprocessing
 import re
 from collections import deque, UserDict
 from types import MappingProxyType
@@ -726,6 +727,28 @@ class Segmentation(cmdline.Namespace):
     @cmdline.property
     def pad(self) -> int:
         return 1
+
+    @cmdline.property
+    def prefetch_factor(self) -> int:
+        """
+        Number of batches to prefetch
+        """
+        return 4
+
+    @cmdline.property
+    def persistent_workers(self) -> bool:
+        """
+        Keep data loader workers alive
+        """
+        return False
+
+    @cmdline.property
+    def num_workers(self) -> int:
+        """
+        Number of data loader workers
+        """
+        result = multiprocessing.cpu_count() // 2
+        return result
 
 
 class Vectorization(cmdline.Namespace):

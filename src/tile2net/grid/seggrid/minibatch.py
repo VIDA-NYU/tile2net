@@ -53,11 +53,9 @@ class MiniBatch(
             images,
             gt_image,
             net: torch.nn.Module,
-            criterion: torch.nn.Module,
-            val_loss: AverageMeter,
             grid: Grid,
             threads: ThreadPoolExecutor,
-            clip:int =0
+            clip: int = 0
     ):
         """
         Evaluate a single minibatch of images.
@@ -300,9 +298,13 @@ class MiniBatch(
 
     def submit_grayscale(self):
         if self.predictions is None:
+            grayscale = self.grid.file.grayscale.tolist()
+            msg = f'No predictions to save for {grayscale}'
+            raise RuntimeError(msg)
             return
         arrays = to_numpy(self.predictions)
         for array, file in zip(arrays, self.grid.file.grayscale):
+            print(file)
 
             if array.ndim == 3:  # one-hot or logits → class map2
                 array = array.argmax(axis=-1)
@@ -328,18 +330,18 @@ class MiniBatch(
         """
         if self.clip <= 0:
             return array
-            
+
         # Get the dimensions of the array
         if array.ndim == 2:
             h, w = array.shape
-            return array[self.clip:h-self.clip, self.clip:w-self.clip]
+            return array[self.clip:h - self.clip, self.clip:w - self.clip]
         elif array.ndim == 3:
             h, w, c = array.shape
-            return array[self.clip:h-self.clip, self.clip:w-self.clip, :]
+            return array[self.clip:h - self.clip, self.clip:w - self.clip, :]
         else:
             # If the array has an unexpected number of dimensions, return it unchanged
             return array
-            
+
     def submit_colored(self):
         """
         Colorized segmentation mask where different classes (road, sidewalk, crosswalk) are represented by different colors according to a predefined color palette
