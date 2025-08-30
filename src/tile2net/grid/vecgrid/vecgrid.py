@@ -417,7 +417,6 @@ class VecGrid(Grid):
                 msg = (
                     'Error vectorizing:\n'
                     f'affine={affine!r},\n'
-                    f'infile={infile!r}\n'
                 )
                 if isinstance(polys, gpd.GeoDataFrame):
                     msg += f'polygons_file={polygons_file}\n'

@@ -47,3 +47,17 @@ Predicting Segmentation Tiles:  73%|███████▎  | 73/100 [00:30<00
 python -m tile2net --location "40.7053, -74.0111, 40.7119, -73.9900" --name manhattan/unscaled/pad=1 --segmentation.pad 1 --zoom 20 --model.bs_val 2 --vectorization.length 8
 --location "boston common" --name "boston common" --segmentation.pad 1 --zoom 20 --model.bs_val 1 --vectorization.length 8 --polygon.simplify 3 --multi_scale_inference --model.extra_scales 0.5,2
 
+
+get rid of this:
+        grid = self
+        if not force:
+            loc = ~grid.file.lines.map(os.path.exists)
+            loc |= ~grid.file.polygons.map(os.path.exists)
+            grid = grid.loc[loc]
+
+        if not len(grid):
+            return
+
+if favor of just using the wrapper
+
+
