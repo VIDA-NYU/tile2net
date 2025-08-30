@@ -12,7 +12,7 @@ pyogrio
 rasterio
 scikit-image
 scikit-learn
-shapely==2.0.1
+shapely==2.1.1
 tqdm
 torch
 torchvision
