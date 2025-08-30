@@ -18,7 +18,6 @@ from functools import cached_property
 from multiprocessing import get_context
 from pathlib import Path
 from typing import *
-from typing import Iterable
 
 import PIL.Image
 import geopandas as gpd
@@ -50,6 +49,18 @@ from ...grid.util import recursion_block
 if False:
     from ..ingrid import InGrid
 from ..grid.grid import Grid
+
+
+class VectorizeTask(NamedTuple):
+    infile: str
+    affine: tuple[float, ...]
+    xmin: float
+    ymin: float
+    xmax: float
+    ymax: float
+    polygons_file: str
+    network_file: str
+    cfg: Cfg
 
 
 class Feature(
@@ -310,7 +321,6 @@ class VecGrid(Grid):
 
     @staticmethod
     def _vectorize_submit(
-            # infile: str,
             grayscale: np.ndarray,
             affine: Affine,
             xmin: float,
@@ -423,7 +433,6 @@ class VecGrid(Grid):
                 import gc
                 gc.collect()
 
-
     @staticmethod
     def _silence_logging() -> None:
         """
@@ -450,34 +459,7 @@ class VecGrid(Grid):
         Parallel vectorisation with live progress and bounded memory.
         """
 
-        # preemptively stitch so logging appears more sequential
-        # else you get "now vectorizing" before "now stitching"
-
-        def _submit(
-                self,
-                executor: ProcessPoolExecutor,
-                args: Tuple[
-                    str,  # infile
-                    Tuple[float, ...],  # affine
-                    float,  # xmin
-                    float,  # ymin
-                    float,  # xmax
-                    float,  # ymax
-                    str,  # polygons_file
-                    str,  # network_file
-                    Cfg,  # cfg
-                ],
-                running: Dict[cf.Future, str],
-        ) -> cf.Future:
-            """
-            Wrapper that remembers which polygons_file belongs to each Future.
-            """
-            fut = executor.submit(self._vectorize_submit, *args)
-            running[fut] = args[6]  # args[6] == polygons_file path
-            return fut
-
         grid = self
-
         if not force:
             loc = ~grid.file.lines.map(os.path.exists)
             loc |= ~grid.file.polygons.map(os.path.exists)
@@ -494,7 +476,6 @@ class VecGrid(Grid):
         logger.debug(msg)
 
         _cfg = grid.ingrid.cfg.flatten()
-
         assert 'dataset_inst' not in _cfg
 
         seggrid = self.seggrid.broadcast
@@ -514,101 +495,38 @@ class VecGrid(Grid):
         index = dataset.index
         grid = grid.loc[index]
 
-        # Build *lazy* iterable ⇢ no up-front list allocation
-        def _tile_iter() -> Iterable[
-            tuple[
-                str,  # infile
-                tuple[float, ...],  # affine
-                float,  # xmin
-                float,  # ymin
-                float,  # xmax
-                float,  # ymax
-                str,  # polygons_file
-                str,  # network_file
-                dict,  # cfg
-            ]
-        ]:
-
-            it = zip(
-                loader,
-                grid.affine_params,
-                grid.file.lines,
-                grid.file.polygons,
-                grid.lonmin,
-                grid.latmin,
-                grid.lonmax,
-                grid.latmax,
-            )
-            yield from (
-                (
-                    infile,
-                    affine,
-                    xmin,
-                    ymin,
-                    xmax,
-                    ymax,
-                    polygons_file,
-                    network_file,
-                    _cfg,
-                )
-                for (
-                infile,
-                affine,
-                network_file,
-                polygons_file,
-                xmin,
-                ymin,
-                xmax,
-                ymax
-            )
-                in it
-            )
-
         total_grid: int = len(grid)
         workers: int = os.cpu_count() or 1
         window: int = workers + 1
 
-        tasks = iter(_tile_iter())
+        tasks = self._iter_tasks(grid, loader, _cfg)
         ctx = get_context("spawn")
-        running: dict[cf.Future, str] = {}  # Future → infile map
-
-        with self.ingrid.cfg, ProcessPoolExecutor(
-                mp_context=ctx,
-                max_workers=window,
-                initializer=self._silence_logging,
-                max_tasks_per_child=1,
-        ) as pool, tqdm(
+        pool = ProcessPoolExecutor(
+            mp_context=ctx,
+            max_workers=window,
+            initializer=self._silence_logging,
+            max_tasks_per_child=1,
+        )
+        bar = tqdm(
             total=total_grid,
             desc=f'{self.__name__}.{self.vectorize.__name__}()',
             unit=f' {self.file.lines.name}',
             smoothing=0.01,
-        ) as bar:
+            mininterval=10,
+        )
 
-            # prime the pipeline
-            for _, args in zip(range(window), tasks):
-                _submit(self, pool, args, running)
-
-            # main loop
-            while running:
-                done, _ = wait(running, return_when=FIRST_COMPLETED)
-
-                for fut in done:
-                    polygons_file = running.pop(fut)
-                    try:
-                        fut.result()  # ← re-raise worker errors
-                    except Exception as exc:
-                        # annotate exception with offending file path
-                        raise RuntimeError(
-                            f'Worker failed while computing {polygons_file!r}:'
-                            f'\n\t{exc!r}'
-                        ) from exc
-                    bar.update()
-
-                    # refill the window
-                    try:
-                        _submit(self, pool, next(tasks), running)
-                    except StopIteration:
-                        pass
+        with self.ingrid.cfg, pool as pool, bar as bar:
+            it = self._bounded_as_completed(pool, tasks, window)
+            for fut, task in it:
+                try:
+                    fut.result()
+                except Exception as e:
+                    raise RuntimeError(
+                        f'Worker failed while computing '
+                        f'{task.polygons_file!r}:'
+                        f'\n\t{e!r}'
+                    ) from e
+                bar.update()
 
         msg = f'Finished vectorizing {len(grid)} vectorizing tiles.'
         logger.info(msg)
@@ -663,6 +581,74 @@ class VecGrid(Grid):
                 mosaic.paste(Image.fromarray(arr), (x0, y0))
 
         return mosaic
+
+    def _iter_tasks(
+            self,
+            grid: VecGrid,
+            loader: DataSet,
+            cfg: Cfg,
+    ) -> Iterator[VectorizeTask]:
+        it = zip(
+            loader,
+            grid.affine_params,
+            grid.lonmin,
+            grid.latmin,
+            grid.lonmax,
+            grid.latmax,
+            grid.file.polygons,
+            grid.file.lines,
+        )
+        for (
+                infile,
+                affine,
+                xmin,
+                ymin,
+                xmax,
+                ymax,
+                polygons_file,
+                network_file,
+        ) in it:
+            yield VectorizeTask(
+                infile=infile,
+                affine=affine,
+                xmin=float(xmin),
+                ymin=float(ymin),
+                xmax=float(xmax),
+                ymax=float(ymax),
+                polygons_file=polygons_file,
+                network_file=network_file,
+                cfg=cfg,
+            )
+
+    def _bounded_as_completed(
+            self,
+            executor: ProcessPoolExecutor,
+            tasks: Iterator[VectorizeTask],
+            max_inflight: int,
+    ) -> Iterator[tuple[cf.Future, VectorizeTask]]:
+        inflight: dict[cf.Future, VectorizeTask] = {}
+
+        # prefill up to the window size
+        for _ in range(max_inflight):
+            try:
+                task = next(tasks)
+            except StopIteration:
+                break
+            fut = executor.submit(self._vectorize_submit, *task)
+            inflight[fut] = task
+
+        # main loop
+        while inflight:
+            done, _ = wait(inflight, return_when=FIRST_COMPLETED)
+            for fut in done:
+                task = inflight.pop(fut)
+                yield fut, task
+                try:
+                    nxt = next(tasks)
+                except StopIteration:
+                    continue
+                new_fut = executor.submit(self._vectorize_submit, *nxt)
+                inflight[new_fut] = nxt
 
     @cached_property
     def padding(self) -> Corners:
@@ -733,4 +719,3 @@ class VecGrid(Grid):
     @property
     def ingrid(self):
         return self.instance
-

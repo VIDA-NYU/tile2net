@@ -304,7 +304,6 @@ class MiniBatch(
             return
         arrays = to_numpy(self.predictions)
         for array, file in zip(arrays, self.grid.file.grayscale):
-            print(file)
 
             if array.ndim == 3:  # one-hot or logits → class map2
                 array = array.argmax(axis=-1)
