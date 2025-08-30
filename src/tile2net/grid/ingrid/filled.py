@@ -3,6 +3,8 @@ from ..grid import filled
 
 from .ingrid import InGrid
 
+if False:
+    from ..seggrid.seggrid import SegGrid
 
 
 class Filled(
@@ -15,9 +17,10 @@ class Filled(
             instance: InGrid,
             owner,
     ) -> Filled:
-        self.instance = instance
         if instance is None:
             return self
+        # instance = instance.ingrid
+        # self.instance = instance
         cache = instance.frame.__dict__
         key = self.__name__
 
@@ -28,7 +31,7 @@ class Filled(
             result = (
                 instance
                 .to_scale(seggrid.scale)
-                .to_padding()
+                .to_padding(instance.cfg.segmentation.pad)
                 .to_scale(instance.scale)
                 .pipe(self.__class__.from_wrapper)
             )
@@ -43,3 +46,14 @@ class Filled(
         __get__=_get
     )
 
+    @property
+    def seggrid(self) -> SegGrid:
+        return self.instance.seggrid
+
+    @property
+    def filled(self):
+        return self.instance.filled
+
+    @property
+    def ingrid(self) -> InGrid:
+        return self.instance

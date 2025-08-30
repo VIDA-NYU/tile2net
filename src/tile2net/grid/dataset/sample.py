@@ -3,16 +3,16 @@ from __future__ import annotations
 from functools import *
 from typing import *
 
-import torch
-import pandas as pd
 import numpy as np
+import pandas as pd
+import torch
 
 import tile2net.tileseg.transforms.transforms as extended_transforms
 from .dataloader import TensorDataLoader
 from .dataset import TensorDataSet
-from .raster import RasterDataSet
-from .mask import MaskDataSet
 from .datawrapper import DataWrapper, frame
+from .mask import MaskDataSet
+from .raster import RasterDataSet
 
 ArrayLike = Union[
     pd.Series,
@@ -29,26 +29,29 @@ class SampleDataWrapper(
     def from_tiles(
             cls,
             *,
-            infiles: ArrayLike,
-            i: ArrayLike,
+            infile: ArrayLike,
+            index: ArrayLike,
             row: ArrayLike,
             col: ArrayLike,
             background: int = 0,
             mask: Optional[ArrayLike] = None,
+            force: bool = False,
+            **kwargs,
     ) -> Self:
         return super().from_tiles(
-            infiles=infiles,
-            i=i,
+            infile=infile,
+            index=index,
             row=row,
             col=col,
             background=background,
             mask=mask,
+            force=force,
+            **kwargs,
         )
 
     @frame.column
     def mask(self):
         ...
-
 
 
 class SampleDataSet(
@@ -68,24 +71,24 @@ class SampleDataSet(
     @classmethod
     def from_wrapper(
             cls,
-            wrapper: DataWrapper
+            wrapper: SampleDataWrapper
     ) -> Self:
-        raster = wrapper.infiles
+        raster = wrapper.infile
         mask = wrapper.mask
-        i = wrapper.i
+        index = wrapper.index
         row = wrapper.row
         col = wrapper.col
         background = wrapper.background
         raster = RasterDataSet.from_tiles(
-            raster=raster,
-            i=i,
+            infile=raster,
+            index=index,
             row=row,
             col=col,
             background=background,
         )
         mask = MaskDataSet.from_tiles(
-            mask=mask,
-            i=i,
+            infile=mask,
+            index=index,
             row=row,
             col=col,
             background=background,
@@ -107,9 +110,9 @@ class SampleDataSet(
             background: int = 0,
     ) -> Self:
         wrapper = DataWrapper.from_tiles(
-            infiles=raster,
+            infile=raster,
             mask=mask,
-            i=i,
+            index=i,
             row=row,
             col=col,
             background=background,

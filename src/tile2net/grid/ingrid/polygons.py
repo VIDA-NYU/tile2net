@@ -1,5 +1,6 @@
 from __future__ import annotations
 from matplotlib.collections import LineCollection
+from matplotlib.collections import LineCollection
 
 
 import io
@@ -183,12 +184,6 @@ class Polygons(
             opacity: float = 1.,
             **kwargs,
     ) -> PIL.Image.Image:
-        # AI banner
-        print('⚠️AI GENERATED🤖')
-
-        # local imports
-        from matplotlib.collections import LineCollection
-
         # z-order per feature
         z_map: dict[str, int] = self.ingrid.cfg.polygon.z_order
 

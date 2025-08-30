@@ -71,12 +71,20 @@ class Broadcast(
     ) -> Broadcast:
         if instance is None:
             result = self
-        elif self.__name__ in instance.__dict__:
-            result = instance.frame.__dict__[self.__name__]
+            result.instance = instance
+            return result
+        instance = instance.ingrid
+        self.instance = instance
+        cache = instance.frame.__dict__
+        key = self.__name__
+
+        if key in cache:
+            result = cache[key]
         else:
-            seggrid = instance.seggrid
+            # we have to broadcast to the seggrid broacast, not just seggrid
+            seggrid = instance.seggrid.broadcast
             ingrid = instance.ingrid.filled
-            pad = ingrid.cfg.segment.pad
+            pad = ingrid.cfg.segmentation.pad
             corners = (
                 seggrid
                 .to_corners(ingrid.scale)
@@ -112,10 +120,6 @@ class Broadcast(
     )
 
     @property
-    def ingrid(self) -> InGrid:
-        return self.instance.ingrid
-
-    @property
     def seggrid(self) -> SegGrid:
         return self.instance.seggrid
 
@@ -124,21 +128,9 @@ class Broadcast(
         ...
 
     @property
-    def filled(self):
-        return self.instance.filled
+    def ingrid(self) -> InGrid:
+        return self.instance
 
     @property
-    def ingrid(self) -> InGrid:
-        return self.instance.ingrid
-
-    # @cached_property
-    # def dimension(self) -> int:
-    #     result = self.instance.dimension
-    #     result += 2 * self.ingrid.dimension
-    #     return result
-    #
-    # @cached_property
-    # def length(self) -> int:
-    #     result = self.instance.length
-    #     result += 2
-    #     return result
+    def filled(self):
+        return self

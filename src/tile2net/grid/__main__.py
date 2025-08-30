@@ -10,7 +10,7 @@ if __name__ == '__main__':
     with cfg:
 
         # instantiate InGrid using a location
-        assert cfg.vector.length == _cfg.vector.length
+        assert cfg.vectorization.length == _cfg.vectorization.length
         ingrid = InGrid.from_location(
             location=cfg.location,
             zoom=cfg.zoom
@@ -56,7 +56,6 @@ if __name__ == '__main__':
             img = ingrid.polygons.preview(maxdim=maxdim, show=False)
             img.save(dest)
 
-
         # save a preview of the lines to file
         if cfg.line.preview:
             dest = ingrid.outdir.lines.preview
@@ -70,7 +69,7 @@ if __name__ == '__main__':
             img = ingrid.lines.preview(maxdim=maxdim, show=False)
             img.save(dest)
 
-        if cfg.segment.to_pkl:
+        if cfg.segmentation.to_pkl:
             ingrid.seggrid.to_pickle(ingrid.outdir.seggrid.pickle)
 
         # delete empty directories for easier browsing

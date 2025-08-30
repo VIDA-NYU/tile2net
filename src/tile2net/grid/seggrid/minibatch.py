@@ -256,11 +256,11 @@ class MiniBatch(
     def submit_all(
             self
     ) -> Iterator[Future]:
-        if cfg.segment.probability:
+        if cfg.segmentation.probability:
             yield from self.submit_probability()
         yield from self.submit_output()
         yield from self.submit_grayscale()
-        if cfg.segment.colored:
+        if cfg.segmentation.colored:
             yield from self.submit_colored()
 
     def submit_probability(self):

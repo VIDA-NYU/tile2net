@@ -55,12 +55,11 @@ class SegTile(
     def itile(self):
         """Integer identifier for each segtile"""
         result = (
-            self.grid.seggrid.itile
+            self.grid.seggrid.broadcast.itile
             .loc[self.index]
             .values
         )
         return result
-
 
     @frame.column
     def xtile(self):
@@ -123,3 +122,31 @@ class SegTile(
             .values
         )
         return result
+
+    # @frame.column
+    # def polygon(self) -> pd.Series:
+    #     """seggrid.file broadcasted to ingrid"""
+    #     ingrid = self.ingrid
+    #     result = (
+    #         ingrid.seggrid.filled.file
+    #         .loc[self.index]
+    #         .values
+    #     )
+    #     return result
+    #
+
+    @frame.column
+    def grayscale(self) -> pd.Series:
+        """seggrid.file broadcasted to ingrid"""
+        ingrid = self.ingrid
+        result = (
+            ingrid.seggrid.broadcast.file.grayscale
+            .loc[self.index]
+            .values
+        )
+        return result
+
+
+    @frame.column
+    def polygno(self):
+        ...

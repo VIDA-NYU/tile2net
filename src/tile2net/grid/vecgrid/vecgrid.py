@@ -15,6 +15,7 @@ from concurrent.futures import (
     wait,
     FIRST_COMPLETED,
 )
+from encodings.punycode import segregate
 from functools import cached_property
 from multiprocessing import get_context
 from pathlib import Path
@@ -45,6 +46,9 @@ from ..grid.corners import Corners
 from ..pednet import PedNet
 from ...grid.frame.namespace import namespace
 from ...grid.util import recursion_block
+from ..dataset.datawrapper import DataWrapper
+from ..dataset.dataset import DataSet
+from ..dataset.dataloader import DataLoader
 
 if False:
     from ..ingrid import InGrid
@@ -123,9 +127,9 @@ class VecGrid(Grid):
             logger.info(msg)
             cfg = instance.cfg
 
-            scale = cfg.vector.scale
-            length = cfg.vector.length
-            dimension = cfg.vector.dimension
+            scale = cfg.vectorization.scale
+            length = cfg.vectorization.length
+            dimension = cfg.vectorization.dimension
 
             if scale:
                 instance = instance.set_segmentation(scale=scale)
@@ -309,7 +313,8 @@ class VecGrid(Grid):
 
     @staticmethod
     def _vectorize_submit(
-            infile: str,
+            # infile: str,
+            grayscale: np.ndarray,
             affine: Affine,
             xmin: float,
             ymin: float,
@@ -325,7 +330,8 @@ class VecGrid(Grid):
         grid_size = 0.1
         with cfg:
             try:
-                polys = Mask2Poly.from_path(infile, affine,crs=3857)
+                # polys = Mask2Poly.from_path(infile, affine,crs=3857)
+                polys = Mask2Poly.from_array(grayscale, affine, crs=3857)
                 assert isinstance(polys, Mask2Poly)
                 # return
 
@@ -345,7 +351,8 @@ class VecGrid(Grid):
                     empty_gdf.to_parquet(polygons_file)
                     empty_gdf.to_parquet(network_file)
 
-                    msg = f'No polygons generated for {infile}; wrote empty layers instead.'
+                    # msg = f'No polygons generated for {infile}; wrote empty layers instead.'
+                    msg = f'No polygons generated for {polygons_file}; wrote empty layers instead.'
                     logging.warning(msg)
                     return
 
@@ -466,15 +473,13 @@ class VecGrid(Grid):
                 running: Dict[cf.Future, str],
         ) -> cf.Future:
             """
-            Wrapper that remembers which infile belongs to each Future.
+            Wrapper that remembers which polygons_file belongs to each Future.
             """
             fut = executor.submit(self._vectorize_submit, *args)
             # fut = self._vectorize_submit(*args)
-            running[fut] = args[0]  # args[0] == infile path
+            running[fut] = args[6]  # args[6] == polygons_file path
             return fut
 
-        # _ = self.file.grayscale, self.file.colored
-        # _ = self.file.grayscale
         grid = self
 
         if not force:
@@ -496,6 +501,25 @@ class VecGrid(Grid):
 
         assert 'dataset_inst' not in _cfg
 
+        seggrid = self.seggrid.broadcast
+
+        force = ~seggrid.vectile.line.map(os.path.exists)
+        force |= self.cfg.force
+        wrapper: DataWrapper = DataWrapper.from_tiles(
+            infile=seggrid.file.grayscale,
+            index=seggrid.vectile.index,
+            row=seggrid.vectile.r,
+            col=seggrid.vectile.c,
+            background=3,
+            force=force,
+        )
+        dataset = DataSet(wrapper)
+        loader = dataset
+        index = dataset.index
+        # polygons = self.file.polygons.loc[index]
+        # lines = self.file.lines.loc[index]
+        grid = grid.loc[index]
+
         # Build *lazy* iterable ⇢ no up-front list allocation
         def _tile_iter() -> Iterable[
             tuple[
@@ -512,7 +536,8 @@ class VecGrid(Grid):
         ]:
 
             it = zip(
-                grid.file.grayscale,
+                # grid.file.grayscale,
+                loader,
                 grid.affine_params,
                 grid.file.lines,
                 grid.file.polygons,
@@ -575,13 +600,13 @@ class VecGrid(Grid):
                 done, _ = wait(running, return_when=FIRST_COMPLETED)
 
                 for fut in done:
-                    infile = running.pop(fut)
+                    polygons_file = running.pop(fut)
                     try:
                         fut.result()  # ← re-raise worker errors
                     except Exception as exc:
                         # annotate exception with offending file path
                         raise RuntimeError(
-                            f'Worker failed while processing {infile!r}:'
+                            f'Worker failed while computing {polygons_file!r}:'
                             f'\n\t{exc!r}'
                         ) from exc
                     bar.update()

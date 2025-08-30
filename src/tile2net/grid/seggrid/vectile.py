@@ -81,6 +81,17 @@ class VecTile(
         return result
 
     @frame.column
+    def itile(self):
+        """Integer identifier for each segtile"""
+        result = (
+            self.grid.vecgrid.itile
+            .loc[self.index]
+            .values
+        )
+        return result
+
+
+    @frame.column
     def grayscale(self) -> pd.Series:
         """seggrid.file broadcasted to ingrid"""
         vecgrid = self.vecgrid
@@ -151,31 +162,23 @@ class VecTile(
         )
         return result
 
-    # @frame.column
-    # def r(self) -> pd.Series:
-    #     """row within the segtile of this tile"""
-    #     ingrid = self.seggrid
-    #     result = (
-    #         ingrid.ytile
-    #         .to_series(index=ingrid.index)
-    #         .floordiv(ingrid.vectile.length)
-    #         .mul(ingrid.vectile.length)
-    #         .rsub(ingrid.ytile.values)
-    #     )
-    #     return result
-    #
-    # @frame.column
-    # def c(self) -> pd.Series:
-    #     """column within the segtile of this tile"""
-    #     ingrid = self.seggrid
-    #     result = (
-    #         ingrid.xtile
-    #         .to_series(index=ingrid.index)
-    #         .floordiv(ingrid.vectile.length)
-    #         .mul(ingrid.vectile.length)
-    #         .rsub(ingrid.xtile.values)
-    #     )
-    #     return result
+    @frame.column
+    def polygon(self):
+        result = (
+            self.grid.vecgrid.file.polygons
+            .loc[self.index]
+            .values
+        )
+        return result
+
+    @frame.column
+    def line(self):
+        result = (
+            self.grid.vecgrid.file.lines
+            .loc[self.index]
+            .values
+        )
+        return result
 
 
 

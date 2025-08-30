@@ -1,13 +1,11 @@
 from __future__ import annotations
+import pandas as pd
 
 import numpy as np
-import pandas as pd
 
 from . import vectile
 from .seggrid import SegGrid
-
-from .. import frame, InGrid
-from functools import cached_property
+from .. import frame
 
 if False:
     from .seggrid import SegGrid
@@ -52,6 +50,17 @@ class VecTile(
     def length(self) -> int:
         return self.seggrid.vecgrid.padded.length
 
+    @frame.column
+    def grayscale(self) -> pd.Series:
+        """seggrid.file broadcasted to ingrid"""
+        ingrid = self.ingrid
+        result = (
+            ingrid.seggrid.broadcast.file.grayscale
+            .loc[self.index]
+            .values
+        )
+        return result
+
 
 def boundary_grid(
         shape: tuple[int, int],
@@ -81,8 +90,15 @@ class Broadcast(
     ) -> Broadcast:
         if instance is None:
             result = self
-        elif self.__name__ in instance.__dict__:
-            result = instance.frame.__dict__[self.__name__]
+            result.instance = instance
+            return result
+        instance = instance.seggrid
+        self.instance = instance
+        cache = instance.frame.__dict__
+        key = self.__name__
+
+        if key in cache:
+            result = cache[key]
         else:
             vecgrid = instance.vecgrid
             seggrid = instance.seggrid.filled
@@ -139,7 +155,7 @@ class Broadcast(
     def ingrid(self) -> InGrid:
         return self.instance.ingrid
 
-    # @cached_property
+    # @cached_propert
     # def dimension(self) -> int:
     #     result = self.instance.dimension
     #     result += 2 * self.ingrid.dimension
@@ -150,3 +166,6 @@ class Broadcast(
     #     result = self.instance.length
     #     result += 2
     #     return result
+    @property
+    def filled(self):
+        return self

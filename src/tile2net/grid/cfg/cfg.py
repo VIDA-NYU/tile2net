@@ -679,7 +679,7 @@ class Model(cmdline.Namespace):
         ...
 
 
-class Segment(cmdline.Namespace):
+class Segmentation(cmdline.Namespace):
     """Segmenation configuration namespace."""
 
     @cmdline.property
@@ -728,7 +728,7 @@ class Segment(cmdline.Namespace):
         return 1
 
 
-class Vector(cmdline.Namespace):
+class Vectorization(cmdline.Namespace):
     """Vectorization configuration namespace."""
 
     @cmdline.property
@@ -757,6 +757,10 @@ class Vector(cmdline.Namespace):
         Scale=17 means the input segmentation mask comprises the same
         area as a zoom=17 slippy tile of dimension=256.
         """
+
+    @cmdline.property
+    def pad(self) -> int:
+        return 1
 
 
 class Loss(cmdline.Namespace):
@@ -848,7 +852,7 @@ class Polygon(cmdline.Namespace):
     def preview(self) -> int:
         """Maximum dimension of the polygons preview"""
         return 3072
-        
+
     @cmdline.property
     def thickness(self) -> float:
         """Line thickness for polygon preview"""
@@ -998,12 +1002,12 @@ class Cfg(
     def model(self):
         ...
 
-    @Segment
-    def segment(self):
+    @Segmentation
+    def segmentation(self):
         ...
 
-    @Vector
-    def vector(self):
+    @Vectorization
+    def vectorization(self):
         ...
 
     @Polygon
@@ -1732,7 +1736,6 @@ class Cfg(
 
     def hash(self) -> str:
         # compute a stable digest of the flattened config using only elementary JSON-safe types
-        print('⚠️AI GENERATED🤖')
 
         # sentinel to drop disallowed values
         _SKIP = object()

@@ -24,8 +24,6 @@ if False:
     import folium
 
 
-
-
 class Center(
     FrameWrapper
 ):
@@ -86,10 +84,8 @@ class Center(
             msg = f'Simplifying centerlines with tolerance 0.01'
             with benchmark(msg):
                 lines = shapely.simplify(result.geometry, .01)
-            # result = result.set_geometry(lines)
-            # result.index.name = 'icent'
 
-            result: Self= (
+            result: Self = (
                 result.frame
                 .set_geometry(lines)
                 .pipe(self.from_frame, wrapper=self)

@@ -80,9 +80,9 @@ class ValDataSet(
             sampler=None,
 
             # todo: just debugging, be sure to remove this later!
-            num_workers=0,
-            pin_memory=False,
-            persistent_workers=False,
+            # num_workers=0,
+            # pin_memory=False,
+            # persistent_workers=False,
         )
         return result
 

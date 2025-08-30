@@ -35,11 +35,12 @@
 
 import math
 from functools import cached_property
+from typing import Iterator, Optional
 
 import torch
-from typing import List, Iterator, Optional, Any, Union
 from torch.distributed import get_world_size, get_rank
 from torch.utils.data import Sampler
+
 from .sample import SampleDataSet
 
 

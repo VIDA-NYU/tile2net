@@ -31,26 +31,10 @@ python -m tile2net \
 for val data:
     centroid, epoch, samplers
 
+check for memory leak in vectorization
+set up some benchmarking
+delete previous files after successful phase
+separate predict() and some sort of segmentation setup
 
-Out[8]:
-DataWrapper:
-                                                          infile   i  row  col
-xtile  ytile
-317280 387840  /home/arstneio/PycharmProjects/tile2net/src/ou...   0    0    0
-317281 387840  /home/arstneio/PycharmProjects/tile2net/src/ou...   0    0    1
-317282 387840  /home/arstneio/PycharmProjects/tile2net/src/ou...   0    0    2
-317283 387840  /home/arstneio/PycharmProjects/tile2net/src/ou...   0    0    3
-317280 387841  /home/arstneio/PycharmProjects/tile2net/src/ou...   0    1    0
-...                                                          ...  ..  ...  ...
-317311 387870  /home/arstneio/PycharmProjects/tile2net/src/ou...  63    2    3
-317308 387871  /home/arstneio/PycharmProjects/tile2net/src/ou...  63    3    0
-317309 387871  /home/arstneio/PycharmProjects/tile2net/src/ou...  63    3    1
-317310 387871  /home/arstneio/PycharmProjects/tile2net/src/ou...  63    3    2
-317311 387871  /home/arstneio/PycharmProjects/tile2net/src/ou...  63    3    3
-[1024 rows x 4 columns]
-dataset.wrapper.i.min()
-Out[9]: np.int64(0)
-dataset.wrapper.i.max()
-Out[10]: np.int64(63)
-dataset.wrapper.i.nunique()
-Out[11]: 64
+
+problem is that itile is not universal

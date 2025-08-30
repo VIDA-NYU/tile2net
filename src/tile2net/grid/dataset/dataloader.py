@@ -1,13 +1,9 @@
-import torch.utils.data
-
-from types import *
 from typing import *
+
 import numpy as np
 import torch
 
-from types import *
-from typing import *
-import numpy as np
+from .dataset import DataSet
 
 T = TypeVar("T", np.ndarray, torch.Tensor)
 
@@ -16,9 +12,21 @@ class BaseDataLoader(
     torch.utils.data.DataLoader,
     Generic[T]
 ):
+    dataset: DataSet
+
+    @property
+    def wrapper(self):
+        return self.dataset.wrapper
+
     if False:
         def __iter__(self) -> Iterator[T]:
             return super().__iter__()
+
+    def __repr__(self):
+        result = self.__class__.__name__
+        result += '\n\n'
+        result += self.wrapper.__repr__()
+        return result
 
 
 class DataLoader(

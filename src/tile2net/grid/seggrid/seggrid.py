@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-import pandas as pd
-
-from ...grid.frame.namespace import namespace
-
 import copy
 import hashlib
 import os
@@ -19,7 +15,6 @@ import numpy as np
 import torch
 import torch.distributed as dist
 from torch.nn.parallel.data_parallel import DataParallel
-from ...tileseg.datasets.satellite import Loader
 from tqdm import tqdm
 from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
@@ -27,26 +22,26 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 from tile2net.grid.cfg.cfg import assert_and_infer_cfg
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.grid.static import Static
-from ...tileseg import datasets, network
 from tile2net.tileseg.loss.optimizer import get_optimizer, restore_opt, restore_net
 from tile2net.tileseg.loss.utils import get_loss
 from tile2net.tileseg.network.ocrnet import MscaleOCR
 from tile2net.tileseg.utils.misc import AverageMeter, prep_experiment
 from . import delayed
+from .file import File
 from .minibatch import MiniBatch
+from .padded import Padded
 from .vectile import VecTile
+from ..dataset.sample import SampleDataWrapper
+from ..dataset.val import ValDataSet
 from ..grid.grid import Grid
 from ..util import recursion_block
-from .padded import Padded
-from .file import File
-from ..dataset.val import ValDataLoader, ValDataSet
-from ..dataset.datawrapper import DataWrapper
-from ..dataset.sample import SampleDataWrapper
+from ...grid.frame.namespace import namespace
+from ...tileseg import datasets, network
 
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 
 if TYPE_CHECKING:
-    from tile2net.tileseg.loss.utils import CrossEntropyLoss2d
+    pass
 
 if False:
     from .filled import Filled
@@ -108,9 +103,9 @@ class SegGrid(
             logger.info(msg)
             cfg = instance.cfg
 
-            scale = cfg.segment.scale
-            length = cfg.segment.length
-            dimension = cfg.segment.dimension
+            scale = cfg.segmentation.scale
+            length = cfg.segmentation.length
+            dimension = cfg.segmentation.dimension
 
             if scale:
                 instance = instance.set_segmentation(scale=scale)
@@ -224,24 +219,17 @@ class SegGrid(
     @recursion_block
     def predict(
             self,
-            force=None,
-            batch_size=None,
     ) -> None:
         if self is not self.filled:
             return self.filled.predict(
-                force=force,
-                batch_size=batch_size
             )
+            self.file.grayscale.map(os.path.exists)
         grid = self
         with grid.cfg as cfg:
 
             # preemptively stitch so logging apears more sequential
             # otherwise you get "now predicting" before "now stitching"
 
-            if force is not None:
-                cfg.force = force
-            if batch_size is not None:
-                cfg.model.bs_val = batch_size
             if not cfg.force:
                 loc = ~grid.file.grayscale.apply(os.path.exists)
                 grid = (
@@ -327,44 +315,8 @@ class SegGrid(
 
             assert_and_infer_cfg(cfg)
             prep_experiment()
-
             struct = datasets.setup_loaders(tiles=grid)
-            # val_loader = struct.val_loader
-            # val_loader
 
-            # infile: pd.Series = self.ingrid.broadcast.file.infile
-            # mask = [None] * len(infile)
-            # ValDataSet.from_tiles(
-            #     raster=infile,
-            #     mask=mask,
-            #     row=self.ingrid.broadcast.segtile.r,
-            #     col=self.ingrid.broadcast.segtile.c,
-            #     background=0,
-            #     i=self.ingrid.
-            # )
-            ingrid = self.ingrid.broadcast
-            # dataset = ValDataSet.from_tiles(
-            #     raster=ingrid.file.infile,
-            #     mask=[None] * len(ingrid),
-            #     row=ingrid.segtile.r,
-            #     col=ingrid.segtile.c,
-            #     i=ingrid.segtile.itile,
-            #     background=0,
-            # )
-            # todo: how to exclude files that exist?
-            wrapper = SampleDataWrapper.from_tiles(
-                infiles=ingrid.file.infile,
-                mask=[None] * len(ingrid),
-                i=ingrid.segtile.itile,
-                background=0,
-                row=ingrid.segtile.r,
-                col=ingrid.segtile.c,
-            )
-            if not force:
-                loc = ~wrapper.i.map(os.path.exists)
-                wrapper = wrapper.loc[loc]
-            dataset = ValDataSet.from_wrapper(wrapper)
-            loader = dataset.loader
 
             criterion, criterion_val = get_loss(cfg)
 
@@ -397,153 +349,137 @@ class SegGrid(
                 net.module.init_mods()
             torch.cuda.empty_cache()
 
-            if cfg.model.eval == 'test':
-                self._validate(
-                    loader=loader,
-                    net=net,
-                    force=force,
-                    grid=grid,
-                )
-
-            elif cfg.model.eval == 'folder':
-                self._validate(
-                    # loader=val_loader,
-                    loader=loader,
-                    net=net,
-                    criterion=criterion_val,
-                    force=force,
-                    grid=grid,
-                )
-
+            if cfg.model.eval == 'folder':
+                criterion = criterion_val
+            elif cfg.model.eval == 'test':
+                criterion = None
             else:
                 raise ValueError(f"Unknown evaluation mode: {cfg.model.eval}. ")
 
-            msg = f'Finished predicting {len(grid)} segmentation tiles.'
+            cfg = self.cfg
+            testing = False
+            if cfg.model.eval == 'test':
+                testing = True
+
+            input_images: torch.Tensor
+            labels: torch.Tensor
+            img_names: tuple
+            prediction: numpy.ndarray
+            pred: dict
+            values: numpy.ndarray
+
+            net.eval()
+            val_loss = AverageMeter()
+            iou_acc = 0
+            scales = [cfg.default_scale]
+            if cfg.multi_scale_inference:
+                scales.extend(cfg.model.extra_scales.split(','))
+                msg = f'Using multi-scale inference (AVGPOOL) with scales {scales}'
+            else:
+                msg = f'Using single-scale inference with scale {scales}'
+            logger.debug(msg)
+
+            threads = ThreadPoolExecutor()
+            futures = []
+            batch_size = cfg.model.bs_val
+            clip = self.ingrid.dimension * cfg.segmentation.pad
+
+            msg = (
+                f'Using stitched imagery from '
+                f'\n\t{self.outdir.seggrid.infile.dir} '
+                f'\nand predicting segmentation to '
+                f'\n\t{self.outdir.seggrid.grayscale.dir}'
+            )
             logger.info(msg)
 
-    def _validate(
-            self,
-            # loader: Loader,
-            loader: ValDataLoader,
-            net: torch.nn.parallel.DataParallel,
-            force,
-            grid: SegGrid,
-            criterion: Optional[CrossEntropyLoss2d] = None,
-    ):
-        """
-        Run validation for one epoch
-        :val_loader: data loader for validation
-        """
-        GRID = grid
-        cfg = self.cfg
-        testing = False
-        if cfg.model.eval == 'test':
-            testing = True
+            ingrid = self.ingrid.broadcast
+            force = ~ingrid.segtile.grayscale.map(os.path.exists)
+            force |= self.cfg.force
+            wrapper: SampleDataWrapper = SampleDataWrapper.from_tiles(
+                infile=ingrid.file.infile,
+                mask=[None] * len(ingrid),
+                index=ingrid.segtile.index,
+                background=0,
+                row=ingrid.segtile.r,
+                col=ingrid.segtile.c,
+                force=force,
+            )
+            dataset = ValDataSet.from_wrapper(wrapper)
+            loader = dataset.loader
 
-        input_images: torch.Tensor
-        labels: torch.Tensor
-        img_names: tuple
-        prediction: numpy.ndarray
-        pred: dict
-        values: numpy.ndarray
+            GRID = self.filled
+            frame = GRID
+            assert wrapper.index.difference(frame.index).empty
 
-        net.eval()
-        val_loss = AverageMeter()
-        iou_acc = 0
-        scales = [cfg.default_scale]
-        if cfg.multi_scale_inference:
-            scales.extend(cfg.model.extra_scales.split(','))
-            msg = f'Using multi-scale inference (AVGPOOL) with scales {scales}'
-        else:
-            msg = f'Using single-scale inference with scale {scales}'
-        logger.debug(msg)
+            unit = f' {self.__class__.__name__}.{self.file.grayscale.name}'
+            msg = 'Predicting Segmentation Tiles'
+            pbar = None
 
-        threads = ThreadPoolExecutor()
-        futures = []
-        batch_size = cfg.model.bs_val
-        clip = self.ingrid.dimension * cfg.segment.pad
-
-        msg = (
-            f'Using stitched imagery from '
-            f'\n\t{self.outdir.seggrid.infile.dir} '
-            f'\nand predicting segmentation to '
-            f'\n\t{self.outdir.seggrid.grayscale.dir}'
-        )
-        logger.info(msg)
-
-        unit = f' {self.seggrid.__name__}.{self.seggrid.file.grayscale.name}'
-        msg = 'Predicting Segmentation Tiles'
-        pbar = None
-        frame = (
-            GRID.frame
-            .reset_index()
-            .set_index(GRID.itile.values)
-            .sort_index()
-        )
-        try:
-            with logging_redirect_tqdm(), cfg:
-                pbar = tqdm(
-                    total=len(GRID),  # one tick per tile
-                    desc=msg,
-                    unit=unit,
-                    dynamic_ncols=True,
-                )
-
-                for batch in loader:
-                    input_images = batch['input']
-                    labels = batch['mask']
-                    scale_float = batch['scale']
-                    i = batch['i']
-                    # grid = (
-                    #     frame
-                    #     .loc[i]
-                    #     .pipe(grid.from_frame, wrapper=grid)
-                    # )
-
-                    batch = MiniBatch.from_data(
-                        images=input_images,
-                        net=net,
-                        gt_image=labels,
-                        criterion=criterion,
-                        val_loss=val_loss,
-                        grid=grid,
-                        threads=threads,
-                        clip=clip
-                    )
-                    batch.submit_all()
-                    futures.extend(batch.submit_all())
-
-                    iou_acc += batch.iou_acc
-                    pbar.update(len(input_images))
-
-                    if (
-                            cfg.options.test_mode
-                            and i >= 5
-                    ):
-                        break
-        finally:
-            # ensure progress bar is closed
-            if pbar is not None:
-                try:
-                    pbar.close()
-                except Exception:
-                    pass
-            # wait for all submitted futures and drain results to avoid resource leaks
-            if futures:
-                try:
-                    wait(futures)
-                except Exception:
-                    pass
-                for fut in futures:
-                    try:
-                        fut.result()
-                    except Exception:
-                        # suppress exceptions during cleanup
-                        pass
-                futures.clear()
-            # always shutdown the thread pool to prevent FD/thread leaks
             try:
-                # cancel_futures available on Python 3.9+
-                threads.shutdown(wait=True, cancel_futures=True)
-            except TypeError:
-                threads.shutdown(wait=True)
+
+                with logging_redirect_tqdm(), cfg:
+                    pbar = tqdm(
+                        total=len(dataset),
+                        desc=msg,
+                        unit=unit,
+                        dynamic_ncols=True,
+                    )
+
+                    for batch in loader:
+                        input_images = batch['input']
+                        labels = batch['mask']
+                        i = batch['i']
+                        i = i.detach().cpu().numpy()
+                        loc = dataset.index[i]
+                        grid = frame.loc[loc]
+
+                        batch = MiniBatch.from_data(
+                            images=input_images,
+                            net=net,
+                            gt_image=labels,
+                            criterion=criterion,
+                            val_loss=val_loss,
+                            grid=grid,
+                            threads=threads,
+                            clip=clip
+                        )
+                        futures.extend(batch.submit_all())
+
+                        iou_acc += batch.iou_acc
+                        pbar.update(len(input_images))
+
+                        if (
+                                cfg.options.test_mode
+                                and i >= 5
+                        ):
+                            break
+            finally:
+                # ensure progress bar is closed
+                if pbar is not None:
+                    try:
+                        pbar.close()
+                    except Exception:
+                        pass
+                # wait for all submitted futures and drain results to avoid resource leaks
+                if futures:
+                    try:
+                        wait(futures)
+                    except Exception:
+                        pass
+                    for fut in futures:
+                        try:
+                            fut.result()
+                        except Exception:
+                            # suppress exceptions during cleanup
+                            pass
+                    futures.clear()
+                # always shutdown the thread pool to prevent FD/thread leaks
+                try:
+                    # cancel_futures available on Python 3.9+
+                    threads.shutdown(wait=True, cancel_futures=True)
+                except TypeError:
+                    threads.shutdown(wait=True)
+
+            msg = f'Finished predicting {len(dataset)} segmentation tiles.'
+            logger.info(msg)
+        assert ingrid.segtile.grayscale.map(os.path.exists).all()

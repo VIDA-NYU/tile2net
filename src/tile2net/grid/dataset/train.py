@@ -11,9 +11,9 @@ from tile2net.grid.cfg import cfg
 from tile2net.tileseg.datasets.randaugment import RandAugment
 from .mask import MaskDataSet
 from .raster import RasterDataSet
-from .sampler import DistributedSampler
 from .sample import MiniBatch
 from .sample import SampleDataSet, SampleDataLoader
+from .sampler import DistributedSampler
 
 
 class TrainDataSet(

@@ -1,18 +1,12 @@
-
-import copy
-
-import torch
-from typing import *
 from functools import cached_property
-import pandas as pd
-import torch.utils.data
-from .. import frame
-from .dataset import DataSet
+from typing import *
 from typing import Any, Union
-import pandas as pd
-import numpy as np
-
 from typing import TypeVar
+
+import numpy as np
+import pandas as pd
+
+from .. import frame
 
 T = TypeVar("T", bound="DataSet")
 ArrayLike = Union[
@@ -35,9 +29,9 @@ class DataWrapper(
     def infile(self):
         """input file paths"""
 
-    @frame.column
-    def i(self):
-        """mosaic identifiers; could be integer or destination path"""
+    # @frame.column
+    # def i(self):
+    #     """mosaic identifiers; could be integer or destination path"""
 
     @frame.column
     def row(self):
@@ -47,15 +41,21 @@ class DataWrapper(
     def col(self):
         """column within the mosaic"""
 
+    @cached_property
+    def background(self):
+        """background value to use for padding"""
+        return 0
+
     @classmethod
     def from_tiles(
             cls,
             *,
-            infiles: ArrayLike,
-            i: ArrayLike,
+            infile: ArrayLike,
+            index: ArrayLike,
             row: ArrayLike,
             col: ArrayLike,
-            background: int = 0,
+            background: int = None,
+            force: bool | ArrayLike = True,
             **kwargs,
     ) -> Self:
         """
@@ -71,17 +71,27 @@ class DataWrapper(
             background value to use for padding
         """
         data = dict(
-            infile=infiles,
-            i=i,
+            infile=infile,
             row=row,
             col=col,
+            force=force,
             **kwargs
         )
-        cols = 'i row col'.split()
         frame = (
             pd.DataFrame(data)
-            .sort_values(by=cols)
+            .set_axis(index)
         )
-        result = cls.from_frame(frame)
-        return result
+        names = frame.index.names
+        by = [*names, 'row', 'col']
+        frame = (
+            frame
+            .loc[lambda df: df.force]
+            .reset_index()
+            .sort_values(by=by)
+            .set_index(names)
+        )
 
+        result: Self = cls.from_frame(frame)
+        if background is not None:
+            result.background = background
+        return result

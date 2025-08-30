@@ -119,15 +119,6 @@ class InGrid(
 
     @cached_property
     def name(self) -> str:
-        name = None
-        # if name is None:
-        #     name = self.cfg.name
-        # if name is None:
-        #     name = self.cfg.indir.name
-        # if name is None
-        #     name = self.location
-        # if name is None:
-        #     name = self.indir.dir.rsplit(os.sep, 1)[-1]
         name = (
                 self.cfg.name
                 or self.cfg.indir.name
@@ -653,35 +644,35 @@ class InGrid(
             # directly passed
             ...
         elif (
-                cfg.segment.dimension !=
-                cfg._default.segment.dimension
+                cfg.segmentation.dimension !=
+                cfg._default.segmentation.dimension
         ):
             # dimension in config
-            dimension = cfg.segment.dimension
+            dimension = cfg.segmentation.dimension
         elif (
-                cfg.segment.length !=
-                cfg._default.segment.length
+                cfg.segmentation.length !=
+                cfg._default.segmentation.length
         ):
             # length in config
-            length = cfg.segment.length
+            length = cfg.segmentation.length
         elif (
-                cfg.segment.scale !=
-                cfg._default.segment.scale
+                cfg.segmentation.scale !=
+                cfg._default.segmentation.scale
         ):
             # scale in config
-            scale = cfg.segment.scale
+            scale = cfg.segmentation.scale
         else:
             # use defaults
-            dimension = cfg.segment.dimension
-            length = cfg.segment.length
-            scale = cfg.segment.scale
+            dimension = cfg.segmentation.dimension
+            length = cfg.segmentation.length
+            scale = cfg.segmentation.scale
 
         scale = self._to_scale(dimension, length, mosaic, scale)
 
         if batch_size:
             self.cfg.model.bs_val = batch_size
         if fill is None:
-            fill = self.cfg.segment.fill
+            fill = self.cfg.segmentation.fill
 
         msg = 'Filling InGrid to align with SegGrid'
         logger.debug(msg)
@@ -740,28 +731,28 @@ class InGrid(
             # directly passed
             ...
         elif (
-                cfg.vector.dimension !=
-                cfg._default.vector.dimension
+                cfg.vectorization.dimension !=
+                cfg._default.vectorization.dimension
         ):
             # dimension in config
-            dimension = cfg.vector.dimension
+            dimension = cfg.vectorization.dimension
         elif (
-                cfg.vector.length !=
-                cfg._default.vector.length
+                cfg.vectorization.length !=
+                cfg._default.vectorization.length
         ):
             # length in config
-            length = cfg.vector.length
+            length = cfg.vectorization.length
         elif (
-                cfg.vector.scale !=
-                cfg._default.vector.scale
+                cfg.vectorization.scale !=
+                cfg._default.vectorization.scale
         ):
             # scale in config
-            scale = cfg.vector.scale
+            scale = cfg.vectorization.scale
         else:
             # use defaults
-            dimension = cfg.vector.dimension
-            length = cfg.vector.length
-            scale = cfg.vector.scale
+            dimension = cfg.vectorization.dimension
+            length = cfg.vectorization.length
+            scale = cfg.vectorization.scale
 
         # todo: if all are None, determine dimension using RAM
         seggrid = self.seggrid
@@ -839,7 +830,7 @@ class InGrid(
             rows.append(('Temporary directory', tempdir))
 
         rows.append(('Input imagery', _p(self.outdir.ingrid.infile.dir)))
-        if self.cfg.segment.colored:
+        if self.cfg.segmentation.colored:
             rows.append(('Segmentation (colored)', _p(self.outdir.seggrid.colored.dir)))
         if self.cfg.polygon.concat:
             rows.append(('Polygons', _p(self.outdir.polygons.parquet)))
@@ -849,7 +840,7 @@ class InGrid(
             rows.append(('Polygon preview', _p(self.outdir.polygons.preview)))
         if self.cfg.line.preview:
             rows.append(('Network preview', _p(self.outdir.lines.preview)))
-        if self.cfg.segment.to_pkl:
+        if self.cfg.segmentation.to_pkl:
             rows.append(('Segmentation tiles (zoom and scale in attrs)', _p(self.outdir.seggrid.pickle)))
 
         # compute formatting
@@ -934,3 +925,4 @@ class InGrid(
             logger.info(msg)
             util.cleanup(self.seggrid.file.grayscale)
             util.cleanup(self.vecgrid.file.grayscale)
+

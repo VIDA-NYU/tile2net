@@ -31,17 +31,17 @@ class DataSet(
 
     def __len__(self):
         """number of mosaics"""
-        result = len(self.i)
+        result = len(self.index)
         return result
 
     @cached_property
-    def i(self) -> list[Any]:
+    def index(self) -> list[Any]:
         """mosaic identifiers; could be integer or destination path"""
         result = (
             self.wrapper
-            .i
+            .index
             .unique()
-            .tolist()
+            # .tolist()
         )
         return result
 
@@ -50,7 +50,7 @@ class DataSet(
         """row within the mosaic of each tile"""
         result = (
             self.wrapper.frame
-            .groupby('i', sort=False)
+            .groupby(level=self.wrapper.frame.index.names, )
             .row
             .apply(list)
             .tolist()
@@ -62,7 +62,7 @@ class DataSet(
         """column within the mosaic of each tile"""
         result = (
             self.wrapper.frame
-            .groupby('i', sort=False)
+            .groupby(level=self.wrapper.frame.index.names, )
             .col
             .apply(list)
             .tolist()
@@ -75,7 +75,7 @@ class DataSet(
         result = (
             self.wrapper
             .frame
-            .groupby('i', sort=False)
+            .groupby(level=self.wrapper.frame.index.names, )
             .row
             .max()
             .tolist()
@@ -88,7 +88,7 @@ class DataSet(
         result = (
             self.wrapper
             .frame
-            .groupby('i', sort=False)
+            .groupby(level=self.wrapper.frame.index.names, )
             .col
             .max()
             .tolist()
@@ -100,7 +100,7 @@ class DataSet(
         result = (
             self.wrapper
             .frame
-            .groupby('i', sort=False)
+            .groupby(level=self.wrapper.frame.index.names, )
             .infile
             .apply(list)
             .tolist()

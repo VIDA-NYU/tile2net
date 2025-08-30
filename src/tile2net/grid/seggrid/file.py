@@ -69,7 +69,13 @@ class File(
             not grid.predict
             and not files.map(os.path.exists).all()
         ):
-            # grid.filled.predict()
+            # grid.ingrid.broadcast.segtile.index.difference()
+            # grid.filled.index.difference(grid.ingrid.broadcast.segtile.index)
+            assert (
+                grid.filled.index
+                .difference(grid.ingrid.broadcast.segtile.index)
+                .empty
+            )
             grid.predict()
             assert files.map(os.path.exists).all()
         return files
@@ -123,6 +129,7 @@ class File(
         files = grid.ingrid.outdir.seggrid.colored.files(grid)
         self.colored = files
         if (
+            # not grid.predict
             not grid.predict
             and not files.map(os.path.exists).all()
         ):

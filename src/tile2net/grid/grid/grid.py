@@ -1,34 +1,32 @@
 from __future__ import annotations
 
+import hashlib
+import math
+import os
+import tempfile
+import threading
 from concurrent.futures import ThreadPoolExecutor
+from functools import *
+from typing import *
 
 import PIL.Image
-import hashlib
 import imageio.v3 as iio
-import math
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 import pandas as pd
 import pyproj
 import shapely
-import tempfile
-import threading
 from PIL import Image
-from PIL import Image
-from functools import *
 from geopandas import GeoDataFrame
 from pandas import MultiIndex
 from pandas import Series, Index
-from typing import *
 
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.explore import explore
 from .colormap import ColorMap
 from .corners import Corners
 from .file import File
-# from .stitcher import Stitcher
-from ._stitcher3 import Stitcher
+from .stitcher import Stitcher
 from .. import frame
 from .. import util
 from ..cfg import cfg, Cfg
