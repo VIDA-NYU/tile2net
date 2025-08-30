@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import concurrent.futures as cf
-import contextlib
 import copy
 import gc
 import logging
@@ -15,7 +14,6 @@ from concurrent.futures import (
     wait,
     FIRST_COMPLETED,
 )
-from encodings.punycode import segregate
 from functools import cached_property
 from multiprocessing import get_context
 from pathlib import Path
@@ -42,13 +40,12 @@ from .padded import Padded
 from .polygons import Polygons
 from .. import frame
 from ..cfg.cfg import Cfg
+from ..dataset.dataset import DataSet
+from ..dataset.datawrapper import DataWrapper
 from ..grid.corners import Corners
 from ..pednet import PedNet
 from ...grid.frame.namespace import namespace
 from ...grid.util import recursion_block
-from ..dataset.datawrapper import DataWrapper
-from ..dataset.dataset import DataSet
-from ..dataset.dataloader import DataLoader
 
 if False:
     from ..ingrid import InGrid
@@ -476,7 +473,6 @@ class VecGrid(Grid):
             Wrapper that remembers which polygons_file belongs to each Future.
             """
             fut = executor.submit(self._vectorize_submit, *args)
-            # fut = self._vectorize_submit(*args)
             running[fut] = args[6]  # args[6] == polygons_file path
             return fut
 
@@ -516,8 +512,6 @@ class VecGrid(Grid):
         dataset = DataSet(wrapper)
         loader = dataset
         index = dataset.index
-        # polygons = self.file.polygons.loc[index]
-        # lines = self.file.lines.loc[index]
         grid = grid.loc[index]
 
         # Build *lazy* iterable ⇢ no up-front list allocation
@@ -536,7 +530,6 @@ class VecGrid(Grid):
         ]:
 
             it = zip(
-                # grid.file.grayscale,
                 loader,
                 grid.affine_params,
                 grid.file.lines,
