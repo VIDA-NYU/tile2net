@@ -48,15 +48,15 @@ class VecTile(
         return self.length * self.seggrid.dimension
 
     @property
-    def shape(self) -> tuple[int,int]:
+    def shape(self) -> tuple[int, int]:
         return self.dimension, self.dimension, self.ingrid.shape[2]
 
     @property
-    def shape(self) -> tuple[int,int]:
+    def shape(self) -> tuple[int, int]:
         return self.dimension, self.dimension,
 
     @frame.column
-    def xtile(self) -> pd.Series:
+    def xtile(self):
         """Tile integer X of this tile in the vecgrid vectile"""
         seggrid = self.seggrid
         vecgrid = seggrid.vecgrid
@@ -64,11 +64,11 @@ class VecTile(
         result = seggrid.xtile // length
 
         msg = 'All segtile.xtile must be in seggrid.xtile!'
-        assert result.isin(vecgrid.xtile).all(),msg
+        assert result.isin(vecgrid.xtile).all(), msg
         return result
 
     @frame.column
-    def ytile(self) -> pd.Series:
+    def ytile(self):
         """Tile integer X of this tile in the vecgrid vectile"""
         seggrid = self.seggrid
         vecgrid = seggrid.vecgrid
@@ -77,7 +77,7 @@ class VecTile(
 
         msg = 'All segtile.ytile must be in seggrid.ytile!'
         assert result.isin(vecgrid.ytile).all(), msg
-        
+
         return result
 
     @frame.column
@@ -90,9 +90,8 @@ class VecTile(
         )
         return result
 
-
     @frame.column
-    def grayscale(self) -> pd.Series:
+    def grayscale(self):
         """seggrid.file broadcasted to ingrid"""
         vecgrid = self.vecgrid
         result = (
@@ -103,7 +102,7 @@ class VecTile(
         return result
 
     @frame.column
-    def infile(self) -> pd.Series:
+    def infile(self):
         """seggrid.file broadcasted to ingrid"""
         vecgrid = self.vecgrid
         result = (
@@ -114,7 +113,7 @@ class VecTile(
         return result
 
     @frame.column
-    def colored(self) -> pd.Series:
+    def colored(self):
         """seggrid.file broadcasted to ingrid"""
         vecgrid = self.vecgrid
         result = (
@@ -123,7 +122,6 @@ class VecTile(
             .values
         )
         return result
-
 
     @property
     def index(self):
@@ -180,6 +178,68 @@ class VecTile(
         )
         return result
 
+    @frame.column
+    def affine(self):
+        vecgrid = self.vecgrid
+        result = (
+            vecgrid.affine_params
+            .loc[self.index]
+            .values
+        )
+        return result
 
+    # west/east/south/north bounds in projected coords (broadcast)
+    @frame.column
+    def lonmin(self):
+        result = (
+            self.vecgrid.lonmin
+            .loc[self.index]
+            .values
+        )
+        return result
 
+    @frame.column
+    def latmin(self):
+        result = (
+            self.vecgrid.latmin
+            .loc[self.index]
+            .values
+        )
+        return result
 
+    @frame.column
+    def lonmax(self):
+        result = (
+            self.vecgrid.lonmax
+            .loc[self.index]
+            .values
+        )
+        return result
+
+    @frame.column
+    def latmax(self):
+        result = (
+            self.vecgrid.latmax
+            .loc[self.index]
+            .values
+        )
+        return result
+
+    # output file paths for polygons and lines (broadcast)
+    @frame.column
+    def polygon_file(self):
+        result = (
+            self.grid.vecgrid.file.polygons
+            .loc[self.index]
+            .values
+        )
+        return result
+
+    @frame.column
+    def line_file(self):
+        result = (
+            self.grid.vecgrid.file.lines
+            .loc[self.index]
+            .values
+        )
+        return result

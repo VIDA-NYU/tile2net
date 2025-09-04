@@ -80,11 +80,7 @@ class ValDataSet(
             drop_last=False,
             # sampler=self.sampler,
             sampler=None,
-            # num_workers=0,
-            # pin_memory=False,
-            # persistent_workers=False,
 
-            # todo: should not be hard-coded
             num_workers=cfg.segmentation.num_workers,
             pin_memory=True,
             prefetch_factor=cfg.segmentation.prefetch_factor,

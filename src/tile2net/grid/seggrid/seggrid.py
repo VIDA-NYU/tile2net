@@ -442,8 +442,12 @@ class SegGrid(
                     for batch in loader:
                         input_images = batch['input']
                         labels = batch['mask']
-                        i = batch['i']
-                        i = i.detach().cpu().numpy()
+                        i = (
+                            batch['i']
+                            .detach()
+                            .cpu()
+                            .numpy()
+                        )
                         loc = dataset.index[i]
                         grid = frame.loc[loc].copy()
 

@@ -123,7 +123,6 @@ class Center(
                 gpd.GeoDataFrame(geometry=geometry, index=geometry.index)
                 .pipe(self.from_frame, wrapper=self)
             )
-            # result = Center(geometry=geometry, index=geometry.index)
 
         result.instance = self.instance
         return result

@@ -133,7 +133,7 @@ def column(
 ) -> Union[
     pd.Series,
     gpd.GeoSeries,
-    Column
+    # Column,
 ]:
     return Column(*args, **kwargs)
 

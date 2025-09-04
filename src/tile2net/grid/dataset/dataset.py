@@ -4,6 +4,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import *
 from typing import Union
+import concurrent.futures as cf
 
 import imageio.v3 as iio
 import numpy as np
@@ -26,8 +27,13 @@ class DataSet(
     used optimally for torch's DataLoader.
     """
 
-    def __init__(self, wrapper: DataWrapper):
+    def __init__(
+            self,
+            wrapper: DataWrapper,
+            threads: int = 1,
+    ):
         self.wrapper = wrapper
+        self.threads = threads
 
     def __len__(self):
         """number of mosaics"""
@@ -223,28 +229,69 @@ class DataSet(
         cache_img = sample
 
         # main paste loop in deterministic row/col order (already sorted)
-        for f, r, c in zip(files, rows, cols, strict=True):
-            if f is None:
-                # skip intentionally empty tiles
-                continue
+        # optionally pre-read tiles in parallel to accelerate I/O
+        if self.threads != 1:
+            # submit read tasks for each tile except None and cached sample
+            tasks: list[tuple[int, str]] = [
+                (i, f)
+                for i, f in enumerate(files)
+                if f is not None and f != cache_path
+            ]
 
-            if f == cache_path:
-                # reuse previously decoded sample
-                _paste(cache_img, r, c)
-                continue
+            def _read(path: str) -> np.ndarray:
+                if Path(path).suffix.lower() == '.npy':
+                    arr = np.load(path, mmap_mode=None)
+                else:
+                    arr = iio.imread(path)
+                return self._coerce_to_rgba(arr)
 
-            # read array (npy fast-path; otherwise imageio sniffing)
-            if Path(f).suffix.lower() == '.npy':
-                arr = np.load(f, mmap_mode=None)
-            else:
-                arr = iio.imread(f)
+            results: dict[int, np.ndarray] = {}
+            # cap workers at positive int; if threads is 0 or negative, fallback to default behavior
+            max_workers = self.threads if self.threads and self.threads > 0 else None
+            with cf.ThreadPoolExecutor(max_workers=max_workers) as ex:
+                futs = {
+                    ex.submit(_read, f): i
+                    for i, f in tasks
+                }
+                for fut in cf.as_completed(futs):
+                    idx = futs[fut]
+                    results[idx] = fut.result()
 
-            # coerce and paste
-            arr = self._coerce_to_rgba(arr)
-            if arr.shape[:2] != (tile_h, tile_w):
-                msg = f'unexpected tile shape {arr.shape[:2]} vs {(tile_h, tile_w)} for {f}'
-                raise ValueError(msg)
-            _paste(arr, r, c)
+            # sequentially paste following the original order
+            for i, (f, r, c) in enumerate(zip(files, rows, cols, strict=True)):
+                if f is None:
+                    continue
+                if f == cache_path:
+                    _paste(cache_img, r, c)
+                    continue
+                arr = results[i]
+                if arr.shape[:2] != (tile_h, tile_w):
+                    msg = f'unexpected tile shape {arr.shape[:2]} vs {(tile_h, tile_w)} for {f}'
+                    raise ValueError(msg)
+                _paste(arr, r, c)
+        else:
+            for f, r, c in zip(files, rows, cols, strict=True):
+                if f is None:
+                    # skip intentionally empty tiles
+                    continue
+
+                if f == cache_path:
+                    # reuse previously decoded sample
+                    _paste(cache_img, r, c)
+                    continue
+
+                # read array (npy fast-path; otherwise imageio sniffing)
+                if Path(f).suffix.lower() == '.npy':
+                    arr = np.load(f, mmap_mode=None)
+                else:
+                    arr = iio.imread(f)
+
+                # coerce and paste
+                arr = self._coerce_to_rgba(arr)
+                if arr.shape[:2] != (tile_h, tile_w):
+                    msg = f'unexpected tile shape {arr.shape[:2]} vs {(tile_h, tile_w)} for {f}'
+                    raise ValueError(msg)
+                _paste(arr, r, c)
 
         result = mosaic
         return result

@@ -35,6 +35,8 @@ check for memory leak in vectorization
 set up some benchmarking
 delete previous files after successful phase
 separate predict() and some sort of segmentation setup
+ info file. (csv and geojon/parquet for tile info and shapefile) those we had before
+ tiles saved as actual png?
 
 raise exception if no olcation passed
 
@@ -60,4 +62,11 @@ get rid of this:
 
 if favor of just using the wrapper
 
+do away with iter task
+instead, getitem returns the polygons and the lines
+then, a threadpool on the exterior writes to file
+
+VecDataWrapper
+VecDataSet
+VecDataLoader
 

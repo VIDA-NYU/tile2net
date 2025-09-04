@@ -41,6 +41,7 @@ from .. import frame
 from ..cfg.cfg import Cfg
 from ..dataset.dataset import DataSet
 from ..dataset.datawrapper import DataWrapper
+from ..dataset.vec import VecDataSet, VecDataWrapper, VecDataLoader
 from ..grid.corners import Corners
 from ..pednet import PedNet
 from ...grid.frame.namespace import namespace
@@ -358,12 +359,13 @@ class VecGrid(Grid):
                     empty_gdf.to_parquet(polygons_file)
                     empty_gdf.to_parquet(network_file)
 
-                    # msg = f'No polygons generated for {infile}; wrote empty layers instead.'
-                    msg = f'No polygons generated for {polygons_file}; wrote empty layers instead.'
+                    msg = (
+                        f'No polygons generated for {polygons_file}; '
+                        f'wrote empty layers instead.'
+                    )
                     logging.warning(msg)
                     return
 
-                # net = PedNet.from_mask2poly(polys)
                 net = (
                     polys
                     .postprocess(
@@ -374,13 +376,14 @@ class VecGrid(Grid):
                     )
                     .frame.pipe(PedNet.from_mask2poly)
                 )
+
+                # precompute lines and edges for clarity
                 lines = net.center.lines
                 edges = lines.edges
 
                 clipped = (
                     net.center.clipped
                     .frame
-                    # .frame.to_crs(4326)
                     .pipe(
                         net.center.clipped.from_frame,
                         wrapper=net.center.clipped
@@ -388,15 +391,11 @@ class VecGrid(Grid):
                 )
 
                 polys = (
-                    # polys.frame
                     net.frame
-                    # .to_crs(4326)
                     .clip_by_rect(xmin, ymin, xmax, ymax)
                     .to_frame('geometry')
                     .set_precision(grid_size=grid_size)
                     .to_frame('geometry')
-                    # .dissolve(by='feature')
-                    # .explode()
                 )
 
                 clipped = (
@@ -404,10 +403,8 @@ class VecGrid(Grid):
                     .clip_by_rect(xmin, ymin, xmax, ymax)
                     .set_precision(grid_size=grid_size)
                     .to_frame('geometry')
-
                     .dissolve(by='feature')
                     .explode()
-                    # .pipe(clipped.from_frame, wrapper=clipped)
                 )
 
                 polys.to_parquet(polygons_file)
@@ -449,6 +446,89 @@ class VecGrid(Grid):
         finally:
             os.close(fd)
 
+    # @recursion_block
+    # def vectorize(
+    #         self,
+    #         force=False,
+    # ) -> None:
+    #     """
+    #     Parallel vectorisation with live progress and bounded memory.
+    #     """
+    #
+    #     grid = self
+    #     if not force:
+    #         loc = ~grid.file.lines.map(os.path.exists)
+    #         loc |= ~grid.file.polygons.map(os.path.exists)
+    #         grid = grid.loc[loc]
+    #
+    #     if not len(grid):
+    #         return
+    #     dest = (
+    #         self.ingrid.outdir.vecgrid.polygons.dir
+    #         .rpartition(os.sep)
+    #         [0]
+    #     )
+    #     msg = f'Vectorizing to \n\t{dest}'
+    #     logger.debug(msg)
+    #
+    #     _cfg = grid.ingrid.cfg.flatten()
+    #     assert 'dataset_inst' not in _cfg
+    #
+    #     seggrid = self.seggrid.broadcast
+    #
+    #     force = ~seggrid.vectile.line.map(os.path.exists)
+    #     force |= self.cfg.force
+    #     wrapper: DataWrapper = DataWrapper.from_tiles(
+    #         infile=seggrid.file.grayscale,
+    #         index=seggrid.vectile.index,
+    #         row=seggrid.vectile.r,
+    #         col=seggrid.vectile.c,
+    #         background=3,
+    #         force=force,
+    #     )
+    #     dataset = DataSet(wrapper)
+    #     loader = dataset
+    #     index = dataset.index
+    #     grid = grid.loc[index]
+    #
+    #     total_grid: int = len(grid)
+    #     workers: int = os.cpu_count() or 1
+    #     window: int = workers + 1
+    #
+    #     tasks = self._iter_tasks(grid, loader, _cfg)
+    #     ctx = get_context("spawn")
+    #     pool = ProcessPoolExecutor(
+    #         mp_context=ctx,
+    #         max_workers=window,
+    #         initializer=self._silence_logging,
+    #         max_tasks_per_child=1,
+    #     )
+    #     bar = tqdm(
+    #         total=total_grid,
+    #         desc=f'{self.__name__}.{self.vectorize.__name__}()',
+    #         unit=f' {self.file.lines.name}',
+    #         smoothing=0.01,
+    #         mininterval=10,
+    #     )
+    #
+    #     with self.ingrid.cfg, pool as pool, bar as bar:
+    #         it = self._bounded_as_completed(pool, tasks, window)
+    #         for fut, task in it:
+    #             try:
+    #                 fut.result()
+    #             except Exception as e:
+    #                 raise RuntimeError(
+    #                     f'Worker failed while computing '
+    #                     f'{task.polygons_file!r}:'
+    #                     f'\n\t{e!r}'
+    #                 ) from e
+    #             bar.update()
+    #
+    #     msg = f'Finished vectorizing {len(grid)} vectorizing tiles.'
+    #     logger.info(msg)
+    #
+    #     return self
+
     @recursion_block
     def vectorize(
             self,
@@ -458,14 +538,6 @@ class VecGrid(Grid):
         Parallel vectorisation with live progress and bounded memory.
         """
 
-        grid = self
-        if not force:
-            loc = ~grid.file.lines.map(os.path.exists)
-            loc |= ~grid.file.polygons.map(os.path.exists)
-            grid = grid.loc[loc]
-
-        if not len(grid):
-            return
         dest = (
             self.ingrid.outdir.vecgrid.polygons.dir
             .rpartition(os.sep)
@@ -474,63 +546,54 @@ class VecGrid(Grid):
         msg = f'Vectorizing to \n\t{dest}'
         logger.debug(msg)
 
-        _cfg = grid.ingrid.cfg.flatten()
+        _cfg = self.ingrid.cfg.flatten()
         assert 'dataset_inst' not in _cfg
 
         seggrid = self.seggrid.broadcast
 
-        force = ~seggrid.vectile.line.map(os.path.exists)
-        force |= self.cfg.force
-        wrapper: DataWrapper = DataWrapper.from_tiles(
+        if not force:
+            force = ~seggrid.vectile.line.map(os.path.exists)
+            force |= self.cfg.force
+
+        wrapper: VecDataWrapper = VecDataWrapper.from_segtiles(
             infile=seggrid.file.grayscale,
             index=seggrid.vectile.index,
             row=seggrid.vectile.r,
             col=seggrid.vectile.c,
             background=3,
             force=force,
+            affine=seggrid.vectile.affine,
+            lonmin=seggrid.vectile.lonmin,
+            latmin=seggrid.vectile.latmin,
+            lonmax=seggrid.vectile.lonmax,
+            latmax=seggrid.vectile.latmax,
+            polygon_file=seggrid.vectile.polygon_file,
+            line_file=seggrid.vectile.line_file,
         )
-        dataset = DataSet(wrapper)
-        loader = dataset
-        index = dataset.index
-        grid = grid.loc[index]
 
-        total_grid: int = len(grid)
-        workers: int = os.cpu_count() or 1
-        window: int = workers + 1
+        total = wrapper.index.nunique()
+        if not total:
+            msg = 'All vector tiles already exist on disk.'
+            logger.info(msg)
+            return
+        threads = self.cfg.vectorization.num_loaders
+        dataset = VecDataSet(wrapper, threads=threads)
+        loader = dataset.loader
 
-        tasks = self._iter_tasks(grid, loader, _cfg)
-        ctx = get_context("spawn")
-        pool = ProcessPoolExecutor(
-            mp_context=ctx,
-            max_workers=window,
-            initializer=self._silence_logging,
-            max_tasks_per_child=1,
-        )
         bar = tqdm(
-            total=total_grid,
+            total=total,
             desc=f'{self.__name__}.{self.vectorize.__name__}()',
             unit=f' {self.file.lines.name}',
             smoothing=0.01,
             mininterval=10,
         )
 
-        with self.ingrid.cfg, pool as pool, bar as bar:
-            it = self._bounded_as_completed(pool, tasks, window)
-            for fut, task in it:
-                try:
-                    fut.result()
-                except Exception as e:
-                    raise RuntimeError(
-                        f'Worker failed while computing '
-                        f'{task.polygons_file!r}:'
-                        f'\n\t{e!r}'
-                    ) from e
-                bar.update()
+        with self.ingrid.cfg, bar:
+            for minibatch in loader:
+                bar.update(len(minibatch))
 
-        msg = f'Finished vectorizing {len(grid)} vectorizing tiles.'
+        msg = f'Finished vectorizing {total} vectorizing tiles.'
         logger.info(msg)
-
-        return self
 
     def view(
             self,

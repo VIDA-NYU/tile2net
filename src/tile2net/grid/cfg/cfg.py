@@ -785,6 +785,25 @@ class Vectorization(cmdline.Namespace):
     def pad(self) -> int:
         return 1
 
+    @cmdline.property
+    def batch_size(self):
+        return 1
+
+    @cmdline.property
+    def persistent_workers(self) -> bool:
+        """
+        Keep data loader workers alive
+        """
+        return False
+
+    @cmdline.property
+    def num_workers(self):
+        return multiprocessing.cpu_count()
+
+    @cmdline.property
+    def num_loaders(self):
+        return 4
+
 
 class Loss(cmdline.Namespace):
 
