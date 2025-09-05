@@ -1,7 +1,9 @@
 from __future__ import annotations
-from matplotlib.collections import LineCollection
-from matplotlib.collections import LineCollection
 
+from functools import cached_property
+
+from matplotlib.collections import LineCollection
+from matplotlib.collections import LineCollection
 
 import io
 import os
@@ -335,3 +337,10 @@ class Polygons(
             plt.close(fig)
 
         return pil_img
+
+    @cached_property
+    def disk_usage(self) -> int:
+        try:
+            return os.path.getsize(self.file)
+        except FileNotFoundError:
+            return 0

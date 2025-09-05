@@ -21,6 +21,7 @@ from ..cfg import cfg
 from ..cfg.logger import logger
 from ..explore import explore
 from ..frame.framewrapper import FrameWrapper
+from functools import *
 
 if False:
     from .ingrid import InGrid
@@ -402,3 +403,11 @@ class Lines(
 
         folium.LayerControl().add_to(m)
         return m
+
+    @cached_property
+    def disk_usage(self) -> int:
+        try:
+            return os.path.getsize(self.file)
+        except FileNotFoundError:
+            return 0
+

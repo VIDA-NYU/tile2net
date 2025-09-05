@@ -7,6 +7,7 @@ import shutil
 import sys
 import tempfile
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import *
 from pathlib import Path
@@ -42,6 +43,7 @@ from ..grid.static import Static
 from ..seggrid.seggrid import SegGrid
 from ..vecgrid.vecgrid import VecGrid
 from ...grid.util import recursion_block, assert_perfect_overlap
+from ...grid import util
 
 # thread-local store
 tls = threading.local()
@@ -57,7 +59,7 @@ class File(
     grid: InGrid
 
     @frame.column
-    def infile(self) -> pd.Series:
+    def infile(self):
         grid = self.grid
         files = grid.indir.files(grid)
         if (
@@ -67,6 +69,10 @@ class File(
             grid.file.infile = files
             grid.download()
         return files
+
+    @frame.column
+    def disk_usage(self):
+        return util.path2fsize(self.infile)
 
 
 class InGrid(
@@ -260,6 +266,7 @@ class InGrid(
         pool_size = min(max_workers, len(mapping))
         not_found: list[Path] = []
         failed: list[Path] = []
+        t = time.time()
 
         def _fetch_write(
                 path: Path,
@@ -343,6 +350,14 @@ class InGrid(
                         f.cancel()
                     break
 
+        t = time.time() - t
+        msg = (
+            f'Adding {t:.1f}s to total '
+            f'{self.instance.__class__.__name__} time usage.'
+        )
+        logger.debug(msg)
+        self.instance.time_usage += t
+
         if one and success:
             logger.info("Downloaded one file successfully (one=True).")
             return self
@@ -413,7 +428,6 @@ class InGrid(
             allowed_methods=["GET"],
         )
         tls.session = self._make_session(pool=8, retry=retry_get)
-
 
     @delayed.Filled
     def filled(self) -> Filled:
@@ -925,4 +939,13 @@ class InGrid(
             logger.info(msg)
             util.cleanup(self.seggrid.file.grayscale)
             util.cleanup(self.vecgrid.file.grayscale)
+
+    @cached_property
+    def disk_usage(self) -> int:
+        result = self.broadcast.file.disk_usage.sum()
+        return result
+
+    @cached_property
+    def time_usage(self):
+        return 0
 

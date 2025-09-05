@@ -9,6 +9,8 @@ import pandas as pd
 from .. import frame
 from ..grid import file
 
+from ...grid import util
+
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 
 if False:
@@ -152,3 +154,10 @@ class File(
             grid.predict()
         assert files.map(os.path.exists).all()
         return files
+
+    @frame.column
+    def disk_usage(self):
+        result = util.path2fsize(self.grayscale)
+        result += util.path2fsize(self.colored)
+        return result
+

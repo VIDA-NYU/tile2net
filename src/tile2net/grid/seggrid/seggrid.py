@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import time
 from concurrent.futures import ThreadPoolExecutor, wait, as_completed
 from contextlib import ExitStack
 
@@ -232,21 +234,21 @@ class SegGrid(
         errors = []
         outer_exc = None
         with grid.cfg as cfg:
-
-            # preemptively stitch so logging apears more sequential
-            # otherwise you get "now predicting" before "now stitching"
-
-            if not cfg.force:
-                loc = ~grid.file.grayscale.apply(os.path.exists)
-                grid = (
-                    grid.frame
-                    .loc[loc]
-                    .pipe(grid.from_frame, wrapper=grid)
-                )
-                if not np.any(loc):
-                    msg = 'All segmentation grid are on disk.'
-                    logger.info(msg)
-                    return
+        #
+        #     # preemptively stitch so logging apears more sequential
+        #     # otherwise you get "now predicting" before "now stitching"
+        #
+        #     if not cfg.force:
+        #         loc = ~grid.file.grayscale.apply(os.path.exists)
+        #         grid = (
+        #             grid.frame
+        #             .loc[loc]
+        #             .pipe(grid.from_frame, wrapper=grid)
+        #         )
+        #         if not np.any(loc):
+        #             msg = 'All segmentation grid are on disk.'
+        #             logger.info(msg)
+        #             return
 
             if cfg.dump_percent:
                 raise NotImplementedError
@@ -383,10 +385,6 @@ class SegGrid(
             else:
                 msg = f'Using single-scale inference with scale {scales}'
             logger.debug(msg)
-
-            # threads = ThreadPoolExecutor()
-            # futures = []
-            # batch_size = cfg.model.bs_val
             clip = self.ingrid.dimension * cfg.segmentation.pad
 
             msg = (
@@ -409,6 +407,10 @@ class SegGrid(
                 col=ingrid.segtile.c,
                 force=force,
             )
+            if wrapper.empty:
+                msg = f'All segmentation tiles are already on disk.'
+                logger.info(msg)
+                return
             dataset = ValDataSet.from_wrapper(wrapper)
             loader: ValDataLoader = dataset.loader
 
@@ -429,6 +431,7 @@ class SegGrid(
             msg = 'Predicting Segmentation Tiles'
             futures = []
 
+            t = time.time()
             with ExitStack() as stack, ThreadPoolExecutor() as threads:
                 stack.enter_context(logging_redirect_tqdm())
                 stack.enter_context(cfg)
@@ -484,6 +487,14 @@ class SegGrid(
                         errors.append(exc)
                 futures.clear()
 
+            t = time.time() - t
+            msg = (
+                f'Adding {t:.1f}s to total '
+                f'{self.instance.__class__.__name__} time usage.'
+            )
+            logger.debug(msg)
+            self.instance.time_usage += t
+
             if errors:
                 try:
                     raise ExceptionGroup("worker task errors", errors)  # Py 3.11+
@@ -500,9 +511,14 @@ class SegGrid(
             msg = f'Finished predicting {len(dataset)} segmentation tiles.'
             logger.info(msg)
 
-        # assert len(list_loc)  == len(list_i) == len(visited) == len(frame)
-        # print(f'{len(list_loc)=}; {len(list_i)=}; {len(visited)=}; {len(expected)=}')
         assert ingrid.segtile.grayscale.map(os.path.exists).all()
-        frame.file.grayscale.map(os.path.exists)
-        dataset.wrapper
-        ingrid
+
+    @cached_property
+    def disk_usage(self) -> int:
+        result = self.broadcast.file.disk_usage.sum()
+        return result
+
+    @cached_property
+    def time_usage(self):
+        return 0
+

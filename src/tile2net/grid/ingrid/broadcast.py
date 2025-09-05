@@ -129,7 +129,7 @@ class Broadcast(
 
     @property
     def ingrid(self) -> InGrid:
-        return self.instance
+        return self.instance.ingrid
 
     @property
     def filled(self):

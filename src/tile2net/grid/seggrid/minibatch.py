@@ -20,6 +20,22 @@ if False:
     from tile2net.grid import Grid
 
 
+def imwrite(
+        filename: str,
+        array: np.ndarray,
+        params=None
+) -> bool:
+    """Wrapper around cv2.imwrite to handle errors"""
+    arr = np.ascontiguousarray(array)
+    ok = cv2.imwrite(filename, arr)
+    if not ok:
+        raise RuntimeError(
+            f'imwrite failed for {filename} with '
+            f'shape={arr.shape}, dtype={arr.dtype}'
+        )
+    return ok
+
+
 def to_numpy(obj: Any):
     """converts tensors to ndarrays; preserves lists, dicts, etc."""
     if isinstance(obj, torch.Tensor):
@@ -135,11 +151,10 @@ class MiniBatch(
                         output = output + _pred
 
         output = output / len(scales) / len(flips)
-        assert_msg = 'output_size {} gt_cuda size {}'
         gt_cuda = gt_image.cuda()
-        assert_msg = assert_msg.format(
-            output.size()[2:],
-            gt_cuda.size()[1:]
+        assert_msg = (
+            f'output_size {output.size()[2:]} '
+            f'gt_cuda size {gt_cuda.size()[1:]}'
         )
         assert output.size()[2:] == gt_cuda.size()[1:], assert_msg
         assert output.size()[1] == cfg.DATASET.NUM_CLASSES, assert_msg
@@ -273,7 +288,7 @@ class MiniBatch(
         for array, file in zip(arrays, files):
             # Clip the image before saving
             clipped_array = self.clip_image(array)
-            future = self.threads.submit(cv2.imwrite, file, clipped_array)
+            future = self.threads.submit(imwrite, file, clipped_array)
             yield future
 
     def submit_error(self):
@@ -293,7 +308,7 @@ class MiniBatch(
             for array, file in zip(arrays, files):
                 # Clip the image before saving
                 clipped_array = self.clip_image(array)
-                future = self.threads.submit(cv2.imwrite, file, clipped_array)
+                future = self.threads.submit(imwrite, file, clipped_array)
                 yield future
 
     def submit_grayscale(self):
@@ -311,7 +326,7 @@ class MiniBatch(
             # Clip the image before saving
             clipped_array = self.clip_image(array)
             future = self.threads.submit(
-                cv2.imwrite,
+                imwrite,
                 file,
                 clipped_array.astype('uint8')
             )
@@ -333,13 +348,25 @@ class MiniBatch(
         # Get the dimensions of the array
         if array.ndim == 2:
             h, w = array.shape
-            return array[self.clip:h - self.clip, self.clip:w - self.clip]
+            result = array[self.clip:h - self.clip, self.clip:w - self.clip]
         elif array.ndim == 3:
             h, w, c = array.shape
-            return array[self.clip:h - self.clip, self.clip:w - self.clip, :]
+            result = array[self.clip:h - self.clip, self.clip:w - self.clip, :]
         else:
-            # If the array has an unexpected number of dimensions, return it unchanged
-            return array
+            # If the array has an unexpected number of dimensions, result =  it unchanged
+            result = array
+
+        # assert that clipping won't remove everything
+        assert (
+                array.ndim in (2, 3)
+                and array.shape[0] > 2 * self.clip
+                and array.shape[1] > 2 * self.clip
+        ), (
+            f"Invalid clip={self.clip} for array shape {array.shape}; "
+            "slicing would produce an empty array"
+        )
+
+        return result
 
     def submit_colored(self):
         """
@@ -353,5 +380,5 @@ class MiniBatch(
         for array, file in zip(arrays, files):
             # Clip the image before saving
             clipped_array = self.clip_image(array)
-            future = self.threads.submit(cv2.imwrite, file, clipped_array)
+            future = self.threads.submit(imwrite, file, clipped_array)
             yield future

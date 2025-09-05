@@ -32,7 +32,6 @@ from toolz import curried, pipe
 
 from tile2net.grid.cfg.logger import logger
 
-
 if False:
     from ..grid.grid.grid import Grid
     import folium
@@ -409,9 +408,9 @@ class RecursionBlock:
 
     def __bool__(self):
         return (
-            self.grid.__dict__
-            .get(self.__name__)
-            is not None
+                self.grid.__dict__
+                .get(self.__name__)
+                is not None
         )
 
     def __set_name__(self, owner, name):
@@ -465,9 +464,6 @@ class RecursionBlock:
             instance,
     ):
         raise NotImplementedError
-
-
-
 
 
 if False:
@@ -634,4 +630,17 @@ def cleanup(
                 errored += 1
 
     return deleted, missing, errored
+
+
+def path2fsize(
+        path: pd.Series,
+) -> pd.Series:
+    sizes = [
+        os.path.getsize(p)
+        if isinstance(p, str)
+           and os.path.exists(p)
+        else 0
+        for p in path
+    ]
+    return pd.Series(sizes, index=path.index, dtype="uint64")
 

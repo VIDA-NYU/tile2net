@@ -883,3 +883,11 @@ class Grid(
         frame = self.frame.copy()
         frame.attrs.update(zoom=self.zoom, scale=self.scale)
         frame.to_pickle(path)
+
+    @cached_property
+    def time_usage(self) -> float:
+        return 0
+
+    @cached_property
+    def disk_usage(self) -> int:
+        return 0

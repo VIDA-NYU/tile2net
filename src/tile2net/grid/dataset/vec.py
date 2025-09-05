@@ -51,6 +51,7 @@ def _worker_init(_: int) -> None:
     finally:
         os.close(fd)
 
+
 ArrayLike = Union[
     pd.Series,
     dict[Any, Any],
@@ -126,7 +127,6 @@ class VecDataSet(
             grid_size = 0.1
             with cfg:
                 try:
-                    # polys = Mask2Poly.from_path(infile, affine,crs=3857)
                     polys = Mask2Poly.from_array(grayscale, affine, crs=3857)
                     assert isinstance(polys, Mask2Poly)
 
@@ -149,7 +149,7 @@ class VecDataSet(
                         # msg = f'No polygons generated for {infile}; wrote empty layers instead.'
                         msg = f'No polygons generated for {polygons_file}; wrote empty layers instead.'
                         logging.warning(msg)
-                        return
+                        return item
 
                     # net = PedNet.from_mask2poly(polys)
                     net = (

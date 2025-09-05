@@ -157,3 +157,8 @@ class File(
             vecgrid.vectorize()
         return files
 
+    @frame.column
+    def disk_usage(self):
+        result = util.path2fsize(self.grayscale)
+        result += util.path2fsize(self.colored)
+        return result

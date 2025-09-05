@@ -11,6 +11,7 @@ class Filled(
     filled.Filled,
     InGrid,
 ):
+    instance: InGrid
 
     def _get(
             self: Filled,
@@ -56,4 +57,4 @@ class Filled(
 
     @property
     def ingrid(self) -> InGrid:
-        return self.instance
+        return self.instance.ingrid
