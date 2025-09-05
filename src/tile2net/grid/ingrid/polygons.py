@@ -2,9 +2,6 @@ from __future__ import annotations
 
 from functools import cached_property
 
-from matplotlib.collections import LineCollection
-from matplotlib.collections import LineCollection
-
 import io
 import os
 from pathlib import Path

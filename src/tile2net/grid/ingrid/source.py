@@ -101,8 +101,6 @@ class Coverage:
         ...
 
 
-
-
 class cls_attr(
     # Generic[T],
 ):
@@ -167,9 +165,6 @@ T = TypeVar('T')
 #     def __eq__(self, other):
 #         return True
 #
-
-
-
 
 
 # noinspection PyMethodParameters
@@ -449,10 +444,10 @@ class Source(
 
     def __eq__(self, other):
         if (
-            isinstance(other, Source)
+                isinstance(other, Source)
         ) or (
-            isinstance(other, type)
-            and issubclass(other, Source)
+                isinstance(other, type)
+                and issubclass(other, Source)
         ):
             return self.name == other.name
         if isinstance(other, str):
@@ -474,8 +469,8 @@ class ArcGis(
         print('⚠️AI GENERATED🤖')
         # ensure the Response is closed on all paths
         with (
-            contextlib
-            .closing(requests.get(cls.metadata, timeout=10))
+                contextlib
+                        .closing(requests.get(cls.metadata, timeout=10))
         ) as response:
             response.raise_for_status()
             text = response.text
@@ -518,6 +513,7 @@ class ArcGis(
     @cls_attr
     def template(cls):
         return cls.server + '/tile/{z}/{y}/{x}'
+
 
 # todo: needs update
 # class WashingtonDC(ArcGis):
@@ -587,7 +583,6 @@ class KingCountyWashington(ArcGis):
     year = 2023
     coverage = wkt.loads("POLYGON ((-121.03559 47.04875, -121.03559 47.96618, -122.56958 47.96618, -122.56958 47.04875, -121.03559 47.04875))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
-
 
 
 class LosAngeles(ArcGis):
@@ -721,19 +716,9 @@ class SanFranciscoBase(
 
     @cls_attr
     def coverage(cls) -> GeoSeries:
-        return (
-            GeoSeries(
-                [
-                    box(
-                        -122.514926,  # xmin (W)
-                        37.708075,  # ymin (S)
-                        -122.356779,  # xmax (E)
-                        37.832371  # ymax (N)
-                    )
-                ],
-                crs="EPSG:4326",
-            )
-        )
+        bounds = box(-122.514926, 37.708075, -122.356779, 37.832371)
+        result = GeoSeries([bounds], crs="EPSG:4326")
+        return result
 
 
 class SanFrancisco2014(SanFranciscoBase):
@@ -789,6 +774,7 @@ class MaineOrthoBase(
     """
     keyword: str = "Maine"
     extension: str = "jpeg"  # ArcGIS ImageServer delivers JPEG by default
+
 
 class VexCel(Source, ABC):
     flip_y = False
@@ -961,7 +947,6 @@ class Maine(VexCel):
 #         print(txt)
 
 
-
 if __name__ == '__main__':
     assert Source.from_inferred('Portland, Maine') == Maine
     assert Source.from_inferred('Maine') == Maine
@@ -980,5 +965,3 @@ if __name__ == '__main__':
     assert Source.from_inferred('Fremont, California') == AlamedaCounty
     assert Source.from_inferred('Oakland, California') == AlamedaCounty
     assert Source.from_inferred('San Francisco, California') == SanFrancisco2024
-
-

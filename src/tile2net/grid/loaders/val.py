@@ -71,21 +71,17 @@ class ValDataSet(
 
     @cached_property
     def loader(self) -> ValDataLoader:
-        ValDataLoader.__init__
         result = ValDataLoader(
             self,
             batch_size=cfg.model.bs_val,
-            # num_workers=cfg.num_workers // 2,
             shuffle=False,
             drop_last=False,
             # sampler=self.sampler,
             sampler=None,
-
             num_workers=cfg.segmentation.num_workers,
             pin_memory=True,
             prefetch_factor=cfg.segmentation.prefetch_factor,
             persistent_workers=cfg.segmentation.persistent_workers
-
         )
         return result
 

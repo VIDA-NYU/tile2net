@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ..sampler.sampler import Sampler
 
 import copy
 import os
@@ -840,8 +841,6 @@ class InGrid(
 
         if outdir:
             rows.append(('Output directory', outdir))
-        if tempdir:
-            rows.append(('Temporary directory', tempdir))
 
         rows.append(('Input imagery', _p(self.outdir.ingrid.infile.dir)))
         if self.cfg.segmentation.colored:
@@ -875,6 +874,101 @@ class InGrid(
         print(sep)
         print(f"{BOLD}Tile2Net run complete!{RST}")
         print(sep)
+
+
+        # performance summaries
+        def _fmt_pct(v: float) -> str:
+            return f"{v:.1f}%"
+
+        def _fmt_duration(
+                v: float
+        ) -> str:
+            # choose human-friendly units: d, h, m, s, ms
+            if v is None:
+                return "—"
+            secs = float(v)
+            if secs < 0:
+                secs = 0.0
+            ms = secs * 1000.0
+            if secs < 1e-3:
+                return "0s"
+            if secs < 1.0:
+                return f"{ms:.0f}ms"
+            days = int(secs // 86400)
+            secs -= days * 86400
+            hours = int(secs // 3600)
+            secs -= hours * 3600
+            minutes = int(secs // 60)
+            secs -= minutes * 60
+            parts = []
+            if days:
+                parts.append(f"{days}d")
+            if hours and len(parts) < 2:
+                parts.append(f"{hours}h")
+            if minutes and len(parts) < 2:
+                parts.append(f"{minutes}m")
+            if len(parts) < 2:
+                if secs >= 10:
+                    parts.append(f"{int(secs)}s")
+                else:
+                    parts.append(f"{secs:.1f}s")
+            return " ".join(parts)
+
+        def _print_line(label: str, avg: float | None, maxv: float | None) -> None:
+            parts = []
+            if avg is not None:
+                parts.append(f"{DIM}avg{RST} {CYN}{_fmt_pct(avg)}{RST}")
+            if maxv is not None:
+                parts.append(f"{DIM}max{RST} {GRN}{_fmt_pct(maxv)}{RST}")
+            if parts:
+                print(f"{label}: " + " | ".join(parts))
+
+        # segmentation summary
+        try:
+            seg_s = self.seggrid.sampler.samples
+            seg_vals = {
+                'elapsed': seg_s.time_elapsed,
+                'gpu_avg': seg_s.avg_gpu,
+                'gpu_max': seg_s.max_gpu,
+                'vram_avg': seg_s.avg_vram,
+                'vram_max': seg_s.max_vram,
+                'ram_avg': seg_s.avg_ram,
+                'ram_max': seg_s.max_ram,
+                'cpu_avg': seg_s.avg_cpu,
+                'cpu_max': seg_s.max_cpu,
+            }
+            if any(v is not None for v in seg_vals.values()):
+                print(sep)
+                print(f"{BOLD}Segmentation benchmark{RST}")
+                print(sep)
+                if seg_vals['elapsed'] is not None:
+                    print(f"Time Elapsed: {CYN}{_fmt_duration(seg_vals['elapsed'])}{RST}")
+                _print_line("GPU Compute", seg_vals['gpu_avg'], seg_vals['gpu_max'])
+                _print_line("VRAM Usage", seg_vals['vram_avg'], seg_vals['vram_max'])
+                _print_line("RAM Usage", seg_vals['ram_avg'], seg_vals['ram_max'])
+        except Exception:
+            pass
+
+        # vectorization summary
+        try:
+            vec_s = self.vecgrid.sampler.samples
+            vec_vals = {
+                'elapsed': vec_s.time_elapsed,
+                'ram_avg': vec_s.avg_ram,
+                'ram_max': vec_s.max_ram,
+                'cpu_avg': vec_s.avg_cpu,
+                'cpu_max': vec_s.max_cpu,
+            }
+            if any(v is not None for v in vec_vals.values()):
+                print(sep)
+                print(f"{BOLD}Vectorization benchmark{RST}")
+                print(sep)
+                if vec_vals['elapsed'] is not None:
+                    print(f"Time Elapsed: {CYN}{_fmt_duration(vec_vals['elapsed'])}{RST}")
+                _print_line("RAM Usage", vec_vals['ram_avg'], vec_vals['ram_max'])
+                _print_line("CPU Usage", vec_vals['cpu_avg'], vec_vals['cpu_max'])
+        except Exception:
+            pass
 
         # body (two-line format + blank line between rows)
         for label, path in rows:

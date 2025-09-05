@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ..benchmark import benchmark
 from matplotlib.collections import LineCollection
 from .. import util
 
@@ -51,6 +52,7 @@ class Lines(
                     f'from \n\t{file}'
                 )
                 logger.info(msg)
+                # with benchmark(msg):
                 result = (
                     gpd.read_parquet(file)
                     .pipe(self.__class__.from_frame, wrapper=self)
@@ -285,26 +287,6 @@ class Lines(
         label2color = ingrid.cfg.label2color
         line_w = kwargs.get('width', max(1, long_side // 1400))
 
-        # plot each linestring (or part of multilinestring) over the basemap
-        # it = frame.groupby('feature', observed=False).geometry
-        # for feature, series in it:
-        #     colour = label2color.get(feature, axis_col)
-        #     for geom in series:
-        #         g = geom.simplify(simplify) if simplify else geom
-        #         parts = g.geoms if g.geom_type == 'MultiLineString' else (g,)
-        #         for part in parts:
-        #             coords = np.asarray(part.coords)
-        #             if coords.shape[0] < 2:
-        #                 continue
-        #             ax.plot(
-        #                 coords[:, 0],
-        #                 coords[:, 1],
-        #                 color=colour,
-        #                 linewidth=line_w,
-        #                 solid_joinstyle='round',
-        #                 solid_capstyle='round',
-        #                 zorder=3,
-        #             )
 
         gdf = frame.reset_index()
 

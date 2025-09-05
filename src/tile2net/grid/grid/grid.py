@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ..sampler.sampler import Sampler
 
 import hashlib
 import math
@@ -200,6 +201,9 @@ class Grid(
             location: str,
             zoom: int = None,
     ) -> Self:
+        if not location:
+            msg = 'location must be a non-empty string'
+            raise ValueError(msg)
         latlon = util.geocode(location)
         result = cls.from_bounds(
             latlon=latlon,
@@ -891,3 +895,9 @@ class Grid(
     @cached_property
     def disk_usage(self) -> int:
         return 0
+
+    @cached_property
+    def sampler(self) -> Sampler:
+        result =Sampler( include_gpu=True )
+        return result
+

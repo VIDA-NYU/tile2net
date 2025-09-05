@@ -82,8 +82,6 @@ class MiniBatch(
              handled within the model itself (see networks/mscale.py -> nscale_forward())
           2. 'multi_scale_inference', where we use Averaging to combine scales
         """
-        torch.cuda.empty_cache()
-
         calc_metrics = cfg.calc_metrics
 
         scales = [cfg.default_scale]

@@ -8,6 +8,7 @@ import argparse
 import functools
 import hashlib
 import json
+import math
 import multiprocessing
 import re
 from collections import deque, UserDict
@@ -15,7 +16,6 @@ from types import MappingProxyType
 from typing import *
 from typing import TypeVar, Callable
 
-import math
 import torch
 from toolz.curried import *
 
@@ -680,8 +680,26 @@ class Model(cmdline.Namespace):
         ...
 
 
+class Download(cmdline.Namespace):
+    @cmdline.property
+    def force(self):
+        return False
+
+    @cmdline.property
+    def only(self):
+        return False
+
+
 class Segmentation(cmdline.Namespace):
     """Segmenation configuration namespace."""
+
+    @cmdline.property
+    def force(self):
+        return False
+
+    @cmdline.property
+    def only(self):
+        return False
 
     @cmdline.property
     def dimension(self) -> int:
@@ -733,7 +751,7 @@ class Segmentation(cmdline.Namespace):
         """
         Number of batches to prefetch
         """
-        return 4
+        return 1
 
     @cmdline.property
     def persistent_workers(self) -> bool:
@@ -753,6 +771,14 @@ class Segmentation(cmdline.Namespace):
 
 class Vectorization(cmdline.Namespace):
     """Vectorization configuration namespace."""
+
+    @cmdline.property
+    def force(self):
+        return False
+
+    @cmdline.property
+    def only(self):
+        return False
 
     @cmdline.property
     def dimension(self) -> int:
@@ -830,6 +856,15 @@ class Loss(cmdline.Namespace):
 
 
 class Line(cmdline.Namespace):
+
+    @cmdline.property
+    def force(self):
+        return False
+
+    @cmdline.property
+    def only(self):
+        return False
+
     @cmdline.property
     def concat(self) -> bool:
         """Concatenate the lines from each tile into a single vector."""
@@ -842,6 +877,16 @@ class Line(cmdline.Namespace):
 
 
 class Polygon(cmdline.Namespace):
+
+
+    @cmdline.property
+    def force(self):
+        return False
+
+    @cmdline.property
+    def only(self):
+        return False
+
     @cmdline.property
     def max_hole_area(self) -> float | dict[str, float]:
         return dict(
@@ -1042,6 +1087,10 @@ class Cfg(
 
     @Model
     def model(self):
+        ...
+
+    @Download
+    def download(self):
         ...
 
     @Segmentation

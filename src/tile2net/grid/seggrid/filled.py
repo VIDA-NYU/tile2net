@@ -8,6 +8,7 @@ import pandas as pd
 from . import vectile
 from .seggrid import SegGrid
 from ..grid import filled
+from ..sampler.sampler import Sampler
 from ...grid.frame.namespace import namespace
 
 
@@ -46,6 +47,7 @@ class Filled(
     filled.Filled,
     SegGrid
 ):
+    instance: SegGrid
 
     def _get(
             self,
@@ -83,3 +85,11 @@ class Filled(
     @VecTile
     def vectile(self):
         ...
+
+    @property
+    def seggrid(self):
+        return self.instance.seggrid
+
+    @property
+    def sampler(self) -> Sampler:
+        return self.seggrid.sampler

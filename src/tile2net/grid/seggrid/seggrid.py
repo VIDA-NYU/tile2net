@@ -36,8 +36,8 @@ from .file import File
 from .minibatch import MiniBatch
 from .padded import Padded
 from .vectile import VecTile
-from ..dataset.sample import SampleDataWrapper
-from ..dataset.val import ValDataSet, ValDataLoader
+from ..loaders.sample import SampleDataWrapper
+from ..loaders.val import ValDataSet, ValDataLoader
 from ..grid.grid import Grid
 from ..util import recursion_block
 from ...grid.frame.namespace import namespace
@@ -234,22 +234,6 @@ class SegGrid(
         errors = []
         outer_exc = None
         with grid.cfg as cfg:
-        #
-        #     # preemptively stitch so logging apears more sequential
-        #     # otherwise you get "now predicting" before "now stitching"
-        #
-        #     if not cfg.force:
-        #         loc = ~grid.file.grayscale.apply(os.path.exists)
-        #         grid = (
-        #             grid.frame
-        #             .loc[loc]
-        #             .pipe(grid.from_frame, wrapper=grid)
-        #         )
-        #         if not np.any(loc):
-        #             msg = 'All segmentation grid are on disk.'
-        #             logger.info(msg)
-        #             return
-
             if cfg.dump_percent:
                 raise NotImplementedError
                 logger.info(f'Inferencing. Segmentation results will be saved to {grid.outdir.seg_results}')
@@ -432,7 +416,10 @@ class SegGrid(
             futures = []
 
             t = time.time()
-            with ExitStack() as stack, ThreadPoolExecutor() as threads:
+            with ExitStack() as stack, \
+                    ThreadPoolExecutor() as threads, \
+                    torch.inference_mode(), \
+                    self.sampler:
                 stack.enter_context(logging_redirect_tqdm())
                 stack.enter_context(cfg)
                 pbar = tqdm(
@@ -487,6 +474,7 @@ class SegGrid(
                         errors.append(exc)
                 futures.clear()
 
+            torch.cuda.empty_cache()
             t = time.time() - t
             msg = (
                 f'Adding {t:.1f}s to total '
@@ -511,6 +499,14 @@ class SegGrid(
             msg = f'Finished predicting {len(dataset)} segmentation tiles.'
             logger.info(msg)
 
+            del dataset
+            del loader
+            del wrapper
+            del input_images
+            del labels
+            del net
+            del batch
+
         assert ingrid.segtile.grayscale.map(os.path.exists).all()
 
     @cached_property
@@ -521,4 +517,3 @@ class SegGrid(
     @cached_property
     def time_usage(self):
         return 0
-

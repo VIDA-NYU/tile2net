@@ -1,6 +1,7 @@
 import os
 import time
 import threading
+from functools import cached_property
 from typing import Any
 
 from .samples import Samples
@@ -8,22 +9,20 @@ import pandas as pd
 import psutil
 
 
-class MemSampler:
+class Sampler:
     def __init__(
             self,
-            interval_s: float = 0.5,
+            interval_s: float = 1.,
             include_gpu: bool = True,
-            tqdm_bar=None,
     ):
         self.interval_s = interval_s
         self.include_gpu = include_gpu
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._records: list[dict[str, Any]] = []
-        self._bar = tqdm_bar
 
     # start background sampler
-    def __enter__(self) -> "MemSampler":
+    def __enter__(self) -> "Sampler":
         self._stop.clear()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
@@ -36,28 +35,17 @@ class MemSampler:
             self._thread.join(timeout=5.0)
         self._thread = None
 
-    # def to_samples(
-    #         self,
-    # ) -> Samples:
-    #     df = pd.DataFrame(self._records).sort_values("t").reset_index(drop=True)
-    #     return df.pipe(Samples.from_frame)
-    #
-    # # concise summary stats for benchmarking/regression checks
-    # def summary(self) -> dict[str, float]:
-    #     df = self.to_frame()
-    #     if df.empty:
-    #         return {}
-    #     q = df.quantile([0.5, 0.95]).to_dict()
-    #     out = {
-    #         "peak_job_rss_gb": float(df["job_rss_gb"].max()),
-    #         "mean_job_rss_gb": float(df["job_rss_gb"].mean()),
-    #         "p95_job_rss_gb": float(q["job_rss_gb"][0.95]),
-    #         "min_sys_avail_gb": float(df["sys_avail_gb"].min()),
-    #         "max_sys_percent": float(df["sys_percent"].max()),
-    #         "max_swap_used_gb": float(df["swap_used_gb"].max()),
-    #         "max_gpu_used_gb": float(df["gpu_used_gb"].max()) if "gpu_used_gb" in df else float("nan"),
-    #     }
-    #     return out
+    @cached_property
+    def samples(self) -> Samples:
+        df = (
+            pd.DataFrame(self._records)
+            .sort_values("t")
+            .reset_index(drop=True)
+        )
+        result = Samples.from_frame(df)
+        return result
+
+
 
     # internal sampling loop
     def _run(self):
@@ -81,6 +69,10 @@ class MemSampler:
             vm = psutil.virtual_memory()
             sm = psutil.swap_memory()
 
+            # CPU snapshot
+            cpu_percent = float(psutil.cpu_percent(interval=None))
+            cpu_cores = int(psutil.cpu_count(logical=True) or 0)
+
             # process tree RSS
             try:
                 rss_self = proc.memory_info().rss
@@ -101,6 +93,8 @@ class MemSampler:
             gpu_used_gb = float("nan")
             gpu_total_gb = float("nan")
             gpu_percent = float("nan")
+            gpu_util_percent = float("nan")
+            gpu_cores = float("nan")
             if torch is not None and torch.cuda.is_available():
                 try:
                     dev = torch.cuda.current_device()
@@ -109,6 +103,42 @@ class MemSampler:
                     gpu_used_gb = used_b / (1024 ** 3)
                     gpu_total_gb = total_b / (1024 ** 3)
                     gpu_percent = (used_b / total_b) * 100 if total_b else float("nan")
+
+                    # try NVML for utilization and cores
+                    try:
+                        from pynvml import (
+                            nvmlInit,
+                            nvmlShutdown,
+                            nvmlDeviceGetHandleByIndex,
+                            nvmlDeviceGetUtilizationRates,
+                            nvmlDeviceGetMultiprocessorCount,
+                        )
+                        nvmlInit()
+                        handle = nvmlDeviceGetHandleByIndex(int(dev))
+                        util = nvmlDeviceGetUtilizationRates(handle)
+                        gpu_util_percent = float(util.gpu)
+                        try:
+                            gpu_cores = float(nvmlDeviceGetMultiprocessorCount(handle))
+                        except Exception:
+                            gpu_cores = float("nan")
+                        nvmlShutdown()
+                    except Exception:
+                        # fallback via nvidia-smi, if available
+                        try:
+                            import subprocess
+                            out = subprocess.check_output(
+                                [
+                                    "nvidia-smi",
+                                    "--query-gpu=utilization.gpu",
+                                    "--format=csv,noheader,nounits",
+                                    f"-i{int(dev)}",
+                                ],
+                                timeout=0.2,
+                            )
+                            # may return like b'35\n'
+                            gpu_util_percent = float(out.decode().strip().splitlines()[0])
+                        except Exception:
+                            pass
                 except Exception:
                     pass
 
@@ -122,24 +152,15 @@ class MemSampler:
                 "job_rss_gb": (rss_self + rss_children) / (1024 ** 3),
                 "swap_used_gb": sm.used / (1024 ** 3),
                 "swap_percent": float(sm.percent),
+                "cpu_percent": cpu_percent,
+                "cpu_cores": cpu_cores,
                 "gpu_used_gb": gpu_used_gb,
                 "gpu_total_gb": gpu_total_gb,
                 "gpu_percent": gpu_percent,
+                "gpu_util_percent": gpu_util_percent,
+                "gpu_cores": gpu_cores,
             }
             self._records.append(rec)
-
-            # update tqdm postfix for live visibility
-            if self._bar is not None:
-                try:
-                    headroom_gb = rec["sys_avail_gb"]
-                    self._bar.set_postfix({
-                        "job_rss_gb": f'{rec["job_rss_gb"]:.2f}',
-                        "avail_gb": f'{headroom_gb:.2f}',
-                        "swap%": f'{rec["swap_percent"]:.0f}',
-                        "gpu_gb": f'{rec["gpu_used_gb"]:.2f}' if not pd.isna(rec["gpu_used_gb"]) else "NA",
-                    })
-                except Exception:
-                    pass
 
             # warning when close to limits
             if rec["sys_avail_gb"] < 2.0 or rec["swap_percent"] > 50:

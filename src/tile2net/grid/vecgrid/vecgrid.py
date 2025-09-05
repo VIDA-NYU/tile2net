@@ -39,9 +39,9 @@ from .padded import Padded
 from .polygons import Polygons
 from .. import frame
 from ..cfg.cfg import Cfg
-from ..dataset.dataset import DataSet
-from ..dataset.datawrapper import DataWrapper
-from ..dataset.vec import VecDataSet, VecDataWrapper, VecDataLoader
+from ..loaders.dataset import DataSet
+from ..loaders.datawrapper import DataWrapper
+from ..loaders.vec import VecDataSet, VecDataWrapper, VecDataLoader
 from ..grid.corners import Corners
 from ..pednet import PedNet
 from ...grid.frame.namespace import namespace
@@ -505,7 +505,7 @@ class VecGrid(Grid):
             mininterval=10,
         )
 
-        with self.ingrid.cfg, bar:
+        with self.ingrid.cfg, bar, self.sampler:
             for minibatch in loader:
                 bar.update(len(minibatch))
 
