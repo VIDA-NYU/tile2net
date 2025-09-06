@@ -38,6 +38,8 @@ instead of --no-inference we have:
 --segmentation.force
 --vectorization.force
 
+preview seems to be very slow?
+
 
 bs_val=1
 Predicting Segmentation Tiles:  73%|███████▎  | 73/100 [00:30<00:09,  2.72 Broadcast.file.grayscale/s]
@@ -47,21 +49,10 @@ python -m tile2net --location "40.7053, -74.0111, 40.7119, -73.9900" --name manh
 
 python -m tile2net --location "boston common" --name "boston common" --segmentation.pad 0 --zoom 20 --model.bs_val 8 --vectorization.length 8 --polygon.simplify 3
 
+lines and polygons previews take FOREVER!!!
 
-VecDataWrapper
-VecDataSet
-VecDataLoader
 
 python -m tile2net --location "43.73982934358233, -70.36009908310434, 43.63293463137132, -70.22757630255016 " --name test_vectorization --zoom 20 --model.bs_val 8 --segmentation.pad 0 --vectorization.length 8 --polygon.simplify 2
-
-ingrid.time_usage
-seggrid.time_usage
-vecggrid.time_usage
-
-ignrid.disk_usage
-seggrid.disk_usage
-vecgrid.disk_usage
-
 
 
 uv pip install 'imageio[pyav]'
@@ -70,5 +61,16 @@ uv pip install 'imageio[pyav]'
 
 why is it saying "loading ingrid.polygnos from" AFTER I saved the concatenated polygons?
 
+INFO       Loading InGrid.polygons from
+	/home/arstneio/PycharmProjects/tile2net/src/outdir/maine/polygons/parquet/test_vectorization.parquet
+INFO       Saving preview of polygons to
+	/home/arstneio/PycharmProjects/tile2net/src/outdir/maine/polygons/preview/test_vectorization.png
+INFO       Loading InGrid.polygons from
+	/home/arstneio/PycharmProjects/tile2net/src/outdir/maine/polygons/parquet/test_vectorization.parquet
 
-lines and polygons previews take FOREVER!!!
+	preview takes forever!
+	why does loading happen twice?
+
+just keep default vectorization.length 4
+
+vec.length 8 is 44% faster but time doesn't matter; entire city of portland is 3 minutes

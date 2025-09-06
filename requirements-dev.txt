@@ -27,7 +27,7 @@ toolz
 more-itertools
 gdown
 pytest
-imageio
+imageio[pyav]
 
 sphinx
 myst-parser

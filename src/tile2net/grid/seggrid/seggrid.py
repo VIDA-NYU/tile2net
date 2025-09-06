@@ -1,25 +1,22 @@
 from __future__ import annotations
 
-import time
-from concurrent.futures import ThreadPoolExecutor, wait, as_completed
-from contextlib import ExitStack
-
 import copy
+import gc
 import hashlib
 import os
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import wait
+from contextlib import ExitStack
 from functools import *
 from typing import *
 from typing import TYPE_CHECKING
 
 import numpy
-import numpy as np
 import torch
 import torch.distributed as dist
 from torch.nn.parallel.data_parallel import DataParallel
-
 from tqdm import tqdm
 from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
@@ -36,9 +33,9 @@ from .file import File
 from .minibatch import MiniBatch
 from .padded import Padded
 from .vectile import VecTile
+from ..grid.grid import Grid
 from ..loaders.sample import SampleDataWrapper
 from ..loaders.val import ValDataSet, ValDataLoader
-from ..grid.grid import Grid
 from ..util import recursion_block
 from ...grid.frame.namespace import namespace
 from ...tileseg import datasets, network
@@ -330,14 +327,17 @@ class SegGrid(
 
             net: MscaleOCR = network.get_net(criterion)
             optim, scheduler = get_optimizer(net)
-
             net: DataParallel = network.wrap_network_in_dataparallel(net)
+
             if cfg.restore_optimizer:
                 restore_opt(optim, checkpoint)
             if cfg.restore_net:
                 restore_net(net, checkpoint)
             if cfg.options.init_decoder:
                 net.module.init_mods()
+
+            del checkpoint
+            gc.collect()
             torch.cuda.empty_cache()
 
             if cfg.model.eval == 'folder':
@@ -474,7 +474,6 @@ class SegGrid(
                         errors.append(exc)
                 futures.clear()
 
-            torch.cuda.empty_cache()
             t = time.time() - t
             msg = (
                 f'Adding {t:.1f}s to total '
@@ -499,13 +498,14 @@ class SegGrid(
             msg = f'Finished predicting {len(dataset)} segmentation tiles.'
             logger.info(msg)
 
-            del dataset
-            del loader
-            del wrapper
-            del input_images
-            del labels
-            del net
-            del batch
+            for name in (
+                'dataset loader wrapper input_images labels net '
+                'batch optim scheduler criterion criterion_val struct'
+            ).split():
+                if name in locals():
+                    del locals()[name]
+            gc.collect()
+            torch.cuda.empty_cache()
 
         assert ingrid.segtile.grayscale.map(os.path.exists).all()
 
