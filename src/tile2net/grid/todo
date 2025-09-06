@@ -78,3 +78,4 @@ vec.length 8 is 44% faster but time doesn't matter; entire city of portland is 3
 todo: use the del method to print a message to confirm that loader and dataset have been deleted
 
 --location "43.73982934358233, -70.36009908310434, 43.63293463137132, -70.22757630255016 " --name test_vectorization --zoom 20 --model.bs_val 8 --segmentation.pad 0 --vectorization.length 8 --polygon.simplify 2
+python -m tile2net --location "43.73982934358233, -70.36009908310434, 43.63293463137132, -70.22757630255016 " --name test_vectorization --zoom 20 --model.bs_val 8 --segmentation.pad 0 --vectorization.length 8 --polygon.simplify 2
