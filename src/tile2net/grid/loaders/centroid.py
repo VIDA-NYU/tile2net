@@ -33,8 +33,8 @@ from torch.utils.data.dataloader import (
 )
 
 from tile2net.grid.cfg import cfg
-from .dataset import TensorDataSet, T
-from .dataset import DataSet
+from .stitch import TensorDataSet, T
+from .stitch import StitchDataSet
 from .dataloader import DataLoader
 from tile2net.tileseg.datasets.randaugment import RandAugment
 

@@ -40,9 +40,13 @@ class Polygons(
 
         self = super()._get(instance, owner)
         if instance is None:
-            result = self
-        elif self.__name__ in instance.__dict__:
-            result = instance.frame.__dict__[self.__name__]
+            raise NotImplementedError
+
+        key = self.__name__
+        cache = instance.frame.__dict__
+
+        if key in cache:
+            result = cache[key]
         else:
 
             file = self.file
@@ -108,7 +112,7 @@ class Polygons(
                 )
                 logger.info(msg)
 
-            instance.frame.__dict__[self.__name__] = result
+            cache[key] = result
 
         result.instance = instance
 

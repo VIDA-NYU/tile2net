@@ -32,6 +32,10 @@ from .. import frame
 from .. import util
 from ..cfg import cfg, Cfg
 from ..frame.framewrapper import FrameWrapper
+from ..loaders.rescale import RescaleDataSet
+from ..loaders.dataloader import DataLoader
+from ..loaders.datawrapper import DataWrapper
+
 
 if False:
     import folium
@@ -710,93 +714,6 @@ class Grid(
 
         return scale
 
-    def preview(
-            self,
-            maxdim: int = 2048,
-            divider: Optional[str] = 'red',
-            show: bool = True,
-            files: pd.Series | None = None,
-    ) -> PIL.Image.Image:
-
-        # input columns
-        if files is None:
-            files: pd.Series = self.file.infile
-        R: pd.Series = self.r
-        C: pd.Series = self.c
-
-        # grid geometry
-        dim = self.dimension
-        n_rows = int(R.max()) + 1
-        n_cols = int(C.max()) + 1
-        div_px = 1 if divider else 0
-
-        # full mosaic size before optional down-scaling
-        full_w0 = n_cols * dim + div_px * (n_cols - 1)
-        full_h0 = n_rows * dim + div_px * (n_rows - 1)
-
-        # scale to maxdim if needed
-        scale = 1.0 if max(full_w0, full_h0) <= maxdim else maxdim / max(full_w0, full_h0)
-
-        # derived sizes
-        tile_w = max(1, int(round(dim * scale)))
-        tile_h = tile_w
-        full_w = n_cols * tile_w + div_px * (n_cols - 1)
-        full_h = n_rows * tile_h + div_px * (n_rows - 1)
-
-        # canvas
-        canvas_col = divider if divider else (0, 0, 0)
-        mosaic = Image.new('RGB', (full_w, full_h), color=canvas_col)
-
-        # tile loader
-        def load(idx: int) -> tuple[int, int, np.ndarray]:
-            arr = iio.imread(files.iat[idx])
-            if scale != 1.0:
-                arr = np.asarray(
-                    Image.fromarray(arr).resize(
-                        (tile_w, tile_h),
-                        Image.Resampling.LANCZOS,
-                    )
-                )
-            return R.iat[idx], C.iat[idx], arr
-
-        # compose mosaic
-        with ThreadPoolExecutor() as pool:
-            for r, c, arr in pool.map(load, range(len(files))):
-                x0 = c * (tile_w + div_px)
-                y0 = r * (tile_h + div_px)
-                mosaic.paste(Image.fromarray(arr), (x0, y0))
-
-        # optional popup in PyCharm's SciView (matplotlib)
-        if show:
-            try:
-                # dpi chosen to avoid oversized windows while preserving sharpness
-                dpi = 96
-                fig_w_in = max(1.0, full_w / dpi)
-                fig_h_in = max(1.0, full_h / dpi)
-
-                plt.figure(figsize=(fig_w_in, fig_h_in), dpi=dpi)
-                plt.imshow(mosaic)
-                plt.axis('off')
-                plt.tight_layout(pad=0)
-                plt.show()
-
-            except Exception:
-                # fallback to OS viewer if matplotlib/SciView is unavailable
-                tmp = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
-                try:
-                    mosaic.save(tmp.name)
-                finally:
-                    tmp.close()
-
-                with Image.open(tmp.name) as im:
-                    im.show()
-
-                try:
-                    os.unlink(tmp.name)
-                except OSError:
-                    pass
-
-        return mosaic
 
     @classmethod
     def from_empty(cls) -> Self:

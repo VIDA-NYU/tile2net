@@ -47,6 +47,7 @@ Predicting Segmentation Tiles:  73%|███████▎  | 73/100 [00:30<00
 python -m tile2net --location "40.7053, -74.0111, 40.7119, -73.9900" --name manhattan/unscaled/pad=1 --segmentation.pad 1 --zoom 20 --model.bs_val 2 --vectorization.length 8
 --location "boston common" --name "boston common" --segmentation.pad 1 --zoom 20 --model.bs_val 1 --vectorization.length 8 --polygon.simplify 3 --multi_scale_inference --model.extra_scales 0.5,2
 
+
 python -m tile2net --location "boston common" --name "boston common" --segmentation.pad 0 --zoom 20 --model.bs_val 8 --vectorization.length 8 --polygon.simplify 3
 
 lines and polygons previews take FOREVER!!!
@@ -74,3 +75,6 @@ INFO       Loading InGrid.polygons from
 just keep default vectorization.length 4
 
 vec.length 8 is 44% faster but time doesn't matter; entire city of portland is 3 minutes
+todo: use the del method to print a message to confirm that loader and dataset have been deleted
+
+--location "43.73982934358233, -70.36009908310434, 43.63293463137132, -70.22757630255016 " --name test_vectorization --zoom 20 --model.bs_val 8 --segmentation.pad 0 --vectorization.length 8 --polygon.simplify 2

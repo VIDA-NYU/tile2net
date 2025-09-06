@@ -1,5 +1,13 @@
 from __future__ import annotations
-from ..sampler.sampler import Sampler
+from  PIL import ImageColor
+
+from dataclasses import dataclass
+from typing import Iterator, Iterable, List, cast
+
+import numpy as np
+from numpy.typing import NDArray
+from torch.utils.data import DataLoader, Dataset
+
 
 import copy
 import os
@@ -14,11 +22,15 @@ from functools import *
 from pathlib import Path
 from typing import *
 
+import PIL.Image
 import certifi
 import geopandas as gpd
 import imageio.v3 as iio
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import requests
+from PIL import Image
 from requests.adapters import HTTPAdapter
 from tqdm import tqdm
 from tqdm.auto import tqdm
@@ -34,17 +46,19 @@ from .segtile import SegTile
 from .source import Source, SourceNotFound
 from .vectile import VecTile
 from .. import frame
-from .. import util
 from ..cfg import cfg
 from ..dir.dir import Dir, ExtensionNotFoundError, XYNotFoundError
 from ..dir.tempdir import TempDir
 from ..grid import file
 from ..grid.grid import Grid
 from ..grid.static import Static
+from ..loaders.dataloader import DataLoader
+from ..loaders.datawrapper import DataWrapper
+from ..loaders.rescale import RescaleDataSet
 from ..seggrid.seggrid import SegGrid
 from ..vecgrid.vecgrid import VecGrid
-from ...grid.util import recursion_block, assert_perfect_overlap
 from ...grid import util
+from ...grid.util import recursion_block, assert_perfect_overlap
 
 # thread-local store
 tls = threading.local()
@@ -875,7 +889,6 @@ class InGrid(
         print(f"{BOLD}Tile2Net run complete!{RST}")
         print(sep)
 
-
         # performance summaries
         def _fmt_pct(v: float) -> str:
             return f"{v:.1f}%"
@@ -1043,3 +1056,260 @@ class InGrid(
     def time_usage(self):
         return 0
 
+    def preview(
+            self,
+            maxdim: int = 2048,
+            divider: Optional[str] = 'red',
+            show: bool = True,
+            files: pd.Series | None = None,
+    ) -> PIL.Image.Image:
+
+        # input columns
+        if files is None:
+            files: pd.Series = self.file.infile
+        R: pd.Series = self.r
+        C: pd.Series = self.c
+
+        # grid geometry
+        dim = self.dimension
+        n_rows = int(R.max()) + 1
+        n_cols = int(C.max()) + 1
+        div_px = 1 if divider else 0
+
+        # full mosaic size before optional down-scaling
+        full_w0 = n_cols * dim + div_px * (n_cols - 1)
+        full_h0 = n_rows * dim + div_px * (n_rows - 1)
+
+        # scale to maxdim if needed
+        scale = 1.0 if max(full_w0, full_h0) <= maxdim else maxdim / max(full_w0, full_h0)
+
+        # derived sizes
+        tile_w = max(1, int(round(dim * scale)))
+        tile_h = tile_w
+        full_w = n_cols * tile_w + div_px * (n_cols - 1)
+        full_h = n_rows * tile_h + div_px * (n_rows - 1)
+
+        # canvas
+        canvas_col = divider if divider else (0, 0, 0)
+        mosaic = Image.new('RGB', (full_w, full_h), color=canvas_col)
+
+        # tile loader
+        def load(idx: int) -> tuple[int, int, np.ndarray]:
+            arr = iio.imread(files.iat[idx])
+            if scale != 1.0:
+                arr = np.asarray(
+                    Image.fromarray(arr).resize(
+                        (tile_w, tile_h),
+                        Image.Resampling.LANCZOS,
+                    )
+                )
+            return R.iat[idx], C.iat[idx], arr
+
+        # compose mosaic
+        with ThreadPoolExecutor() as pool:
+            for r, c, arr in pool.map(load, range(len(files))):
+                x0 = c * (tile_w + div_px)
+                y0 = r * (tile_h + div_px)
+                mosaic.paste(Image.fromarray(arr), (x0, y0))
+
+        # optional popup in PyCharm's SciView (matplotlib)
+        if show:
+            try:
+                # dpi chosen to avoid oversized windows while preserving sharpness
+                dpi = 96
+                fig_w_in = max(1.0, full_w / dpi)
+                fig_h_in = max(1.0, full_h / dpi)
+
+                plt.figure(figsize=(fig_w_in, fig_h_in), dpi=dpi)
+                plt.imshow(mosaic)
+                plt.axis('off')
+                plt.tight_layout(pad=0)
+                plt.show()
+
+            except Exception:
+                # fallback to OS viewer if matplotlib/SciView is unavailable
+                tmp = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
+                try:
+                    mosaic.save(tmp.name)
+                finally:
+                    tmp.close()
+
+                with Image.open(tmp.name) as im:
+                    im.show()
+
+                try:
+                    os.unlink(tmp.name)
+                except OSError:
+                    pass
+
+        return mosaic
+
+    def preview(
+            self,
+            maxdim: int = 2048,
+            divider: Optional[str] = 'red',
+            show: bool = True,
+            files: pd.Series | None = None,
+    ) -> PIL.Image.Image:
+
+        R: pd.Series = self.r
+        C: pd.Series = self.c
+
+        # grid geometry
+        dim = self.dimension
+        n_rows = int(R.max()) + 1
+        n_cols = int(C.max()) + 1
+
+        w = n_cols * dim + n_cols
+        h = n_rows * dim + n_rows
+        m = max(w, h)
+
+        if m <= maxdim:
+            scale = 1.
+        else:
+            scale = maxdim / m
+
+        # input columns
+        if files is None:
+            files: pd.Series = self.file.infile
+        R: pd.Series = self.r
+        C: pd.Series = self.c
+        wrapper = DataWrapper.from_tiles(
+            infile=self.file.infile,
+            index=self.index,
+            row=self.r,
+            col=self.c,
+            background=divider,
+            force=True,
+        )
+        dataset = RescaleDataSet(wrapper, scale=scale)
+        loader = dataset.loader
+        for batch in loader:
+            batch.x0
+            batch.y0
+            batch.arr
+
+    def preview(
+            self,
+            maxdim: int = 2048,
+            divider: Optional[str] = 'red',
+            show: bool = True,
+            files: pd.Series | None = None,
+    ) -> Image.Image:
+
+        # grid geometry
+        dim = self.dimension
+        R: pd.Series = self.r
+        C: pd.Series = self.c
+
+        # total rows/cols
+        n_rows = int(R.max()) + 1
+        n_cols = int(C.max()) + 1
+
+        # compute full-res canvas size assuming 1px divider lines between tiles
+        # (the dataset you're using below is already aware of 'divider' as background)
+        w = n_cols * dim + n_cols
+        h = n_rows * dim + n_rows
+        m = max(w, h)
+
+        # downscale factor to respect maxdim
+        scale = 1.0 if m <= maxdim else maxdim / m
+
+        # build a wrapper that knows how to place tiles with a divider-colored background
+        if files is None:
+            files = self.file.infile
+
+        wrapper = DataWrapper.from_tiles(
+            infile=self.file.infile,
+            index=self.index,
+            row=self.r,
+            col=self.c,
+            background=divider,
+            force=True,
+        )
+
+        # dataset/loader provide batches with x0, y0, arr already scaled
+        dataset = RescaleDataSet(wrapper, scale=scale)
+        dataset.infile
+        loader = dataset.loader
+
+        # base color for the mosaic background
+        base_rgb = ImageColor.getrgb(divider or 'black')
+
+        # allocate mosaic as RGB uint8 and fill with base color
+        # shape uses scaled dimensions derived implicitly from dataset outputs;
+        # we allocate using the scaled canvas size to avoid incremental growth.
+        # Scale the nominal w,h computed above.
+        full_w = max(1, int(round(w * scale)))
+        full_h = max(1, int(round(h * scale)))
+        mosaic_np = np.empty((full_h, full_w, 3), dtype=np.uint8)
+        mosaic_np[...] = base_rgb
+
+        # paste tiles using numpy copy semantics
+        for batch in loader:
+            x0 = batch.x0
+            y0 = batch.y0
+            arr = batch.arr
+
+            # ensure uint8 RGB
+            if arr.dtype != np.uint8:
+                arr = arr.astype(np.uint8, copy=False)
+
+            if arr.ndim == 2:
+                # grayscale → RGB
+                arr = np.repeat(arr[:, :, None], 3, axis=2)
+            elif arr.ndim == 3 and arr.shape[2] == 4:
+                # drop alpha
+                arr = arr[:, :, :3]
+            elif arr.ndim != 3 or arr.shape[2] != 3:
+                raise ValueError(f'Unexpected tile shape: {arr.shape!r}')
+
+            h_tile, w_tile = arr.shape[0], arr.shape[1]
+            y1 = y0 + h_tile
+            x1 = x0 + w_tile
+
+            # bounds check (defensive; no-op if in-bounds)
+            if y0 < 0 or x0 < 0 or y1 > mosaic_np.shape[0] or x1 > mosaic_np.shape[1]:
+                raise ValueError(
+                    f'Tile at ({x0},{y0}) with size ({w_tile},{h_tile}) '
+                    f'exceeds mosaic bounds ({mosaic_np.shape[1]},{mosaic_np.shape[0]}).'
+                )
+
+            # fast in-place write
+            np.copyto(mosaic_np[y0:y1, x0:x1, :], arr)
+
+        # convert to PIL for downstream consumers
+        mosaic_im = Image.fromarray(mosaic_np, mode='RGB')
+
+        # optional display (PyCharm SciView / matplotlib)
+        if show:
+            try:
+                # keep DPI moderate to avoid giant windows
+                dpi = 96
+                fig_w_in = max(1.0, mosaic_im.width / dpi)
+                fig_h_in = max(1.0, mosaic_im.height / dpi)
+
+                plt.figure(figsize=(fig_w_in, fig_h_in), dpi=dpi)
+                plt.imshow(mosaic_im)
+                plt.axis('off')
+                plt.tight_layout(pad=0)
+                plt.show()
+
+            except Exception:
+                # fallback to OS image viewer
+                tmp = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
+                try:
+                    mosaic_im.save(tmp.name)
+                finally:
+                    tmp.close()
+
+                try:
+                    with Image.open(tmp.name) as im:
+                        im.show()
+                finally:
+                    try:
+                        os.unlink(tmp.name)
+                    except OSError:
+                        pass
+
+        return mosaic_im

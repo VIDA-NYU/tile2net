@@ -3,7 +3,7 @@ from typing import *
 import numpy as np
 import torch
 
-from .dataset import DataSet
+from .stitch import StitchDataSet
 
 T = TypeVar("T", np.ndarray, torch.Tensor)
 
@@ -12,7 +12,7 @@ class BaseDataLoader(
     torch.utils.data.DataLoader,
     Generic[T]
 ):
-    dataset: DataSet
+    dataset: StitchDataSet
 
     @property
     def wrapper(self):

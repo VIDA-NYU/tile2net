@@ -9,7 +9,7 @@ import torch
 
 import tile2net.tileseg.transforms.transforms as extended_transforms
 from .dataloader import TensorDataLoader
-from .dataset import TensorDataSet
+from .stitch import TensorDataSet
 from .datawrapper import DataWrapper, frame
 from .mask import MaskDataSet
 from .raster import RasterDataSet

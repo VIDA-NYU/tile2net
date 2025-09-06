@@ -40,9 +40,13 @@ class Lines(
     ) -> Lines:
         self = super()._get(instance, owner)
         if instance is None:
-            result = self
-        elif self.__name__ in instance.__dict__:
-            result = instance.__dict__[self.__name__]
+            raise NotImplementedError
+
+        key = self.__name__
+        cache = instance.frame.__dict__
+
+        if key in cache:
+            result = cache[key]
         else:
             file = self.file
             Path(os.path.dirname(file)).mkdir(parents=True, exist_ok=True)
@@ -57,7 +61,7 @@ class Lines(
                     gpd.read_parquet(file)
                     .pipe(self.__class__.from_frame, wrapper=self)
                 )
-                instance.__dict__[self.__name__] = result
+                cache[key] = result
             else:
 
                 lines: gpd.GeoDataFrame = instance.vecgrid.lines.frame.copy()
@@ -82,7 +86,7 @@ class Lines(
                     .pipe(self.__class__.from_frame, wrapper=self)
                 )
 
-                instance.__dict__[self.__name__] = result
+                cache[key] = result
 
                 msg = "Finding coordinates that intersect tile boundaries"
                 debug = logger.debug(msg)
@@ -152,7 +156,7 @@ class Lines(
                     .pipe(self.__class__.from_frame, wrapper=self)
                 )
 
-                instance.__dict__[self.__name__] = result
+                cache[key] = result
 
                 msg = (
                     f"Writing {owner.__qualname__}.{self.__name__} "

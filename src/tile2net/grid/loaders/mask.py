@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from .dataloader import DataLoader
-from .dataset import DataSet
+from .stitch import StitchDataSet
 from .datawrapper import DataWrapper
 
 ArrayLike = Union[
@@ -18,7 +18,7 @@ ArrayLike = Union[
 
 
 class MaskDataSet(
-    DataSet
+    StitchDataSet
 ):
     @classmethod
     def from_tiles(

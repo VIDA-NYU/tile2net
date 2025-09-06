@@ -16,7 +16,7 @@ from geopandas import GeoDataFrame
 from tile2net.grid.cfg import cfg
 from tile2net.grid.cfg.logger import logger
 from .dataloader import DataLoader
-from .dataset import DataSet
+from .stitch import StitchDataSet
 from .datawrapper import DataWrapper
 from ..pednet import PedNet
 from ..vecgrid.mask2poly import Mask2Poly
@@ -109,7 +109,7 @@ class VecResult(TypedDict):
 
 
 class VecDataSet(
-    DataSet
+    StitchDataSet
 ):
     def __getitem__(self, item: int) -> int:
         with _silent_io():
