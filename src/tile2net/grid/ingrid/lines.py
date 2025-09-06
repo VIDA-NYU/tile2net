@@ -242,6 +242,10 @@ class Lines(
             facecolor=background,
         )
         ax.set_facecolor(background)
+        # hide axes and ticks; draw full-bleed like polygons preview
+        ax.set_axis_off()
+        ax.set_position([0, 0, 1, 1])
+        ax.margins(0)
 
         # determine axis/tick color from mosaic luminance for contrast
         # downsample to avoid large reductions
@@ -259,21 +263,7 @@ class Lines(
                         0.0722 * arr[..., 2].mean())
         axis_col = 'white' if lum < 128 else 'black'
 
-        # ticks and spines
-        labelsize_pt = max(8, int(long_side / dpi * 72 * 0.04))
-        ticklen_px = max(4, int(long_side * 0.006))
-        ax.tick_params(
-            axis='both',
-            which='both',
-            colors=axis_col,
-            direction='out',
-            labelsize=labelsize_pt,
-            length=ticklen_px,
-            width=max(1, ticklen_px // 3),
-        )
-        for spine in ax.spines.values():
-            spine.set_color(axis_col)
-            spine.set_linewidth(max(1, ticklen_px // 3))
+        # axes are hidden; no ticks or spines to configure
 
         # draw the imagery with geographic extent
         # origin='upper' matches the mosaic assembly (row 0 at top)
@@ -336,7 +326,6 @@ class Lines(
         ax.set_xlim(minx, maxx)
         ax.set_ylim(miny, maxy)
         ax.set_aspect('equal')
-        plt.subplots_adjust(left=0.08, right=0.98, bottom=0.08, top=0.98)
 
         buf = io.BytesIO()
         fig.savefig(
