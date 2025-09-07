@@ -548,7 +548,7 @@ class Mask2Poly(
             .eq(0)
         )
         distance = np.where(is_exterior, -dist, dist)
-        union = self.roads.geometry.union_all(method='coverage')
+        union = self.geometry.union_all()
 
         curbs: pd.DataFrame = (
             gpd.GeoSeries(rings, crs=self.crs)

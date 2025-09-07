@@ -99,3 +99,6 @@ python -m tile2net --location "43.73982934358233, -70.36009908310434, 43.6329346
 todo: get polygons by padding left by 5 meters
 needs roads, needs non-roads
 
+
+See this area (37.7642222, -122.5102778), (37.7393333, -122.4754722)
+python -m tile2net --location "37.7642222, -122.5102778, 37.7393333, -122.4754722" --name sf --zoom 20 --model.bs_val 8 --segmentation.pad 0 --vectorization.length 8 --polygon.simplify 2

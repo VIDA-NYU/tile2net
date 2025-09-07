@@ -280,7 +280,6 @@ class InGrid(
         pool_size = min(max_workers, len(mapping))
         not_found: list[Path] = []
         failed: list[Path] = []
-        t = time.time()
 
         def _fetch_write(
                 path: Path,
@@ -364,13 +363,6 @@ class InGrid(
                         f.cancel()
                     break
 
-        t = time.time() - t
-        msg = (
-            f'Adding {t:.1f}s to total '
-            f'{self.instance.__class__.__name__} time usage.'
-        )
-        logger.debug(msg)
-        self.instance.time_usage += t
 
         if one and success:
             logger.info("Downloaded one file successfully (one=True).")
