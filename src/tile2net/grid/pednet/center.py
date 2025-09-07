@@ -15,6 +15,7 @@ from .lines import Lines
 from ..benchmark import benchmark
 from ..cfg import cfg
 from ..frame.framewrapper import FrameWrapper
+from .. import frame
 
 _ = mintrees, stubs
 from ..explore import explore
@@ -27,6 +28,8 @@ if False:
 class Center(
     FrameWrapper
 ):
+    instance: PedNet = None
+    __name__ = 'center'
 
     def _get(
             self,
@@ -101,8 +104,6 @@ class Center(
         __get__=_get,
     )
 
-    instance: PedNet = None
-    __name__ = 'center'
 
     @cached_property
     def clipped(self) -> Self:
@@ -145,6 +146,12 @@ class Center(
         loc = self.clipped.feature == 'sidewalk'
         sidewalk = self.clipped.loc[loc].copy()
         return sidewalk
+
+    @cached_property
+    def road(self) -> gpd.GeoDataFrame:
+        loc = self.clipped.feature == 'road'
+        road = self.clipped.loc[loc].copy()
+        return road
 
     @cached_property
     def pruned(
@@ -274,3 +281,8 @@ class Center(
 
         folium.LayerControl().add_to(m)
         return m
+
+    @frame.column
+    def feature(self):
+        ...
+

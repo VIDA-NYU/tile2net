@@ -876,8 +876,13 @@ class Line(cmdline.Namespace):
         return 3072
 
 
-class Polygon(cmdline.Namespace):
+class Curb(cmdline.Namespace):
+    @cmdline.property
+    def distance(self) -> float:
+        return 3.
 
+
+class Polygon(cmdline.Namespace):
 
     @cmdline.property
     def force(self):
@@ -1105,6 +1110,10 @@ class Cfg(
     def polygon(self):
         ...
 
+    @Curb
+    def curb(self):
+        ...
+
     @Indir
     def indir(self):
         ...
@@ -1151,10 +1160,9 @@ class Cfg(
         """
         return dict(
             sidewalk='red',
-            # road='green',
-            # road='orange',
             road='cyan',
             crosswalk='yellow',
+            curb='blue',
         )
 
     @cmdline.property

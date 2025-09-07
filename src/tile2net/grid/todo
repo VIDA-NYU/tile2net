@@ -79,3 +79,23 @@ todo: use the del method to print a message to confirm that loader and dataset h
 
 --location "43.73982934358233, -70.36009908310434, 43.63293463137132, -70.22757630255016 " --name test_vectorization --zoom 20 --model.bs_val 8 --segmentation.pad 0 --vectorization.length 8 --polygon.simplify 2
 python -m tile2net --location "43.73982934358233, -70.36009908310434, 43.63293463137132, -70.22757630255016 " --name test_vectorization --zoom 20 --model.bs_val 8 --segmentation.pad 0 --vectorization.length 8 --polygon.simplify 2
+
+1. left offset curve each road polygon's exterior ring
+2. right offset curve each road polygon's interior ring
+3. difference with ped polygons
+4. explode
+5. drop if not touching ped polygons
+6. include curbs as pednet polygons for centerline computation
+7. generate network
+8. clip by curbs
+9. RDP simplify each curb line
+10. Mark all curb line points as False
+11. Start at each curb line end where intersecting a true ped line of degree=2
+12. Walk along points until >90 degree dtheta from sidewalk angle and mark as True
+13. If any points for the simplified curb line, drop the polygon
+
+14. generate centerlines from the remaining polygons
+
+todo: get polygons by padding left by 5 meters
+needs roads, needs non-roads
+

@@ -174,7 +174,7 @@ class Mask2Poly(
             mask = (array == id).astype(np.uint8)
 
             # polygonize the mask itself; filter val==1
-            it = rasterio.features.shapes( mask, transform=affine )
+            it = rasterio.features.shapes(mask, transform=affine)
             geometry = [
                 shape(geom)
                 for geom, val in it
@@ -194,7 +194,6 @@ class Mask2Poly(
             .pipe(cls.from_frame)
         )
         return result
-
 
     def _replace_convexhull(
             self,
@@ -264,6 +263,8 @@ class Mask2Poly(
         cls = self.__class__
         logger.debug("Starting postprocessing")
         msg = f'Dissolving, simplifying, & exploding {len(self)} (Multi)Polygons'
+        if cfg.curb.distance:
+            self = self.with_curbs(cfg.curb.distance)
         if simplify is None:
             simplify = cfg.polygon.simplify
         loc = self.geometry.is_valid
@@ -273,19 +274,12 @@ class Mask2Poly(
         with benchmark(msg):
             result: Self = (
                 self.frame
-                #
-                # .to_crs(crs)
                 .dissolve(level='feature', method='coverage')
-                # .dissolve(level='feature', method='unary',)
                 .set_geometry('geometry')
                 .simplify_coverage(simplify)
                 .explode()
                 .to_frame('geometry')
-                # .to_crs(crs)
-                .make_valid(
-                    method='structure',
-                    keep_collapsed=False,
-                )
+                .make_valid(method='structure', keep_collapsed=False)
                 .explode()
                 .to_frame('geometry')
                 .pipe(self.__class__.from_frame, wrapper=self)
@@ -515,3 +509,62 @@ class Mask2Poly(
             plt.close(fig)
 
         return pil_img
+
+    @property
+    def roads(self) -> Self:
+        loc = self.index == 'road'
+        result = self.loc[loc].copy()
+        return result
+
+    @property
+    def sidewalks(self) -> Self:
+        loc = self.index == 'sidewalk'
+        result = self.loc[loc].copy()
+        return result
+
+    @property
+    def crosswalks(self) -> Self:
+        loc = self.index == 'crosswalk'
+        result = self.loc[loc].copy()
+        return result
+
+    @property
+    def curbs(self) -> Self:
+        loc = self.index == 'curb'
+        result = self.loc[loc].copy()
+        return result
+
+    def with_curbs(self, dist) -> Self:
+        roads: gpd.GeoSeries = self.roads.geometry
+        rings = shapely.get_rings(roads)
+        n_interior = shapely.get_num_interior_rings(roads)
+        n_rings = n_interior + 1
+        by = np.arange(len(n_rings))
+        by = np.repeat(by, n_rings)
+        is_exterior = (
+            pd.Series(index=by)
+            .groupby(by)
+            .cumcount()
+            .eq(0)
+        )
+        distance = np.where(is_exterior, -dist, dist)
+        union = self.roads.geometry.union_all(method='coverage')
+
+        curbs: pd.DataFrame = (
+            gpd.GeoSeries(rings, crs=self.crs)
+            .offset_curve(distance)
+            .loc[lambda s: shapely.get_num_interior_rings(s) > 0]
+            .difference(union)
+            .loc[lambda s: shapely.intersects(s, union)]
+            .explode()
+            .to_frame('geometry')
+            .assign(feature='curb')
+            .set_index('feature')
+            [['geometry']]
+        )
+
+        result = (
+            pd.concat([self.frame, curbs])
+            .pipe(self.from_frame, wrapper=self)
+        )
+        return result
