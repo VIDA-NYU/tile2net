@@ -1,26 +1,18 @@
 from __future__ import annotations
-from ..sampler.sampler import Sampler
 
 import hashlib
 import math
 import os
-import tempfile
 import threading
-from concurrent.futures import ThreadPoolExecutor
 from functools import *
 from typing import *
 
-import PIL.Image
-import imageio.v3 as iio
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pyproj
 import shapely
-from PIL import Image
 from geopandas import GeoDataFrame
-from pandas import MultiIndex
-from pandas import Series, Index
+from pandas import MultiIndex, Series, Index
 
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.explore import explore
@@ -28,14 +20,10 @@ from .colormap import ColorMap
 from .corners import Corners
 from .file import File
 from .stitcher import Stitcher
-from .. import frame
-from .. import util
+from .. import frame, util
 from ..cfg import cfg, Cfg
 from ..frame.framewrapper import FrameWrapper
-from ..loaders.rescale import RescaleDataSet
-from ..loaders.dataloader import DataLoader
-from ..loaders.datawrapper import DataWrapper
-
+from ..sampler.sampler import Sampler
 
 if False:
     import folium

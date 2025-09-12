@@ -415,7 +415,6 @@ class SegGrid(
             msg = 'Predicting Segmentation Tiles'
             futures = []
 
-            t = time.time()
             with ExitStack() as stack, \
                     ThreadPoolExecutor() as threads, \
                     torch.inference_mode(), \
@@ -474,13 +473,6 @@ class SegGrid(
                         errors.append(exc)
                 futures.clear()
 
-            t = time.time() - t
-            msg = (
-                f'Adding {t:.1f}s to total '
-                f'{self.instance.__class__.__name__} time usage.'
-            )
-            logger.debug(msg)
-            self.instance.time_usage += t
 
             if errors:
                 try:

@@ -62,55 +62,55 @@ class Polygons(
                     .pipe(self.__class__.from_frame, wrapper=self)
                 )
             else:
-
-                vecgrid = instance.vecgrid
-                n = len(instance.vecgrid.polygons)
-                grid_size = max(
-                    (affine.a ** 2 + affine.e ** 2)
-                    ** .5
-                    for affine in vecgrid.affine_params
-                )
-
-                n_polygons = (
-                    vecgrid.polygons.frame
-                    .apply(shapely.get_num_geometries)
-                    .to_numpy()
-                    .sum()
-                )
-
-                n_features = len(vecgrid.polygons.columns)
-                msg = (
-                    f'Aggregating {n_polygons} polygons from {n} tiles and '
-                    f'{n_features} features into a single vector'
-                )
-
-                with benchmark(msg, level='info'):
-                    frame = instance.vecgrid.polygons.frame
-                    result = (
-                        frame
-                        .stack(future_stack=True)
-                        .to_frame(name='geometry')
-                        .set_crs(frame.crs)
-                        .pipe(Mask2Poly.from_frame, wrapper=self)
-                        .frame
-                        .dissolve(by='feature')
-                        .explode()
-                        .pipe(Polygons.from_frame, wrapper=self)
+                with instance.polygon_sampler:
+                    vecgrid = instance.vecgrid
+                    n = len(instance.vecgrid.polygons)
+                    grid_size = max(
+                        (affine.a ** 2 + affine.e ** 2)
+                        ** .5
+                        for affine in vecgrid.affine_params
                     )
 
-                msg = (
-                    f"Writing {owner.__qualname__}.{self.__name__} "
-                    f"to \n\t{file}"
-                )
-                logger.info(msg)
-                result.frame.to_parquet(file)
+                    n_polygons = (
+                        vecgrid.polygons.frame
+                        .apply(shapely.get_num_geometries)
+                        .to_numpy()
+                        .sum()
+                    )
 
-                msg = (
-                    f'Finished concatenating the polygons from {len(instance.vecgrid)} '
-                    f'tiles into a single vector of {len(result)} '
-                    f'geometries'
-                )
-                logger.info(msg)
+                    n_features = len(vecgrid.polygons.columns)
+                    msg = (
+                        f'Aggregating {n_polygons} polygons from {n} tiles and '
+                        f'{n_features} features into a single vector'
+                    )
+
+                    with benchmark(msg, level='info'):
+                        frame = instance.vecgrid.polygons.frame
+                        result = (
+                            frame
+                            .stack(future_stack=True)
+                            .to_frame(name='geometry')
+                            .set_crs(frame.crs)
+                            .pipe(Mask2Poly.from_frame, wrapper=self)
+                            .frame
+                            .dissolve(by='feature')
+                            .explode()
+                            .pipe(Polygons.from_frame, wrapper=self)
+                        )
+
+                    msg = (
+                        f"Writing {owner.__qualname__}.{self.__name__} "
+                        f"to \n\t{file}"
+                    )
+                    logger.info(msg)
+                    result.frame.to_parquet(file)
+
+                    msg = (
+                        f'Finished concatenating the polygons from {len(instance.vecgrid)} '
+                        f'tiles into a single vector of {len(result)} '
+                        f'geometries'
+                    )
+                    logger.info(msg)
 
             cache[key] = result
 

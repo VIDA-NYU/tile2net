@@ -1,12 +1,4 @@
 from __future__ import annotations
-from PIL import ImageColor
-
-from dataclasses import dataclass
-from typing import Iterator, Iterable, List, cast
-
-import numpy as np
-from numpy.typing import NDArray
-from torch.utils.data import DataLoader, Dataset
 
 import copy
 import os
@@ -15,13 +7,11 @@ import shutil
 import sys
 import tempfile
 import threading
-import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import *
 from pathlib import Path
 from typing import *
 
-import PIL.Image
 import certifi
 import geopandas as gpd
 import imageio.v3 as iio
@@ -29,7 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import requests
-from PIL import Image
+from PIL import ImageColor, Image
 from requests.adapters import HTTPAdapter
 from tqdm import tqdm
 from tqdm.auto import tqdm
@@ -51,9 +41,9 @@ from ..dir.tempdir import TempDir
 from ..grid import file
 from ..grid.grid import Grid
 from ..grid.static import Static
-from ..loaders.dataloader import DataLoader
 from ..loaders.datawrapper import DataWrapper
 from ..loaders.rescale import RescaleDataSet
+from ..sampler.sampler import Sampler
 from ..seggrid.seggrid import SegGrid
 from ..vecgrid.vecgrid import VecGrid
 from ...grid import util
@@ -362,7 +352,6 @@ class InGrid(
                     for f in futures:
                         f.cancel()
                     break
-
 
         if one and success:
             logger.info("Downloaded one file successfully (one=True).")
@@ -836,7 +825,14 @@ class InGrid(
             return p if str(p).strip() else None
 
         def _abs(p: Path) -> str:
-            return str(p.resolve())
+            s = str(p.resolve())
+            try:
+                home = str(Path.home())
+                if s == home or s.startswith(home + os.sep):
+                    s = '~' + s[len(home):]
+            except Exception:
+                pass
+            return s
 
         # collect resources
         rows = []
@@ -971,6 +967,28 @@ class InGrid(
                     print(f"Time Elapsed: {CYN}{_fmt_duration(vec_vals['elapsed'])}{RST}")
                 _print_line("RAM Usage", vec_vals['ram_avg'], vec_vals['ram_max'])
                 _print_line("CPU Usage", vec_vals['cpu_avg'], vec_vals['cpu_max'])
+        except Exception:
+            pass
+
+        # polygon concatenation time
+        try:
+            poly_s = self.polygon_sampler.samples  # preferred if available
+            if getattr(poly_s, 'time_elapsed', None) is not None:
+                print(sep)
+                print(f"{BOLD}Polygon concatenation{RST}")
+                print(sep)
+                print(f"Time Elapsed: {CYN}{_fmt_duration(poly_s.time_elapsed)}{RST}")
+        except Exception:
+            pass
+
+        # network concatenation time
+        try:
+            line_s = self.line_sampler.samples  # preferred if available
+            if getattr(line_s, 'time_elapsed', None) is not None:
+                print(sep)
+                print(f"{BOLD}Network concatenation{RST}")
+                print(sep)
+                print(f"Time Elapsed: {CYN}{_fmt_duration(line_s.time_elapsed)}{RST}")
         except Exception:
             pass
 
@@ -1179,3 +1197,13 @@ class InGrid(
                         pass
 
         return mosaic_im
+
+    @cached_property
+    def polygon_sampler(self) -> Sampler:
+        result = Sampler(include_gpu=True)
+        return result
+
+    @cached_property
+    def line_sampler(self) -> Sampler:
+        result = Sampler(include_gpu=True)
+        return result

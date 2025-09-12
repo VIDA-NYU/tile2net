@@ -52,25 +52,11 @@ python -m tile2net --location "boston common" --name "boston common" --segmentat
 
 lines and polygons previews take FOREVER!!!
 
-
 python -m tile2net --location "43.73982934358233, -70.36009908310434, 43.63293463137132, -70.22757630255016 " --name test_vectorization --zoom 20 --model.bs_val 8 --segmentation.pad 0 --vectorization.length 8 --polygon.simplify 2
 
-
 uv pip install 'imageio[pyav]'
-
 79892 is writing empty files?
-
 why is it saying "loading ingrid.polygnos from" AFTER I saved the concatenated polygons?
-
-INFO       Loading InGrid.polygons from
-	/home/arstneio/PycharmProjects/tile2net/src/outdir/maine/polygons/parquet/test_vectorization.parquet
-INFO       Saving preview of polygons to
-	/home/arstneio/PycharmProjects/tile2net/src/outdir/maine/polygons/preview/test_vectorization.png
-INFO       Loading InGrid.polygons from
-	/home/arstneio/PycharmProjects/tile2net/src/outdir/maine/polygons/parquet/test_vectorization.parquet
-
-	preview takes forever!
-	why does loading happen twice?
 
 just keep default vectorization.length 4
 
@@ -99,6 +85,21 @@ python -m tile2net --location "43.73982934358233, -70.36009908310434, 43.6329346
 todo: get polygons by padding left by 5 meters
 needs roads, needs non-roads
 
-
 See this area (37.7642222, -122.5102778), (37.7393333, -122.4754722)
 python -m tile2net --location "37.7642222, -122.5102778, 37.7393333, -122.4754722" --name sf --zoom 20 --model.bs_val 8 --segmentation.pad 0 --vectorization.length 8 --polygon.simplify 2
+
+python -m tile2net --name sf --location "37.7642222, -122.5102778, 37.7393333, -122.4754722" --segmentation.pad 1 --zoom 20 --model.bs_val 1 --vectorization.length 8 --polygon.simplify 3 --multi_scale_inference --model.extra_scales 0.5,2
+
+
+p
+python -m tile2net --name sf --location "37.7642222, -122.5102778, 37.7393333, -122.4754722" --segmentation.dimension 512 --segmentation.pad 1 --zoom 20 --model.bs_val 1 --vectorization.length 8 --polygon.simplify 3 --multi_scale_inference --model.extra_scales 0.5,2
+
+dimension
+
+name_polygons.parquet
+name_lines.parquet
+--location "boston common" --name "boston common" --segmentation.pad 1 --zoom 20 --model.bs_val 1 --vectorization.length 8 --polygon.simplify 3 --multi_scale_inference --model.extra_scales 0.5,2
+python -m tile2net --location "boston common" --name "boston common" --segmentation.pad 1 --zoom 20 --model.bs_val 1 --vectorization.length 8 --polygon.simplify 3 --multi_scale_inference --model.extra_scales 0.5,2
+
+
+concatenation still needs benchmarking as well

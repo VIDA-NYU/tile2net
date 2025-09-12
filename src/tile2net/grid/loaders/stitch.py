@@ -47,7 +47,6 @@ class StitchDataSet(
             self.wrapper
             .index
             .unique()
-            .tolist()
         )
         return result
 
