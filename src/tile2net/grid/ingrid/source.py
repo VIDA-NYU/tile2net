@@ -784,7 +784,7 @@ class VexCel(Source, ABC):
     api_key: str = None
     timeout: int = 10
     extension = 'png'
-
+    
     @cls_attr
     def _session(self) -> requests.Session:
         """

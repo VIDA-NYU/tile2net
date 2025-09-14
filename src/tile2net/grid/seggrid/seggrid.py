@@ -1,13 +1,12 @@
 from __future__ import annotations
+from pathlib import Path
 
 import copy
 import gc
 import hashlib
 import os
 import sys
-import time
-from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import wait
+from concurrent.futures import ThreadPoolExecutor, wait
 from contextlib import ExitStack
 from functools import *
 from typing import *
@@ -46,6 +45,7 @@ if TYPE_CHECKING:
     pass
 
 if False:
+    from ..dir import Outdir
     from .filled import Filled
     from .broadcast import Broadcast
     from ..ingrid import InGrid
@@ -173,7 +173,7 @@ class SegGrid(
         return self.grid
 
     @property
-    def outdir(self):
+    def outdir(self) -> Outdir:
         return self.ingrid.outdir
 
     @property
@@ -415,6 +415,8 @@ class SegGrid(
             msg = 'Predicting Segmentation Tiles'
             futures = []
 
+
+
             with ExitStack() as stack, \
                     ThreadPoolExecutor() as threads, \
                     torch.inference_mode(), \
@@ -473,6 +475,68 @@ class SegGrid(
                         errors.append(exc)
                 futures.clear()
 
+            # write segmentation benchmark summary to file
+            try:
+                seg_s = self.sampler.samples
+                seg_vals = {
+                    'elapsed': seg_s.time_elapsed,
+                    'gpu_avg': seg_s.avg_gpu,
+                    'gpu_max': seg_s.max_gpu,
+                    'vram_avg': seg_s.avg_vram,
+                    'vram_max': seg_s.max_vram,
+                    'ram_avg': seg_s.avg_ram,
+                    'ram_max': seg_s.max_ram,
+                    'cpu_avg': seg_s.avg_cpu,
+                    'cpu_max': seg_s.max_cpu,
+                }
+
+                def _fmt_pct(v: float | None) -> str:
+                    return "—" if v is None else f"{v:.1f}%"
+
+                def _fmt_duration(v: float | None) -> str:
+                    if v is None:
+                        return "—"
+                    secs = float(v)
+                    if secs < 0:
+                        secs = 0.0
+                    ms = secs * 1000.0
+                    if secs < 1e-3:
+                        return "0s"
+                    if secs < 1.0:
+                        return f"{ms:.0f}ms"
+                    days = int(secs // 86400)
+                    secs -= days * 86400
+                    hours = int(secs // 3600)
+                    secs -= hours * 3600
+                    minutes = int(secs // 60)
+                    secs -= minutes * 60
+                    parts = []
+                    if days:
+                        parts.append(f"{days}d")
+                    if hours and len(parts) < 2:
+                        parts.append(f"{hours}h")
+                    if minutes and len(parts) < 2:
+                        parts.append(f"{minutes}m")
+                    if len(parts) < 2:
+                        parts.append(f"{secs:.1f}s" if secs < 10 else f"{int(secs)}s")
+                    return " ".join(parts)
+
+                lines = []
+                lines.append("Segmentation benchmark")
+                lines.append("======================")
+                if seg_vals['elapsed'] is not None:
+                    lines.append(f"Time Elapsed: {_fmt_duration(seg_vals['elapsed'])}")
+                lines.append(f"GPU Compute: avg {_fmt_pct(seg_vals['gpu_avg'])}, max {_fmt_pct(seg_vals['gpu_max'])}")
+                lines.append(f"VRAM Usage: avg {_fmt_pct(seg_vals['vram_avg'])}, max {_fmt_pct(seg_vals['vram_max'])}")
+                lines.append(f"RAM Usage:  avg {_fmt_pct(seg_vals['ram_avg'])}, max {_fmt_pct(seg_vals['ram_max'])}")
+                lines.append(f"CPU Usage:  avg {_fmt_pct(seg_vals['cpu_avg'])}, max {_fmt_pct(seg_vals['cpu_max'])}")
+
+                summary_path = Path(self.outdir.seggrid.summary)
+                summary_path.parent.mkdir(parents=True, exist_ok=True)
+                summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            except Exception as exc:
+                logger.warning(f"Could not write segmentation benchmark summary: {exc}")
+
 
             if errors:
                 try:
@@ -490,6 +554,7 @@ class SegGrid(
             msg = f'Finished predicting {len(dataset)} segmentation tiles.'
             logger.info(msg)
 
+
             for name in (
                 'dataset loader wrapper input_images labels net '
                 'batch optim scheduler criterion criterion_val struct'
@@ -500,6 +565,8 @@ class SegGrid(
             torch.cuda.empty_cache()
 
         assert ingrid.segtile.grayscale.map(os.path.exists).all()
+
+
 
     @cached_property
     def disk_usage(self) -> int:

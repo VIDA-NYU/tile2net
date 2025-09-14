@@ -270,6 +270,7 @@ class InGrid(
         pool_size = min(max_workers, len(mapping))
         not_found: list[Path] = []
         failed: list[Path] = []
+        success = False
 
         def _fetch_write(
                 path: Path,
@@ -281,6 +282,10 @@ class InGrid(
                     status = resp.status_code
                     if status == 404:
                         # not found: nothing to write
+                        not_found.append(path)
+                        return
+                    if status == 403:
+                        # forbidden: treat like not found → link placeholder later
                         not_found.append(path)
                         return
                     if status != 200:
@@ -346,8 +351,9 @@ class InGrid(
                     unit=f" {self.__class__.__name__}.{paths.name}",
                     mininterval=10,
             ):
-                ok = fut.result()
-                if ok and one:
+                fut.result()
+
+                if one:
                     success = True
                     for f in futures:
                         f.cancel()
@@ -363,7 +369,7 @@ class InGrid(
 
         if not_found:
             black = self.static.black
-            logger.warning("%d tile(s) returned 404 – linking placeholder.", len(not_found))
+            logger.warning("%d tile(s) returned 404/403 – linking placeholder.", len(not_found))
             for p in not_found:
                 try:
                     os.symlink(black, p)

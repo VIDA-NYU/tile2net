@@ -8,6 +8,8 @@ from .sourcedir import SourceDir
 
 if False:
     import tile2net.grid.ingrid
+    from .seggrid import SegGrid
+    from .vecgrid import VecGrid
 
 
 class Probability(
@@ -164,11 +166,11 @@ class Outdir(
         return self.sourcedir.polygons
 
     @property
-    def vecgrid(self):
+    def vecgrid(self) -> VecGrid:
         return self.sourcedir.namedir.vecgrid
 
     @property
-    def seggrid(self):
+    def seggrid(self) -> SegGrid:
         return self.sourcedir.namedir.seggrid
 
     @property

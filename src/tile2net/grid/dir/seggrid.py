@@ -106,6 +106,12 @@ class SegGrid(
         result = f'{self.dir}/seggrid.pickle'
         return result
 
+    @property
+    def summary(self) -> str:
+        result = f'{self.dir}/summary.txt'
+        return result
+
+
 
 class Padded(
     SegGrid
