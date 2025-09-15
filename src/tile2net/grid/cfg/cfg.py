@@ -1899,7 +1899,6 @@ class Cfg(
         if path is None:
             path = './cfg.json'
         # write a sanitized, flattened JSON file
-        print('⚠️AI GENERATED🤖')
         # flatten first to fix precedence and drop non-default keys
         flat = self.flatten()
 
@@ -1961,7 +1960,6 @@ class Cfg(
         if src is None:
             src = './cfg.json'
         # load JSON, filter to allowed keys, and build a Cfg overriding defaults
-        print('⚠️AI GENERATED🤖')
         # load object
         if isinstance(src, Mapping):
             loaded = dict(src)
