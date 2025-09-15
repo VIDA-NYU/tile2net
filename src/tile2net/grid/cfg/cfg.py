@@ -1,17 +1,16 @@
-from __future__ import absolute_import
-from __future__ import annotations
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import absolute_import, annotations, division, print_function, unicode_literals
 
 import argparse
 import functools
 import hashlib
+import io
 import json
 import math
 import multiprocessing
+import os
 import re
 from collections import deque, UserDict
+from pathlib import Path
 from types import MappingProxyType
 from typing import *
 from typing import TypeVar, Callable
@@ -1888,6 +1887,148 @@ class Cfg(
 
         # short but strong digest
         result = hashlib.blake2b(payload.encode('utf-8'), digest_size=16).hexdigest()
+        return result
+
+    def to_json(
+            self,
+            path: str | os.PathLike | IO[str] = None,
+            *,
+            indent: int | None = 2,
+            ensure_ascii: bool = False,
+    ) -> None:
+        if path is None:
+            path = './cfg.json'
+        # write a sanitized, flattened JSON file
+        print('⚠️AI GENERATED🤖')
+        # flatten first to fix precedence and drop non-default keys
+        flat = self.flatten()
+
+        # sentinel for dropped values
+        _SKIP = object()
+
+        # accept only elementary JSON-safe scalars
+        def _is_elem(x: Any) -> bool:
+            if isinstance(x, bool):
+                return True
+            if isinstance(x, (str, int)):
+                return True
+            if isinstance(x, float):
+                return math.isfinite(x)
+            return False
+
+        # recursively sanitize to elem|list|dict with str keys
+        def _sanitize(obj: Any):
+            if _is_elem(obj):
+                return obj
+            if isinstance(obj, Mapping):
+                kept = []
+                for k, v in obj.items():
+                    if not isinstance(k, str):
+                        continue
+                    sv = _sanitize(v)
+                    if sv is not _SKIP:
+                        kept.append((k, sv))
+                return {k: v for k, v in sorted(kept, key=lambda kv: kv[0])}
+            if isinstance(obj, Sequence) and not isinstance(obj, (str, bytes, bytearray)):
+                out = []
+                for el in obj:
+                    se = _sanitize(el)
+                    if se is not _SKIP:
+                        out.append(se)
+                return out
+            return _SKIP
+
+        payload = _sanitize(flat)
+
+        # choose sink
+        if isinstance(path, (str, os.PathLike, Path)):
+            p = Path(path)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            with p.open('w', encoding='utf-8') as f:
+                json.dump(payload, f, sort_keys=True, separators=(',', ':'), indent=indent, ensure_ascii=ensure_ascii)
+                f.write('\n')
+        elif isinstance(path, io.TextIOBase) or hasattr(path, 'write'):
+            json.dump(payload, path, sort_keys=True, separators=(',', ':'), indent=indent, ensure_ascii=ensure_ascii)
+            path.write('\n')
+        else:
+            raise TypeError(f'Unsupported sink type: {type(path)!r}')
+
+    @classmethod
+    def from_json(
+            cls,
+            src: str | os.PathLike | IO[str] | Mapping[str, Any] = None,
+    ) -> Self:
+        if src is None:
+            src = './cfg.json'
+        # load JSON, filter to allowed keys, and build a Cfg overriding defaults
+        print('⚠️AI GENERATED🤖')
+        # load object
+        if isinstance(src, Mapping):
+            loaded = dict(src)
+        elif isinstance(src, (str, os.PathLike, Path)):
+            # try as path; if not a file, treat as JSON string
+            p = Path(src)
+            if p.exists():
+                with p.open('r', encoding='utf-8') as f:
+                    loaded = json.load(f)
+            else:
+                loaded = json.loads(str(src))
+        elif isinstance(src, io.TextIOBase) or hasattr(src, 'read'):
+            loaded = json.load(src)
+        else:
+            raise TypeError(f'Unsupported source type: {type(src)!r}')
+
+        # only accept flat string keys at the top level
+        if not isinstance(loaded, Mapping):
+            raise ValueError('Top-level JSON must be an object')
+        loaded = {str(k): v for k, v in loaded.items()}
+
+        # establish the set of allowed traces from defaults
+        defaults = cls.from_defaults()
+        allowed = set(defaults)
+
+        # filter to allowed keys and JSON-safe elementary values, mirroring hash() constraints
+        def _is_elem(x: Any) -> bool:
+            if isinstance(x, bool):
+                return True
+            if isinstance(x, (str, int)):
+                return True
+            if isinstance(x, float):
+                return math.isfinite(x)
+            return False
+
+        def _sanitize_incoming(v: Any) -> Any:
+            # allow elem, list of elem, dict of str->elem/list/dict (recursively)
+            if _is_elem(v):
+                return v
+            if isinstance(v, Mapping):
+                return {
+                    str(k): _sanitize_incoming(vv)
+                    for k, vv in v.items()
+                    if isinstance(k, str)
+                }
+            if isinstance(v, Sequence) and not isinstance(v, (str, bytes, bytearray)):
+                out = []
+                for el in v:
+                    se = _sanitize_incoming(el)
+                    out.append(se)
+                return out
+            # anything else is dropped by returning None; caller can still set None
+            return None
+
+        filtered = {
+            k: _sanitize_incoming(v)
+            for k, v in loaded.items()
+            if k in allowed
+        }
+
+        # construct result with only overrides that differ from defaults (optional, but tidy)
+        result = cls()
+        for k, v in filtered.items():
+            if k in defaults and defaults[k] == v:
+                continue
+            result[k] = v
+
         return result
 
 

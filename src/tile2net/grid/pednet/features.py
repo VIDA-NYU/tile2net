@@ -30,7 +30,8 @@ class Features(
             owner: type[PedNet]
     ) -> Self:
         self: Self = namespace._get(self, instance, owner)
-        cache = instance.frame.__dict__
+        # cache = instance.frame.__dict__
+        cache = instance.__dict__
         key = self.__name__
         if instance is None:
             return self
@@ -77,11 +78,13 @@ class Features(
         for g in geoms:
             out.append(cum)
             cum = cum.union(g)
+            if cum is None:
+                cum = GeometryCollection()
         result = GeoSeries(out, index=ordered.index, crs=self.crs)
         return result
 
     @frame.column
-    def mutex(self) -> GeoSeries[GeometryCollection]:
+    def mutex(self) -> GeoSeries:
         """Mutually exclusive geometries based on z_order"""
         msg = f'Computing mutex for {self.__name__}'
         logger.debug(msg)
@@ -89,7 +92,7 @@ class Features(
         return result
 
     @property
-    def original(self) -> GeoSeries[GeometryCollection]:
+    def original(self) -> GeoSeries:
         """Original geometries of the features."""
         key = 'original'
         try:
@@ -102,14 +105,14 @@ class Features(
             raise AttributeError(msg) from e
 
     @original.setter
-    def original(self, value: GeoSeries[GeometryCollection]):
+    def original(self, value: GeoSeries):
         """Set the original geometries of the features."""
         if not isinstance(value, GeoSeries):
             raise TypeError('original must be a GeoSeries')
         self['original'] = value
 
     @frame.column
-    def other(self) -> GeoSeries[GeometryCollection]:
+    def other(self) -> GeoSeries:
         """Geometry union of every feature excluding the feature itself."""
         data = (
             self._pednet

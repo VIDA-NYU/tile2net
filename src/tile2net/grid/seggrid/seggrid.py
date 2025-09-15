@@ -1,4 +1,23 @@
 from __future__ import annotations
+import sys
+import subprocess
+import tempfile
+import cloudpickle
+import traceback
+
+from concurrent.futures import (
+    ThreadPoolExecutor,
+    wait,
+    FIRST_COMPLETED,
+    Future,
+)
+import os
+import signal
+import traceback
+
+from typing import Set
+import gc
+
 from pathlib import Path
 
 import copy
@@ -159,10 +178,6 @@ class SegGrid(
         ingrid = seggrid.ingrid
         result = ingrid.dimension * self.length
         return result
-
-    # @cached_property
-    # def grid(self) -> InGrid:
-    #     ...
 
     @property
     def grid(self):
@@ -415,8 +430,6 @@ class SegGrid(
             msg = 'Predicting Segmentation Tiles'
             futures = []
 
-
-
             with ExitStack() as stack, \
                     ThreadPoolExecutor() as threads, \
                     torch.inference_mode(), \
@@ -431,6 +444,15 @@ class SegGrid(
                 )
                 try:
                     for batch in loader:
+                        # for i in range(len(loader)):
+                        # i = [i]
+                        # loc = dataset.index[i]
+                        # grid = frame.loc[loc].copy()
+                        # pbar.update(1)
+                        # frame.file.grayscale
+                        # frame.file.colored
+                        # continue
+
                         input_images = batch['input']
                         labels = batch['mask']
                         i = (
@@ -450,6 +472,7 @@ class SegGrid(
                             threads=threads,
                             clip=clip,
                         )
+
                         futures.extend(mb.submit_all())
 
                         iou_acc += mb.iou_acc
@@ -537,7 +560,6 @@ class SegGrid(
             except Exception as exc:
                 logger.warning(f"Could not write segmentation benchmark summary: {exc}")
 
-
             if errors:
                 try:
                     raise ExceptionGroup("worker task errors", errors)  # Py 3.11+
@@ -554,10 +576,9 @@ class SegGrid(
             msg = f'Finished predicting {len(dataset)} segmentation tiles.'
             logger.info(msg)
 
-
             for name in (
-                'dataset loader wrapper input_images labels net '
-                'batch optim scheduler criterion criterion_val struct'
+                    'dataset loader wrapper input_images labels net '
+                    'batch optim scheduler criterion criterion_val struct'
             ).split():
                 if name in locals():
                     del locals()[name]
@@ -565,7 +586,6 @@ class SegGrid(
             torch.cuda.empty_cache()
 
         assert ingrid.segtile.grayscale.map(os.path.exists).all()
-
 
 
     @cached_property

@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 from functools import *
 from typing import *
+from .weakly import  weakly
 
 from tile2net.grid.util import returns_or_assigns
 from .wrapper import Wrapper
@@ -16,7 +17,6 @@ TGrid = TypeVar('TGrid', covariant=True)
 class namespace(
     Generic[TGrid]
 ):
-    instance: TGrid = None
     __wrapped__ = None
     __name__ = None
 

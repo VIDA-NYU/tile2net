@@ -463,9 +463,6 @@ class VecGrid(Grid):
         msg = f'Vectorizing to \n\t{dest}'
         logger.debug(msg)
 
-        _cfg = self.ingrid.cfg.flatten()
-        assert 'dataset_inst' not in _cfg
-
         seggrid = self.seggrid.broadcast
 
         if not force:

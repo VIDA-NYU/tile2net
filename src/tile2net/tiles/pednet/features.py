@@ -57,7 +57,7 @@ class Features(
         instance.__dict__[self.__name__] = value
 
     @property
-    def above(self) -> GeoSeries[GeometryCollection]:
+    def above(self) -> GeoSeries:
         """Unary union of all features above the given feature."""
         key = f'{self.__name__}.above'
         if key in self:
@@ -75,7 +75,7 @@ class Features(
         return result
 
     @property
-    def mutex(self) -> GeoSeries[GeometryCollection]:
+    def mutex(self) -> GeoSeries:
         """Mutually exclusive geometries based on z_order"""
         key = 'mutex'
         if key in self:
@@ -88,7 +88,7 @@ class Features(
         return result
 
     @property
-    def original(self) -> GeoSeries[GeometryCollection]:
+    def original(self) -> GeoSeries:
         """Original geometries of the features."""
         key = 'original'
         try:
@@ -101,14 +101,14 @@ class Features(
             raise AttributeError(msg) from e
 
     @original.setter
-    def original(self, value: GeoSeries[GeometryCollection]):
+    def original(self, value: GeoSeries):
         """Set the original geometries of the features."""
         if not isinstance(value, GeoSeries):
             raise TypeError('original must be a GeoSeries')
         self['original'] = value
 
     @property
-    def other(self) -> GeoSeries[GeometryCollection]:
+    def other(self) -> GeoSeries:
         """Geometry union of every feature excluding the feature itself."""
         key = 'other'
         if key in self:

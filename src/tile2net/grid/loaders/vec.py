@@ -112,6 +112,17 @@ class VecDataSet(
     StitchDataSet
 ):
     def __getitem__(self, item: int) -> int:
+
+        empty_gdf = (
+            gpd.GeoDataFrame(
+                {"geometry": []},
+                geometry="geometry",
+                crs=3857,
+            )
+            .set_index(
+                pd.Index([], name="feature"),
+            )
+        )
         with _silent_io():
             grayscale = super().__getitem__(item)
             affine = self.affine[item]
@@ -131,16 +142,6 @@ class VecDataSet(
                     assert isinstance(polys, Mask2Poly)
 
                     if polys.empty:
-                        empty_gdf = (
-                            gpd.GeoDataFrame(
-                                {"geometry": []},
-                                geometry="geometry",
-                                crs=3857,
-                            )
-                            .set_index(
-                                pd.Index([], name="feature"),
-                            )
-                        )
 
                         # Persist the empty layers so downstream steps have concrete files
                         empty_gdf.to_parquet(polygons_file)
@@ -162,6 +163,16 @@ class VecDataSet(
                         )
                         .frame.pipe(PedNet.from_mask2poly)
                     )
+
+                    if net.empty:
+                        # Persist the empty layers so downstream steps have concrete files
+                        empty_gdf.to_parquet(polygons_file)
+                        empty_gdf.to_parquet(network_file)
+
+                        # msg = f'No network generated for {infile}; wrote empty layers instead.'
+                        msg = f'No network generated for {polygons_file}; wrote empty layers instead.'
+                        logging.warning(msg)
+                        return item
 
                     # precompute lines and edges for clarity
                     lines = net.center.lines
@@ -304,6 +315,7 @@ class VecDataSet(
             drop_last=False,
             sampler=None,
             num_workers=cfg.vectorization.num_workers,
+            # num_workers=0,
             pin_memory=True,
             persistent_workers=cfg.vectorization.persistent_workers,
             worker_init_fn=_worker_init,

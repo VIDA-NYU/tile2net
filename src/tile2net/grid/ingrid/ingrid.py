@@ -48,6 +48,7 @@ from ..seggrid.seggrid import SegGrid
 from ..vecgrid.vecgrid import VecGrid
 from ...grid import util
 from ...grid.util import recursion_block, assert_perfect_overlap
+from ..cfg.cfg import Cfg
 
 # thread-local store
 tls = threading.local()
@@ -1213,3 +1214,43 @@ class InGrid(
     def line_sampler(self) -> Sampler:
         result = Sampler(include_gpu=True)
         return result
+
+    @classmethod
+    def from_cfg(
+            cls,
+            cfg: Cfg = None
+    ) -> Self:
+        if isinstance(cfg, (str, Path)):
+            cfg = Cfg.from_json(cfg)
+        if cfg is None:
+            cfg = Cfg.from_parser()
+        with cfg:
+
+            ingrid = InGrid.from_location(
+                location=cfg.location,
+                zoom=cfg.zoom
+            )
+            ingrid.cfg = cfg
+
+            if cfg.indir.path:
+                # use input imagery
+                ingrid = ingrid.set_indir()
+            else:
+                # set a source if specified or infer from location
+                ingrid = ingrid.set_source()
+
+            if cfg.outdir:
+                ingrid = ingrid.set_outdir()
+
+            # configure segmentation using cfg parameters
+            ingrid = ingrid.set_segmentation()
+            # configure vectorization using cfg parameters
+            ingrid = ingrid.set_vectorization()
+
+        return ingrid
+
+    def to_cfg(
+            self,
+            file: Union[str, Path] = None
+    ):
+        ...
