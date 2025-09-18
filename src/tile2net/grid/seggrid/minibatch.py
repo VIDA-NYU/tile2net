@@ -1,4 +1,6 @@
 from __future__ import annotations
+from functools import *
+from pathlib import Path
 
 from concurrent.futures import ThreadPoolExecutor, Future
 from dataclasses import dataclass
@@ -42,6 +44,27 @@ def imwrite(
         )
     return ok
 
+def imwrite(
+        filename: str,
+        array: np.ndarray,
+        params: list[int] | None = None,
+) -> bool:
+    """
+    thin worker: assume array is already contiguous, right dtype/shape
+    """
+    if params is None:
+        params = []
+    ok = cv2.imwrite(filename, array, params)
+    if not ok:
+        raise RuntimeError(
+            f'imwrite failed for {filename} with '
+            f'shape={array.shape}, dtype={array.dtype}'
+        )
+    return ok
+
+
+
+
 
 def to_numpy(obj: Any):
     """converts tensors to ndarrays; preserves lists, dicts, etc."""
@@ -64,11 +87,16 @@ class MiniBatch(
     iou_acc: np.ndarray
     gt_images: torch.Tensor
     grid: SegGrid
-    threads: ThreadPoolExecutor
+    # threads: ThreadPoolExecutor
+
+    submit: Callable
+
     output: dict[str, torch.Tensor] = field(default_factory=dict)
     prob_mask: Optional[torch.Tensor] = None
     error_mask: Optional[np.ndarray] = None
     clip: int = 0
+
+
 
     @classmethod
     def from_data(
@@ -77,8 +105,9 @@ class MiniBatch(
             gt_image,
             net: torch.nn.Module,
             grid: Grid,
-            threads: ThreadPoolExecutor,
-            clip: int = 0
+            # threads: ThreadPoolExecutor,
+            submit,
+            clip: int = 0,
     ):
         """
         Evaluate a single minibatch of images.
@@ -194,7 +223,8 @@ class MiniBatch(
             error_mask=err_mask,
             input_images=images,
             gt_images=gt_image,
-            threads=threads,
+            # threads=threads,
+            submit=submit,
             clip=clip
         )
         return result
@@ -387,3 +417,48 @@ class MiniBatch(
             clipped_array = self.clip_image(array)
             future = self.threads.submit(imwrite, file, clipped_array)
             yield future
+
+
+    def submit_probability(self):
+        if self.prob_mask is None:
+            return
+        arrays = (to_numpy(self.prob_mask) * 255).astype(np.uint8)
+        files = self.grid.file.probability
+        for array, file in zip(arrays, files):
+            clipped = self.clip_image(array)
+            func = partial(imwrite, array=clipped)
+            yield self.submit(func, filename=file,)
+
+
+    def submit_output(self):
+        colorize = self.grid.colormap
+        for dirname, arrays in to_numpy(self.output).items():
+            files = self.grid.file.output(dirname)
+            if 'pred_' in dirname:
+                arrays = colorize(arrays)
+            for array, file in zip(arrays, files):
+                clipped = self.clip_image(array)
+                func = partial(imwrite, array=clipped)
+                yield self.submit(func, filename=file, )
+
+    def submit_grayscale(self):
+        if self.predictions is None:
+            grayscale = self.grid.file.grayscale.tolist()
+            raise RuntimeError(f'No predictions to save for {grayscale}')
+        arrays = to_numpy(self.predictions)
+        for array, file in zip(arrays, self.grid.file.grayscale):
+            if array.ndim == 3:
+                array = array.argmax(axis=-1)
+            clipped = self.clip_image(array)
+            func = partial(imwrite, array=clipped)
+            yield self.submit(func, filename=file, )
+
+    def submit_colored(self):
+        if self.predictions is None:
+            return
+        arrays = self.grid.colormap(to_numpy(self.predictions))
+        files = self.grid.file.colored
+        for array, file in zip(arrays, files):
+            clipped = self.clip_image(array)
+            func = partial(imwrite, array=clipped)
+            yield self.submit(func, filename=file, )
