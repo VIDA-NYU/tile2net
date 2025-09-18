@@ -57,5 +57,6 @@ class WeakProperty:
         del instance.__dict__[self.__name__]
 
 
-class weakly:
-    cached_property = WeakProperty
+
+class weak:
+    property = WeakProperty

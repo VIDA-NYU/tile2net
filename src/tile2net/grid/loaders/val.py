@@ -81,7 +81,7 @@ class ValDataSet(
             num_workers=cfg.segmentation.num_workers,
             pin_memory=True,
             prefetch_factor=cfg.segmentation.prefetch_factor,
-            persistent_workers=cfg.segmentation.persistent_workers
+            persistent_workers=cfg.segmentation.persistent_workers,
         )
         return result
 

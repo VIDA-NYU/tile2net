@@ -1,7 +1,10 @@
+import sys
+
 from tile2net.grid import InGrid
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.cfg import Cfg
 from tile2net.grid.cfg import cfg as _cfg
+import subprocess
 
 
 # Must be within main to avoid parallelism issues
@@ -36,8 +39,24 @@ if __name__ == '__main__':
     cfg = ingrid.cfg
 
     cfg.to_json()
-    _cfg = cfg.from_json()
-    test = InGrid.from_cfg(_cfg)
+    logger.info('running subprocess for segmentation')
+
+    cmd = [
+        sys.executable,
+        '-m',
+        'tile2net.grid.seggrid'
+    ]
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        logger.error(
+            f"Command {e.cmd} returned non-zero exit status {e.returncode}.\n"
+            f"Stdout: {e.stdout}\n"
+            f"Stderr: {e.stderr}"
+        )
+        raise e
+
+    logger.info('done with subprocess')
 
 
     with cfg:

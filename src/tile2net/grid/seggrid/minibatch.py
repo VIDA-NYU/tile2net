@@ -15,23 +15,30 @@ from tile2net.grid.cfg import cfg
 from tile2net.tileseg.utils.misc import AverageMeter
 from tile2net.tileseg.utils.misc import fast_hist, fmt_scale
 
+cv2.setNumThreads(1)
+
+
 if False:
     from .seggrid import SegGrid
     from tile2net.grid import Grid
 
 
+
 def imwrite(
         filename: str,
         array: np.ndarray,
-        params=None
+        params: list[int] | None = None,
 ) -> bool:
-    """Wrapper around cv2.imwrite to handle errors"""
-    arr = np.ascontiguousarray(array)
-    ok = cv2.imwrite(filename, arr)
+    """
+    thin worker: assume array is already contiguous, right dtype/shape
+    """
+    if params is None:
+        params = []
+    ok = cv2.imwrite(filename, array, params)
     if not ok:
         raise RuntimeError(
             f'imwrite failed for {filename} with '
-            f'shape={arr.shape}, dtype={arr.dtype}'
+            f'shape={array.shape}, dtype={array.dtype}'
         )
     return ok
 

@@ -26,10 +26,13 @@ from typing import *
 
 import pandas as pd
 from .wrapper import Wrapper
+from .weak import  weak
 
 
 class Loc:
-    instance: FrameWrapper
+    # @weak.property
+    # def instance(self) -> FrameWrapper:
+    #     ...
 
     def __init__(
             self,
@@ -65,22 +68,10 @@ class FrameWrapper(
     Wrapper,
     namespace,
 ):
-    frame: pd.DataFrame | gpd.GeoDataFrame
-
-    # def __getattr__(self, item):
-    #     return getattr(self.frame, item)
-
-    # def _repr_data_resource_(self):
-    #     return self.frame._repr_data_resource_()
-    #
-    # def _repr_fits_vertical_(self) -> bool:
-    #     return self.frame._repr_fits_vertical_()
-    #
-    # def _repr_fits_horizontal_(self) -> bool:
-    #     return self.frame._repr_fits_horizontal_()
-    #
-    # def _repr_html_(self) -> str | None:
-    #     return self.frame._repr_html_()
+    frame: Union[
+        gpd.GeoDataFrame,
+        pd.DataFrame,
+    ]
 
     def __init__(
             self,
@@ -140,16 +131,6 @@ class FrameWrapper(
 
     def __setitem__(self, key, value):
         self.frame[key] = value
-
-    # def __getitem__(self, item) -> Union[
-    #     pd.Series,
-    #     pd.DataFrame,
-    #     gpd.GeoDataFrame,
-    #     gpd.GeoSeries,
-    #     pd.Index,
-    #     pd.MultiIndex,
-    # ]:
-    #     return self.frame[item]
 
     @classmethod
     def from_frame(
@@ -232,19 +213,3 @@ class FrameWrapper(
         return result
 
 
-# from IPython import get_ipython
-# ip = get_ipython()
-# for mt in (
-#     "application/vnd.dataframe+json",
-#     "application/vnd.dataresource+json",  # older frontends
-#     "text/html",  # fallback
-# ):
-#     fmt = ip.display_formatter.formatters[mt]
-#     base = fmt.lookup_by_type(pd.DataFrame)
-#     if base is not None:
-#         # bind delegating formatter for your wrapper
-#         fmt.for_type(FrameWrapper, lambda obj, _base=base: _base(obj.frame))
-# import pandas as pd
-# pd.options.display.html.table_schema = True
-# # Optional if you want HTML fallback too:
-# pd.options.display.notebook_repr_html = True

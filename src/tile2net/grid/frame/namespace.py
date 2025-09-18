@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 from functools import *
 from typing import *
-from .weakly import  weakly
+from .weak import weak
 
 from tile2net.grid.util import returns_or_assigns
 from .wrapper import Wrapper
@@ -20,11 +20,19 @@ class namespace(
     __wrapped__ = None
     __name__ = None
 
+    # @weak.property
+    # def wrapper(self) -> Wrapper:
+    #     ...
+    #
+    # @weak.property
+    # def instance(self) -> TGrid:
+    #     ...
+
     def _get(
             self,
             instance: TGrid,
             owner
-    ) :
+    ):
         self.instance = instance
         if instance is None:
             self.wrapper = None
@@ -43,8 +51,8 @@ class namespace(
             **kwargs
     ):
         if (
-            callable(func)
-            and returns_or_assigns(func)
+                callable(func)
+                and returns_or_assigns(func)
         ):
             update_wrapper(self, func)
 
@@ -68,7 +76,3 @@ class namespace(
     ):
         instance.__dict__[self.__name__] = value
         value.instance = instance
-
-
-
-
