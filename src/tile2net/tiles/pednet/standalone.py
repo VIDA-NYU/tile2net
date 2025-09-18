@@ -35,15 +35,3 @@ one to extract node information
 
 
 
-if __name__ == '__main__':
-    import geopandas as gpd
-
-    file = '/home/arstneio/PycharmProjects/kashi/src/tile2net/artifacts/static/brooklyn.feather'
-    result = (
-        gpd.read_feather(file)
-        .pipe(Lines.from_frame)
-        .drop2nodes
-    )
-    print(f'{len(result)=}')
-    print(f'{len(result)=}')
-    result.explore()
