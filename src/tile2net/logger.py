@@ -1,7 +1,6 @@
 import logging.config
 import os
 
-
 fname = os.path.join(
     os.path.dirname(__file__),
     'logging.conf',
