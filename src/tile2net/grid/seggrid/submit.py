@@ -117,7 +117,7 @@ class Submitter:
 
     def rotate(self):
         self.threads.shutdown(wait=True)
-        # try malloc trim
+        # malloc trim if supported (posix only)
         try:
             libc = ctypes.CDLL("libc.so.6")
             libc.malloc_trim(0)
