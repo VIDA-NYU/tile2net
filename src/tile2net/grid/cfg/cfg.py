@@ -730,6 +730,7 @@ class Segmentation(cmdline.Namespace):
     @cmdline.property
     def colored(self) -> bool:
         """Write colored segmentation masks to file"""
+        return False
         return True
 
     @cmdline.property
@@ -750,7 +751,7 @@ class Segmentation(cmdline.Namespace):
         """
         Number of batches to prefetch
         """
-        return 1
+        return 2
 
     @cmdline.property
     def persistent_workers(self) -> bool:
@@ -764,7 +765,8 @@ class Segmentation(cmdline.Namespace):
         """
         Number of data loader workers
         """
-        result = multiprocessing.cpu_count() // 2
+        # result = multiprocessing.cpu_count() // 2
+        result = 8
         return result
 
 

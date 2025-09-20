@@ -36,45 +36,6 @@ class SideBySide(
     ...
 
 
-# class SegResults(
-#     Dir,
-# ):
-#
-#     @Probability
-#     def prob(self):
-#         format = os.path.join(
-#             self.dir,
-#             'prob',
-#             self.suffix,
-#         ).replace(self.extension, 'png')
-#         result = Probability.from_format(format)
-#         return result
-#
-#     @Error
-#     def error(self):
-#         format = os.path.join(
-#             self.dir,
-#             'error',
-#             self.suffix,
-#         ).replace(self.extension, 'png')
-#         result = Error.from_format(format)
-#         return result
-#
-#     @SideBySide
-#     def sidebyside(self):
-#         format = os.path.join(
-#             self.dir,
-#             'sidebyside',
-#             self.suffix,
-#         ).replace(self.extension, 'png')
-#         result = SideBySide.from_format(format)
-#         return result
-#
-#     @property
-#     def topn_failures(self) -> str:
-#         return os.path.join(self.dir, 'topn_failures.html')
-#
-
 class Submit(
     Dir,
 ):
@@ -105,37 +66,6 @@ class Outdir(
     Dir
 ):
     grid: tile2net.grid.ingrid.InGrid
-
-    # @Outputs
-    # def outputs(self):
-    #     format = os.path.join(
-    #         self.dir,
-    #         'outputs',
-    #         self.suffix,
-    #     )
-    #     result = Outputs.from_format(format)
-    #     return result
-
-    # @Submit
-    # def submit(self):
-    #     format = os.path.join(
-    #         self.dir,
-    #         'submit',
-    #         self.suffix,
-    #     )
-    #     result = Submit.from_format(format)
-    #     return result
-    #
-    #
-    # @BestImages
-    # def best_images(self):
-    #     format = os.path.join(
-    #         self.dir,
-    #         'best_images',
-    #         self.suffix,
-    #     )
-    #     result = BestImages.from_format(format)
-    #     return result
 
     @SourceDir
     def sourcedir(self):

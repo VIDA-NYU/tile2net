@@ -1,128 +1,146 @@
 from __future__ import annotations
-import ctypes
 
-from concurrent.futures import ThreadPoolExecutor, Future, wait
-from threading import BoundedSemaphore
-from pathlib import Path
-import os, tempfile, uuid
-
-import copy
-import gc
-import hashlib
 import os
-import sys
-from concurrent.futures import ThreadPoolExecutor, wait
-from contextlib import ExitStack
+import time
+from concurrent.futures import wait, ThreadPoolExecutor
 from functools import *
 from pathlib import Path
-from typing import *
-from typing import TYPE_CHECKING
 
 import cv2
-import numpy
-import torch
-import torch.distributed as dist
-from torch.nn.parallel.data_parallel import DataParallel
-from tqdm import tqdm
-from tqdm.auto import tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
 import numpy as np
-from numpy import ndarray
-from geopandas import GeoDataFrame, GeoSeries
-from pandas import IndexSlice as idx, Series, DataFrame, Index, MultiIndex, Categorical, CategoricalDtype
-import pandas as pd
-from pandas.core.groupby import DataFrameGroupBy, SeriesGroupBy
-import geopandas as gpd
-from functools import *
-from typing import *
-from types import *
-from shapely import *
-from dataclasses import dataclass, field
-from concurrent.futures import ThreadPoolExecutor, Future, as_completed
-from pathlib import Path
-from itertools import *
-from pandas.api.extensions import ExtensionArray
 
 
-class Submitter:
+class Submit:
     def __init__(
             self,
             workers: int = 4,
-            max_inflight: int = 8,
     ):
         self.workers = workers
-        self.max_inflight = max_inflight
-
-    @cached_property
-    def gate(self):
-        return BoundedSemaphore()
 
     @cached_property
     def threads(self):
         return ThreadPoolExecutor(max_workers=self.workers)
 
     @cached_property
-    def futures(self):
+    def prev(self):
         return []
+
+    @cached_property
+    def next(self):
+        return []
+
+    @cached_property
+    def period(self):
+        return 1800
 
     @cached_property
     def errors(self):
         return []
 
+    @cached_property
+    def t(self) -> float:
+        return time.time()
+        # context manager to guarantee shutdown
+
+    def __enter__(self) -> "Submit":
+        return self
+
+    def __exit__(
+            self,
+            exc_type,
+            exc,
+            tb,
+    ) -> None:
+        try:
+            # drain both prev and next
+            futs = []
+            futs.extend(self.prev)
+            futs.extend(self.next)
+            if futs:
+                done, _ = wait(futs)
+                for f in done:
+                    try:
+                        _ = f.result()
+                    except BaseException as e:
+                        self.errors.append(e)
+        finally:
+            try:
+                self.threads.shutdown(wait=True, cancel_futures=False)
+            except Exception:
+                pass
+            # free lists
+            self.prev.clear()
+            self.next.clear()
+
     def _imwrite(
             self,
             filename: str,
-            *args,
-            **kwargs
+            img,
+            params
     ):
+        p = Path(filename)
+        parent = p.parent
+        parent.mkdir(exist_ok=True)
+        tmp = p.parent / f'tmp.{p.name}'
+        # fd, tmp = tempfile.mkstemp(
+        #     prefix=".tmp_",
+        #     dir=str(p.parent),
+        # )
+        # os.close(fd)
         try:
-            p = Path(filename)
-            fd, tmp = tempfile.mkstemp(prefix=".tmp_", dir=str(p.parent))
-            os.close(fd)
+            ok = cv2.imwrite(tmp, img, params)
+            if not ok:
+                raise RuntimeError(
+                    f'imwrite failed for {filename} with '
+                    f'shape={img.shape} dtype={img.dtype}'
+                )
+            os.replace(tmp, p)
+        except Exception:
             try:
-                cv2.imwrite(filename, *args, **kwargs)
-                os.replace(tmp, p)
-            except Exception:
-                try:
-                    os.unlink(tmp)
-                finally:
-                    raise
-        finally:
-            self.gate.release()
+                os.unlink(tmp)
+            finally:
+                raise
 
     def imwrite(
             self,
             filename: str,
             img,
-            params,
+            params=(cv2.IMWRITE_PNG_COMPRESSION, 1),
     ):
-        self.gate.acquire()
-        try:
-            return self.threads.submit(self, self._imwrite, filename, img, params)
-        except Exception:
-            self.gate.release()
-            raise
+        """
+        Schedule saving an image to disk with atomic replace.
+        """
+        future = self.threads.submit(self._imwrite, filename, img, params)
+        self.next.append(future)
 
-    def drain(self):
-        done, _ = wait(self.futures)
-        errors = self.errors
-        for fut in done:
+    def _to_npy(
+            self,
+            filename: str,
+            arr: np.ndarray,
+    ) -> None:
+        p = Path(filename)
+        parent = p.parent
+        parent.mkdir(parents=True, exist_ok=True)
+        tmp = p.parent / f'tmp.{p.name}'
+
+        try:
+            # Save array to a temporary .npy file
+            np.save(tmp, arr)
+            os.replace(tmp, p)
+        except Exception:
             try:
-                exc = fut.exception()
-            except Exception:
-                exc = None
-            if exc is not None:
-                errors.append(exc)
-        self.futures.clear()
+                if tmp.exists():
+                    tmp.unlink()
+            finally:
+                raise
 
-    def rotate(self):
-        self.threads.shutdown(wait=True)
-        # malloc trim if supported (posix only)
-        try:
-            libc = ctypes.CDLL("libc.so.6")
-            libc.malloc_trim(0)
-        except Exception:
-            pass
-        del self.threads
-
-
+    def to_npy(
+            self,
+            filename: str,
+            arr: np.ndarray,
+    ):
+        """
+        Schedule saving a numpy array to .npy with atomic replace.
+        """
+        future = self.threads.submit(self._to_npy, filename, arr)
+        self.next.append(future)

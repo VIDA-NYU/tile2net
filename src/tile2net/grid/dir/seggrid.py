@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .dir import Dir
+import os
 
 
 class Output(
@@ -53,7 +54,7 @@ class InFile(
 class Grayscale(
     Dir
 ):
-    ...
+    extension = 'npy'
 
 
 class Colored(
@@ -76,6 +77,15 @@ class SegGrid(
     @Grayscale
     def grayscale(self):
         ...
+        # format = os.path.join(
+        #     self.dir,
+        #     'grayscale',
+        #     self.suffix + '.npy',
+        # )
+        # format = format
+        # result = Grayscale.from_format(format)
+        # return result
+
 
     @Colored
     def colored(self):

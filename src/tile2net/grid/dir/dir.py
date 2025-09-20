@@ -193,9 +193,9 @@ class Dir:
             cls,
             format: str,
             force_xy: bool = True,
-    ) -> Self:  # noqa: A002
+    ) -> Self:
+        # todo: clean this up, this is terribly written
 
-        # value = os.path.normpath(format)
         value = (
             Path(format)
             .expanduser()
@@ -215,7 +215,20 @@ class Dir:
         )
         characters = CHARACTERS.copy()
 
-        string = value
+        # string, ext = value.rsplit('.', 1)
+        sep_idx = value.rfind(os.sep)
+        # find last dot *after* last separator
+        dot_idx = value.rfind('.', sep_idx + 1)
+
+        if dot_idx == -1:
+            # no dot after last separator
+            # return value, ''
+            string, ext = value, ''
+        else:
+            # return value[:dot_idx], value[dot_idx + 1:]
+            string, ext = value[:dot_idx], value[dot_idx + 1:]
+        if ext:
+            ext = '.' + ext
         match = indir._match(string, characters)
         indir.root = match[0]
         result = deque([match])
@@ -247,7 +260,7 @@ class Dir:
         parts.extend([r[0], f'{{{r[1]}}}', r[2]])
         for r in list(result)[1:]:
             parts.extend([f'{{{r[1]}}}', r[2]])
-        indir.format = ''.join(parts)
+        indir.format = ''.join(parts) + (ext if ext else '')
         indir.dir = parts[0].rsplit('/', 1)[0]
         indir.suffix = os.path.relpath(indir.original, indir.dir)
         return indir

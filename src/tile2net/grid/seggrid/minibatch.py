@@ -1,10 +1,8 @@
 from __future__ import annotations
-from functools import *
-from pathlib import Path
 
-from concurrent.futures import ThreadPoolExecutor, Future
-from dataclasses import dataclass
-from dataclasses import field
+import ctypes
+import time
+from dataclasses import dataclass, field
 from functools import cached_property
 from typing import *
 from typing import Optional
@@ -14,11 +12,12 @@ import numpy as np
 import torch
 
 from tile2net.grid.cfg import cfg
-from tile2net.tileseg.utils.misc import AverageMeter
+from tile2net.grid.cfg.logger import logger
 from tile2net.tileseg.utils.misc import fast_hist, fmt_scale
+from .submit import Submit
+from ..grid.grid import Grid
 
 cv2.setNumThreads(1)
-
 
 if False:
     from .seggrid import SegGrid
@@ -34,8 +33,8 @@ def imwrite(
     """
     thin worker: assume array is already contiguous, right dtype/shape
     """
-    if params is None:
-        params = []
+    # if params is None:
+    #     params = []
     ok = cv2.imwrite(filename, array, params)
     if not ok:
         raise RuntimeError(
@@ -43,27 +42,6 @@ def imwrite(
             f'shape={array.shape}, dtype={array.dtype}'
         )
     return ok
-
-def imwrite(
-        filename: str,
-        array: np.ndarray,
-        params: list[int] | None = None,
-) -> bool:
-    """
-    thin worker: assume array is already contiguous, right dtype/shape
-    """
-    if params is None:
-        params = []
-    ok = cv2.imwrite(filename, array, params)
-    if not ok:
-        raise RuntimeError(
-            f'imwrite failed for {filename} with '
-            f'shape={array.shape}, dtype={array.dtype}'
-        )
-    return ok
-
-
-
 
 
 def to_numpy(obj: Any):
@@ -87,16 +65,12 @@ class MiniBatch(
     iou_acc: np.ndarray
     gt_images: torch.Tensor
     grid: SegGrid
-    # threads: ThreadPoolExecutor
-
-    submit: Callable
+    submit: Submit
 
     output: dict[str, torch.Tensor] = field(default_factory=dict)
     prob_mask: Optional[torch.Tensor] = None
     error_mask: Optional[np.ndarray] = None
     clip: int = 0
-
-
 
     @classmethod
     def from_data(
@@ -105,8 +79,7 @@ class MiniBatch(
             gt_image,
             net: torch.nn.Module,
             grid: Grid,
-            # threads: ThreadPoolExecutor,
-            submit,
+            submit: Submit,
             clip: int = 0,
     ):
         """
@@ -193,7 +166,12 @@ class MiniBatch(
         assert output.size()[2:] == gt_cuda.size()[1:], assert_msg
         assert output.size()[1] == cfg.DATASET.NUM_CLASSES, assert_msg
 
-        output_data = torch.nn.functional.softmax(output, dim=1).cpu().data
+        output_data = (
+            torch.nn.functional
+            .softmax(output, dim=1)
+            .cpu()
+            .data
+        )
         max_probs, predictions = output_data.max(1)
 
         # Assemble assets to visualize
@@ -225,8 +203,45 @@ class MiniBatch(
             gt_images=gt_image,
             # threads=threads,
             submit=submit,
-            clip=clip
+            clip=clip,
         )
+        return result
+
+    def clip_image(self, array: np.ndarray) -> np.ndarray:
+        """
+        Clip the image by removing the specified number of pixels from each edge.
+
+        Args:
+            array: The image array to clip
+
+        Returns:
+            The clipped image array
+        """
+        if self.clip <= 0:
+            return array
+
+        # Get the dimensions of the array
+        if array.ndim == 2:
+            h, w = array.shape
+            result = array[self.clip:h - self.clip, self.clip:w - self.clip]
+        elif array.ndim == 3:
+            h, w, c = array.shape
+            result = array[self.clip:h - self.clip, self.clip:w - self.clip, :]
+        else:
+            # If the array has an unexpected number of dimensions, result =  it unchanged
+            result = array
+
+        # assert that clipping won't remove everything
+        msg = (
+            f"Invalid clip={self.clip} for array shape {array.shape}; "
+            "slicing would produce an empty array"
+        )
+        assert (
+                array.ndim in (2, 3)
+                and array.shape[0] > 2 * self.clip
+                and array.shape[1] > 2 * self.clip
+        ), msg
+
         return result
 
     @classmethod
@@ -301,134 +316,27 @@ class MiniBatch(
     def dump_percent(self) -> int:
         return 100
 
-    def submit_all(
-            self
-    ) -> Iterator[Future]:
-        if cfg.segmentation.probability:
-            yield from self.submit_probability()
-        yield from self.submit_output()
-        yield from self.submit_grayscale()
-        if cfg.segmentation.colored:
-            yield from self.submit_colored()
+    def submit_colored(self):
+        if self.predictions is None:
+            return
+        arrays = self.grid.colormap(to_numpy(self.predictions))
+        files = self.grid.file.colored
+        for array, file in zip(arrays, files):
+            clipped = self.clip_image(array)
+            self.submit.imwrite(file, clipped)
 
     def submit_probability(self):
         if self.prob_mask is None:
             return
         arrays = (
-            to_numpy(self.prob_mask)
+            to_numpy(self.predictions)
             .__mul__(255)
             .astype(np.uint8)
         )
         files = self.grid.file.probability
         for array, file in zip(arrays, files):
-            # Clip the image before saving
-            clipped_array = self.clip_image(array)
-            future = self.threads.submit(imwrite, file, clipped_array)
-            yield future
-
-    def submit_error(self):
-        if self.error_mask is None:
-            return
-        # todo @mary-h86 see this func. It doesn't seem to be saving err masks
-        #   it just saves the prediction, will return to this later
-        raise NotImplementedError
-
-    def submit_output(self):
-        colorize = self.grid.colormap
-        it = to_numpy(self.output).items()
-        for dirname, arrays in it:
-            files = self.grid.file.output(dirname)
-            if 'pred_' in dirname:
-                arrays = colorize(arrays)
-            for array, file in zip(arrays, files):
-                # Clip the image before saving
-                clipped_array = self.clip_image(array)
-                future = self.threads.submit(imwrite, file, clipped_array)
-                yield future
-
-    def submit_grayscale(self):
-        if self.predictions is None:
-            grayscale = self.grid.file.grayscale.tolist()
-            msg = f'No predictions to save for {grayscale}'
-            raise RuntimeError(msg)
-            return
-        arrays = to_numpy(self.predictions)
-        for array, file in zip(arrays, self.grid.file.grayscale):
-
-            if array.ndim == 3:  # one-hot or logits → class map2
-                array = array.argmax(axis=-1)
-
-            # Clip the image before saving
-            clipped_array = self.clip_image(array)
-            future = self.threads.submit(
-                imwrite,
-                file,
-                clipped_array.astype('uint8')
-            )
-            yield future
-
-    def clip_image(self, array: np.ndarray) -> np.ndarray:
-        """
-        Clip the image by removing the specified number of pixels from each edge.
-        
-        Args:
-            array: The image array to clip
-            
-        Returns:
-            The clipped image array
-        """
-        if self.clip <= 0:
-            return array
-
-        # Get the dimensions of the array
-        if array.ndim == 2:
-            h, w = array.shape
-            result = array[self.clip:h - self.clip, self.clip:w - self.clip]
-        elif array.ndim == 3:
-            h, w, c = array.shape
-            result = array[self.clip:h - self.clip, self.clip:w - self.clip, :]
-        else:
-            # If the array has an unexpected number of dimensions, result =  it unchanged
-            result = array
-
-        # assert that clipping won't remove everything
-        assert (
-                array.ndim in (2, 3)
-                and array.shape[0] > 2 * self.clip
-                and array.shape[1] > 2 * self.clip
-        ), (
-            f"Invalid clip={self.clip} for array shape {array.shape}; "
-            "slicing would produce an empty array"
-        )
-
-        return result
-
-    def submit_colored(self):
-        """
-        Colorized segmentation mask where different classes (road, sidewalk, crosswalk) are represented by different colors according to a predefined color palette
-        """
-        if self.predictions is None:
-            return
-        arrays = to_numpy(self.predictions)
-        arrays = self.grid.colormap(arrays)
-        files = self.grid.file.colored
-        for array, file in zip(arrays, files):
-            # Clip the image before saving
-            clipped_array = self.clip_image(array)
-            future = self.threads.submit(imwrite, file, clipped_array)
-            yield future
-
-
-    def submit_probability(self):
-        if self.prob_mask is None:
-            return
-        arrays = (to_numpy(self.prob_mask) * 255).astype(np.uint8)
-        files = self.grid.file.probability
-        for array, file in zip(arrays, files):
             clipped = self.clip_image(array)
-            func = partial(imwrite, array=clipped)
-            yield self.submit(func, filename=file,)
-
+            self.submit.imwrite(file, clipped)
 
     def submit_output(self):
         colorize = self.grid.colormap
@@ -438,8 +346,7 @@ class MiniBatch(
                 arrays = colorize(arrays)
             for array, file in zip(arrays, files):
                 clipped = self.clip_image(array)
-                func = partial(imwrite, array=clipped)
-                yield self.submit(func, filename=file, )
+                self.submit.imwrite(file, clipped)
 
     def submit_grayscale(self):
         if self.predictions is None:
@@ -450,15 +357,41 @@ class MiniBatch(
             if array.ndim == 3:
                 array = array.argmax(axis=-1)
             clipped = self.clip_image(array)
-            func = partial(imwrite, array=clipped)
-            yield self.submit(func, filename=file, )
+            self.submit.imwrite(file, clipped)
+            # self.submit.to_npy(file, clipped)
 
-    def submit_colored(self):
-        if self.predictions is None:
-            return
-        arrays = self.grid.colormap(to_numpy(self.predictions))
-        files = self.grid.file.colored
-        for array, file in zip(arrays, files):
-            clipped = self.clip_image(array)
-            func = partial(imwrite, array=clipped)
-            yield self.submit(func, filename=file, )
+    def submit_all(self):
+        # await previous writes
+        submit = self.submit
+        prev = self.submit.prev
+        for future in prev:
+            future.result()
+
+        dt = time.time() - submit.t
+        if dt > submit.period:
+            # rotate thread pool
+            msg = f'Rotating thread pool'
+            logger.debug(msg)
+            submit.threads.shutdown(wait=True)
+            del submit.threads
+            # trim memory
+            try:
+                msg = f'Trimming memory'
+                logger.debug(msg)
+                libc = ctypes.CDLL("libc.so.6")
+                libc.malloc_trim(0)
+            except Exception:
+                pass
+
+        next = submit.next
+        if cfg.segmentation.probability:
+            self.submit_probability()
+        self.submit_output()
+        self.submit_grayscale()
+        if cfg.segmentation.colored:
+            self.submit_colored()
+
+        submit.prev = next
+        del submit.next
+        del submit.t
+        _ = submit.t

@@ -131,7 +131,6 @@ class File(
         files = grid.ingrid.outdir.seggrid.colored.files(grid)
         self.colored = files
         if (
-            # not grid.predict
             not grid.predict
             and not files.map(os.path.exists).all()
         ):

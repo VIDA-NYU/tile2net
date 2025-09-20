@@ -3,8 +3,6 @@ reminder about: https://shapely.readthedocs.io/en/latest/reference/shapely.remov
 We can use something like the majority vote + confidence mask to force the labels of the pixels with low confidence into the same label as their neighbors starting from like 50 pixels away from the edge
 
 add a changelog
-we should have vecgrid.prediction and vecgrid.mask
-we must dissolve before simplifying
 
 stitch loader should still use threading within a process if a lot of small grid in the big tile
 outdir not correctly being set
@@ -60,8 +58,6 @@ why is it saying "loading ingrid.polygnos from" AFTER I saved the concatenated p
 
 just keep default vectorization.length 4
 
-vec.length 8 is 44% faster but time doesn't matter; entire city of portland is 3 minutes
-todo: use the del method to print a message to confirm that loader and dataset have been deleted
 
 --location "43.73982934358233, -70.36009908310434, 43.63293463137132, -70.22757630255016 " --name test_vectorization --zoom 20 --model.bs_val 8 --segmentation.pad 0 --vectorization.length 8 --polygon.simplify 2
 python -m tile2net --location "43.73982934358233, -70.36009908310434, 43.63293463137132, -70.22757630255016 " --name test_vectorization --zoom 20 --model.bs_val 8 --segmentation.pad 0 --vectorization.length 8 --polygon.simplify 2
@@ -104,9 +100,7 @@ concatenation still needs benchmarking as well
 return to debugging seggrid.predict memory consumption
 
 python -m tile2net --location "Portland, Maine" --name portland --segmentation.pad 1 --segmentation.dimension 1024 --zoom 20 --model.bs_val 1 --vectorization.length 8 --multi_scale_inference --model.extra_scales 0.5,2
-
 python -m tile2net --location "boston common" --name "boston common" --segmentation.pad 1 --zoom 20 --model.bs_val 1 --vectorization.length 8 --polygon.simplify 3 --multi_scale_inference --model.extra_scales 0.5,2
-
 --location "boston common" --name "boston common" --segmentation.pad 1 --zoom 20 --model.bs_val 1 --vectorization.length 8 --polygon.simplify 3 --multi_scale_inference --model.extra_scales 0.5,2 --outdir ./.outdir
 
 
@@ -129,7 +123,7 @@ DEBUG      Rotating writer thread pool at batch 1300 (every 100); shutting down 
 DEBUG      Writer pool shut down; attempted malloc_trim().
 DEBUG      Created new writer thread pool with max_workers=4 at batch 1300.
 Predicting Segmentation Tiles:  24%|████████████████████████████████████████████████████████████████████████████████████████▊                                                                                                                                                                                                                                                                                                | 10408/44156 [24:07<1:13:59,  7.60 Broadcast.file.grayscale/s]DEBUG      Clearing CPU memory (hint)...
-DEBUG      Batch 1300 | RSS=7.58 GB | CUDA reserved/alloc=12.39/0.55 GB
+DEBUG      Batch 1300 | RSS=7.58 GB | CUDA reserved/alloc=12.39/0.55 GB6
 Predicting Segmentation Tiles:  24%|████████████████████████████████████████████████████████████████████████████████████████▉                                                                                                                                                                                                                                                                                                | 10416/44156 [24:08<1:14:09,  7.58 Broadcast.file.grayscale/s]DEBUG      Batch 1301 | RSS=7.63 GB | CUDA reserved/alloc=12.39/0.55 GB
 Predicting Segmentation Tiles:  24%|████████████████████████████████████████████████████████████████████████████████████████▉                                                                                                                                                                                                                                                                                                | 10424/44156 [24:09<1:14:03,  7.59 Broadcast.file.grayscale/s]DEBUG      Batch 1302 | RSS=7.64 GB | CUDA reserved/alloc=12.39/0.55 GB
 Predicting Segmentation Tiles:  24%|█████████████████████████████████████████████████████████████████████████████████████████                                                                                                                                                                                                                                                                                                | 10432/44156 [24:10<1:13:53,  7.61 Broadcast.file.grayscale/s]DEBUG      Batch 1303 | RSS=7.64 GB | CUDA reserved/alloc=12.39/0.55 GB
@@ -148,3 +142,5 @@ Predicting Segmentation Tiles:   1%|███▏
 Predicting Segmentation Tiles:  26%|██████████████████████████████████████████████████████████████████████████████████████████████████▉                                                                                                                                                                                                                                                                                      | 13644/52020 [30:49<1:28:23,  7.24 Broadcast.file.grayscale/s]DEBUG      Batch 1136 | RSS=9.47 GB | CUDA reserved/alloc=18.29/0.55 GB
 Predicting Segmentation Tiles:  26%|██████████████████████████████████████████████████████████████████████████████████████████████████▉                                                                                                                                                                                                                                                                                      | 13656/52020 [30:50<1:27:42,  7.29 Broadcast.file.grayscale/s]DEBUG      Batch 1137 | RSS=9.39 GB | CUDA reserved/alloc=18.29/0.55 GB
 Predicting Segmentation Tiles:  26%|███████████████████████████████████████████████████████████████████████████████████████████████████                                                                                                                                                                                                                                                                                      | 13668/52020 [30:52<1:26:42,  7.37 Broadcast.file.grayscale/s]DEBUG      Batch 1138 | RSS=9.39 GB | CUDA reserved/alloc=18.29/0.55 GB
+
+

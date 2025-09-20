@@ -9,31 +9,6 @@ import subprocess
 
 # Must be within main to avoid parallelism issues
 if __name__ == '__main__':
-    # cfg = Cfg.from_parser()
-    #
-    # with cfg:
-    #
-    #     # instantiate InGrid using a location
-    #     assert cfg.vectorization.length == _cfg.vectorization.length
-    #     ingrid = InGrid.from_location(
-    #         location=cfg.location,
-    #         zoom=cfg.zoom
-    #     )
-    #
-    #     if cfg.indir.path:
-    #         # use input imagery
-    #         ingrid = ingrid.set_indir()
-    #     else:
-    #         # set a source if specified or infer from location
-    #         ingrid = ingrid.set_source()
-    #
-    #     if cfg.outdir:
-    #         ingrid = ingrid.set_outdir()
-    #
-    #     # configure segmentation using cfg parameters
-    #     ingrid = ingrid.set_segmentation()
-    #     # configure vectorization using cfg parameters
-    #     ingrid = ingrid.set_vectorization()
 
     ingrid = InGrid.from_cfg()
     cfg = ingrid.cfg
