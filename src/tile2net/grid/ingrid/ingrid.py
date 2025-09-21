@@ -1225,7 +1225,6 @@ class InGrid(
         if cfg is None:
             cfg = Cfg.from_parser()
         with cfg:
-
             ingrid = InGrid.from_location(
                 location=cfg.location,
                 zoom=cfg.zoom

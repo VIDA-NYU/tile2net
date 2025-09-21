@@ -281,6 +281,7 @@ class VecGrid(Grid):
                     total=n_missing,
                     desc='overlay',
                     unit=' img',
+                mininterval=5,
             ) as bar:
 
                 # prime the pipeline
@@ -496,7 +497,7 @@ class VecGrid(Grid):
 
         bar = tqdm(
             total=total,
-            desc=f'{self.__name__}.{self.vectorize.__name__}()',
+            desc=f'vecgrid.{self.vectorize.__name__}()',
             unit=f' {self.file.lines.name}',
             smoothing=0.01,
             mininterval=10,

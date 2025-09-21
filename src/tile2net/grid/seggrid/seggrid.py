@@ -412,7 +412,7 @@ class SegGrid(
 
             frame = self.loc[~self.index.duplicated()]
 
-            unit = f' {self.__class__.__name__}.{self.file.grayscale.name}'
+            unit = f' seggrid.{self.file.grayscale.name}'
             msg = 'Predicting Segmentation Tiles'
             futures = []
 
@@ -430,6 +430,7 @@ class SegGrid(
                     desc=msg,
                     unit=unit,
                     dynamic_ncols=True,
+                    mininterval=5,
                 )
 
                 try:
@@ -460,10 +461,10 @@ class SegGrid(
                         pbar.update(len(input_images))
 
                         # RSS stats
-                        proc = psutil.Process(os.getpid())
-                        gb = 1024 ** 3
-                        rss_gb = proc.memory_info().rss / gb
-
+                        # proc = psutil.Process(os.getpid())
+                        # gb = 1024 ** 3
+                        # rss_gb = proc.memory_info().rss / gb
+                        #
                         # msg = f'Batch {n} | RSS={rss_gb:.2f} GB'
                         # tqdm.write(msg)
                         # num, (soft, hard) = _fd_stats()
