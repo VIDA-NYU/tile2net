@@ -1253,3 +1253,25 @@ class InGrid(
             file: Union[str, Path] = None
     ):
         ...
+
+    def to_pickle(
+            self,
+            file: Union[
+                str,
+                Path,
+                None
+            ] = None
+    ) -> Path:
+        ...
+
+    def from_pickle(
+            self,
+            file: Union[
+                str,
+                Path,
+            ]
+    ) -> Self:
+        ...
+
+
+

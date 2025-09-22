@@ -456,7 +456,7 @@ class HighResolutionNet(nn.Module):
             pretrained = cfg.MODEL.HRNET_CHECKPOINT
 
         # logger.debug('=> init weights from normal distribution')
-        logger.info('init weights from normal distribution')
+        logger.debug('init weights from normal distribution')
         for name, m in self.named_modules():
             if any(part in name for part in {'cls', 'aux', 'ocr'}):
                 # print('skipped', name)

@@ -16,7 +16,7 @@ from pandas import MultiIndex, Series, Index
 
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.explore import explore
-from .colormap import ColorMap
+from tile2net.grid.cfg.colormap import ColorMap
 from .corners import Corners
 from .file import File
 from .stitcher import Stitcher

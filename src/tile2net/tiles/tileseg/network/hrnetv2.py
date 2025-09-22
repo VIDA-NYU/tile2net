@@ -455,8 +455,7 @@ class HighResolutionNet(nn.Module):
         if pretrained is None:
             pretrained = cfg.MODEL.HRNET_CHECKPOINT
 
-        # logger.debug('=> init weights from normal distribution')
-        logger.info('init weights from normal distribution')
+        logger.debug('init weights from normal distribution')
         for name, m in self.named_modules():
             if any(part in name for part in {'cls', 'aux', 'ocr'}):
                 # print('skipped', name)
@@ -471,7 +470,7 @@ class HighResolutionNet(nn.Module):
                 pretrained,
                 map_location={'cuda:0': 'cpu'}
             )
-            logger.info('Loading pretrained model \n\t{}'.format(pretrained))
+            logger.debug('Loading pretrained model \n\t{}'.format(pretrained))
             model_dict = self.state_dict()
             pretrained_dict = {k.replace('last_layer',
                                          'aux_head').replace('model.', ''): v

@@ -1,4 +1,7 @@
 from __future__ import absolute_import, annotations, division, print_function, unicode_literals
+from PIL import ImageColor
+
+from .colormap import ColorMap
 
 import argparse
 import functools
@@ -730,13 +733,20 @@ class Segmentation(cmdline.Namespace):
     @cmdline.property
     def colored(self) -> bool:
         """Write colored segmentation masks to file"""
-        # return False
         return True
+        return False
 
     @cmdline.property
     def probability(self) -> bool:
         """Write probability to file"""
         return False
+
+    @cmdline.property
+    def intensity(self) -> bool:
+        """Write intensity to file"""
+        return True
+        return False
+
 
     @cmdline.property
     def to_pkl(self) -> bool:
@@ -1165,6 +1175,13 @@ class Cfg(
             crosswalk='yellow',
             curb='blue',
         )
+
+    @functools.cached_property
+    def colormap(self) -> ColorMap:
+        # todo
+        return ColorMap()
+
+
 
     @cmdline.property
     def outdir(self) -> str:

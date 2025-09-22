@@ -365,7 +365,6 @@ class SegGrid(
 
             net.eval()
             val_loss = AverageMeter()
-            iou_acc = 0
             scales = [cfg.default_scale]
             if cfg.multi_scale_inference:
                 scales.extend(cfg.model.extra_scales.split(','))
@@ -447,6 +446,7 @@ class SegGrid(
                         loc = dataset.index[i]
                         grid = frame.loc[loc].copy()
 
+
                         mb = MiniBatch.from_data(
                             images=input_images,
                             gt_image=labels,
@@ -456,8 +456,8 @@ class SegGrid(
                             clip=clip,
                         )
                         mb.submit_all()
+                        del mb
 
-                        iou_acc += mb.iou_acc
                         pbar.update(len(input_images))
 
                         # RSS stats

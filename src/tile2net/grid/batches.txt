@@ -48,3 +48,6 @@ python -m tile2net --location "40.7053, -74.0111, 40.7119, -73.9900" --name manh
 python -m tile2net --location "37.8684, -122.2658, 37.8809, -122.2441" --name berkeley/scales=0.5,2/pad=2 --segmentation.pad 2 --segmentation.dimension 512 --zoom 20 --model.bs_val 1 --vectorization.length 8 --multi_scale_inference --model.extra_scales 0.5,2
 python -m tile2net --location "44.3112, -69.7708, 44.3185, -69.7505" --name augusta/scales=0.5,2/pad=2 --segmentation.pad 2 --segmentation.dimension 512 --zoom 20 --model.bs_val 1 --vectorization.length 8 --multi_scale_inference --model.extra_scales 0.5,2
 python -m tile2net --location "35.7526, -86.9171, 35.7664, -86.8819" --name "spring hill/scales=0.5,2/pad=2" --segmentation.pad 2 --segmentation.dimension 512 --zoom 20 --model.bs_val 1 --vectorization.length 8 --multi_scale_inference --model.extra_scales 0.5,2
+
+
+python -m tile2net --location "Portland, Maine" --name portland --segmentation.pad 1 --segmentation.dimension 1024 --zoom 20 --model.bs_val 12 --vectorization.length 8 --outdir ./.outdir

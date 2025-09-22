@@ -113,10 +113,10 @@ class File(
         return files
 
     @frame.column
-    def submit(self) -> pd.Series:
+    def colored(self) -> pd.Series:
         grid = self.grid
-        files = grid.ingrid.outdir.seggrid.submit.files(grid)
-        self.submit = files
+        files = grid.ingrid.outdir.seggrid.colored.files(grid)
+        self.colored = files
         if (
             not grid.predict
             and not files.map(os.path.exists).all()
@@ -126,13 +126,13 @@ class File(
         return files
 
     @frame.column
-    def colored(self) -> pd.Series:
+    def intensity(self) -> pd.Series:
         grid = self.grid
-        files = grid.ingrid.outdir.seggrid.colored.files(grid)
-        self.colored = files
+        files = grid.ingrid.outdir.seggrid.intensity.files(grid)
+        self.intensity = files
         if (
-            not grid.predict
-            and not files.map(os.path.exists).all()
+                not grid.predict
+                and not files.map(os.path.exists).all()
         ):
             grid.predict()
             assert files.map(os.path.exists).all()

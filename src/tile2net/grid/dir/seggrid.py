@@ -62,6 +62,12 @@ class Colored(
 ):
     ...
 
+class Intensity(
+    Dir
+):
+    ...
+
+
 
 class Overlay(
     Dir
@@ -109,6 +115,10 @@ class SegGrid(
 
     @Output
     def output(self):
+        ...
+
+    @Intensity
+    def intensity(self):
         ...
 
     @property
