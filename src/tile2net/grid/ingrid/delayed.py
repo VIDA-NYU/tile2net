@@ -4,10 +4,12 @@ if False:
     from . import filled
 
 if False:
-    # from tile2net.grid.seggrid import filled
-    from . import filled
-    from . import broadcast
-
+    from . import (
+        filled,
+        broadcast,
+        _pickle,
+        construct
+    )
 
 """
 Filled inherits from SegGrid, but we want define `SegGrid.filled` 
@@ -37,8 +39,9 @@ class Filled(
     def __set_name__(self, owner, name):
         self.__name__ = name
 
-    def __init__( self, *args, ):
+    def __init__(self, *args, ):
         ...
+
 
 class Broadcast(
 
@@ -62,5 +65,55 @@ class Broadcast(
     def __set_name__(self, owner, name):
         self.__name__ = name
 
-    def __init__( self, *args, ):
+    def __init__(self, *args, ):
+        ...
+
+
+class Pickle(
+
+):
+    def __get__(
+            self,
+            instance,
+            owner
+    ) -> _pickle.Pickle:
+        from ._pickle import Pickle
+        obj = Pickle()
+        setattr(owner, self.__name__, obj)
+        obj.__set_name__(owner, self.__name__)
+        if instance is None:
+            result = getattr(owner, self.__name__)
+        else:
+            result = getattr(instance, self.__name__)
+        return result
+
+    def __set_name__(self, owner, name):
+        self.__name__ = name
+
+    def __init__(self, *args, ):
+        ...
+
+
+class Construct(
+
+):
+    def __get__(
+            self,
+            instance,
+            owner
+    ) -> construct.Construct:
+        from .construct import Construct
+        obj = Construct()
+        setattr(owner, self.__name__, obj)
+        obj.__set_name__(owner, self.__name__)
+        if instance is None:
+            result = getattr(owner, self.__name__)
+        else:
+            result = getattr(instance, self.__name__)
+        return result
+
+    def __set_name__(self, owner, name):
+        self.__name__ = name
+
+    def __init__(self, *args, ):
         ...

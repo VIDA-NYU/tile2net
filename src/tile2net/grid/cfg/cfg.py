@@ -1293,7 +1293,7 @@ class Cfg(
         """
         Run multi-scale inference
         """
-        return False
+        return True
 
     @cmdline.property
     def default_scale(self) -> float:

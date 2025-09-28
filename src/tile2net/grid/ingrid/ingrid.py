@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import os
 import os.path
 import pickle
@@ -9,6 +10,7 @@ import sys
 import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from functools import *
 from pathlib import Path
 from typing import *
@@ -51,12 +53,35 @@ from ..vecgrid.vecgrid import VecGrid
 from ...grid import util
 from ...grid.util import recursion_block, assert_perfect_overlap
 
-# thread-local store
-tls = threading.local()
-
 if False:
     from .filled import Filled
     from .broadcast import Broadcast
+    from . import _pickle, construct
+
+# thread-local store
+tls = threading.local()
+
+
+@dataclass
+class Pickle:
+    path: Path
+
+    @cached_property
+    def md5(self) -> str:
+        h = hashlib.md5()
+        with open(self.path, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                h.update(chunk)
+        result = f'md5:{h.hexdigest()}'
+        return result
+
+
+def file_md5(path: Path, chunk_size: int = 8192) -> str:
+    h = hashlib.md5()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(chunk_size), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 class File(
@@ -177,6 +202,20 @@ class InGrid(
         # These methods are how to set the source:
         ingrid = self.set_source(...)  # automatically sets the source
         ingrid = self.set_source('nyc')
+
+    @delayed.Pickle
+    def pickle(self) -> _pickle.Pickle:
+        """
+        Module which offers pre-constructed `InGrid` instances. This can save time during testing.
+        """
+        # This code block is just semantic sugar and does not run.
+        # These methods construct InGrid instances with their respective locations:
+
+    @delayed.Construct
+    def construct(self) -> construct.Construct:
+        """
+        Module which offers pre-constructed `InGrid` instances.
+        """
 
     @Outdir
     def outdir(self):
@@ -653,6 +692,7 @@ class InGrid(
             scale: int = None,
             fill: bool = None,
             batch_size: int = None,
+            pad=None,
     ) -> Self:
         from ..seggrid import SegGrid
         # todo: if all are None, determine dimension using VRAM
@@ -701,6 +741,8 @@ class InGrid(
         seggrid = SegGrid.from_rescale(ingrid, scale, fill)
         ingrid.seggrid = seggrid
         seggrid = ingrid.seggrid
+        if pad is not None:
+            seggrid.pad = pad
 
         assert (
             ingrid.filled.segtile.index
@@ -733,6 +775,7 @@ class InGrid(
             # mosaic: int = None,
             scale: int = None,
             fill: bool = True,
+            pad: int = None,
     ) -> Self:
         """
         dimension:
@@ -811,6 +854,9 @@ class InGrid(
         assert seggrid.filled.index.isin(ingrid.filled.segtile.index).all()
         assert seggrid.scale == self.seggrid.scale
         vecgrid = VecGrid.from_rescale(ingrid, scale, fill=fill)
+
+        if pad is not None:
+            vecgrid.pad = pad
 
         ingrid.vecgrid = vecgrid
         seggrid = ingrid.seggrid
@@ -1253,17 +1299,13 @@ class InGrid(
             self,
             file: Union[str, Path] = None
     ):
+        raise NotImplementedError
         ...
-
 
     def to_pickle(
             self,
-            file: Union[
-                str,
-                Path,
-                None
-            ] = None
-    ) -> Path:
+            path: Union[str, Path, None] = None
+    ) -> Pickle:
         """
         Saves the class instance to a pickle file.
 
@@ -1271,45 +1313,75 @@ class InGrid(
         - If a directory path is given, saves inside that directory with a generated name.
         - If a full file path is given, saves to that path.
 
-        Returns the saved path.
         """
+
         cfg_hash = self.cfg.hash()
         filename = f'{self.location}.{cfg_hash}.pkl'
 
-        # Determine the final output path
-        if file is None:
-            # Case 1: No path provided, use the system's temp directory
+        if path is None:
             path = Path(tempfile.gettempdir()) / filename
         else:
-            p = Path(file)
-            if p.suffix == '':
-                # Case 2: A directory path was provided (e.g., './data/')
-                # Append the generated filename to the directory path
+            p = Path(path)
+            path = p
+            if not p.suffix:
                 path = p / filename
-            else:
-                # Case 3: A full file path was provided (e.g., './data/my_file.pkl')
-                path = p
+
+        msg = f'Saving InGrid to pickle at \n\t{path}'
+        logger.info(msg)
 
         path.parent.mkdir(parents=True, exist_ok=True)
+        cfg = self.cfg.flatten()
+        indir: Self = self.copy()
+        indir.cfg = cfg
 
         with open(path, 'wb') as f:
-            pickle.dump(self, f)
+            pickle.dump(indir, f)
 
-        return path
+        result = Pickle(path)
+        return result
 
     @classmethod
     def from_pickle(
-        cls,
-        file: Union[
-            str,
-            Path,
-        ]
+            cls,
+            file: Union[
+                str,
+                Path,
+            ]
     ) -> Self:
         """
         Loads a class instance from a pickle file.
         """
         path = Path(file)
+        logger.info(f'Loading InGrid from \n\t{path}')
         with open(path, 'rb') as f:
             # load the entire object using pickle
             instance = pickle.load(f)
         return instance
+
+    @classmethod
+    def from_basic(
+            cls,
+            outdir=None,
+            location=None,
+            pad=None,
+            length=None
+    ) -> Self:
+
+        ingrid = (
+            InGrid
+            .from_location(location)
+            .set_source(
+                outdir=outdir,
+            )
+            .set_segmentation(
+                pad=pad,
+            )
+            .set_vectorization(
+                length=length,
+            )
+        )
+        return ingrid
+
+
+if __name__ == '__main__':
+    ...

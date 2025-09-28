@@ -587,3 +587,4 @@ class SegGrid(
     @cached_property
     def time_usage(self):
         return 0
+

@@ -243,3 +243,16 @@ class VecTile(
             .values
         )
         return result
+
+    @property
+    def pad(self) -> int:
+        return self.grid.cfg.vectorization.pad
+
+    @pad.setter
+    def pad(self, value: int) -> None:
+        self.grid.cfg.vectorization.pad = value
+
+    @pad.deleter
+    def pad(self) -> None:
+        del self.grid.cfg.vectorization.pad
+

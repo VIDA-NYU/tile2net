@@ -67,9 +67,10 @@ class Filled(
         if key in cache:
             result = cache[key]
         else:
+            pad = instance.vectile.pad
             result: SegGrid = (
                 instance
-                .to_padding(instance.cfg.vectorization.pad)
+                .to_padding(pad)
                 .pipe(self.__class__)
             )
 
