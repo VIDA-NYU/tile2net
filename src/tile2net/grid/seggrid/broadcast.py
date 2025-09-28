@@ -83,6 +83,7 @@ class Broadcast(
     SegGrid
 ):
     instance: SegGrid
+    predict = False
 
     def _get(
             self: Broadcast,
@@ -174,3 +175,4 @@ class Broadcast(
     @property
     def sampler(self) -> Sampler:
         return self.seggrid.sampler
+

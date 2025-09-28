@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import os
 import os.path
+import pickle
 import shutil
 import sys
 import tempfile
@@ -36,6 +37,7 @@ from .source import Source, SourceNotFound
 from .vectile import VecTile
 from .. import frame
 from ..cfg import cfg
+from ..cfg.cfg import Cfg
 from ..dir.dir import Dir, ExtensionNotFoundError, XYNotFoundError
 from ..dir.tempdir import TempDir
 from ..grid import file
@@ -48,7 +50,6 @@ from ..seggrid.seggrid import SegGrid
 from ..vecgrid.vecgrid import VecGrid
 from ...grid import util
 from ...grid.util import recursion_block, assert_perfect_overlap
-from ..cfg.cfg import Cfg
 
 # thread-local store
 tls = threading.local()
@@ -1254,6 +1255,7 @@ class InGrid(
     ):
         ...
 
+
     def to_pickle(
             self,
             file: Union[
@@ -1262,16 +1264,52 @@ class InGrid(
                 None
             ] = None
     ) -> Path:
-        ...
+        """
+        Saves the class instance to a pickle file.
 
+        - If no path is given, saves to the system's temp directory.
+        - If a directory path is given, saves inside that directory with a generated name.
+        - If a full file path is given, saves to that path.
+
+        Returns the saved path.
+        """
+        cfg_hash = self.cfg.hash()
+        filename = f'{self.location}.{cfg_hash}.pkl'
+
+        # Determine the final output path
+        if file is None:
+            # Case 1: No path provided, use the system's temp directory
+            path = Path(tempfile.gettempdir()) / filename
+        else:
+            p = Path(file)
+            if p.suffix == '':
+                # Case 2: A directory path was provided (e.g., './data/')
+                # Append the generated filename to the directory path
+                path = p / filename
+            else:
+                # Case 3: A full file path was provided (e.g., './data/my_file.pkl')
+                path = p
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(path, 'wb') as f:
+            pickle.dump(self, f)
+
+        return path
+
+    @classmethod
     def from_pickle(
-            self,
-            file: Union[
-                str,
-                Path,
-            ]
+        cls,
+        file: Union[
+            str,
+            Path,
+        ]
     ) -> Self:
-        ...
-
-
-
+        """
+        Loads a class instance from a pickle file.
+        """
+        path = Path(file)
+        with open(path, 'rb') as f:
+            # load the entire object using pickle
+            instance = pickle.load(f)
+        return instance

@@ -48,6 +48,8 @@ class Filled(
     SegGrid
 ):
     instance: SegGrid
+    predict = False
+    _predict = False
 
     def _get(
             self,

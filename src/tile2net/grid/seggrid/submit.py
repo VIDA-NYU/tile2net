@@ -15,10 +15,16 @@ class Submit:
             self,
             workers: int = 4,
     ):
+        """
+        Initialize a Submit scheduler with a thread pool.
+        """
         self.workers = workers
 
     @cached_property
     def threads(self):
+        """
+        Thread pool used to execute background tasks.
+        """
         return ThreadPoolExecutor(max_workers=self.workers)
 
     @cached_property

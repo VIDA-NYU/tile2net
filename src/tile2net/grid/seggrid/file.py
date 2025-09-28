@@ -68,7 +68,7 @@ class File(
         files = grid.ingrid.outdir.seggrid.grayscale.files(grid)
         self.grayscale = files
         if (
-            not grid.predict
+            grid.predict
             and not files.map(os.path.exists).all()
         ):
             # grid.ingrid.broadcast.segtile.index.difference()
@@ -78,6 +78,7 @@ class File(
                 .difference(grid.ingrid.broadcast.segtile.index)
                 .empty
             )
+            grid.file.grayscale = files
             grid.predict()
             assert files.map(os.path.exists).all()
         return files
@@ -90,9 +91,10 @@ class File(
         # if not files.map(os.path.exists).all():
         #     grid.predict()
         if (
-            not grid.predict
+            grid.predict
             and not files.map(os.path.exists).all()
         ):
+            grid.file.probability =  files
             grid.predict()
             assert files.map(os.path.exists).all()
         return files
@@ -105,9 +107,10 @@ class File(
         # if not files.map(os.path.exists).all():
         #     grid.predict()
         if (
-            not grid.predict
+            grid.predict
             and not files.map(os.path.exists).all()
         ):
+            grid.file.error = files
             grid.predict()
             assert files.map(os.path.exists).all()
         return files
@@ -118,9 +121,10 @@ class File(
         files = grid.ingrid.outdir.seggrid.colored.files(grid)
         self.colored = files
         if (
-            not grid.predict
+            grid.predict
             and not files.map(os.path.exists).all()
         ):
+            grid.file.colored = files
             grid.predict()
             assert files.map(os.path.exists).all()
         return files
@@ -131,9 +135,10 @@ class File(
         files = grid.ingrid.outdir.seggrid.intensity.files(grid)
         self.intensity = files
         if (
-                not grid.predict
+                grid.predict
                 and not files.map(os.path.exists).all()
         ):
+            grid.file.intensity = files
             grid.predict()
             assert files.map(os.path.exists).all()
         return files
@@ -147,7 +152,7 @@ class File(
         # if not files.map(os.path.exists).all():
         #     grid.predict()
         if (
-            not grid.predict
+            grid.predict
             and not files.map(os.path.exists).all()
         ):
             grid.predict()

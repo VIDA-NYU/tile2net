@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import gc
 import hashlib
+import multiprocessing
 import os
 import resource  # POSIX only
 import sys
@@ -64,7 +65,6 @@ def sha256sum(path):
         for chunk in iter(lambda: f.read(8192), b''):
             h.update(chunk)
     return h.hexdigest()
-
 
 
 class SegGrid(
@@ -222,15 +222,22 @@ class SegGrid(
     def padded(self):
         ...
 
-    @recursion_block
-    def predict(
-            self,
-    ) -> None:
-        if self is not self.filled:
-            return self.filled.predict(
-            )
-            self.file.grayscale.map(os.path.exists)
-        grid = self
+    def predict(self) -> None:
+        args = self.ingrid,
+
+        # Define the action directly in the target using a lambda
+        process = multiprocessing.Process(
+            target=lambda ingrid_instance: ingrid_instance.seggrid._predict(),
+            args=args
+        )
+
+        process.start()
+        process.join()
+
+    def _predict(self):
+        # subprocess
+
+        grid = self.broadcast.filled
 
         errors = []
         outer_exc = None
@@ -381,6 +388,7 @@ class SegGrid(
             logger.info(msg)
 
             ingrid = self.ingrid.broadcast
+            ingrid.segtile.grayscale
             force = ~ingrid.segtile.grayscale.map(os.path.exists)
             force |= self.cfg.force
             wrapper: SampleDataWrapper = SampleDataWrapper.from_tiles(
@@ -399,8 +407,12 @@ class SegGrid(
             dataset = ValDataSet.from_wrapper(wrapper)
             loader: ValDataLoader = dataset.loader
 
-            assert wrapper.index.difference(self.index).empty
-            assert ingrid.segtile.index.difference(self.index).empty
+            type(self)
+
+            assert wrapper.index.difference(grid.index).empty
+            len(wrapper.index.difference(grid.index))
+            len(wrapper.index.difference(self.index))
+            assert ingrid.segtile.index.difference(grid.index).empty
 
             expected: Self = (
                 self.broadcast
@@ -409,7 +421,7 @@ class SegGrid(
             )
             expected.file.grayscale.map(os.path.exists)
 
-            frame = self.loc[~self.index.duplicated()]
+            frame = grid.loc[~grid.index.duplicated()]
 
             unit = f' seggrid.{self.file.grayscale.name}'
             msg = 'Predicting Segmentation Tiles'
@@ -419,7 +431,7 @@ class SegGrid(
                     torch.inference_mode(), \
                     self.sampler, \
                     Submit() as submit \
-                :
+                    :
 
                 stack.enter_context(logging_redirect_tqdm())
                 stack.enter_context(cfg)
@@ -434,7 +446,6 @@ class SegGrid(
 
                 try:
                     for n, batch in enumerate(loader):
-
                         input_images = batch['input']
                         labels = batch['mask']
                         i = (
@@ -445,7 +456,6 @@ class SegGrid(
                         )
                         loc = dataset.index[i]
                         grid = frame.loc[loc].copy()
-
 
                         mb = MiniBatch.from_data(
                             images=input_images,
@@ -565,6 +575,7 @@ class SegGrid(
                     del locals()[name]
             gc.collect()
             torch.cuda.empty_cache()
+            print('done with _predict')
 
         assert ingrid.segtile.grayscale.map(os.path.exists).all()
 
