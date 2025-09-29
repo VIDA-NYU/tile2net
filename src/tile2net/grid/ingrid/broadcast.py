@@ -84,7 +84,7 @@ class Broadcast(
             # we have to broadcast to the seggrid broacast, not just seggrid
             seggrid = instance.seggrid.broadcast
             ingrid = instance.ingrid.filled
-            pad = seggrid.pad
+            pad = ingrid.segtile.pad
             corners = (
                 seggrid
                 .to_corners(ingrid.scale)
