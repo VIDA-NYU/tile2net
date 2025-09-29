@@ -15,23 +15,6 @@ if __name__ == '__main__':
 
     cfg.to_json()
 
-    # cmd = [
-    #     sys.executable,
-    #     '-m',
-    #     'tile2net.grid.seggrid'
-    # ]
-    # try:
-    #     subprocess.run(cmd, check=True)
-    # except subprocess.CalledProcessError as e:
-    #     logger.error(
-    #         f"Command {e.cmd} returned non-zero exit status {e.returncode}.\n"
-    #         f"Stdout: {e.stdout}\n"
-    #         f"Stderr: {e.stderr}"
-    #     )
-    #     raise e
-    #
-    # logger.info('done with subprocess')
-
     _ = ingrid.seggrid.file.grayscale
 
 

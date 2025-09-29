@@ -75,10 +75,52 @@ class Overlay(
     ...
 
 
+class Postprocess(
+    Dir
+):
+    grid: SegGrid
+
+    @Grayscale
+    def grayscale(self):
+        ...
+
+    @Colored
+    def colored(self):
+        ...
+
+    @Overlay
+    def overlay(self):
+        ...
+
+    @Probability
+    def prob(self):
+        ...
+
+    @Error
+    def error(self):
+        ...
+
+    @Output
+    def output(self):
+        ...
+
+    @Intensity
+    def intensity(self):
+        ...
+
+
+
+
+
 class SegGrid(
     Dir,
 ):
     padded: Padded
+
+    @Postprocess
+    def postprocess(self):
+        ...
+
 
     @Grayscale
     def grayscale(self):

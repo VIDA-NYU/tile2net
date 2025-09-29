@@ -222,6 +222,11 @@ class SegGrid(
     def padded(self):
         ...
 
+    def postprocess(self):
+        ...
+
+
+
     def predict(self) -> None:
         args = self.ingrid,
 
@@ -575,7 +580,6 @@ class SegGrid(
                     del locals()[name]
             gc.collect()
             torch.cuda.empty_cache()
-            print('done with _predict')
 
         assert ingrid.segtile.grayscale.map(os.path.exists).all()
 
