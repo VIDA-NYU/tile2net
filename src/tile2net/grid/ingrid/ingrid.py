@@ -236,7 +236,7 @@ class InGrid(
     @Lines
     def lines(self):
         """
-        Namespace for concatenated line features (e.g., sidewalks, crosswalks).
+        Concatenated line features (e.g., sidewalks, crosswalks) from all tiles
 
         Example:
             >>> ingrid: InGrid
@@ -250,7 +250,7 @@ class InGrid(
     @Polygons
     def polygons(self):
         """
-        Namespace for concatenated polygon features (e.g., sidewalks, crosswalks).
+        Concatenated polygon features (e.g., sidewalks, crosswalks) from all tiles
 
         Example:
             >>> ingrid: InGrid
