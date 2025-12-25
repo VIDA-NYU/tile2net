@@ -52,7 +52,6 @@ from ..seggrid.seggrid import SegGrid
 from ..vecgrid.vecgrid import VecGrid
 from ...grid import util
 from ...grid.util import recursion_block, assert_perfect_overlap
-from tile2net.util import portal
 
 if False:
     from .filled import Filled
@@ -278,13 +277,6 @@ class InGrid(
 
     @TempDir
     def tempdir(self):
-        # format = ensure_tempdir_for_indir(
-        #     self.indir.dir
-        # ).__str__()
-        # format = os.path.join(
-        #     format,
-        #     self.indir.suffix
-        # )
         format = os.path.join(
             tempfile.gettempdir(),
             'tile2net',
@@ -295,28 +287,34 @@ class InGrid(
 
     @SegTile
     def segtile(self):
+        """
+
+        """
         # This code block is just semantic sugar and does not run.
         # These columns are available once the grid have been stitched:
-        _ = (
-            # xtile of the larger mosaic
-            self.segtile.xtile,
-            # ytile of the larger mosaic
-            self.segtile.ytile,
-            # row of the tile within the larger mosaic
-            self.segtile.r,
-            # column of the tile within the larger mosaic
-            self.segtile.c,
-        )
+        # _ = (
+        #     # xtile of the larger mosaic
+        #     self.segtile.xtile,
+        #     # ytile of the larger mosaic
+        #     self.segtile.ytile,
+        #     # row of the tile within the larger mosaic
+        #     self.segtile.r,
+        #     # column of the tile within the larger mosaic
+        #     self.segtile.c,
+        # )
 
     @VecTile
     def vectile(self):
+        """
+
+        """
         # This code block is just semantic sugar and does not run.
-        _ = (
-            # xtile of the larger mosaic
-            self.vectile.xtile,
-            # ytile of the larger mosaic
-            self.vectile.ytile,
-        )
+        # _ = (
+        #     # xtile of the larger mosaic
+        #     self.vectile.xtile,
+        #     # ytile of the larger mosaic
+        #     self.vectile.ytile,
+        # )
 
     @recursion_block
     def download(
