@@ -52,6 +52,7 @@ from ..seggrid.seggrid import SegGrid
 from ..vecgrid.vecgrid import VecGrid
 from ...grid import util
 from ...grid.util import recursion_block, assert_perfect_overlap
+from tile2net.util import portal
 
 if False:
     from .filled import Filled
@@ -110,26 +111,68 @@ class InGrid(
     Grid
 ):
 
-    @property
-    def ingrid(self) -> InGrid:
-        return self
-
     @File
     def file(self):
-        ...
+        """
+        Namespace container for files aligned with the tiles of a Grid.
+
+        Example:
+            >>> InGrid.file.infile
+            xtile   ytile
+            317280  387840    /home/<user>/tile2net/ma/ingrid/infile/20/31...
+                    387841    /home/<user>/tile2net/ma/ingrid/infile/20/31...
+                    387842    /home/<user>/tile2net/ma/ingrid/infile/20/31...
+        """
 
     @VecGrid
     def vecgrid(self) -> VecGrid:
         """
+        Wraps vectorization operations with a grid data structure
+
         After performing InGrid.set_vectorization(), InGrid.vecgrid is
         available for performing vectorization on the stitched tiles.
+
+        Example:
+            >>> InGrid.vecgrid
+            VecGrid:
+                       lonmin        latmax        lonmax        latmin  \
+            xtile ytile
+            9915  12120 -7.911538e+06  5.214840e+06 -7.910315e+06  5.213617e+06
+                                                                  geometry
+            xtile ytile
+            9915  12120  POLYGON ((-7910315.183 5214839.818, -7910315.1...
+
+        Handles lazy-loading of InGrid.VecGrid:
+        >>> VecGrid._get
+
+        Handles vectorization process from stitched segmentation tiles:
+        >>> VecGrid.vectorize
         """
 
     @SegGrid
     def seggrid(self) -> SegGrid:
         """
+        Wraps segmentation prediction operations with a grid data structure
+
         After performing InGrid.set_segmentation(), InGrid.seggrid is
         available for performing segmentation on the stitched tiles.
+
+        Example:
+            >>> InGrid.seggrid
+            SegGrid:
+                           lonmin        latmax        lonmax        latmin  \
+            xtile ytile
+            79320 96960 -7.911538e+06  5.214840e+06 -7.911385e+06  5.214687e+06
+                                                                  geometry
+            xtile ytile
+            79320 96960  POLYGON ((-7911385.302 5214839.818, -7911385.3...
+            [64 rows x 5 columns]
+
+        Handles lazy-loading of InGrid.SegGrid:
+        >>> SegGrid._get
+
+        Handles prediction of segmentation tiles from stitched input tiles:
+        >>> SegGrid._predict
         """
 
     @cached_property
@@ -182,6 +225,14 @@ class InGrid(
 
     @Indir
     def indir(self):
+        """
+        Input Directory: location at which input imagery are stored and read from.
+        If using a remote source, images will be downloaded to this directory.
+
+
+        # Sets the input directory:
+        >>> InGrid.set_indir
+        """
         raise ValueError('No input directory specified. ')
         ingrid = self.ingrid.outdir.ingrid
         format = os.path.join(
@@ -191,6 +242,13 @@ class InGrid(
         )
         result = Indir.from_format(format)
         return result
+
+        # sets the input directory
+        portal(InGrid.set_indir)
+
+    @Outdir
+    def outdir(self):
+        ...
 
     @Source
     def source(self):
@@ -217,9 +275,6 @@ class InGrid(
         Module which offers pre-constructed `InGrid` instances.
         """
 
-    @Outdir
-    def outdir(self):
-        ...
 
     @TempDir
     def tempdir(self):
@@ -778,6 +833,8 @@ class InGrid(
             pad: int = None,
     ) -> Self:
         """
+
+
         dimension:
             dimension in pixels of each vectorization tile,
             including padding
@@ -870,6 +927,9 @@ class InGrid(
         return ingrid
 
     def summary(self) -> None:
+        """
+        Prints a summary of the grid's contents and performance.
+        """
 
         # helpers
         def _p(v) -> Path | None:
@@ -1069,7 +1129,8 @@ class InGrid(
             infile: bool = True,
             grayscale: bool = True
     ):
-
+        """ignore for now"""
+        raise NotImplementedError
         self.outdir.cleanup()
         self.tempdir.cleanup()
 
@@ -1381,6 +1442,11 @@ class InGrid(
             )
         )
         return ingrid
+
+    @property
+    def ingrid(self) -> InGrid:
+        """ Quick access for the InGrid of a project """
+        return self
 
 
 if __name__ == '__main__':
