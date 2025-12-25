@@ -1,4 +1,7 @@
 from __future__ import annotations
+
+import copy
+
 from .. import util
 from tile2net.grid.cfg.logger import logger
 import shutil
@@ -54,6 +57,7 @@ class Dir:
             owner
     ) -> Dir:
         from ..ingrid import InGrid
+        self = copy.copy(self)
         self.instance = instance
         if isinstance(instance, InGrid):
             self.grid = instance
@@ -63,6 +67,7 @@ class Dir:
             self.grid = None
         else:
             raise TypeError(f'instance must be Grid or Dir, not {type(instance).__name__}')
+
         try:
             result = self.grid.__dict__[self._trace]
         except KeyError as e:
