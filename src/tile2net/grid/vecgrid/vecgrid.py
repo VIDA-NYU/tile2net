@@ -49,6 +49,7 @@ from ...grid.util import recursion_block
 
 if False:
     from ..ingrid import InGrid
+    from ..seggrid import SegGrid
 from ..grid.grid import Grid
 
 
@@ -125,7 +126,6 @@ class VecGrid(Grid):
         key = self.__name__
         if key in cache:
             result = cache[key]
-
 
         else:
             msg = (
@@ -281,7 +281,7 @@ class VecGrid(Grid):
                     total=n_missing,
                     desc='overlay',
                     unit=' img',
-                mininterval=5,
+                    mininterval=5,
             ) as bar:
 
                 # prime the pipeline
@@ -464,7 +464,7 @@ class VecGrid(Grid):
         msg = f'Vectorizing to \n\t{dest}'
         logger.debug(msg)
 
-        seggrid = self.seggrid.broadcast
+        seggrid: SegGrid = self.seggrid.broadcast
 
         if not force:
             force = ~seggrid.vectile.line.map(os.path.exists)
@@ -680,6 +680,9 @@ class VecGrid(Grid):
 
     @Polygons
     def polygons(self):
+        """
+        >>> Polygons._get
+        """
         ...
 
     @cached_property
@@ -696,6 +699,3 @@ class VecGrid(Grid):
     @property
     def ingrid(self):
         return self.instance
-
-
-
