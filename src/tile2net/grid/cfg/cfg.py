@@ -1810,10 +1810,16 @@ class Cfg(
         return result
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if exc_type is not None:
-            raise exc_val
+        # Restore context first, regardless of exception
         if Cfg._context is self:
             Cfg._context = self._backup
+        
+        # Let exception propagate naturally by returning False
+        # Don't re-raise explicitly - that interferes with ExitStack
+        if exc_type is not None:
+            return False
+        
+        return False  # Always let exceptions propagate
 
     @property
     def _cfg(self) -> Self:

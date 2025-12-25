@@ -80,25 +80,6 @@ class SegGrid(
         self = namespace._get(self, instance, owner)
         if instance is None:
             return copy.copy(self)
-        # cache = instance.__dict__
-        # key = self.__name__
-        # if key in cache:
-        #     result: Self = cache[key]
-        #     if result.instance is not instance:
-        #         haystack = instance.vectile.index
-        #         needles = result.index
-        #         loc = needles.isin(haystack)
-        #         result = result.loc[loc]
-        #
-        #         needles = instance.vectile.index
-        #         haystack = result.index
-        #         loc = needles.isin(haystack)
-        #         if not np.all(loc):
-        #             msg = 'Not all segmentation tiles implicated by input tiles present'
-        #             logger.debug(msg)
-        #             del cache[key]
-        #             return getattr(instance, self.__name__)
-
         cache = instance.frame.__dict__
         key = self.__name__
         if key in cache:
@@ -138,20 +119,6 @@ class SegGrid(
         __get__=_get,
     )
 
-    # @cached_property
-    # def length(self) -> int:
-    #     """How many input grid comprise a segmentation tile"""
-    #     ingrid = self.grid.ingrid
-    #     result = 2 ** (ingrid.scale - self.scale)
-    #     return result
-    #
-    # @cached_property
-    # def dimension(self):
-    #     """How many pixels in a inmentation tile"""
-    #     seggrid = self.grid
-    #     ingrid = seggrid.ingrid
-    #     result = ingrid.dimension * self.length
-    #     return result
 
     @cached_property
     def length(self) -> int:
@@ -225,19 +192,55 @@ class SegGrid(
     def postprocess(self):
         ...
 
-
-
     def predict(self) -> None:
-        args = self.ingrid,
-
-        # Define the action directly in the target using a lambda
+        """
+        Run prediction in a subprocess for proper cleanup and isolation.
+        Exceptions raised within the subprocess are re-raised in the parent process.
+        """
+        # Use multiprocessing Queue to communicate exceptions back to parent
+        exception_queue = multiprocessing.Queue()
+        
+        def _subprocess_wrapper(ingrid_instance, exception_queue):
+            """Wrapper that catches exceptions and puts them in the queue."""
+            try:
+                ingrid_instance.seggrid._predict()
+            except BaseException as e:
+                # Capture the exception and put it in the queue
+                import traceback
+                exception_queue.put((type(e), str(e), traceback.format_exc()))
+            else:
+                # Signal success
+                exception_queue.put(None)
+        
         process = multiprocessing.Process(
-            target=lambda ingrid_instance: ingrid_instance.seggrid._predict(),
-            args=args
+            target=_subprocess_wrapper,
+            args=(self.ingrid, exception_queue)
         )
-
+        
         process.start()
         process.join()
+        
+        # Check if an exception occurred in the subprocess
+        if not exception_queue.empty():
+            result = exception_queue.get()
+            if result is not None:
+                exc_type, exc_msg, exc_traceback = result
+                logger.error(f"Exception in prediction subprocess:\n{exc_traceback}")
+                # Re-raise an exception of the same type with the original message
+                # This preserves the exception type for proper error handling
+                if exc_type == KeyboardInterrupt:
+                    raise KeyboardInterrupt(exc_msg)
+                else:
+                    raise RuntimeError(
+                        f"{exc_type.__name__}: {exc_msg}\n\n"
+                        f"Original traceback from subprocess:\n{exc_traceback}"
+                    )
+        
+        # Check exit code
+        if process.exitcode != 0:
+            raise RuntimeError(
+                f"Prediction subprocess failed with exit code {process.exitcode}"
+            )
 
     def _predict(self):
         # subprocess
@@ -591,4 +594,3 @@ class SegGrid(
     @cached_property
     def time_usage(self):
         return 0
-
