@@ -62,11 +62,11 @@ class Colored(
 ):
     ...
 
+
 class Intensity(
     Dir
 ):
     ...
-
 
 
 class Overlay(
@@ -109,9 +109,6 @@ class Postprocess(
         ...
 
 
-
-
-
 class SegGrid(
     Dir,
 ):
@@ -120,7 +117,6 @@ class SegGrid(
     @Postprocess
     def postprocess(self):
         ...
-
 
     @Grayscale
     def grayscale(self):
@@ -133,7 +129,6 @@ class SegGrid(
         # format = format
         # result = Grayscale.from_format(format)
         # return result
-
 
     @Colored
     def colored(self):
@@ -174,11 +169,11 @@ class SegGrid(
         return result
 
 
-
 class Padded(
     SegGrid
 ):
     ...
+
 
 padded = Padded()
 SegGrid.padded = padded

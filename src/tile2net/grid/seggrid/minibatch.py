@@ -164,6 +164,7 @@ class Max:
             probs: torch.Tensor,
             dim=1,
     ) -> Self:
+        """"""
         pred: torch.Tensor
         prob: torch.Tensor
         prob, pred = probs.max(dim=dim)
@@ -184,6 +185,7 @@ class Max:
 
     @cached_property
     def colors(self) -> torch.Tensor:
+
         return cfg.colormap(self.pred)
 
 
@@ -230,6 +232,7 @@ class MiniBatch:
             submit: Submit,
             clip: int = 0,
     ):
+
         # prepare scales & flips
         scales = [cfg.default_scale]
         if cfg.multi_scale_inference:
@@ -305,6 +308,7 @@ class MiniBatch:
 
     @cached_property
     def max(self) -> Max:
+        """Constructs Max data"""
         return Max.from_probs(self.probs)
 
     @cached_property
@@ -317,11 +321,14 @@ class MiniBatch:
         maxc = self.max.colors
         fore = self.foreground.colors
 
-        # build mask for black pixels in maxc
-        mask_black = (maxc.sum(dim=-1, keepdim=True) == 0)
-
-        # replace black pixels from maxc with fore
-        result = torch.where(mask_black, fore, maxc)
+        result = (
+            maxc
+            # build mask for black pixels in maxc
+            .sum(dim=-1, keepdim=True)
+            .eq(0)
+            # replace black pixels from maxc with fore
+            .where(fore, maxc)
+        )
 
         return result
 

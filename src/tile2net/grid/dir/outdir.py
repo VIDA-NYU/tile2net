@@ -69,6 +69,10 @@ class Outdir(
 
     @SourceDir
     def sourcedir(self):
+        """
+        Handles lazy-loading of sourcedir:
+        >>> SourceDir._get
+        """
         grid = self.grid
         name = None
         try:

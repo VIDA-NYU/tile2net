@@ -19,15 +19,3 @@ class Indir(
 ):
     ...
 
-
-    # @InFile
-    # def infile(self):
-    #     ingrid = self.ingrid.outdir.ingrid
-    #     format = os.path.join(
-    #         ingrid.dir,
-    #         'infile',
-    #         ingrid.suffix,
-    #     )
-    #     result = InFile.from_format(format)
-    #     return result
-    #
