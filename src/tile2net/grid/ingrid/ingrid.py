@@ -176,7 +176,14 @@ class InGrid(
 
     @cached_property
     def dimension(self) -> int:
-        """Tile dimension; inferred from input files"""
+        """
+        Tile dimension in pixels; inferred from input files.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.dimension
+            256
+        """
         try:
             sample = next(
                 p
@@ -198,6 +205,14 @@ class InGrid(
 
     @cached_property
     def name(self) -> str:
+        """
+        Grid name; inferred from config, location, or input directory.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.name
+            'Boston Common, MA'
+        """
         name = (
                 self.cfg.name
                 or self.cfg.indir.name
@@ -208,19 +223,55 @@ class InGrid(
 
     @property
     def shape(self):
+        """
+        Tile shape as (height, width) in pixels.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.shape
+            (256, 256)
+        """
         return self.dimension, self.dimension
 
     @Lines
     def lines(self):
-        ...
+        """
+        Namespace for concatenated line features (e.g., sidewalks, crosswalks).
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.lines
+            Lines:
+                                                    geometry
+            feature
+            crosswalk  LINESTRING (-7910926 5213692.6, -7910925.6 521...
+        """
 
     @Polygons
     def polygons(self):
-        ...
+        """
+        Namespace for concatenated polygon features (e.g., sidewalks, crosswalks).
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.polygons
+            Polygons:
+                                                    geometry
+            feature
+            crosswalk  POLYGON ((-7911335.6 5213618.8, -7911339.8 521...
+        """
 
     @Static
     def static(self):
-        ...
+        """
+        Namespace for static assets (e.g., placeholder images, weights).
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.static.black
+            >>> ingrid.static.hrnet_checkpoint
+            >>> ingrid.static.snapshot
+        """
 
     @Indir
     def indir(self):
@@ -277,6 +328,17 @@ class InGrid(
 
     @TempDir
     def tempdir(self):
+        """
+        Temporary directory for intermediate processing files.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.tempdir
+            Tempdir(
+                dir='/tmp/tile2net/ma/ingrid/infile'
+                original='/tmp/tile2net/ma/ingrid/infile/z/x_y',
+            )
+        """
         format = os.path.join(
             tempfile.gettempdir(),
             'tile2net',
@@ -288,33 +350,28 @@ class InGrid(
     @SegTile
     def segtile(self):
         """
+        Namespace for segmentation tile properties aligned with InTiles.
 
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.segtile.xtile
+            xtile   ytile
+            317280  387840    79320
+            Name: segtile.xtile, dtype: int64
         """
-        # This code block is just semantic sugar and does not run.
-        # These columns are available once the grid have been stitched:
-        # _ = (
-        #     # xtile of the larger mosaic
-        #     self.segtile.xtile,
-        #     # ytile of the larger mosaic
-        #     self.segtile.ytile,
-        #     # row of the tile within the larger mosaic
-        #     self.segtile.r,
-        #     # column of the tile within the larger mosaic
-        #     self.segtile.c,
-        # )
 
     @VecTile
     def vectile(self):
         """
+        Namespace for vectorization tile properties aligned with InTiles.
 
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.vectile.xtile
+            xtile   ytile
+            317280  387840    9915
+            Name: vectile.xtile, dtype: int64
         """
-        # This code block is just semantic sugar and does not run.
-        # _ = (
-        #     # xtile of the larger mosaic
-        #     self.vectile.xtile,
-        #     # ytile of the larger mosaic
-        #     self.vectile.ytile,
-        # )
 
     @recursion_block
     def download(
@@ -324,6 +381,18 @@ class InGrid(
             max_workers: int = 64,  # ⇣ lower default ⇣ avoids port-exhaustion
             one: bool = False
     ) -> Self:
+        """
+        Download tiles from the configured source to the input directory.
+
+        Args:
+            retry: Retry failed downloads once
+            force: Re-download existing files
+            max_workers: Maximum concurrent download threads
+            one: Download only one file for testing
+
+        Returns:
+            Self with downloaded files available at InGrid.file.infile
+        """
 
         paths = self.file.infile
         urls = self.source.urls
@@ -526,11 +595,30 @@ class InGrid(
 
     @delayed.Filled
     def filled(self) -> Filled:
-        ...
+        """
+        "Fills" the InGrid with extra tiles implicated by the VecGrid to avoid missing tiles.
+        For example, if the InGrid is 1x1, but the VecGrid tiles are supposed to be 2 InTiles wide,
+        this will fill in the missing tiles so there are 2x2 total tiles in the InGrid.
+        """
 
     @delayed.Broadcast
     def broadcast(self) -> Broadcast:
-        ...
+        """
+        While a SegTile is comprised of InTiles, an InTile may belong to multiple SegTiles due to 
+        overlaps. The base InGrid dataframe has one row per unique InTile. The Broadcast extension
+        overcomes this limitation by possibly having multiple rows per InTile.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.broadcast
+
+                        frame.sort_index()
+            Out[17]:
+                           segtile.xtile  segtile.ytile  segtile.r  segtile.c
+            xtile  ytile
+            317275 387839          79319          96959          4          0
+                   387839          79319          96960          0          0
+        """
 
     def set_source(
             self,
@@ -538,11 +626,17 @@ class InGrid(
             outdir: Union[str, Path] = None,
     ) -> Self:
         """
-        Assign a source to the grid. The grid are downloaded from
-        the source and saved to an input directory.
+        Assign a tile source for downloading imagery.
 
-        You can pass an outdir which will be the destination the files
-        are saved to.
+        Args:
+            source: Source name, abbreviation, or Source instance. If None, infers from location.
+            outdir: Optional output directory path
+
+        Returns:
+            InGrid with source and directories configured
+
+        Example:
+            >>> ingrid: InGrid = InGrid.from_location('Boston Common, MA').set_source('ma')
         """
         if source is None:
             source = self.cfg.source
@@ -634,29 +728,19 @@ class InGrid(
             name: str = None,
     ) -> Self:
         """
-        Assign an input directory to the grid. The directory must
-        implicate the X and Y tile numbers in the file names.
+        Assign an input directory where tiles are stored.
 
-        Good:
-            input/dir/x/y/z.png
-            input/dir/x/y/.png
-            input/dir/x_y_z.png
-            input/dir/x_y.png
-            input/dir/z/x_y.png
-        Bad:
-            input/dir/x.png
-            input/dir/y
+        The directory path must include x and y tile coordinate placeholders.
 
-        This will set the input directory and format
-        self.with_indir('input/dir/x/y/z.png')
+        Args:
+            indir: Directory path with x/y format (e.g., 'input/dir/z/x_y.png')
+            name: Optional grid name
 
-        There is no format specified to, so it will default to
-        input/dir/x_y_z.png:
-        self.with_indir('input/dir')
+        Returns:
+            InGrid with input directory configured
 
-        This will fail to explicitly set the format, so it will
-        default to input/dir/x/x_y_z.png
-        self.with_indir('input/dir/x')
+        Example:
+            >>> ingrid: InGrid = ingrid.set_indir('/path/to/tiles/20/x_y.png')
         """
         if indir is None:
             indir = self.cfg.indir.path
@@ -696,15 +780,18 @@ class InGrid(
             outdir: Union[str, Path] = None,
     ) -> Self:
         """
-        Assign an output directory to the grid.
-        The grid are saved to the output directory.
+        Assign an output directory for processed results.
+
+        Args:
+            outdir: Output directory path
+
+        Returns:
+            InGrid with output directory configured
+
+        Example:
+            >>> ingrid: InGrid = ingrid.set_outdir('/path/to/output')
         """
         result: Grid = self.copy()
-
-        # if not outdir:
-        # if not outdir:
-        #     if cfg.output:
-        #         outdi = cfg.output
 
         if not outdir:
             outdir = cfg.outdir
@@ -747,6 +834,23 @@ class InGrid(
             batch_size: int = None,
             pad=None,
     ) -> Self:
+        """
+        Configure segmentation grid dimensions and create InGrid.seggrid.
+
+        Args:
+            dimension: Pixel dimension of each segmentation tile
+            length: Number of InTiles per segmentation tile dimension
+            scale: Zoom scale for segmentation tiles
+            fill: Whether to fill missing tiles
+            batch_size: Batch size for model inference
+            pad: Padding pixels for segmentation tiles
+
+        Returns:
+            InGrid with InGrid.seggrid configured
+
+        Example:
+            >>> ingrid: InGrid = ingrid.set_segmentation(dimension=1024, pad=64)
+        """
         from ..seggrid import SegGrid
         # todo: if all are None, determine dimension using VRAM
 
@@ -831,15 +935,20 @@ class InGrid(
             pad: int = None,
     ) -> Self:
         """
+        Configure vectorization grid dimensions and create InGrid.vecgrid.
 
+        Args:
+            dimension: Pixel dimension of each vectorization tile including padding
+            length: Number of segmentation tiles per vectorization tile dimension
+            scale: Zoom scale for vectorization tiles
+            fill: Whether to fill missing tiles
+            pad: Padding pixels for vectorization tiles
 
-        dimension:
-            dimension in pixels of each vectorization tile,
-            including padding
-        length:
-            length in segmentation grid of each vectorization tile,
-            including padding
-        scale:
+        Returns:
+            InGrid with InGrid.vecgrid configured
+
+        Example:
+            >>> ingrid: InGrid = ingrid.set_vectorization(length=5, pad=128)
         """
 
         if dimension or length or scale:
@@ -1185,6 +1294,18 @@ class InGrid(
             show: bool = True,
             files: Optional[pd.Series] = None,
     ) -> Image.Image:
+        """
+        Generate a mosaic preview of all tiles in the grid.
+
+        Args:
+            maxdim: Maximum dimension for the output image
+            divider: Color name for tile divider lines
+            show: Display the preview automatically
+            files: Optional custom file paths to preview
+
+        Returns:
+            PIL Image containing the tile mosaic
+        """
         # todo: divider isn't showing up
 
         # grid geometry
@@ -1326,6 +1447,18 @@ class InGrid(
             cls,
             cfg: Cfg = None
     ) -> Self:
+        """
+        Construct InGrid from a configuration object or JSON file.
+
+        Args:
+            cfg: Configuration object, path to JSON config, or None for CLI args
+
+        Returns:
+            Fully configured InGrid instance
+
+        Example:
+            >>> ingrid: InGrid = InGrid.from_cfg('config.json')
+        """
         if isinstance(cfg, (str, Path)):
             cfg = Cfg.from_json(cfg)
         if cfg is None:
@@ -1366,12 +1499,17 @@ class InGrid(
             path: Union[str, Path, None] = None
     ) -> Pickle:
         """
-        Saves the class instance to a pickle file.
+        Save InGrid instance to a pickle file for later reuse.
 
-        - If no path is given, saves to the system's temp directory.
-        - If a directory path is given, saves inside that directory with a generated name.
-        - If a full file path is given, saves to that path.
+        Args:
+            path: File path, directory path, or None for system temp directory
 
+        Returns:
+            Pickle object with path and MD5 hash
+
+        Example:
+            >>> ingrid: InGrid
+            >>> pkl: Pickle = ingrid.to_pickle('/path/to/save.pkl')
         """
 
         cfg_hash = self.cfg.hash()
@@ -1408,7 +1546,16 @@ class InGrid(
             ]
     ) -> Self:
         """
-        Loads a class instance from a pickle file.
+        Load InGrid instance from a pickle file.
+
+        Args:
+            file: Path to pickle file
+
+        Returns:
+            InGrid instance
+
+        Example:
+            >>> ingrid: InGrid = InGrid.from_pickle('/path/to/save.pkl')
         """
         path = Path(file)
         logger.info(f'Loading InGrid from \n\t{path}')
@@ -1425,6 +1572,21 @@ class InGrid(
             pad=None,
             length=None
     ) -> Self:
+        """
+        Construct InGrid with basic configuration in one step.
+
+        Args:
+            outdir: Output directory path
+            location: Location string (e.g., 'Boston Common, MA')
+            pad: Padding pixels for segmentation
+            length: Vectorization tile length
+
+        Returns:
+            Fully configured InGrid instance
+
+        Example:
+            >>> ingrid: InGrid = InGrid.from_basic(location='Boston, MA', pad=64)
+        """
 
         ingrid = (
             InGrid
@@ -1446,6 +1608,3 @@ class InGrid(
         """ Quick access for the InGrid of a project """
         return self
 
-
-if __name__ == '__main__':
-    ...

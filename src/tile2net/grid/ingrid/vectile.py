@@ -20,11 +20,23 @@ class VecTile(
 
     @property
     def ingrid(self):
+        """Reference to parent InGrid instance."""
         return self.instance
 
     @frame.column
     def xtile(self) -> pd.Series:
-        """Tile integer X of this tile in the vecgrid vectile"""
+        """
+        X coordinate of vectorization tile in vecgrid space.
+
+        X tile id of the VecGrid tile associated with the InGrid tile
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.vectile.xtile
+            xtile   ytile
+            317280  387840    9915
+            Name: vectile.xtile, dtype: int64
+        """
         ingrid = self.ingrid
 
         vecgrid = ingrid.vecgrid
@@ -37,7 +49,16 @@ class VecTile(
 
     @frame.column
     def ytile(self) -> pd.Series:
-        """Tile integer X of this tile in the vecgrid vectile"""
+        """
+        Y coordinate of vectorization tile in vecgrid space.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.vectile.ytile
+            xtile   ytile
+            317280  387840    12120
+            Name: vectile.ytile, dtype: int64
+        """
         ingrid = self.ingrid
 
         vecgrid = ingrid.vecgrid
@@ -50,6 +71,14 @@ class VecTile(
 
     @property
     def index(self) -> pd.MultiIndex:
+        """
+        MultiIndex of (xtile, ytile) for vectorization tiles.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.vectile.index
+            MultiIndex([(9915, 12120)], names=['vectile.xtile', 'vectile.ytile'])
+        """
         arrays = self.xtile, self.ytile
         names = self.xtile.name, self.ytile.name
         result = pd.MultiIndex.from_arrays(arrays, names=names)
@@ -57,5 +86,12 @@ class VecTile(
 
     @property
     def length(self):
-        """Number of static grid in one dimension of the vectile"""
+        """
+        Number of InGrid tiles in one dimension of the vectorization tile.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.vectile.length
+            32
+        """
         return self.ingrid.vecgrid.length
