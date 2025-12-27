@@ -671,10 +671,38 @@ class Grid(
 
     @property
     def outdir(self):
+        """
+        Output in which the results, such as annotated images and geometry, will be stored:
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.outdir
+            Outdir(
+                format='/home/<user>/tile2net/{z}/{x}_{y}',
+                dir='/home/<user>/tile2net',
+                original='/home/<user>/tile2net/z/x_y',
+                suffix='z/x_y'
+            )
+
+        Setting the output directory:
+        >>> ingrid: InGrid
+        >>> ingrid = ingrid.set_outdir('/path/to/output')
+        """
+
         return self.ingrid.outdir
 
     @property
     def tempdir(self):
+        """
+        Temporary directory for intermediate processing files.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.tempdir
+            Tempdir(
+                dir='/tmp/tile2net/ma/ingrid/infile'
+                original='/tmp/tile2net/ma/ingrid/infile/z/x_y',
+            )
+        """
         return self.ingrid.tempdir
 
     def __len__(self):
@@ -809,10 +837,6 @@ class Grid(
         scale = max(scale, self.ingrid.min_scale)
 
         return scale
-
-    @classmethod
-    def from_empty(cls) -> Self:
-        ...
 
     def _stitch(
             self,
