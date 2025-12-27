@@ -118,6 +118,24 @@ class VecGrid(Grid):
             instance: InGrid,
             owner: type[Grid],
     ) -> VecGrid:
+        """
+        Lazy-load descriptor for accessing VecGrid from InGrid
+
+        Automatically initializes VecGrid using configuration parameters if not already set.
+        Uses cached value if available, otherwise calls InGrid.set_vectorization() with
+        parameters from cfg.vectorization (scale, length, or dimension).
+
+        Returns:
+            VecGrid instance configured for vectorization operations
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.vecgrid
+            VecGrid:
+                       lonmin        latmax        lonmax        latmin
+            xtile ytile
+            9915  12120 -7.911538e+06  5.214840e+06 -7.910315e+06  5.213617e+06
+        """
         self.instance = instance
         if instance is None:
             return copy.copy(self)
@@ -687,13 +705,33 @@ class VecGrid(Grid):
 
     @cached_property
     def length(self) -> int:
-        """ How many segtiles long a vectile is """
+        """
+        Number of SegGrid tiles that comprise one dimension of a vectorization tile
+
+        Computed as 2^(seggrid.scale - vecgrid.scale). For example, if SegGrid uses zoom 18
+        and VecGrid uses zoom 16, each VecGrid tile is 2^2 = 4 SegGrid tiles wide.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.vecgrid.length
+            4
+        """
         result = 2 ** (self.seggrid.scale - self.scale)
         return result
 
     @cached_property
     def dimension(self) -> int:
-        """ The dimension of a vectile in pixels """
+        """
+        Pixel dimension of each vectorization tile
+
+        Computed as seggrid.dimension * vecgrid.length. For example, if SegGrid tiles
+        are 1024x1024 pixels and length is 4, vectorization tiles are 4096x4096 pixels.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.vecgrid.dimension
+            4096
+        """
         return self.seggrid.dimension * self.length
 
     @property

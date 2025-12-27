@@ -42,41 +42,86 @@ class Grid(
     @frame.column
     def lonmax(self):
         """
-        accessor for self.frame.lonmax
+        Maximum longitude of the tile.
+        
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.lonmax
+            xtile   ytile
+            317280  387840   -7.911500e+06
         """
 
     @frame.column
     def lonmin(self):
         """
-        accessor for self.frame.lonmin
+        Minimum longitude of the tile.
+        
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.lonmin
+            xtile   ytile
+            317280  387840   -7.911538e+06
         """
 
     @frame.column
     def latmax(self):
         """
-        accessor for self.frame.latmax
+        Maximum latitude of the tile.
+        
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.latmax
+            xtile   ytile
+            317280  387840    5.214840e+06
         """
 
     @frame.column
     def latmin(self):
         """
-        accessor for self.frame.latmin
+        Minimum latitude of the tile.
+        
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.latmin
+            xtile   ytile
+            317280  387840    5.214802e+06
         """
 
     @frame.index
     def xtile(self):
         """
-        accessor for self.frame.index.get_level_values('xtile')
+        X tile coordinate of the tile.
+        
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.xtile
+            Index([317280, 317280, 317280, 317280, 317280, 317280, 317280, 317280, 317280,
         """
 
     @frame.index
     def ytile(self) -> Index | Series:
         """
-        accessor for self.frame.index.get_level_values('ytile')
+        Y tile coordinate of the tile.
+        
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.ytile
+            Index([387840, 387841, 387842, 387843, 387844, 387845, 387846, 387847, 387848,
         """
 
     @frame.column
     def itile(self):
+        """
+        Simple sequential integer idnetifier for each tile in the grid.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.itile
+        xtile   ytile
+        317280  387840       0
+                          ...
+                387871    1023
+        """
         return np.arange(len(self))
 
     @cached_property
@@ -112,6 +157,7 @@ class Grid(
         Tile scale; the XYZ scale of the grid.
         Higher value means smaller area.
         """
+        raise ValueError
 
     @cached_property
     def zoom(self) -> int:
@@ -122,22 +168,40 @@ class Grid(
 
     @property
     def dimension(self):
-        """How many pixels in a segmentation tile"""
+        """
+        Pixel dimension of each tile
+
+        Computed as ingrid.dimension * self.length. For example, if InGrid tiles
+        are 256x256 pixels and length is 4, tiles are 1024x1024 pixels.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.seggrid.dimension
+            1024
+        """
         result = self.ingrid.dimension * self.length
         return result
 
-    # @property
-    # def shape(self) -> tuple[int, int, int]:
-    #     return self.dimension, self.dimension, self.ingrid.shape[2]
-
     @property
     def shape(self) -> tuple[int, int]:
-        return self.dimension, self.dimension,
+        """Shape of a tile in pixels"""
+        return self.dimension, self.dimension
 
     @cached_property
     def length(self) -> int:
-        """How many input grid comprise a tile of this class"""
-        raise NotImplemented
+        """
+        Number of InGrid tiles that comprise one dimension of this tile
+
+        Computed as 2^(ingrid.scale - self.scale). For example, if InGrid uses zoom 20
+        and this grid uses zoom 18, each tile is 2^2 = 4 InGrid tiles wide.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.seggrid.length
+            4
+        """
+        raise ValueError('Not yet set')
+
 
     @property
     def area(self):
@@ -177,14 +241,17 @@ class Grid(
 
     @property
     def ingrid(self) -> InGrid:
+        """ Simple reference to the InGrid instance """
         return self.instance
 
     @property
     def seggrid(self) -> SegGrid:
+        """ Simple reference to the SegGrid instance """
         return self.ingrid.seggrid
 
     @property
     def vecgrid(self) -> VecGrid:
+        """ Simple reference to the VecGrid instance """
         return self.ingrid.vecgrid
 
     @classmethod
@@ -193,6 +260,30 @@ class Grid(
             location: str,
             zoom: int = None,
     ) -> Self:
+        """
+        Instantiate a Grid from a geocoded location string.
+        
+        Args:
+            location: Location identifier as a string. Can be:
+                - An address (e.g., '1600 Pennsylvania Ave, Washington DC')
+                - A place name (e.g., 'Central Park')
+                - Bounding box in lat,lon,lat,lon format
+                - Otherwise, geocoded via Nominatim
+            zoom: Slippy-tile zoom level (scale) of Grid
+                - Higher value -> smaller tiles
+                - Typically from 14 (large area) to 20 (high detail)
+                - If not passed, defaults to zoom defined in cfg
+
+        Returns:
+            Grid instance covering the geocoded bounding box at the specified zoom level.
+
+        Examples:
+            Create a grid from an address. Zoom will default to that given by the Source:
+            >>> grid = Grid.from_location('Times Square, New York')
+
+            Create a grid from coordinates (lat1,lon1,lat2,lon2):
+            >>> grid = Grid.from_location('42.3601,-71.0589,42.3551,-71.0539', zoom=20)
+        """
         if not location:
             msg = 'location must be a non-empty string'
             raise ValueError(msg)
@@ -206,6 +297,7 @@ class Grid(
 
     @cached_property
     def location(self) -> str:
+        """Location passed by the user when instantiating the Grid"""
         raise ValueError
 
     @classmethod
@@ -385,6 +477,8 @@ class Grid(
             fill: bool = True,
     ) -> Self:
         """
+        Rescale the Grid to a new slippy-tile scale
+
         scale:
             new scale of grid
         fill:
@@ -557,7 +651,6 @@ class Grid(
             # access polygon param
             >>> grid.cfg.polygon.max_hole_area
             1000
-
         """
 
     @property
@@ -566,6 +659,14 @@ class Grid(
 
     @property
     def indir(self):
+        """
+        Input Directory: location at which input imagery are stored and read from.
+        If using a remote source, images will be downloaded to this directory.
+
+
+        # Sets the input directory:
+        >>> InGrid.set_indir
+        """
         return self.ingrid.indir
 
     @property

@@ -310,7 +310,21 @@ class InGrid(
 
     @Outdir
     def outdir(self):
-        ...
+        """
+        Output in which the results, such as annotated images and geometry, will be stored:
+        
+        >>> ingrid: InGrid
+        >>> Outdir(
+        >>>     format='/home/<user>/tile2net/{z}/{x}_{y}',
+        >>>     dir='/home/<user>/tile2net',
+        >>>     original='/home/<user>/tile2net/z/x_y',
+        >>>     suffix='z/x_y'
+        >>> )
+
+        Setting the output directory:
+        >>> ingrid: InGrid
+        >>> ingrid = ingrid.set_outdir('/path/to/output')
+        """
 
     @Source
     def source(self):
@@ -800,7 +814,8 @@ class InGrid(
             InGrid with output directory configured
 
         Example:
-            >>> ingrid: InGrid = ingrid.set_outdir('/path/to/output')
+        >>> ingrid: InGrid
+        >>> ingrid: InGrid = ingrid.set_outdir('/path/to/output')
         """
         result: Grid = self.copy()
 
