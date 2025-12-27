@@ -48,6 +48,14 @@ class XYNotFoundError(ValueError):
 
 
 class Dir:
+    """
+    Class responsible for managing directory-related operations and attributes.
+
+    This class provides functionality to interact with directories, including
+    format processing, extensions, suffix management, and other properties.
+    It is designed to handle complex directory structures and offer utilities
+    to represent or manipulate paths effectively.
+    """
     instance: InGrid | Dir = None
     grid: InGrid = None
 
@@ -321,23 +329,15 @@ class Dir:
         return match.groups()
 
     def __repr__(self):
-        try:
-            return (
-                f'{self.__class__.__name__}(\n'
-                f'    format={self.format!r},\n'
-                # f'    root={self.root!r},\n'
-                f'    extension={self.extension!r}\n'
-                f'    dir={self.dir!r}\n'
-                f'    original={self.original!r},\n'
-                f')'
-            )
-        except AttributeError:
-            return (
-                f'{self.__class__.__name__}(\n'
-                f'    dir={self.dir!r}\n'
-                f'    original={self.original!r},\n'
-                f')'
-            )
+        attrs = []
+        for attr in ['format', 'extension', 'dir', 'original', 'suffix']:
+            try:
+                value = getattr(self, attr)
+                if value is not None:
+                    attrs.append(f'    {attr}={value!r}')
+            except AttributeError:
+                continue
+        return f'{self.__class__.__name__}(\n' + ',\n'.join(attrs) + '\n)'
 
     def __init__(self, func=None):
         if returns_or_assigns(func):
