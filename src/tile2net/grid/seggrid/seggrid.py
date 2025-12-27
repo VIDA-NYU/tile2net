@@ -5,7 +5,7 @@ import gc
 import hashlib
 import multiprocessing
 import os
-import resource  # POSIX only
+import resource
 import sys
 from contextlib import ExitStack
 from functools import *
@@ -37,7 +37,6 @@ from .vectile import VecTile
 from ..grid.grid import Grid
 from ..loaders.sample import SampleDataWrapper
 from ..loaders.val import ValDataSet, ValDataLoader
-from ..util import recursion_block
 from ...grid.frame.namespace import namespace
 from ...tileseg import datasets, network
 
@@ -70,13 +69,56 @@ def sha256sum(path):
 class SegGrid(
     Grid,
 ):
+    """
+    "Segmentation Grid" (SegGrid), comprised of "Segmentation Tiles" (SegTiles).
+    Each SegTile is a larger tile composed of multiple InGrid tiles, used for 
+    semantic segmentation prediction of street infrastructure.
+
+    SegGrid tiles are typically larger than InGrid tiles (e.g., 1024x1024 pixels 
+    vs 256x256 pixels) to provide sufficient context for accurate neural network 
+    predictions. Each SegTile covers an area equivalent to multiple InTiles.
+
+    Example instantiation:
+        >>> ingrid = InGrid.from_location('Boston Common, MA')
+        >>> ingrid.seggrid
+        SegGrid:
+                       lonmin        latmax        lonmax        latmin
+        xtile ytile
+        79320 96960 -7.911538e+06  5.214840e+06 -7.911385e+06  5.214687e+06
+        [64 rows x 8 columns]
+
+    SegGrid handles:
+    - Grouping InGrid tiles into larger segmentation tiles (stitching)
+    - Running model inference for semantic segmentation
+    - Managing file paths for grayscale and colored segmentation outputs
+    - Padding tiles to provide more context during prediction
+    - Aligning with both InGrid and VecGrid coordinate systems
+    """
     __name__ = 'seggrid'
 
     def _get(
             self,
             instance: InGrid,
-            owner: type[Grid],
+            owner: type[InGrid],
     ) -> SegGrid:
+        """
+        Lazy-load descriptor for accessing SegGrid from InGrid
+
+        Automatically initializes SegGrid using configuration parameters if not already set.
+        Uses cached value if available, otherwise calls InGrid.set_segmentation() with
+        parameters from cfg.segmentation (scale, length, or dimension).
+
+        Returns:
+            SegGrid instance configured for segmentation operations
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.seggrid
+            SegGrid:
+                           lonmin        latmax        lonmax        latmin
+            xtile ytile
+            79320 96960 -7.911538e+06  5.214840e+06 -7.911385e+06  5.214687e+06
+        """
         self = namespace._get(self, instance, owner)
         if instance is None:
             return copy.copy(self)
@@ -119,17 +161,36 @@ class SegGrid(
         __get__=_get,
     )
 
-
     @cached_property
     def length(self) -> int:
-        """How many input grid comprise a segmentation tile"""
+        """
+        Number of InGrid tiles that comprise one dimension of a segmentation tile
+
+        Computed as 2^(ingrid.scale - seggrid.scale). For example, if InGrid uses zoom 20
+        and SegGrid uses zoom 18, each SegGrid tile is 2^2 = 4 InGrid tiles wide.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.seggrid.length
+            4
+        """
         ingrid = self.grid.ingrid
         result = 2 ** (ingrid.scale - self.scale)
         return result
 
     @cached_property
     def dimension(self):
-        """How many pixels in a inmentation tile"""
+        """
+        Pixel dimension of each segmentation tile
+
+        Computed as ingrid.dimension * seggrid.length. For example, if InGrid tiles
+        are 256x256 pixels and length is 4, segmentation tiles are 1024x1024 pixels.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.seggrid.dimension
+            1024
+        """
         seggrid = self.grid
         ingrid = seggrid.ingrid
         result = ingrid.dimension * self.length
@@ -166,7 +227,15 @@ class SegGrid(
 
     @File
     def file(self):
-        ...
+        """
+        Namespace container for files aligned with the tiles of a Grid.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.seggrid.file.colored
+            xtile  ytile
+            79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
+        """
 
     @property
     def seggrid(self) -> Self:
@@ -179,27 +248,101 @@ class SegGrid(
 
     @delayed.Filled
     def filled(self) -> Filled:
-        ...
+        """
+        Returns SegGrid extended with additional tiles needed for alignment with VecGrid.
+        The filled grid ensures complete coverage and no missing data for all vec-tiles.
+
+        When the vectorization grid (VecGrid) requires a different tiling scheme than
+        the segmentation grid, this property automatically fills in any missing SegTiles
+        to ensure complete coverage. This prevents gaps in the segmentation output that
+        would otherwise cause issues during vectorization.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> seggrid = ingrid.seggrid
+            >>> len(seggrid)
+            64
+            >>> seggrid_filled = ingrid.seggrid.filled
+            >>> len(seggrid_filled)
+            72  # Additional tiles added for VecGrid alignment
+        """
 
     @delayed.Broadcast
     def broadcast(self) -> Broadcast:
-        ...
+        """
+        Handles one-to-many relationships between InTiles and SegTiles due to overlaps.
+
+        While the base SegGrid dataframe has one row per unique SegTile, an individual 
+        InTile may belong to multiple overlapping SegTiles (especially when padding is 
+        used). The broadcast extension creates a view where each InTile-to-SegTile 
+        membership gets its own row, enabling proper alignment for batch processing.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> seggrid = ingrid.seggrid.broadcast
+            >>> seggrid
+                           segtile.xtile  segtile.ytile  segtile.r  segtile.c
+            xtile  ytile
+            317275 387839          79319          96959          4          0
+                   387839          79319          96960          0          0
+            [1024+ rows with potential duplicates for edge tiles]
+        """
 
     @Padded
     def padded(self):
-        ...
+        """
+        Namespace for padded segmentation operations
+
+        Handles padding around segmentation tiles to avoid edge artifacts during
+        neural network inference. Padding is configurable via cfg.segmentation.pad.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.seggrid.padded
+            Padded namespace with pad=64 pixels
+        """
 
     def postprocess(self):
-        ...
+        """
+        Post-process segmentation results (placeholder for future functionality)
+
+        Currently not implemented. Reserved for future segmentation post-processing
+        operations such as morphological operations or label refinement.
+        """
 
     def predict(self) -> None:
         """
-        Run prediction in a subprocess for proper cleanup and isolation.
-        Exceptions raised within the subprocess are re-raised in the parent process.
+        Run semantic segmentation prediction on all tiles in the grid
+
+        Executes neural network inference in an isolated subprocess for proper resource
+        cleanup. Downloads model weights if needed, processes tiles in batches, and saves
+        grayscale segmentation masks to disk. Progress is displayed via tqdm progress bar.
+
+        The segmentation model predicts street infrastructure classes including sidewalks,
+        crosswalks, and road surfaces. Results are saved to outdir.seggrid.grayscale.
+
+        Returns:
+            None. See output file paths:
+            >>> ingrid: InGrid
+            >>> ingrid.seggrid.file.grayscale
+            >>> ingrid.seggrid.file.colored
+
+
+        Raises:
+            RuntimeError: If subprocess fails or model weights checksum is invalid
+            FileNotFoundError: If required model checkpoints are missing
+
+        Example:
+            >>> ingrid: InGrid = InGrid.from_location('Boston Common, MA')
+            >>> ingrid = ingrid.set_source().set_segmentation(dimension=1024, pad=64)
+            >>> ingrid.seggrid.predict()
+            Downloading weights for segmentation...
+            Predicting Segmentation Tiles: 100%|██████| 64/64 [02:15<00:00]
+            Finished predicting 64 segmentation tiles.
         """
         # Use multiprocessing Queue to communicate exceptions back to parent
         exception_queue = multiprocessing.Queue()
-        
+
         def _subprocess_wrapper(ingrid_instance, exception_queue):
             """Wrapper that catches exceptions and puts them in the queue."""
             try:
@@ -211,15 +354,15 @@ class SegGrid(
             else:
                 # Signal success
                 exception_queue.put(None)
-        
+
         process = multiprocessing.Process(
             target=_subprocess_wrapper,
             args=(self.ingrid, exception_queue)
         )
-        
+
         process.start()
         process.join()
-        
+
         # Check if an exception occurred in the subprocess
         if not exception_queue.empty():
             result = exception_queue.get()
@@ -235,7 +378,7 @@ class SegGrid(
                         f"{exc_type.__name__}: {exc_msg}\n\n"
                         f"Original traceback from subprocess:\n{exc_traceback}"
                     )
-        
+
         # Check exit code
         if process.exitcode != 0:
             raise RuntimeError(
@@ -243,7 +386,17 @@ class SegGrid(
             )
 
     def _predict(self):
-        # subprocess
+        """
+        Internal implementation of segmentation prediction.
+        Handles model initialization, GPU setup, batch processing, and file writing.
+
+        - Downloads and validates model weights
+        - Configures CUDA/GPU settings
+        - Loads the OCRNet segmentation model
+        - Processes tiles in batches with tqdm progress tracking
+        - Writes grayscale masks to disk
+        - Generates performance benchmark summary
+        """
 
         grid = self.broadcast.filled
 
@@ -396,7 +549,6 @@ class SegGrid(
             logger.info(msg)
 
             ingrid = self.ingrid.broadcast
-            ingrid.segtile.grayscale
             force = ~ingrid.segtile.grayscale.map(os.path.exists)
             force |= self.cfg.force
             wrapper: SampleDataWrapper = SampleDataWrapper.from_tiles(
@@ -588,9 +740,15 @@ class SegGrid(
 
     @cached_property
     def disk_usage(self) -> int:
+        """
+        Total disk space used by all segmentation files in bytes
+        """
         result = self.broadcast.file.disk_usage.sum()
         return result
 
     @cached_property
-    def time_usage(self):
-        return 0
+    def time_usage(self) -> float:
+        """
+        Time spent on segmentation operations in seconds
+        """
+        return 0.

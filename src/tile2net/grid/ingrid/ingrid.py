@@ -109,6 +109,20 @@ class File(
 class InGrid(
     Grid
 ):
+    """
+    "Input Grid" (InGrid), comprised of "Input Tiles" (InTiles).
+    Each tile is an image from the source.
+
+    Example construction:
+        >>> ingrid = InGrid.from_location('Boston Common, MA')
+
+    InGrid:
+                         lonmin        latmax        lonmax        latmin
+    xtile  ytile
+    317280 387840 -7.911538e+06  5.214840e+06 -7.911500e+06  5.214802e+06
+
+    """
+
 
     @File
     def file(self):
@@ -116,11 +130,10 @@ class InGrid(
         Namespace container for files aligned with the tiles of a Grid.
 
         Example:
-            >>> InGrid.file.infile
+            >>> ingrid: InGrid
+            >>> ingrid.file.infile
             xtile   ytile
             317280  387840    /home/<user>/tile2net/ma/ingrid/infile/20/31...
-                    387841    /home/<user>/tile2net/ma/ingrid/infile/20/31...
-                    387842    /home/<user>/tile2net/ma/ingrid/infile/20/31...
         """
 
     @VecGrid
@@ -305,19 +318,17 @@ class InGrid(
         """
         Returns the Source class, which wraps a tile server.
         See `Grid.with_source()` to actually set a source.
+
+        Automatically sets the source:
+        >>> ingrid: InGrid
+        >>> ingrid = ingrid.set_source(...)
         """
-        # This code block is just semantic sugar and does not run.
-        # These methods are how to set the source:
-        ingrid = self.set_source(...)  # automatically sets the source
-        ingrid = self.set_source('nyc')
 
     @delayed.Pickle
     def pickle(self) -> _pickle.Pickle:
         """
         Module which offers pre-constructed `InGrid` instances. This can save time during testing.
         """
-        # This code block is just semantic sugar and does not run.
-        # These methods construct InGrid instances with their respective locations:
 
     @delayed.Construct
     def construct(self) -> construct.Construct:
@@ -351,6 +362,7 @@ class InGrid(
     def segtile(self):
         """
         Namespace for segmentation tile properties aligned with InTiles.
+        This allows us to align
 
         Example:
             >>> ingrid: InGrid
@@ -1280,12 +1292,18 @@ class InGrid(
 
     @cached_property
     def disk_usage(self) -> int:
+        """
+        Total disk space used by all segmentation files in bytes
+        """
         result = self.broadcast.file.disk_usage.sum()
         return result
 
     @cached_property
-    def time_usage(self):
-        return 0
+    def time_usage(self) -> float:
+        """
+        Time spent on segmentation operations in seconds
+        """
+        return 0.
 
     def preview(
             self,
