@@ -70,13 +70,13 @@ class SegGrid(
     Grid,
 ):
     """
-    "Segmentation Grid" (SegGrid), comprised of "Segmentation Tiles" (SegTiles).
-    Each SegTile is a larger tile composed of multiple InGrid tiles, used for 
+    "Segmentation Grid" (SegGrid), comprised of "Segmentation Tiles" (seg-tiles).
+    Each seg-tile is a larger tile composed of multiple InGrid tiles, used for
     semantic segmentation prediction of street infrastructure.
 
     SegGrid tiles are typically larger than InGrid tiles (e.g., 1024x1024 pixels 
     vs 256x256 pixels) to provide sufficient context for accurate neural network 
-    predictions. Each SegTile covers an area equivalent to multiple InTiles.
+    predictions. Each seg-tile covers an area equivalent to multiple in-tiles.
 
     Example instantiation:
         >>> ingrid = InGrid.from_location('Boston Common, MA')
@@ -253,7 +253,7 @@ class SegGrid(
         The filled grid ensures complete coverage and no missing data for all vec-tiles.
 
         When the vectorization grid (VecGrid) requires a different tiling scheme than
-        the segmentation grid, this property automatically fills in any missing SegTiles
+        the segmentation grid, this property automatically fills in any missing seg-tiles
         to ensure complete coverage. This prevents gaps in the segmentation output that
         would otherwise cause issues during vectorization.
 
@@ -270,11 +270,11 @@ class SegGrid(
     @delayed.Broadcast
     def broadcast(self) -> Broadcast:
         """
-        Handles one-to-many relationships between InTiles and SegTiles due to overlaps.
+        Handles one-to-many relationships between in-tiles and seg-tiles due to overlaps.
 
-        While the base SegGrid dataframe has one row per unique SegTile, an individual 
-        InTile may belong to multiple overlapping SegTiles (especially when padding is 
-        used). The broadcast extension creates a view where each InTile-to-SegTile 
+        While the base SegGrid dataframe has one row per unique seg-tile, an individual
+        in-tile may belong to multiple overlapping seg-tiles (especially when padding is
+        used). The broadcast extension creates a view where each in-tile-to-seg-tile
         membership gets its own row, enabling proper alignment for batch processing.
 
         Example:

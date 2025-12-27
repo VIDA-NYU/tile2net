@@ -543,15 +543,22 @@ class Grid(
 
     @Cfg
     def cfg(self):
-        # This code block is just semantic sugar and does not run.
-        # You can access the various configuration options this way:
-        _ = self.cfg.zoom
-        _ = self.cfg.model.bs_val
-        _ = self.cfg.polygon.max_hole_area
-        # Please do not set the configuration options directly,
-        # you may introduce bugs.
+        """
+        Namespace container for configuration options of a Grid.
 
-    frame: GeoDataFrame
+        Example:
+            >>> grid: Grid
+            # access zoom level config
+            >>> grid.cfg.zoom
+            20
+            # access batch size config
+            >>> grid.cfg.model.bs_val
+            32
+            # access polygon param
+            >>> grid.cfg.polygon.max_hole_area
+            1000
+
+        """
 
     @property
     def index(self) -> MultiIndex:
@@ -702,7 +709,6 @@ class Grid(
 
         return scale
 
-
     @classmethod
     def from_empty(cls) -> Self:
         ...
@@ -803,6 +809,5 @@ class Grid(
 
     @cached_property
     def sampler(self) -> Sampler:
-        result =Sampler( include_gpu=True )
+        result = Sampler(include_gpu=True)
         return result
-

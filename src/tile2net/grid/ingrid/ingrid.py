@@ -110,7 +110,7 @@ class InGrid(
     Grid
 ):
     """
-    "Input Grid" (InGrid), comprised of "Input Tiles" (InTiles).
+    "Input Grid" (InGrid), comprised of "input tiles" (in-tiles).
     Each tile is an image from the source.
 
     Example construction:
@@ -122,7 +122,6 @@ class InGrid(
     317280 387840 -7.911538e+06  5.214840e+06 -7.911500e+06  5.214802e+06
 
     """
-
 
     @File
     def file(self):
@@ -361,7 +360,7 @@ class InGrid(
     @SegTile
     def segtile(self):
         """
-        Namespace for segmentation tile properties aligned with InTiles.
+        Namespace for segmentation tile properties aligned with in-tiles.
         This allows us to align
 
         Example:
@@ -375,7 +374,7 @@ class InGrid(
     @VecTile
     def vectile(self):
         """
-        Namespace for vectorization tile properties aligned with InTiles.
+        Namespace for vectorization tile properties aligned with in-tiles.
 
         Example:
             >>> ingrid: InGrid
@@ -609,16 +608,16 @@ class InGrid(
     def filled(self) -> Filled:
         """
         "Fills" the InGrid with extra tiles implicated by the VecGrid to avoid missing tiles.
-        For example, if the InGrid is 1x1, but the VecGrid tiles are supposed to be 2 InTiles wide,
+        For example, if the InGrid is 1x1, but the VecGrid tiles are supposed to be 2 in-tiles wide,
         this will fill in the missing tiles so there are 2x2 total tiles in the InGrid.
         """
 
     @delayed.Broadcast
     def broadcast(self) -> Broadcast:
         """
-        While a SegTile is comprised of InTiles, an InTile may belong to multiple SegTiles due to 
-        overlaps. The base InGrid dataframe has one row per unique InTile. The Broadcast extension
-        overcomes this limitation by possibly having multiple rows per InTile.
+        While a seg-tile is comprised of in-tiles, an in-tile may belong to multiple seg-tiles due to
+        overlaps. The base InGrid dataframe has one row per unique in-tile. The Broadcast extension
+        overcomes this limitation by possibly having multiple rows per in-tile.
 
         Example:
             >>> ingrid: InGrid
@@ -851,7 +850,7 @@ class InGrid(
 
         Args:
             dimension: Pixel dimension of each segmentation tile
-            length: Number of InTiles per segmentation tile dimension
+            length: Number of in-tiles per segmentation tile dimension
             scale: Zoom scale for segmentation tiles
             fill: Whether to fill missing tiles
             batch_size: Batch size for model inference
