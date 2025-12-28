@@ -1163,6 +1163,7 @@ class Cfg(
             sidewalk=0,
             road=1,
             crosswalk=2,
+            ignore_label=3
         )
 
     @cmdline.property
@@ -1175,12 +1176,41 @@ class Cfg(
             road='cyan',
             crosswalk='yellow',
             curb='blue',
+            ignore_label='black'
         )
 
     @functools.cached_property
     def colormap(self) -> ColorMap:
-        # todo
-        return ColorMap()
+        """
+        Build ColorMap from label2id and label2color mappings.
+        Maps class IDs to RGB colors for visualization.
+        """
+        id2rgb = {}
+        id2name = {}
+        color_names = {}
+
+        for label_name, class_id in self.label2id.items():
+            id2name[class_id] = label_name
+
+            if label_name in self.label2color:
+                color_spec = self.label2color[label_name]
+                # parse color specification (name or hex)
+                try:
+                    rgb = ImageColor.getrgb(color_spec)
+                    id2rgb[class_id] = rgb
+                    color_names[class_id] = color_spec
+                except ValueError:
+                    # fallback to black if color parse fails
+                    id2rgb[class_id] = (0, 0, 0)
+            else:
+                # default to black for unmapped labels
+                id2rgb[class_id] = (0, 0, 0)
+
+        return ColorMap(
+            id2rgb=id2rgb,
+            id2name=id2name,
+            color_names=color_names,
+        )
 
 
 
