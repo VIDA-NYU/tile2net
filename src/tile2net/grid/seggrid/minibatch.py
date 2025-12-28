@@ -417,10 +417,6 @@ class MiniBatch:
         result &= pred != gtruth
         return result.astype(int)
 
-    # @cached_property
-    # def color(self):
-    #     return self.grid.colormap(self.preds)
-
     @cached_property
     def dump_percent(self) -> int:
         return 100
