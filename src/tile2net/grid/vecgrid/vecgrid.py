@@ -15,7 +15,6 @@ from concurrent.futures import (
     FIRST_COMPLETED,
 )
 from functools import cached_property
-from multiprocessing import get_context
 from pathlib import Path
 from typing import *
 
@@ -32,6 +31,7 @@ from tqdm import tqdm
 from tqdm.auto import tqdm
 
 from tile2net.grid.cfg.logger import logger
+from .feature import Feature
 from .file import File
 from .lines import Lines
 from .mask2poly import Mask2Poly
@@ -40,17 +40,15 @@ from .polygons import Polygons
 from .. import frame
 from ..cfg.cfg import Cfg
 from ..loaders.dataset import DataSet
-from ..loaders.datawrapper import DataWrapper
-from ..loaders.vec import VecDataSet, VecDataWrapper, VecDataLoader
+from ..loaders.vec import VecDataSet, VecDataWrapper
 from ..grid.corners import Corners
 from ..pednet import PedNet
-from ...grid.frame.namespace import namespace
 from ...grid.util import recursion_block
+from ..grid.grid import Grid
 
 if False:
     from ..ingrid import InGrid
     from ..seggrid import SegGrid
-from ..grid.grid import Grid
 
 
 class VectorizeTask(NamedTuple):
@@ -65,52 +63,36 @@ class VectorizeTask(NamedTuple):
     cfg: Cfg
 
 
-class Feature(
-    namespace
-):
-
-    def _get(
-            self: Feature,
-            instance: VecGrid,
-            owner
-    ) -> Feature:
-        self.grid = instance
-        return copy.copy(self)
-
-    locals().update(__get__=_get)
-    grid: VecGrid
-
-    def _ensure_network_column(self, key: str):
-        if key not in self.grid:
-            if 'geometry' in self.grid:
-                crs = getattr(self.grid.geometry, 'crs', None)
-            else:
-                crs = None
-            self.grid[key] = gpd.GeoSeries(
-                [None] * len(self.grid),
-                index=self.grid.index,
-                crs=crs,
-                name=key,
-            )
-
-    @property
-    def polygons(self) -> gpd.GeoSeries:
-        key = f'polygons.{self.__name__}'
-        if key not in self.grid:
-            self.grid._load_polygons()
-            self._ensure_network_column(key)
-        return self.grid.frame[key]
-
-    @property
-    def lines(self) -> gpd.GeoSeries:
-        key = f'lines.{self.__name__}'
-        if key not in self.grid:
-            self.grid._load_lines()
-            self._ensure_network_column(key)
-        return self.grid[key]
-
-
 class VecGrid(Grid):
+    """
+    "Vectorization Grid" (VecGrid), comprised of "vectorization tiles" (vec-tiles).
+    Each vec-tile is a large tile composed of one or more SegGrid tiles, used for
+    vectorizing segmentation masks into polygon and line geometries.
+
+    VecGrid tiles are typically larger than SegGrid tiles to enable efficient
+    vectorization operations. Each vec-tile covers an area equivalent to multiple
+    seg-tiles, minimizing edge artifacts during polygon extraction and centerline
+    network generation.
+
+    Example:
+        >>> ingrid: InGrid
+        >>> ingrid.vecgrid
+        VecGrid:
+                       lonmin        latmax        lonmax        latmin
+        xtile ytile
+        9915  12120 -7.911538e+06  5.214840e+06 -7.910315e+06  5.213617e+06
+
+    VecGrid handles:
+    - Grouping seg-tiles into larger vec-tiles for vectorization
+    - Converting segmentation masks to vector polygons and line geometries
+    - Padding tiles to reduce edge artifacts during vectorization
+
+    See usage:
+        >>> InGrid.vecgrid
+
+    Handles lazy-loading of VecGrid from InGrid:
+        >>> VecGrid._get
+    """
     __name__ = 'vecgrid'
 
     def _get(
@@ -119,7 +101,7 @@ class VecGrid(Grid):
             owner: type[Grid],
     ) -> VecGrid:
         """
-        Lazy-load descriptor for accessing VecGrid from InGrid
+        Lazy-load factory method for accessing VecGrid from InGrid
 
         Automatically initializes VecGrid using configuration parameters if not already set.
         Uses cached value if available, otherwise calls InGrid.set_vectorization() with
@@ -188,13 +170,22 @@ class VecGrid(Grid):
 
     @property
     def vecgrid(self) -> Self:
+        """
+        Reference to VecGrid instance
+        """
         return self
 
     @recursion_block
-    def _overlay(self) -> Self:  # noqa: C901
+    def _overlay(self) -> Self:
         """
-        Create coloured-mask overlays for every vector tile that is still
-        missing on disk, using a memory-bounded thread pool.
+        Create colored segmentation overlays on input imagery for visualization
+
+        Alpha-blends colored segmentation masks onto original input images for each
+        vec-tile. Only creates overlays for tiles missing on disk unless
+        force=True. Uses memory-bounded threading to avoid RAM exhaustion on large grids.
+
+        Returns:
+            Self with overlay files available at vecgrid.file.overlay
         """
         vecgrid = self
 
@@ -351,6 +342,26 @@ class VecGrid(Grid):
             network_file: str,
             cfg: Cfg,
     ):
+        """
+        Worker function for vectorizing a single tile in parallel processing
+
+        Converts a grayscale segmentation mask to vector polygons and extracts
+        centerline network. Handles empty masks gracefully by writing empty GeoDataFrames.
+
+        Args:
+            grayscale: Segmentation mask as numpy array
+            affine: Affine transformation for georeferencing
+            xmin: Minimum X coordinate of tile bounds
+            ymin: Minimum Y coordinate of tile bounds
+            xmax: Maximum X coordinate of tile bounds
+            ymax: Maximum Y coordinate of tile bounds
+            polygons_file: Output path for polygon parquet file
+            network_file: Output path for network lines parquet file
+            cfg: Configuration object
+
+        Raises:
+            Exception: If vectorization fails for any reason
+        """
         polys = None
         Path(polygons_file).parent.mkdir(parents=True, exist_ok=True)
         Path(network_file).parent.mkdir(parents=True, exist_ok=True)
@@ -451,8 +462,7 @@ class VecGrid(Grid):
     @staticmethod
     def _silence_logging() -> None:
         """
-        Disable log records below ERROR and route stdout/stderr to /dev/null
-        without leaking file descriptors.
+        Disable log records below ERROR and route stdout/stderr to /dev/null without leaking file descriptors.
         """
         # suppress anything below ERROR
         logging.disable(logging.ERROR)
@@ -471,7 +481,29 @@ class VecGrid(Grid):
             force=False,
     ) -> None:
         """
-        Parallel vectorisation with live progress and bounded memory.
+        Convert segmentation masks to vector geometries (polygons and lines).
+
+        Processes all vec-tiles in parallel, extracting polygon boundaries and
+        centerline networks from semantic segmentation masks. Results are saved as parquet
+        files containing GeoDataFrames with geometry for each feature class (sidewalk,
+        crosswalk, road).
+
+        Args:
+            force: Re-vectorize existing tiles if True, skip existing if False
+
+        Returns:
+            None. See output file paths:
+            >>> ingrid: InGrid
+            >>> ingrid.vecgrid.file.polygons
+            >>> ingrid.vecgrid.file.lines
+
+        Example:
+            >>> ingrid: InGrid = InGrid.from_location('Boston Common, MA')
+            >>> ingrid = ingrid.set_source().set_segmentation().set_vectorization()
+            >>> ingrid.vecgrid.vectorize()
+            Vectorizing to /home/<user>/tile2net/ma/vecgrid/polygons
+            vecgrid.vectorize(): 100%|██████| 16/16 [00:45<00:00]
+            Finished vectorizing 16 vectorizing tiles.
         """
 
         dest = (
@@ -533,6 +565,24 @@ class VecGrid(Grid):
             maxdim: int = 2048,
             divider: Optional[str] = None,
     ) -> PIL.Image.Image:
+        """
+        Generate a mosaic preview of all vec-tiles in the grid.
+
+        Creates a single image showing all vec-tiles arranged in their spatial grid pattern,
+        with optional divider lines between tiles. Automatically downscales to fit within maxdim.
+
+        Args:
+            maxdim: Maximum dimension for the output image in pixels
+            divider: Color name for tile divider lines (None for no divider)
+
+        Returns:
+            PIL Image containing the tile mosaic
+
+        Example:
+            >>> ingrid: InGrid
+            >>> img = ingrid.vecgrid.view(maxdim=4096, divider='red')
+            >>> img.show()
+        """
 
         files = self.file.grayscale
         R: pd.Series = self.r  # 0-based row id
@@ -647,6 +697,20 @@ class VecGrid(Grid):
 
     @cached_property
     def padding(self) -> Corners:
+        """
+        Corner coordinates for padded vec-tiles.
+
+        Computes the tile corners after applying padding, used for proper
+        alignment during vectorization to avoid edge artifacts.
+
+        Returns:
+            Corners object with xmin, ymin, xmax, ymax for each padded tile
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.vecgrid.padding
+            Corners with expanded bounds for padding
+        """
         result = (
             self
             .to_corners(self.seggrid.scale)
@@ -656,8 +720,21 @@ class VecGrid(Grid):
 
     @frame.column
     def affine_params(self):
-        # dim = self.seggrid.padded.vectile.dimension
-        # dim = self.seggrid.broadcast.vectile.dimension
+        """
+        Affine transformation parameters for georeferencing each tile.
+
+        Computes the affine transformation matrix that maps pixel coordinates
+        to geographic coordinates (EPSG:3857) for each vec-tile.
+
+        Returns:
+            Series of Affine objects, one per tile
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.vecgrid.affine_params
+            xtile  ytile
+            9915   12120    Affine(0.298..., 0.0, -7911538.18..., ...)
+        """
         dim = self.vecgrid.padded.dimension
         padding = self.padding
         col = [
@@ -682,34 +759,72 @@ class VecGrid(Grid):
 
     @Feature
     def road(self):
+        # todo: is this still needed?
+        raise NotImplementedError
         ...
 
     @Feature
     def crosswalk(self):
+        # todo: is this still needed?
+        raise NotImplementedError
         ...
 
     @Feature
     def sidewalk(self):
+        # todo: is this still needed?
+        raise NotImplementedError
         ...
 
     @Lines
     def lines(self):
-        ...
+        """
+        Dissolved line features from all vec-tiles.
+
+        Returns MultiLineString geometries for each feature (sidewalk, crosswalk)
+        organized by tile coordinates.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.vecgrid.lines
+            Lines:
+            feature                                              crosswalk
+            xtile ytile
+            9915  12120  MULTILINESTRING ((-7910926 5213692.6, -7910925...
+            feature                                               sidewalk
+            xtile ytile
+            9915  12120  MULTILINESTRING ((-7910947.3 5213616.8, -79109...
+        """
 
     @Polygons
     def polygons(self):
         """
-        >>> Polygons._get
+        Dissolved polygon features from all vec-tiles.
+
+        Returns MultiPolygon geometries for each feature (sidewalk, crosswalk, road)
+        organized by tile coordinates.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.vecgrid.polygons
+            Polygons:
+            feature                                              crosswalk
+            xtile ytile
+            9915  12120  MULTIPOLYGON (((-7910483.6 5213928.8, -7910483...
+            feature                                                   road
+            xtile ytile
+            9915  12120  MULTIPOLYGON (((-7910857.1 5214839.8, -7910844...
+            feature                                               sidewalk
+            xtile ytile
+            9915  12120  MULTIPOLYGON (((-7910400.7 5214764, -7910400.4...
         """
-        ...
 
     @cached_property
     def length(self) -> int:
         """
-        Number of SegGrid tiles that comprise one dimension of a vectorization tile
+        Number of SegGrid tiles that comprise one dimension of a vec-tile.
 
-        Computed as 2^(seggrid.scale - vecgrid.scale). For example, if SegGrid uses zoom 18
-        and VecGrid uses zoom 16, each VecGrid tile is 2^2 = 4 SegGrid tiles wide.
+        For example, if SegGrid uses zoom 18 and VecGrid uses zoom 16,
+        each VecGrid tile is 2^2 = 4 SegGrid tiles wide.
 
         Example:
             >>> ingrid: InGrid
@@ -722,10 +837,10 @@ class VecGrid(Grid):
     @cached_property
     def dimension(self) -> int:
         """
-        Pixel dimension of each vectorization tile
+        Pixel dimension of each vec-tile.
 
-        Computed as seggrid.dimension * vecgrid.length. For example, if SegGrid tiles
-        are 1024x1024 pixels and length is 4, vectorization tiles are 4096x4096 pixels.
+        For example, if seg-tiles are 1024x1024 pixels and length is 4,
+        vec-tiles are 4096x4096 pixels.
 
         Example:
             >>> ingrid: InGrid
@@ -735,5 +850,17 @@ class VecGrid(Grid):
         return self.seggrid.dimension * self.length
 
     @property
-    def ingrid(self):
+    def ingrid(self) -> InGrid:
+        """
+        Reference to the parent InGrid instance.
+
+        Returns:
+            InGrid instance that this VecGrid belongs to
+
+        Example:
+            >>> ingrid: InGrid
+            >>> vecgrid = ingrid.vecgrid
+            >>> vecgrid.ingrid is ingrid
+            True
+        """
         return self.instance

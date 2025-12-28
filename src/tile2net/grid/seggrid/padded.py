@@ -15,15 +15,28 @@ if False:
 class Padded(
     namespace
 ):
-    instance: SegGrid
+    """
+    See usage:
+        >>> SegGrid.padded
+    """
 
+    instance: SegGrid
     @property
     def length(self) -> int:
-        result = self.instance.length + 2
+        """
+        Number of InGrid tiles that comprise one dimension of a seg-tile
+        after it has been padded a number of in-tiles.
+        """
+        result = self.instance.length
+        result += self.instance.cfg.segmentation.pad * 2
         return result
 
     @property
     def dimension(self) -> int:
+        """
+        Pixel dimension of each seg-tile after it has been
+        padded a number of in-tiles.
+        """
         return self.instance.ingrid.dimension * self.length
 
     @property
@@ -33,8 +46,8 @@ class Padded(
     @frame.column
     def infile(self) -> pd.Series:
         """
-        A file for each segmentation tile: the stitched input grid.
-        Stitches input files when seggrid.file is accessed
+        Padded input imagery file for each seg-tile.
+        Stitches input files when seggrid.file is accessed.
         """
         seggrid = self.grid
         files = seggrid.ingrid.outdir.seggrid.padded.infile.files(seggrid)

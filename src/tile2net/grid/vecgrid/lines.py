@@ -15,12 +15,22 @@ from ..frame.framewrapper import FrameWrapper
 
 if False:
     from .vecgrid import VecGrid
+    from ..ingrid import InGrid
     import folium
 
 
 class Lines(
     FrameWrapper,
 ):
+    """
+    Lines for each vec-tile, feature, and region.
+
+    Handles lazy-loading of concatenated line geometries from vecgrid tiles:
+        >>> Lines._get
+
+    See usage:
+        >>> VecGrid.lines
+    """
     __name__ = 'lines'
     vecgrid: VecGrid = None
 
@@ -29,6 +39,27 @@ class Lines(
             instance: VecGrid,
             owner: type[VecGrid]
     ) -> Self:
+        """
+        Lazy-load factory method for accessing lines for each vec-tile, feature, and region.
+
+        Automatically reads and dissolves line geometries from all vecgrid
+        parquet files if not already cached. Groups by feature and tile,
+        then pivots into a grid-aligned dataframe.
+
+        Returns:
+            Lines instance with MultiLineString geometries per tile and feature
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.vecgrid.lines
+            Lines:
+            feature                                              crosswalk
+            xtile ytile
+            9915  12120  MULTILINESTRING ((-7910926 5213692.6, -7910925...
+            feature                                               sidewalk
+            xtile ytile
+            9915  12120  MULTILINESTRING ((-7910947.3 5213616.8, -79109...
+        """
 
         if instance is None:
             result = self
@@ -101,15 +132,39 @@ class Lines(
         __get__=_get,
     )
 
+
+    @property
+    def sidewalk(self) -> Self:
+        """Subset of lines where the feature is sidewalk."""
+        loc = self.frame.feature == 'sidewalk'
+        result = self.loc[loc]
+        return result
+
+    @property
+    def road(self) -> Self:
+        """Subset of lines where the feature is road."""
+        loc = self.frame.feature == 'road'
+        result = self.loc[loc]
+        return result
+
+    @property
+    def crosswalk(self) -> Self:
+        """Subset of lines where the feature is crosswalk."""
+        loc = self.frame.feature == 'crosswalk'
+        result = self.loc[loc]
+        return result
+
+
+
     def explore(
             self,
             *args,
             tiles: str = 'cartodbdark_matter',
             m: folium.Map | None = None,
-            dash: str = '5, 20',
             simplify=None,
             **kwargs,
     ) -> folium.Map:
+        """Explore lines by feature and vec-tile using folium."""
         import folium
         feature2color = cfg.label2color
 

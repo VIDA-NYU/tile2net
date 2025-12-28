@@ -190,7 +190,7 @@ class Dir:
         return self.format is not None
 
     @classmethod
-    def from_dir(cls, dir: str) -> Self:  # noqa: N803
+    def from_dir(cls, dir: str) -> Self:
         indir = cls()
         dir = os.path.normpath(dir)
         indir.original = dir
@@ -207,7 +207,7 @@ class Dir:
             format: str,
             force_xy: bool = True,
     ) -> Self:
-        # todo: clean this up, this is terribly written
+        # todo: clean this up. This should be more clear. Don't use curried
 
         value = (
             Path(format)

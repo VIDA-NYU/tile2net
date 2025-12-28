@@ -6,6 +6,7 @@ import sys
 
 import pandas as pd
 
+from .postprocess import PostProcess
 from .. import frame
 from ..grid import file
 
@@ -25,108 +26,6 @@ def sha256sum(path):
     return h.hexdigest()
 
 
-class PostProcess(
-    file.File
-):
-    grid: SegGrid
-
-    @frame.column
-    def grayscale(self) -> pd.Series:
-        """Segmentation masks, where each pixel is a class id"""
-        grid = self.grid
-        files = grid.ingrid.outdir.seggrid.postprocess.grayscale.files(grid)
-        self.grayscale = files
-        if (
-            grid.postprocess
-            and not files.map(os.path.exists).all()
-        ):
-            assert (
-                grid.filled.index
-                .difference(grid.ingrid.broadcast.segtile.index)
-                .empty
-            )
-            grid.file.grayscale = files
-            grid.predict()
-            assert files.map(os.path.exists).all()
-        return files
-
-    @frame.column
-    def probability(self) -> pd.Series:
-        grid = self.grid
-        files = grid.ingrid.outdir.seggrid.postprocess.prob.files(grid)
-        self.probability = files
-        if (
-            grid.postprocess
-            and not files.map(os.path.exists).all()
-        ):
-            assert (
-                grid.filled.index
-                .difference(grid.ingrid.broadcast.segtile.index)
-                .empty
-            )
-            grid.file.probability = files
-            grid.predict()
-            assert files.map(os.path.exists).all()
-        return files
-
-    @frame.column
-    def error(self) -> pd.Series:
-        grid = self.grid
-        files = grid.ingrid.outdir.seggrid.postprocess.error.files(grid)
-        self.error = files
-        if (
-            grid.postprocess
-            and not files.map(os.path.exists).all()
-        ):
-            assert (
-                grid.filled.index
-                .difference(grid.ingrid.broadcast.segtile.index)
-                .empty
-            )
-            grid.file.error = files
-            grid.predict()
-            assert files.map(os.path.exists).all()
-        return files
-
-    @frame.column
-    def colored(self) -> pd.Series:
-        grid = self.grid
-        files = grid.ingrid.outdir.seggrid.postprocess.colored.files(grid)
-        self.colored = files
-        if (
-            grid.postprocess
-            and not files.map(os.path.exists).all()
-        ):
-            assert (
-                grid.filled.index
-                .difference(grid.ingrid.broadcast.segtile.index)
-                .empty
-            )
-            grid.file.colored = files
-            grid.predict()
-            assert files.map(os.path.exists).all()
-        return files
-
-    @frame.column
-    def intensity(self) -> pd.Series:
-        grid = self.grid
-        files = grid.ingrid.outdir.seggrid.postprocess.intensity.files(grid)
-        self.intensity = files
-        if (
-            grid.postprocess
-            and not files.map(os.path.exists).all()
-        ):
-            assert (
-                grid.filled.index
-                .difference(grid.ingrid.broadcast.segtile.index)
-                .empty
-            )
-            grid.file.intensity = files
-            grid.predict()
-            assert files.map(os.path.exists).all()
-        return files
-
-
 class File(
     file.File
 ):
@@ -135,11 +34,9 @@ class File(
 
     @PostProcess
     def postprocess(self) -> pd.Series:
-        ...
-
-
-
-
+        """
+        Namespace for work-in-progress postprocessing of segmentation results.
+        """
 
     @frame.column
     def infile(self) -> pd.Series:
@@ -174,7 +71,18 @@ class File(
 
     @frame.column
     def grayscale(self) -> pd.Series:
-        """Segmentation masks, where each pixel is a class id"""
+        """
+        File-paths to segmentation masks where each pixel value represents a class ID.
+
+        Core output of the segmentation pipeline. Each pixel in the mask corresponds
+        to a semantic class.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.seggrid.file.grayscale
+            xtile  ytile
+            79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
+        """
         grid = self.grid
         files = grid.ingrid.outdir.seggrid.grayscale.files(grid)
         self.grayscale = files
@@ -228,6 +136,15 @@ class File(
 
     @frame.column
     def colored(self) -> pd.Series:
+        """
+        File-paths to color-coded segmentation masks for visualization.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.seggrid.file.colored
+            xtile  ytile
+            79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
+        """
         grid = self.grid
         files = grid.ingrid.outdir.seggrid.colored.files(grid)
         self.colored = files
@@ -242,6 +159,21 @@ class File(
 
     @frame.column
     def intensity(self) -> pd.Series:
+        """
+        File-paths to intensity representation of segmentation results.
+
+        Alternative visualization format where segmentation classes are represented
+        as intensity values.
+
+        Returns:
+            pd.Series: File paths to intensity representations for each seg-tile
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.seggrid.file.intensity
+            xtile  ytile
+            79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
+        """
         grid = self.grid
         files = grid.ingrid.outdir.seggrid.intensity.files(grid)
         self.intensity = files

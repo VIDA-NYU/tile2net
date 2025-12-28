@@ -178,25 +178,11 @@ class Broadcast(
     def vectile(self):
         ...
 
-    # @property
-    # def filled(self):
-    #     return self.instance.filled
 
     @property
     def ingrid(self) -> InGrid:
         return self.instance.ingrid
 
-    # @cached_propert
-    # def dimension(self) -> int:
-    #     result = self.instance.dimension
-    #     result += 2 * self.ingrid.dimension
-    #     return result
-    #
-    # @cached_property
-    # def length(self) -> int:
-    #     result = self.instance.length
-    #     result += 2
-    #     return result
     @property
     def filled(self):
         return self

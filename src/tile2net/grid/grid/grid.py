@@ -202,16 +202,14 @@ class Grid(
         """
         raise ValueError('Not yet set')
 
-
     @property
-    def area(self):
+    def area(self) -> int:
+        """Number of in-tiles that comprise one tile in this grid."""
         return self.length ** 2
 
     @property
     def r(self) -> Series:
-        """
-        Row of the tile within the overall grid.
-        """
+        """ Row of the tile within the overall grid. """
         result = (
             self.ytile
             .to_series()
@@ -222,9 +220,7 @@ class Grid(
 
     @property
     def c(self) -> Series:
-        """
-        Column of the tile within the overall grid.
-        """
+        """Column of the tile within the overall grid"""
         result = (
             self.xtile
             .to_series()
@@ -235,23 +231,29 @@ class Grid(
 
     @File
     def file(self):
-        """Namespace for file attributes"""
-        # See the following:
-        _ = self.file.infile
+        """
+        Namespace for file attributes
+
+        Example:
+            >>> self.file.infile
+            xtile   ytile
+            317280  387840    /home/<user>/tile2net/ma/ingrid/infile/20/31...
+                    387841    /home/<user>/tile2net/ma/ingrid/infile/20/31...
+        """
 
     @property
     def ingrid(self) -> InGrid:
-        """ Simple reference to the InGrid instance """
+        """Reference to the InGrid instance"""
         return self.instance
 
     @property
     def seggrid(self) -> SegGrid:
-        """ Simple reference to the SegGrid instance """
+        """Reference to the SegGrid instance"""
         return self.ingrid.seggrid
 
     @property
     def vecgrid(self) -> VecGrid:
-        """ Simple reference to the VecGrid instance """
+        """Reference to the VecGrid instance"""
         return self.ingrid.vecgrid
 
     @classmethod
@@ -910,14 +912,36 @@ class Grid(
     ):
         instance.frame.__dict__[self.__name__] = value
 
-    @ColorMap
+    @cached_property
     def colormap(self):
-        # This code block is just semantic sugar and does not run.
-        # This allows us to apply colormaps to tensors, ndarrays, and images.
-        # todo: allow setting custom colormaps
-        # See:
-        self.colormap.__call__(...)
-        self.colormap(...)
+        """
+        Callable which applies colormaps to tensors, ndarrays, and images.
+
+        Update cfg.label2color to change the colormap:
+            >>> self.cfg.label2color
+            {'sidewalk': 'red',
+             'road': 'cyan',
+             'crosswalk': 'yellow',
+             'curb': 'blue',
+             'ignore_label': 'black'}
+
+        Example:
+            >>> self.colormap
+            ColorMap(
+              0 -> [255, 0, 0]   (sidewalk -> red)
+              1 -> [0, 255, 255] (road -> cyan)
+              2 -> [255, 255, 0] (crosswalk -> yellow)
+              3 -> [0, 0, 0]     (ignore_label -> black)
+            )
+
+            >>> self.colormap(np.array([[0,1,2]]))
+            Out[11]:
+            array([[[  0,   0, 255],
+                    [  0, 128,   0],
+                    [255,   0,   0]]], dtype=uint8)
+        """
+        return self.cfg.colormap
+
 
     def to_pickle(self, path):
         frame = self.frame.copy()

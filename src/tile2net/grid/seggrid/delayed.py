@@ -5,16 +5,13 @@ if False:
     from . import filled
     from . import broadcast
 
-"""
-Filled inherits from SegGrid, but we want define `SegGrid.filled` 
-(causes circular dependency)
-This allows us to swap-in the real subclass after SegGrid has been defined.
-"""
+class Filled:
+    """
+    Filled inherits from SegGrid, but we want to define `SegGrid.filled`
+    (causes circular dependency)
+    This allows us to swap-in the real subclass after SegGrid has been defined.
+    """
 
-
-class Filled(
-
-):
     def __get__(
             self,
             instance,
@@ -40,9 +37,12 @@ class Filled(
         ...
 
 
-class Broadcast(
-
-):
+class Broadcast:
+    """
+    Broadcast inherits from SegGrid, but we want to define `SegGrid.broadcast`
+    (causes circular dependency)
+    This allows us to swap-in the real subclass after SegGrid has been defined.
+    """
 
     def __get__(
             self,
@@ -62,5 +62,5 @@ class Broadcast(
     def __set_name__(self, owner, name):
         self.__name__ = name
 
-    def __init__( self, *args, ):
+    def __init__(self, *args, ):
         ...

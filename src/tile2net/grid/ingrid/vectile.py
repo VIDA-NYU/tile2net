@@ -1,41 +1,44 @@
 from __future__ import annotations
-from .. import frame
-
-import copy
 
 import pandas as pd
 
 from tile2net.grid.frame.namespace import namespace
+from .. import frame
 
 if False:
     from .ingrid import InGrid
 
 
-
 class VecTile(
     namespace,
 ):
+    """
+    Namespace for accessing vec-tile attributes aligned with in-tiles.
 
-    ingrid: InGrid
+    See usage:
+        >>> InGrid.vectile
+    """
 
     @property
-    def ingrid(self):
+    def ingrid(self) -> InGrid:
         """Reference to parent InGrid instance."""
         return self.instance
+
+    @property
+    def grid(self) -> InGrid:
+        """Reference to parent Grid instance."""
+        return self.ingrid
 
     @frame.column
     def xtile(self) -> pd.Series:
         """
-        X coordinate of vectorization tile in vecgrid space.
-
-        X tile id of the VecGrid tile associated with the InGrid tile
+        X coordinate of vec-tile in vecgrid space.
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.vectile.xtile
-            xtile   ytile
-            317280  387840    9915
-            Name: vectile.xtile, dtype: int64
+            >>> ingrid.seggrid.vectile.xtile
+            xtile  ytile
+            79320  96960    9915
         """
         ingrid = self.ingrid
 
@@ -44,20 +47,19 @@ class VecTile(
         result = ingrid.xtile // length
 
         msg = 'All segtile.xtile must be in seggrid.xtile!'
-        assert result.isin(vecgrid.xtile).all(),msg
+        assert result.isin(vecgrid.xtile).all(), msg
         return result
 
     @frame.column
     def ytile(self) -> pd.Series:
         """
-        Y coordinate of vectorization tile in vecgrid space.
+        Y coordinate of vec-tile in vecgrid space.
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.vectile.ytile
-            xtile   ytile
-            317280  387840    12120
-            Name: vectile.ytile, dtype: int64
+            >>> ingrid.seggrid.vectile.ytile
+            xtile  ytile
+            79320  96960    12120
         """
         ingrid = self.ingrid
 
@@ -72,12 +74,16 @@ class VecTile(
     @property
     def index(self) -> pd.MultiIndex:
         """
-        MultiIndex of (xtile, ytile) for vectorization tiles.
+        MultiIndex of (xtile, ytile) for vec-tiles.
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.vectile.index
-            MultiIndex([(9915, 12120)], names=['vectile.xtile', 'vectile.ytile'])
+            >>> ingrid.seggrid.vectile.index
+            MultiIndex([(9915, 12120),
+                        (9915, 12120),
+                        ...
+                        (9915, 12120)],
+                       names=['vectile.xtile', 'vectile.ytile'])
         """
         arrays = self.xtile, self.ytile
         names = self.xtile.name, self.ytile.name
@@ -85,13 +91,22 @@ class VecTile(
         return result
 
     @property
-    def length(self):
+    def dimension(self) -> int:
         """
-        Number of InGrid tiles in one dimension of the vectorization tile.
+        Pixel dimension of each vec-tile (width and height are equal).
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.vectile.length
-            32
+            >>> ingrid.seggrid.vectile.dimension
+            8192
+        """
+        return self.ingrid.vecgrid.dimension
+
+    @property
+    def length(self):
+        """
+        Number of SegGrid tiles in one dimension of the vec-tile.
+
+        For example, if length is 4, each vec-tile is composed of 4x4 = 16 seg-tiles.
         """
         return self.ingrid.vecgrid.length

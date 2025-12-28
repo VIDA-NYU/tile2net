@@ -158,19 +158,9 @@ class cls_attr(
 T = TypeVar('T')
 
 
-# class SourceABC(
-#     # ...
-#     type,
-# ):
-#     def __eq__(self, other):
-#         return True
-#
-
-
 # noinspection PyMethodParameters
 class Source(
     ABC,
-    # metaclass=SourceABC,
 ):
     grid: InGrid
     catalog: dict[str, type[Source]] = {}
@@ -210,17 +200,10 @@ class Source(
 
     @Coverage
     def coverage(cls) -> GeoSeries:
-        ...
-
-    # @cls_attr
-    # def coverage(cls) -> Union[
-    #     GeoSeries,
-    #     GeoDataFrame,
-    # ]:
-    #     """
-    #     Spatial coverage of the source, to be used for deciding which
-    #     sources are relevant to an area.
-    #     """
+        """
+        Spatial coverage of the source, to be used for deciding which
+        sources are relevant to an area.
+        """
 
     @cls_attr
     def zoom(cls) -> int:
@@ -553,7 +536,8 @@ class NewYorkCity(ArcGis):
     name = 'nyc'
     keyword = 'New York City', 'City of New York'
     year = 2024
-    coverage = wkt.loads("POLYGON ((-73.69048 40.4889, -73.69048 40.92834, -74.27615 40.92834, -74.27615 40.4889, -73.69048 40.4889))")
+    coverage = wkt.loads(
+        "POLYGON ((-73.69048 40.4889, -73.69048 40.92834, -74.27615 40.92834, -74.27615 40.4889, -73.69048 40.4889))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
@@ -562,7 +546,8 @@ class NewYork(ArcGis):
     name = 'ny'
     keyword = 'New York'
     year = 2024
-    coverage = wkt.loads("POLYGON ((-73.25509 40.48341, -73.25509 45.03931, -79.77922 45.03931, -79.77922 40.48341, -73.25509 40.48341))")
+    coverage = wkt.loads(
+        "POLYGON ((-73.25509 40.48341, -73.25509 45.03931, -79.77922 45.03931, -79.77922 40.48341, -73.25509 40.48341))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
@@ -572,7 +557,8 @@ class Massachusetts(ArcGis):
     keyword = 'Massachusetts'
     extension = 'jpg'
     year = 2021
-    coverage = wkt.loads("POLYGON ((-69.92466 41.2265, -69.92466 42.89199, -73.51979 42.89199, -73.51979 41.2265, -69.92466 41.2265))")
+    coverage = wkt.loads(
+        "POLYGON ((-69.92466 41.2265, -69.92466 42.89199, -73.51979 42.89199, -73.51979 41.2265, -69.92466 41.2265))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
@@ -581,7 +567,8 @@ class KingCountyWashington(ArcGis):
     name = 'king'
     keyword = 'King County, Washington', 'King County'
     year = 2023
-    coverage = wkt.loads("POLYGON ((-121.03559 47.04875, -121.03559 47.96618, -122.56958 47.96618, -122.56958 47.04875, -121.03559 47.04875))")
+    coverage = wkt.loads(
+        "POLYGON ((-121.03559 47.04875, -121.03559 47.96618, -122.56958 47.96618, -122.56958 47.04875, -121.03559 47.04875))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
@@ -590,7 +577,8 @@ class LosAngeles(ArcGis):
     name = 'la'
     keyword = 'Los Angeles'
     year = 2014
-    coverage = wkt.loads("POLYGON ((-117.63102 33.28853, -117.63102 34.83012, -118.95937 34.83012, -118.95937 33.28853, -117.63102 33.28853))")
+    coverage = wkt.loads(
+        "POLYGON ((-117.63102 33.28853, -117.63102 34.83012, -118.95937 34.83012, -118.95937 33.28853, -117.63102 33.28853))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
 
     # to test case where a source raises an error due to metadata failure
@@ -631,7 +619,8 @@ class NewJersey(ArcGis):
     name = 'nj'
     keyword = 'New Jersey'
     year = 2020
-    coverage = wkt.loads("POLYGON ((-73.85543 38.824, -73.85543 41.3866, -75.59981 41.3866, -75.59981 38.824, -73.85543 38.824))")
+    coverage = wkt.loads(
+        "POLYGON ((-73.85543 38.824, -73.85543 41.3866, -75.59981 41.3866, -75.59981 38.824, -73.85543 38.824))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
@@ -640,7 +629,8 @@ class SpringHillTN(ArcGis):
     name = 'sh_tn'
     keyword = 'Spring Hill, Tennessee', 'Spring Hill'
     year = 2020
-    coverage = wkt.loads("POLYGON ((-86.75604 35.58884, -86.75604 35.85806, -87.13095 35.85806, -87.13095 35.58884, -86.75604 35.58884))")
+    coverage = wkt.loads(
+        "POLYGON ((-86.75604 35.58884, -86.75604 35.85806, -87.13095 35.85806, -87.13095 35.58884, -86.75604 35.58884))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
@@ -784,7 +774,7 @@ class VexCel(Source, ABC):
     api_key: str = None
     timeout: int = 10
     extension = 'png'
-    
+
     @cls_attr
     def _session(self) -> requests.Session:
         """

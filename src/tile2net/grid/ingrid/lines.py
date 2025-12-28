@@ -32,12 +32,43 @@ if False:
 class Lines(
     FrameWrapper
 ):
+    """
+    Lines for each feature and region, dissolved across tiles.
+
+    Handles lazy-loading of concatenated lines from vecgrid tiles:
+        >>> Lines._get
+
+    See usage:
+        >>> InGrid.lines
+    """
+    __name__ = 'lines'
 
     def _get(
             self: Lines,
             instance: InGrid,
             owner: type[InGrid]
     ) -> Lines:
+        """
+        Lazy-load factory method for accessing lines for each feature, dissolved across tiles.
+
+        Automatically concatenates and dissolves line geometries from all
+        vec-tiles if not already cached. Stitches line segments at tile
+        boundaries and removes 2-degree nodes. Results are saved as parquet
+        for persistence across sessions.
+
+        Returns:
+            Lines instance with dissolved features from all vecgrid tiles
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.lines
+            Lines:
+                                                        geometry
+            feature
+            crosswalk  LINESTRING (-7910926 5213692.6, -7910925.6 521...
+            crosswalk  LINESTRING (-7910894.8 5213730.1, -7910895 521...
+            sidewalk   LINESTRING (-7910885.6 5213961.8, -7910885.6 5...
+        """
         self = super()._get(instance, owner)
         if instance is None:
             raise NotImplementedError
@@ -56,7 +87,6 @@ class Lines(
                     f'from \n\t{file}'
                 )
                 logger.info(msg)
-                # with benchmark(msg):
                 result = (
                     gpd.read_parquet(file)
                     .pipe(self.__class__.from_frame, wrapper=self)
@@ -175,22 +205,32 @@ class Lines(
         result.instance = instance
         return result
 
-    __name__ = 'lines'
     locals().update(
         __get__=_get,
     )
 
     @property
     def ingrid(self) -> InGrid:
+        """Reference to the InGrid instance"""
         return self.instance
 
     @property
     def feature(self):
+        """Feature associated with each line geometry"""
         return self.index.get_level_values('feature')
 
     @property
     def file(self):
+        """
+        File at which the lines are cached
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.lines.file
+            '/home/<user>/tile2net/ma/lines/parquet/Boston Common, MA.parquet'
+        """
         return self.ingrid.outdir.lines.parquet
+
 
     def unlink(self):
         """Delete the lines file."""

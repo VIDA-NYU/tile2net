@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-import numpy as np
-
-from .. import frame
-
-import copy
-
 import pandas as pd
 
 from tile2net.grid.frame.namespace import namespace
+from .. import frame
 
 if False:
     from .ingrid import InGrid
@@ -17,66 +12,42 @@ if False:
 class SegTile(
     namespace,
 ):
+    """
+    Namespace for accessing seg-tile attributes aligned with in-tiles.
+
+    See usage:
+        >>> InGrid.segtile
+    """
     ingrid: InGrid
 
     @property
     def ingrid(self) -> InGrid:
+        """Reference to the InGrid instance."""
         return self.instance
 
     @property
     def grid(self) -> InGrid:
+        """Reference to the parent InGrid instance."""
         return self.ingrid
 
     @property
     def length(self):
-        """
-        Number of InGrid tiles in one dimension of the segmentation tile.
-
-        Example:
-            >>> ingrid: InGrid
-            >>> ingrid.segtile.length
-            4
-        """
+        """Number of InGrid tiles in one dimension of the seg-tile."""
         return self.ingrid.seggrid.length
 
     @property
     def dimension(self):
-        """
-        Pixel dimension of each segmentation tile.
-
-        Example:
-            >>> ingrid: InGrid
-            >>> ingrid.segtile.dimension
-            1024
-        """
+        """Pixel dimension of each seg-tile."""
         return self.ingrid.dimension * self.length
-
-    # @property
-    # def shape(self) -> tuple[int, int, int]:
-    #     return self.dimension, self.dimension, self.ingrid.shape[2]
 
     @property
     def shape(self) -> tuple[int, int]:
-        """
-        Shape of each segmentation tile as (height, width).
-
-        Example:
-            >>> ingrid: InGrid
-            >>> ingrid.segtile.shape
-            (1024, 1024)
-        """
+        """Shape of each seg-tile as (height, width)."""
         return self.dimension, self.dimension
 
     @property
     def index(self):
-        """
-        MultiIndex of (xtile, ytile) for segmentation tiles.
-
-        Example:
-            >>> ingrid: InGrid
-            >>> ingrid.segtile.index
-            MultiIndex([(79320, 96960)], names=['segtile.xtile', 'segtile.ytile'])
-        """
+        """MultiIndex of (xtile, ytile) for seg-tiles."""
         arrays = self.xtile, self.ytile
         names = self.xtile.name, self.ytile.name
         result = pd.MultiIndex.from_arrays(arrays, names=names)
@@ -84,16 +55,7 @@ class SegTile(
 
     @frame.column
     def itile(self):
-        """
-        Integer identifier for each segmentation tile.
-
-        Example:
-            >>> ingrid: InGrid
-            >>> ingrid.segtile.itile
-            xtile   ytile
-            317280  387840    123456
-            Name: segtile.itile, dtype: int64
-        """
+        """Integer identifier for each seg-tile."""
         seggrid = self.grid.seggrid.broadcast
         result = (
             self.grid.seggrid.broadcast.itile
@@ -105,16 +67,7 @@ class SegTile(
 
     @frame.column
     def xtile(self):
-        """
-        X tile id of the SegGrid tile associated with the InGrid tile
-
-        Example:
-            >>> ingrid: InGrid
-            >>> ingrid.segtile.xtile
-            xtile   ytile
-            317280  387840    79320
-            Name: segtile.xtile, dtype: int64
-        """
+        """X tile coordinate of the SegGrid tile associated with the InGrid tile."""
         ingrid = self.ingrid
 
         seggrid = ingrid.seggrid.filled
@@ -126,16 +79,7 @@ class SegTile(
 
     @frame.column
     def ytile(self):
-        """
-        Y tile id of the SegGrid tile associated with the InGrid tile
-
-        Example:
-            >>> ingrid: InGrid
-            >>> ingrid.segtile.ytile
-            xtile   ytile
-            317280  387840    96960
-            Name: segtile.ytile, dtype: int64
-        """
+        """Y tile coordinate of the SegGrid tile associated with the InGrid tile."""
         ingrid = self.ingrid
 
         seggrid = ingrid.seggrid.filled
@@ -147,16 +91,7 @@ class SegTile(
 
     @frame.column
     def r(self) -> pd.Series:
-        """
-        Row index within the segmentation tile (0 to length-1).
-
-        Example:
-            >>> ingrid: InGrid
-            >>> ingrid.segtile.r
-            xtile   ytile
-            317280  387840    0
-            Name: segtile.r, dtype: int64
-        """
+        """Row index within the seg-tile (0 to length-1)."""
         ingrid = self.ingrid
         result = (
             ingrid.ytile
@@ -169,16 +104,7 @@ class SegTile(
 
     @frame.column
     def c(self) -> pd.Series:
-        """
-        Column index within the segmentation tile (0 to length-1).
-
-        Example:
-            >>> ingrid: InGrid
-            >>> ingrid.segtile.c
-            xtile   ytile
-            317280  387840    0
-            Name: segtile.c, dtype: int64
-        """
+        """Column index within the seg-tile (0 to length-1)."""
         ingrid = self.ingrid
         result = (
             ingrid.xtile
@@ -191,49 +117,18 @@ class SegTile(
 
     @frame.column
     def infile(self) -> pd.Series:
-        """
-        Path to input file for this segmentation tile.
-
-        Example:
-            >>> ingrid: InGrid
-            >>> ingrid.segtile.infile
-            xtile   ytile
-            317280  387840    /home/.../ma/Boston Common, MA/s...
-            Name: segtile.infile, dtype: object
-        """
+        """Path to input file for this seg-tile."""
         ingrid = self.ingrid
         result = (
-            # ingrid.seggrid.file.stitched
             ingrid.seggrid.filled.file.infile
             .loc[self.index]
             .values
         )
         return result
 
-    # @frame.column
-    # def polygon(self) -> pd.Series:
-    #     """seggrid.file broadcasted to ingrid"""
-    #     ingrid = self.ingrid
-    #     result = (
-    #         ingrid.seggrid.filled.file
-    #         .loc[self.index]
-    #         .values
-    #     )
-    #     return result
-    #
-
     @frame.column
     def grayscale(self) -> pd.Series:
-        """
-        Path to grayscale segmentation file for this tile.
-
-        Example:
-            >>> ingrid: InGrid
-            >>> ingrid.segtile.grayscale
-            xtile   ytile
-            317280  387840    /home/.../ma/Boston Common, MA/s...
-            Name: segtile.grayscale, dtype: object
-        """
+        """Path to grayscale segmentation file for this tile."""
         ingrid = self.ingrid
         seggrid = ingrid.seggrid.broadcast
         result = (
@@ -244,17 +139,9 @@ class SegTile(
         )
         return result
 
-
     @property
     def pad(self) -> int:
-        """
-        Padding pixels for segmentation tiles.
-
-        Example:
-            >>> ingrid: InGrid
-            >>> ingrid.segtile.pad
-            64
-        """
+        """Number of in-tiles to pad each seg-tile by."""
         return self.grid.cfg.segmentation.pad
 
     @pad.setter
@@ -264,6 +151,3 @@ class SegTile(
     @pad.deleter
     def pad(self) -> None:
         del self.grid.cfg.segmentation.pad
-
-
-

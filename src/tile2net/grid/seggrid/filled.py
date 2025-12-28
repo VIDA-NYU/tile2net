@@ -55,10 +55,10 @@ class Filled(
     in segmentation output during vectorization.
 
     Handles lazy-loading of filled grid with padding:
-    >>> Filled._get
+        >>> Filled._get
 
     See usage:
-    >>> SegGrid.filled
+        >>> SegGrid.filled
     """
     instance: SegGrid
     predict = False

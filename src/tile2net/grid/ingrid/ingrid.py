@@ -32,17 +32,16 @@ from tile2net.grid.cfg.logger import logger
 from tile2net.grid.dir.indir import Indir
 from tile2net.grid.dir.outdir import Outdir
 from . import delayed
+from .file import File
 from .lines import Lines
 from .polygons import Polygons
 from .segtile import SegTile
 from .source import Source, SourceNotFound
 from .vectile import VecTile
-from .. import frame
 from ..cfg import cfg
 from ..cfg.cfg import Cfg
 from ..dir.dir import Dir, ExtensionNotFoundError, XYNotFoundError
 from ..dir.tempdir import TempDir
-from ..grid import file
 from ..grid.grid import Grid
 from ..grid.static import Static
 from ..loaders.datawrapper import DataWrapper
@@ -84,26 +83,6 @@ def file_md5(path: Path, chunk_size: int = 8192) -> str:
     return h.hexdigest()
 
 
-class File(
-    file.File
-):
-    grid: InGrid
-
-    @frame.column
-    def infile(self):
-        grid = self.grid
-        files = grid.indir.files(grid)
-        if (
-                not grid.download
-                and not files.map(os.path.exists).all()
-        ):
-            grid.file.infile = files
-            grid.download()
-        return files
-
-    @frame.column
-    def disk_usage(self):
-        return util.path2fsize(self.infile)
 
 
 class InGrid(
@@ -115,11 +94,13 @@ class InGrid(
 
     Example construction:
         >>> ingrid = InGrid.from_location('Boston Common, MA')
+        InGrid:
+                             lonmin        latmax        lonmax        latmin
+        xtile  ytile
+        317280 387840 -7.911538e+06  5.214840e+06 -7.911500e+06  5.214802e+06
 
-    InGrid:
-                         lonmin        latmax        lonmax        latmin
-    xtile  ytile
-    317280 387840 -7.911538e+06  5.214840e+06 -7.911500e+06  5.214802e+06
+    Handles downloading of input tiles:
+        >>> InGrid.download
 
     """
 
@@ -154,10 +135,10 @@ class InGrid(
             9915  12120  POLYGON ((-7910315.183 5214839.818, -7910315.1...
 
         Handles lazy-loading of InGrid.VecGrid:
-        >>> VecGrid._get
+            >>> VecGrid._get
 
-        Handles vectorization process from stitched segmentation tiles:
-        >>> VecGrid.vectorize
+        Handles vectorization process from stitched seg-tiles:
+            >>> VecGrid.vectorize
         """
 
     @SegGrid
@@ -182,7 +163,7 @@ class InGrid(
         Handles lazy-loading of InGrid.SegGrid:
         >>> SegGrid._get
 
-        Handles prediction of segmentation tiles from stitched input tiles:
+        Handles prediction of seg-tiles from stitched input tiles:
         >>> SegGrid._predict
         """
 
@@ -248,7 +229,8 @@ class InGrid(
     @Lines
     def lines(self):
         """
-        Concatenated line features (e.g., sidewalks, crosswalks) from all tiles
+        Lines from all features (e.g. sidewalks, crosswalks) from all tiles dissolved into
+        continuous line geometries.
 
         Example:
             >>> ingrid: InGrid
@@ -262,7 +244,8 @@ class InGrid(
     @Polygons
     def polygons(self):
         """
-        Concatenated polygon features (e.g., sidewalks, crosswalks) from all tiles
+        Polygons from all features (e.g. sidewalks, crosswalks) from all tiles dissolved into
+        continuous polygon geometries.
 
         Example:
             >>> ingrid: InGrid
@@ -304,9 +287,6 @@ class InGrid(
         )
         result = Indir.from_format(format)
         return result
-
-        # sets the input directory
-        portal(InGrid.set_indir)
 
     @Outdir
     def outdir(self):
@@ -374,28 +354,25 @@ class InGrid(
     @SegTile
     def segtile(self):
         """
-        Namespace for segmentation tile properties aligned with in-tiles.
-        This allows us to align
+        Namespace for seg-tile properties aligned with in-tiles.
 
         Example:
             >>> ingrid: InGrid
             >>> ingrid.segtile.xtile
             xtile   ytile
             317280  387840    79320
-            Name: segtile.xtile, dtype: int64
         """
 
     @VecTile
     def vectile(self):
         """
-        Namespace for vectorization tile properties aligned with in-tiles.
+        Namespace for vec-tile properties aligned with in-tiles.
 
         Example:
             >>> ingrid: InGrid
             >>> ingrid.vectile.xtile
             xtile   ytile
             317280  387840    9915
-            Name: vectile.xtile, dtype: int64
         """
 
     @recursion_block
@@ -410,10 +387,14 @@ class InGrid(
         Download tiles from the configured source to the input directory.
 
         Args:
-            retry: Retry failed downloads once
-            force: Re-download existing files
-            max_workers: Maximum concurrent download threads
-            one: Download only one file for testing
+            retry:
+                Retry failed downloads once
+            force:
+                Re-download existing files
+            max_workers:
+                Maximum concurrent download threads
+            one:
+                Download only one file for testing
 
         Returns:
             Self with downloaded files available at InGrid.file.infile
@@ -864,12 +845,12 @@ class InGrid(
         Configure segmentation grid dimensions and create InGrid.seggrid.
 
         Args:
-            dimension: Pixel dimension of each segmentation tile
-            length: Number of in-tiles per segmentation tile dimension
-            scale: Zoom scale for segmentation tiles
+            dimension: Pixel dimension of each seg-tile
+            length: Number of in-tiles per seg-tile dimension
+            scale: Zoom scale for seg-tiles
             fill: Whether to fill missing tiles
             batch_size: Batch size for model inference
-            pad: Padding pixels for segmentation tiles
+            pad: Padding pixels for seg-tiles
 
         Returns:
             InGrid with InGrid.seggrid configured
@@ -964,11 +945,11 @@ class InGrid(
         Configure vectorization grid dimensions and create InGrid.vecgrid.
 
         Args:
-            dimension: Pixel dimension of each vectorization tile including padding
-            length: Number of segmentation tiles per vectorization tile dimension
-            scale: Zoom scale for vectorization tiles
+            dimension: Pixel dimension of each vec-tile including padding
+            length: Number of seg-tiles per vec-tile dimension
+            scale: Zoom scale for vec-tiles
             fill: Whether to fill missing tiles
-            pad: Padding pixels for vectorization tiles
+            pad: Padding pixels for vec-tiles
 
         Returns:
             InGrid with InGrid.vecgrid configured
@@ -1102,7 +1083,7 @@ class InGrid(
         if self.cfg.line.preview:
             rows.append(('Network preview', _p(self.outdir.lines.preview)))
         if self.cfg.segmentation.to_pkl:
-            rows.append(('Segmentation tiles (zoom and scale in attrs)', _p(self.outdir.seggrid.pickle)))
+            rows.append(('seg-tiles (zoom and scale in attrs)', _p(self.outdir.seggrid.pickle)))
 
         # compute formatting
         label_w = max(len(k) for k, _ in rows)
@@ -1262,7 +1243,7 @@ class InGrid(
             infile: bool = True,
             grayscale: bool = True
     ):
-        """ignore for now"""
+        """ignore for now."""
         raise NotImplementedError
         self.outdir.cleanup()
         self.tempdir.cleanup()
@@ -1307,7 +1288,7 @@ class InGrid(
     @cached_property
     def disk_usage(self) -> int:
         """
-        Total disk space used by all segmentation files in bytes
+        Total disk space used by all segmentation files in bytes.
         """
         result = self.broadcast.file.disk_usage.sum()
         return result
@@ -1315,7 +1296,7 @@ class InGrid(
     @cached_property
     def time_usage(self) -> float:
         """
-        Time spent on segmentation operations in seconds
+        Time spent on segmentation operations in seconds.
         """
         return 0.
 
@@ -1611,7 +1592,7 @@ class InGrid(
             outdir: Output directory path
             location: Location string (e.g., 'Boston Common, MA')
             pad: Padding pixels for segmentation
-            length: Vectorization tile length
+            length: vec-tile length
 
         Returns:
             Fully configured InGrid instance
@@ -1637,6 +1618,6 @@ class InGrid(
 
     @property
     def ingrid(self) -> InGrid:
-        """ Quick access for the InGrid of a project """
+        """Quick access for the InGrid of a project."""
         return self
 

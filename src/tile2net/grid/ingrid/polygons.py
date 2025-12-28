@@ -30,6 +30,15 @@ if False:
 class Polygons(
     FrameWrapper
 ):
+    """
+    Polygons for each feature and region, dissolved across tiles.
+
+    Handles lazy-loading of concatenated polygons from vecgrid tiles:
+        >>> Polygons._get
+
+    See usage:
+        >>> InGrid.polygons
+    """
     __name__ = 'polygons'
 
     def _get(
@@ -37,6 +46,24 @@ class Polygons(
             instance: InGrid,
             owner: type[InGrid]
     ) -> Polygons:
+        """
+        Lazy-load factory method for accessing polygons for each feature and region, dissolved across tiles.
+
+        Automatically concatenates and dissolves polygon geometries from all
+        vec-tiles if not already cached. Results are saved as parquet
+        for persistence across sessions.
+
+        Returns:
+            Polygons instance with dissolved features from all vecgrid tiles
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.polygons
+            Polygons:
+                                                    geometry
+            feature
+            crosswalk  POLYGON ((-7911335.6 5213618.8, -7911339.8 521...
+        """
 
         self = super()._get(instance, owner)
         if instance is None:
@@ -124,11 +151,26 @@ class Polygons(
 
     @property
     def ingrid(self) -> InGrid:
+        """Reference to the Ingrid instance."""
         return self.instance
 
     @property
     def file(self):
+        """
+        File at which the polygons are cached.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.polygons.file
+            '/home/<user>/tile2net/ma/polygons/parquet/Boston Common, MA.parquet'
+
+        """
         return self.ingrid.outdir.polygons.parquet
+
+    @property
+    def feature(self):
+        """Feature associated with each polygon geometry."""
+        return self.index.get_level_values('feature')
 
     def unlink(self):
         """Delete the polygons file."""
@@ -151,6 +193,9 @@ class Polygons(
             simplify=None,
             **kwargs,
     ) -> folium.Map:
+        """
+        Explore polygons by feature using folium.
+        """
 
         import folium
         feature2color = cfg.label2color
@@ -187,6 +232,8 @@ class Polygons(
             opacity: float = 1.,
             **kwargs,
     ) -> PIL.Image.Image:
+        """ View polygons over imagery as a PIL image. """
+
         # z-order per feature
         z_map: dict[str, int] = self.ingrid.cfg.polygon.z_order
 

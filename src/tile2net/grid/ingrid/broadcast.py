@@ -71,10 +71,10 @@ class Broadcast(
     seg-tiles.
 
     Handles lazy-loading of broadcast grid with padding:
-    >>> Broadcast._get
+        >>> Broadcast._get
 
     See usage:
-    >>> SegGrid.broadcast
+        >>> SegGrid.broadcast
     """
     instance: InGrid
 

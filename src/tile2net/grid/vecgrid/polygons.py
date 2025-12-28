@@ -3,6 +3,7 @@ from __future__ import annotations
 from concurrent.futures import (
     ThreadPoolExecutor,
 )
+from typing import *
 
 import geopandas as gpd
 import pandas as pd
@@ -16,12 +17,22 @@ from ..frame.framewrapper import FrameWrapper
 
 if False:
     from .vecgrid import VecGrid
+    from ..ingrid import InGrid
     import folium
 
 
 class Polygons(
     FrameWrapper
 ):
+    """
+    Polygons for each vec-tile, feature, and region.
+
+    Handles lazy-loading of concatenated polygon geometries from vecgrid tiles:
+        >>> Polygons._get
+
+    See usage:
+        >>> VecGrid.polygons
+    """
     vecgrid: VecGrid = None
 
     def _get(
@@ -29,6 +40,30 @@ class Polygons(
             instance: VecGrid,
             owner: type[VecGrid]
     ) -> Polygons:
+        """
+        Lazy-load factory method for accessing polygons for each vec-tile, feature, and region.
+
+        Automatically reads and dissolves polygon geometries from all vecgrid
+        parquet files if not already cached. Groups by feature and tile,
+        then pivots into a grid-aligned dataframe.
+
+        Returns:
+            Polygons instance with MultiPolygon geometries per tile and feature
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.vecgrid.polygons
+            Polygons:
+            feature                                              crosswalk
+            xtile ytile
+            9915  12120  MULTIPOLYGON (((-7910483.6 5213928.8, -7910483...
+            feature                                                   road
+            xtile ytile
+            9915  12120  MULTIPOLYGON (((-7910857.1 5214839.8, -7910844...
+            feature                                               sidewalk
+            xtile ytile
+            9915  12120  MULTIPOLYGON (((-7910400.7 5214764, -7910400.4...
+        """
         if instance is None:
             result = self
 
@@ -66,7 +101,7 @@ class Polygons(
                 f'Dissolving {instance.__name__}.{self.__name__} '
                 f'by feature and tile'
             )
-            geometry = frames[0].feature.iat[0] # any feature
+            geometry = frames[0].feature.iat[0]  # any feature
 
             cols = 'xtile ytile feature'.split()
             with benchmark(msg):
@@ -105,13 +140,30 @@ class Polygons(
         result.vecgrid = instance
         return result
 
-    sidewalk: gpd.GeoSeries
-    road: gpd.GeoSeries
-    crosswalk: gpd.GeoSeries
-
     locals().update(
         __get__=_get,
     )
+
+    @property
+    def sidewalk(self) -> Self:
+        """Subset of polygons where the feature is sidewalk."""
+        loc = self.frame.feature == 'sidewalk'
+        result = self.loc[loc]
+        return result
+
+    @property
+    def road(self) -> Self:
+        """Subset of polygons where the feature is road."""
+        loc = self.frame.feature == 'road'
+        result = self.loc[loc]
+        return result
+
+    @property
+    def crosswalk(self) -> Self:
+        """Subset of polygons where the feature is crosswalk."""
+        loc = self.frame.feature == 'crosswalk'
+        result = self.loc[loc]
+        return result
 
     def explore(
             self,
@@ -122,6 +174,7 @@ class Polygons(
             simplify=None,
             **kwargs,
     ) -> folium.Map:
+        """Explore polygons by feature and vec-tile using folium."""
         import folium
         feature2color = cfg.label2color
 

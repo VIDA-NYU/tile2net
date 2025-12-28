@@ -755,6 +755,7 @@ class Segmentation(cmdline.Namespace):
 
     @cmdline.property
     def pad(self) -> int:
+        """Number of seg-tiles to pad each vec-tile by."""
         return 1
 
     @cmdline.property
@@ -821,6 +822,7 @@ class Vectorization(cmdline.Namespace):
 
     @cmdline.property
     def pad(self) -> int:
+        """Number of in-tiles to pad each seg-tile by."""
         return 1
 
     @cmdline.property
