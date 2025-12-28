@@ -144,7 +144,7 @@ class File(
     @frame.column
     def infile(self) -> pd.Series:
         """
-        A file for each segmentation tile: the stitched input grid.
+        A file for each seg-tile: the stitched input grid.
         Stitches input files when seggrid.file is accessed
         """
         grid = self.grid

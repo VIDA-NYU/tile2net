@@ -82,6 +82,20 @@ def boundary_grid(
 class Broadcast(
     SegGrid
 ):
+    """
+    SegGrid extension with broadcasting to handle overlapping vec-tiles.
+
+    While a seg-tile consists of in-tiles, an in-tile may stitch into multiple
+    seg-tiles due to padding overlaps. Broadcast overcomes the base SegGrid's 
+    one-row-per-tile limitation by allowing multiple entries per in-tile to
+    pair them with multiple seg-tiles.
+
+    Handles lazy-loading of broadcast grid with padding:
+    >>> Broadcast._get
+
+    See usage:
+    >>> InGrid.broadcast
+    """
     instance: SegGrid
     predict = False
 
@@ -90,6 +104,21 @@ class Broadcast(
             instance: SegGrid,
             owner,
     ) -> Broadcast:
+        """
+        Lazy-load factory method for accessing Broadcast from SegGrid
+
+        Automatically generates expanded grid with padding to align segmentation
+        tiles with vec-tile boundaries. Creates duplicate rows for seg-tiles that
+        overlap multiple vec-tiles.
+
+        Returns:
+            Broadcast instance with expanded index including padding tiles
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.seggrid.broadcast
+            Broadcast with multiple rows per in-tile where overlaps occur
+        """
         if instance is None:
             result = self
             result.instance = instance

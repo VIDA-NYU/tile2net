@@ -11,6 +11,16 @@ class Filled(
     filled.Filled,
     InGrid,
 ):
+    """
+    InGrid extension that fills in missing tiles to align with SegGrid boundaries.
+
+    Ensures complete coverage by adding tiles implicated by SegGrid padding.
+    For example, if SegGrid requires 2x2 in-tiles but InGrid is 1x1, this fills
+    the missing 3 tiles.
+
+    Handles lazy-loading of filled grid with padding:
+    >>> Filled._get
+    """
     instance: InGrid
 
     def _get(
@@ -18,6 +28,21 @@ class Filled(
             instance: InGrid,
             owner,
     ) -> Filled:
+        """
+        Lazy-load factory method for accessing Filled from InGrid
+
+        Automatically expands the grid to include all tiles needed for proper
+        segmentation with padding. Rescales to seggrid scale, adds padding,
+        then rescales back to original ingrid scale.
+
+        Returns:
+            Filled instance with complete tile coverage for segmentation
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.filled
+            Filled InGrid with additional boundary tiles
+        """
         if instance is None:
             return self
         # instance = instance.ingrid

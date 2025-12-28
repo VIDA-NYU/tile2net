@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-
-import copy
+from typing import *
 
 import numpy as np
 import pandas as pd
@@ -48,6 +47,19 @@ class Filled(
     filled.Filled,
     SegGrid
 ):
+    """
+    SegGrid extension with additional padding tiles for VecGrid alignment.
+
+    Automatically fills in missing seg-tiles to ensure complete coverage when
+    the vectorization grid requires a different tiling scheme. Prevents gaps
+    in segmentation output during vectorization.
+
+    Handles lazy-loading of filled grid with padding:
+    >>> Filled._get
+
+    See usage:
+    >>> SegGrid.filled
+    """
     instance: SegGrid
     predict = False
     _predict = False
@@ -56,7 +68,7 @@ class Filled(
             self,
             instance: SegGrid,
             owner,
-    ) -> Filled:
+    ) -> Optional[Self]:
         self = namespace._get(self, instance, owner)
         cache = instance.frame.__dict__
         key = self.__name__
@@ -69,7 +81,7 @@ class Filled(
             result = cache[key]
         else:
             pad = instance.vectile.pad
-            result: SegGrid = (
+            result: Self = (
                 instance
                 .to_padding(pad)
                 .pipe(self.__class__)

@@ -713,10 +713,11 @@ class Segmentation(cmdline.Namespace):
     @cmdline.property
     def length(self) -> int:
         """
-        Length, in input images, of each segmentation tile.
-        A length of 10, for example, means each vectorization tile
-        is 10 segmentation tiles long.
+        Length, in input images, of each seg-tile.
+        A length of 10, for example, means each vec-tile
+        is 10 seg-tiles long.
         """
+
 
     @cmdline.property
     def scale(self) -> int:
@@ -802,9 +803,9 @@ class Vectorization(cmdline.Namespace):
     @cmdline.property
     def length(self) -> int:
         """
-        Length, in segmentation tiles, of each vectorization tile.
-        A length of 10, for example, means each vectorization tile
-        is 10 segmentation tiles long.
+        Length, in seg-tiles, of each vec-tile.
+        A length of 10, for example, means each vec-tile
+        is 10 seg-tiles long.
         """
         return 1
 
@@ -1787,17 +1788,6 @@ class Cfg(
     def __call__(self, *args, **kwargs) -> Cfg:
         return self
 
-    # def __enter__(self):
-    #     self._backup = Cfg._context
-    #     Cfg._context = self
-    #     return self
-    #
-    # def __exit__(self, exc_type, exc_val, exc_tb):
-    #     if exc_type is not None:
-    #         raise exc_val
-    #     if Cfg._context is self:
-    #         Cfg._context = self._backup
-
     def __enter__(self):
         context = Cfg._context
         self._backup = context
@@ -1810,16 +1800,17 @@ class Cfg(
         return result
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # Restore context first, regardless of exception
+        # restore context first, regardless of exception
         if Cfg._context is self:
             Cfg._context = self._backup
         
-        # Let exception propagate naturally by returning False
-        # Don't re-raise explicitly - that interferes with ExitStack
+        # let exception propagate naturally by returning False
+        # don't re-raise explicitly - that interferes with ExitStack
         if exc_type is not None:
             return False
-        
-        return False  # Always let exceptions propagate
+
+        # Always let exceptions propagate
+        return False
 
     @property
     def _cfg(self) -> Self:

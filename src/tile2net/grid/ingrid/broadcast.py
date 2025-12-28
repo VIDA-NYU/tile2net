@@ -62,6 +62,20 @@ class SegTile(
 class Broadcast(
     InGrid
 ):
+    """
+    InGrid extension with broadcasting to handle overlapping seg-tiles.
+
+    While a seg-tile consists of in-tiles, an in-tile may belong to multiple
+    overlapping seg-tiles due to padding. Broadcast extends the base InGrid
+    to allow multiple rows per in-tile, pairing each with its corresponding
+    seg-tiles.
+
+    Handles lazy-loading of broadcast grid with padding:
+    >>> Broadcast._get
+
+    See usage:
+    >>> SegGrid.broadcast
+    """
     instance: InGrid
 
     def _get(
