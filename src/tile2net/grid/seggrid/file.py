@@ -50,7 +50,7 @@ class File(
         if not files.map(os.path.exists).all():
             ingrid = grid.ingrid
             _ = ingrid.file.infile
-            big_files = ingrid.segtile.infile
+            mosaics = ingrid.segtile.infile
             assert (
                 ingrid.file.infile
                 .map(os.path.exists)
@@ -61,8 +61,8 @@ class File(
                 big_grid=grid,
                 r=ingrid.segtile.r,
                 c=ingrid.segtile.c,
-                small_files=ingrid.file.infile,
-                big_files=big_files,
+                tiles=ingrid.file.infile,
+                mosaics=mosaics,
             )
             msg = f"Files not stitched: {files[~files.map(os.path.exists)]}"
             assert files.map(os.path.exists).all(), msg

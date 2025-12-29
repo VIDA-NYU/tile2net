@@ -11,18 +11,19 @@ import numpy as np
 import pandas as pd
 import pyproj
 import shapely
+import tqdm
 from geopandas import GeoDataFrame
 from pandas import MultiIndex, Series, Index
 
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.explore import explore
-from tile2net.grid.cfg.colormap import ColorMap
 from .corners import Corners
 from .file import File
-from .stitcher import Stitcher
 from .. import frame, util
 from ..cfg import cfg, Cfg
 from ..frame.framewrapper import FrameWrapper
+from ..loaders.datawrapper import DataWrapper
+from ..loaders.stitch import StitchDataSet
 from ..sampler.sampler import Sampler
 
 if False:
@@ -842,10 +843,9 @@ class Grid(
 
     def _stitch(
             self,
-            small_files: pd.Series,
-            big_files: pd.Series,
+            tiles: pd.Series,
+            mosaics: pd.Series,
             small_grid: Grid,
-            big_grid: Grid,
             r: pd.Series,
             c: pd.Series,
             background: int = 0,
@@ -859,14 +859,14 @@ class Grid(
 
         # skip mosaics that already exist unless force=True
         if not force:
-            loc = ~big_files.map(os.path.exists)
-            small_files = small_files.loc[loc]
+            loc = ~mosaics.map(os.path.exists)
+            tiles = tiles.loc[loc]
             row = r.loc[loc]
             col = c.loc[loc]
-            big_files = big_files.loc[loc]
+            mosaics = mosaics.loc[loc]
 
-        stitched = big_files.drop_duplicates()
-        n_missing = len(small_files)
+        stitched = mosaics.drop_duplicates()
+        n_missing = len(tiles)
         n_total = len(stitched)
 
         if n_missing == 0:
@@ -875,25 +875,45 @@ class Grid(
         else:
             msg = (
                 f'Stitching {n_missing:,} '
-                f'{small_grid.__class__.__name__}.{small_files.name} '
+                f'{small_grid.__class__.__name__}.{tiles.name} '
                 f'into {n_total:,} '
-                f'{small_grid.__class__.__name__}.{big_files.name}'
+                f'{small_grid.__class__.__name__}.{mosaics.name}'
             )
             logger.info(msg)
 
-            stitcher = Stitcher(
-                infiles=small_files,
-                row=row,
-                col=col,
-                outfiles=big_files,
-                background=background,
-            )
-            temp = self.tempdir
+            loader = (
+                DataWrapper
+                .from_tiles(
+                    infile=tiles,
+                    index=mosaics,
+                    row=row,
+                    col=col,
+                    background=background,
+                )
+                .dataset(
+                    write=StitchDataSet.write_image
+                )
+                .loader(
 
-            stitcher.run(max_workers=os.cpu_count())
+                )
+            )
+            total = loader.wrapper.index.nunique()
+
+            bar = tqdm.tqdm(
+                total=total,
+                # desc=f'vecgrid.{self.vectorize.__name__}()',
+                desc=f'Stitching to file',
+                unit=f' {mosaics.name}',
+                smoothing=0.01,
+                mininterval=10,
+            )
+
+            with self.ingrid.cfg, bar, self.sampler:
+                for minibatch in loader:
+                    bar.update(len(minibatch))
 
             msg = 'Not all stitched mosaics were written to disk.'
-            assert big_files.map(os.path.exists).all(), msg
+            assert mosaics.map(os.path.exists).all(), msg
 
     @property
     def crs(self):
@@ -941,7 +961,6 @@ class Grid(
                     [255,   0,   0]]], dtype=uint8)
         """
         return self.cfg.colormap
-
 
     def to_pickle(self, path):
         frame = self.frame.copy()

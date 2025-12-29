@@ -761,19 +761,16 @@ class VecGrid(Grid):
     def road(self):
         # todo: is this still needed?
         raise NotImplementedError
-        ...
 
     @Feature
     def crosswalk(self):
         # todo: is this still needed?
         raise NotImplementedError
-        ...
 
     @Feature
     def sidewalk(self):
         # todo: is this still needed?
         raise NotImplementedError
-        ...
 
     @Lines
     def lines(self):

@@ -5,9 +5,9 @@ import os
 import pandas as pd
 
 from tile2net.grid import frame
+from tile2net.grid.grid import file
 
 if False:
-    from tile2net.grid.grid import file
     from tile2net.grid.seggrid import SegGrid
 
 

@@ -1,14 +1,13 @@
 from functools import cached_property
 from typing import *
 from typing import Any, Union
-from typing import TypeVar
 
 import numpy as np
 import pandas as pd
 
+from .stitch import StitchDataSet
 from .. import frame
 
-T = TypeVar("T", bound="DataSet")
 ArrayLike = Union[
     pd.Series,
     dict[Any, Any],
@@ -28,10 +27,6 @@ class DataWrapper(
     @frame.column
     def infile(self):
         """input file paths"""
-
-    # @frame.column
-    # def i(self):
-    #     """mosaic identifiers; could be integer or destination path"""
 
     @frame.column
     def row(self):
@@ -95,3 +90,22 @@ class DataWrapper(
         if background is not None:
             result.background = background
         return result
+
+    def dataset[T: StitchDataSet](
+            self,
+            threads: int = None,
+            read=None,
+            write=None,
+            cls: type[T] = StitchDataSet,
+            *args,
+            **kwargs,
+    ) -> Union[T, StitchDataSet]:
+        out = cls(
+            self,
+            threads=threads,
+            read=read,
+            write=write,
+            *args,
+            **kwargs
+        )
+        return out

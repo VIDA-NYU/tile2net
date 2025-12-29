@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 from typing import *
 
 import numpy as np
 import torch
 
-from .stitch import StitchDataSet
+if False:
+    from .stitch import StitchDataSet
 
 T = TypeVar("T", np.ndarray, torch.Tensor)
 

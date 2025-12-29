@@ -50,8 +50,8 @@ class File(
                 big_grid=outgrid,
                 r=seggrid.vectile.r,
                 c=seggrid.vectile.c,
-                small_files=seggrid.file.grayscale,
-                big_files=seggrid.vectile.grayscale,
+                tiles=seggrid.file.grayscale,
+                mosaics=seggrid.vectile.grayscale,
                 background=3,
             )
         return files
@@ -92,8 +92,8 @@ class File(
                 big_grid=outgrid,
                 r=seggrid.vectile.r,
                 c=seggrid.vectile.c,
-                small_files=seggrid.file.colored,
-                big_files=seggrid.vectile.colored,
+                tiles=seggrid.file.colored,
+                mosaics=seggrid.vectile.colored,
             )
             assert files.map(os.path.exists).all()
 
@@ -135,8 +135,8 @@ class File(
                 big_grid=outgrid,
                 r=seggrid.vectile.r,
                 c=seggrid.vectile.c,
-                small_files=seggrid.file.infile,
-                big_files=seggrid.vectile.infile,
+                tiles=seggrid.file.infile,
+                mosaics=seggrid.vectile.infile,
             )
             assert (
                 seggrid.vectile.infile

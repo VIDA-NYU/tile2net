@@ -67,8 +67,8 @@ class Padded(
                 big_grid=seggrid,
                 r=ingrid.segtile.r,
                 c=ingrid.segtile.c,
-                small_files= small_files,
-                big_files= big_files,
+                tiles= small_files,
+                mosaics= big_files,
             )
             msg = f"Files not stitched: {files[~files.map(os.path.exists)]}"
             assert files.map(os.path.exists).all(), msg
