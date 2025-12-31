@@ -132,7 +132,6 @@ class Lines(
         __get__=_get,
     )
 
-
     @property
     def sidewalk(self) -> Self:
         """Subset of lines where the feature is sidewalk."""
@@ -153,8 +152,6 @@ class Lines(
         loc = self.frame.feature == 'crosswalk'
         result = self.loc[loc]
         return result
-
-
 
     def explore(
             self,

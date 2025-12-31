@@ -175,7 +175,7 @@ class Source(
         """Return the source object for the grid instance."""
         try:
             result = instance.__dict__[self.__name__]
-            result.grid = instance
+            result.seggrid = instance
             result.InGrid = owner
         except KeyError as e:
             msg = (

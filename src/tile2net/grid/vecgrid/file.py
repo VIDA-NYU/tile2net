@@ -45,7 +45,7 @@ class File(
             # else you get "now stitching" before "now predicting"
             _ = seggrid.file.grayscale
 
-            vecgrid._stitch(
+            vecgrid._stitch_to_file(
                 small_grid=seggrid,
                 big_grid=outgrid,
                 r=seggrid.vectile.r,
@@ -87,7 +87,7 @@ class File(
             loc &= seggrid.vectile.ytile.isin(outgrid.ytile)
             seggrid = seggrid.loc[loc]
 
-            vecgrid._stitch(
+            vecgrid._stitch_to_file(
                 small_grid=seggrid,
                 big_grid=outgrid,
                 r=seggrid.vectile.r,
@@ -130,7 +130,7 @@ class File(
             loc &= seggrid.vectile.ytile.isin(outgrid.ytile)
             seggrid = seggrid.loc[loc]
 
-            vecgrid._stitch(
+            vecgrid._stitch_to_file(
                 small_grid=seggrid,
                 big_grid=outgrid,
                 r=seggrid.vectile.r,

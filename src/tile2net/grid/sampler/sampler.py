@@ -2,7 +2,7 @@ import os
 import time
 import threading
 from functools import cached_property
-from typing import Any
+from typing import Any, Optional
 
 from .samples import Samples
 import pandas as pd
@@ -10,6 +10,11 @@ import psutil
 
 
 class Sampler:
+    """
+    Lightweight threaded worker that samples system metrics during execution.
+    Should only exist within a Benchmark context manager scope.
+    """
+
     def __init__(
             self,
             interval_s: float = 1.,
@@ -18,37 +23,26 @@ class Sampler:
         self.interval_s = interval_s
         self.include_gpu = include_gpu
         self._stop = threading.Event()
-        self._thread: threading.Thread | None = None
-        self._records: list[dict[str, Any]] = []
+        self._records: list[dict] = []
+        self._thread: Optional[threading.Thread] = None
 
-    # start background sampler
-    def __enter__(self) -> "Sampler":
-        self._stop.clear()
+    def start(self):
+        """Start the sampling thread."""
+        if self._thread is not None:
+            return
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
-        return self
 
-    # stop and join
-    def __exit__(self, exc_type, exc, tb):
+    def stop(self) -> list[dict]:
+        """Stop the sampling thread and return collected records."""
         self._stop.set()
         if self._thread is not None:
             self._thread.join(timeout=5.0)
-        self._thread = None
+            self._thread = None
+        return self._records
 
-    @cached_property
-    def samples(self) -> Samples:
-        df = (
-            pd.DataFrame(self._records)
-            .sort_values("t")
-            .reset_index(drop=True)
-        )
-        result = Samples.from_frame(df)
-        return result
-
-
-
-    # internal sampling loop
     def _run(self):
+        """Internal sampling loop that runs in a separate thread."""
         proc = psutil.Process(os.getpid())
 
         # optional CUDA import guarded
@@ -169,3 +163,53 @@ class Sampler:
                 pass
 
             self._stop.wait(self.interval_s)
+
+
+class Benchmark:
+    """
+    Thread-free benchmark container that yields a Sampler during context manager execution.
+    Safe to cache on Grid objects as it contains no threads.
+    """
+
+    def __init__(
+            self,
+            interval_s: float = 1.,
+            include_gpu: bool = True,
+    ):
+        self.interval_s = interval_s
+        self.include_gpu = include_gpu
+        self._all_records: list[dict] = []
+        self._sampler: Optional[Sampler] = None
+
+    def __enter__(self) -> Sampler:
+        """Create and start a new Sampler for this benchmarking session."""
+        self._sampler = Sampler(
+            interval_s=self.interval_s,
+            include_gpu=self.include_gpu,
+        )
+        self._sampler.start()
+        return self._sampler
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Stop the Sampler and collect its records into the Benchmark."""
+        if self._sampler is not None:
+            records = self._sampler.stop()
+            self._all_records.extend(records)
+            self._sampler = None
+
+    @cached_property
+    def samples(self) -> Samples:
+        """
+        Aggregate samples from all benchmarking sessions.
+        """
+        if not self._all_records:
+            # Return empty Samples if no records collected yet
+            return Samples.from_frame(pd.DataFrame())
+
+        df = (
+            pd.DataFrame(self._all_records)
+            .sort_values("t")
+            .reset_index(drop=True)
+        )
+        result = Samples.from_frame(df)
+        return result

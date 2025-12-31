@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import os
 from typing import (
     TYPE_CHECKING,
 )
-from typing import Self
 
 if TYPE_CHECKING:
     pass
@@ -27,7 +27,6 @@ from typing import *
 
 import pandas as pd
 from .wrapper import Wrapper
-from .weak import  weak
 
 
 class Loc:
@@ -212,5 +211,17 @@ class FrameWrapper(
         result = f'{self.__class__.__qualname__}:\n\n'
         result += self.frame.__repr__()
         return result
+
+    def to_parquet(self, path):
+        """Save FrameWrapper to parquet file."""
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        self.frame.to_parquet(path)
+
+    @classmethod
+    def from_parquet(cls, path) -> Self:
+        """Load FrameWrapper from parquet file."""
+        frame = pd.read_parquet(path)
+        return cls.from_frame(frame)
+
 
 

@@ -6,14 +6,7 @@ import gc
 import logging
 import os
 import os.path
-from concurrent.futures import ProcessPoolExecutor
-from concurrent.futures import (
-    ThreadPoolExecutor,
-)
-from concurrent.futures import (
-    wait,
-    FIRST_COMPLETED,
-)
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, wait, FIRST_COMPLETED
 from functools import cached_property
 from pathlib import Path
 from typing import *
@@ -39,12 +32,13 @@ from .padded import Padded
 from .polygons import Polygons
 from .. import frame
 from ..cfg.cfg import Cfg
+from ..grid.corners import Corners
+from ..grid.grid import Grid
 from ..loaders.dataset import DataSet
 from ..loaders.vec import VecDataSet, VecDataWrapper
-from ..grid.corners import Corners
 from ..pednet import PedNet
+from ..sampler.sampler import Benchmark
 from ...grid.util import recursion_block
-from ..grid.grid import Grid
 
 if False:
     from ..ingrid import InGrid
@@ -516,6 +510,12 @@ class VecGrid(Grid):
 
         seggrid: SegGrid = self.seggrid.broadcast
 
+        assert (
+            seggrid.file.grayscale
+            .map(os.path.exists)
+            .all()
+        )
+
         if not force:
             force = ~seggrid.vectile.line.map(os.path.exists)
             force |= self.cfg.force
@@ -553,7 +553,7 @@ class VecGrid(Grid):
             mininterval=10,
         )
 
-        with self.ingrid.cfg, bar, self.sampler:
+        with self.ingrid.cfg, bar, self.benchmark as sampler:
             for minibatch in loader:
                 bar.update(len(minibatch))
 
@@ -829,6 +829,14 @@ class VecGrid(Grid):
             4
         """
         result = 2 ** (self.seggrid.scale - self.scale)
+        return result
+
+    @cached_property
+    def benchmark(self):
+        """
+        Benchmark for vectorization operations (RAM, CPU).
+        """
+        result = Benchmark(include_gpu=False)
         return result
 
     @cached_property

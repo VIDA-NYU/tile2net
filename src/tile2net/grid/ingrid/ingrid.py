@@ -46,7 +46,7 @@ from ..grid.grid import Grid
 from ..grid.static import Static
 from ..loaders.datawrapper import DataWrapper
 from ..loaders.rescale import RescaleDataSet
-from ..sampler.sampler import Sampler
+from ..sampler.sampler import Benchmark
 from ..seggrid.seggrid import SegGrid
 from ..vecgrid.vecgrid import VecGrid
 from ...grid import util
@@ -1153,7 +1153,7 @@ class InGrid(
 
         # segmentation summary
         try:
-            seg_s = self.seggrid.sampler.samples
+            seg_s = self.seggrid.benchmark.samples
             seg_vals = {
                 'elapsed': seg_s.time_elapsed,
                 'gpu_avg': seg_s.avg_gpu,
@@ -1179,7 +1179,7 @@ class InGrid(
 
         # vectorization summary
         try:
-            vec_s = self.vecgrid.sampler.samples
+            vec_s = self.vecgrid.benchmark.samples
             vec_vals = {
                 'elapsed': vec_s.time_elapsed,
                 'ram_avg': vec_s.avg_ram,
@@ -1200,7 +1200,7 @@ class InGrid(
 
         # polygon concatenation time
         try:
-            poly_s = self.polygon_sampler.samples  # preferred if available
+            poly_s = self.polygon_benchmark.samples  # preferred if available
             if getattr(poly_s, 'time_elapsed', None) is not None:
                 print(sep)
                 print(f"{BOLD}Polygon concatenation{RST}")
@@ -1211,7 +1211,7 @@ class InGrid(
 
         # network concatenation time
         try:
-            line_s = self.line_sampler.samples  # preferred if available
+            line_s = self.line_benchmark.samples  # preferred if available
             if getattr(line_s, 'time_elapsed', None) is not None:
                 print(sep)
                 print(f"{BOLD}Network concatenation{RST}")
@@ -1446,13 +1446,13 @@ class InGrid(
         return mosaic_im
 
     @cached_property
-    def polygon_sampler(self) -> Sampler:
-        result = Sampler(include_gpu=True)
+    def polygon_benchmark(self) -> Benchmark:
+        result = Benchmark(include_gpu=True)
         return result
 
     @cached_property
-    def line_sampler(self) -> Sampler:
-        result = Sampler(include_gpu=True)
+    def line_benchmark(self) -> Benchmark:
+        result = Benchmark(include_gpu=True)
         return result
 
     @classmethod

@@ -81,32 +81,11 @@ python -m tile2net --location "43.73982934358233, -70.36009908310434, 43.6329346
 todo: get polygons by padding left by 5 meters
 needs roads, needs non-roads
 
-See this area (37.7642222, -122.5102778), (37.7393333, -122.4754722)
-python -m tile2net --location "37.7642222, -122.5102778, 37.7393333, -122.4754722" --name sf --zoom 20 --model.bs_val 8 --segmentation.pad 0 --vectorization.length 8 --polygon.simplify 2
-
-python -m tile2net --name sf --location "37.7642222, -122.5102778, 37.7393333, -122.4754722" --segmentation.pad 1 --zoom 20 --model.bs_val 1 --vectorization.length 8 --polygon.simplify 3 --multi_scale_inference --model.extra_scales 0.5,2
-
-python -m tile2net --name sf --location "37.7642222, -122.5102778, 37.7393333, -122.4754722" --segmentation.dimension 512 --segmentation.pad 1 --zoom 20 --model.bs_val 1 --vectorization.length 8 --polygon.simplify 3 --multi_scale_inference --model.extra_scales 0.5,2
-
 dimension
 
 name_polygons.parquet
 name_lines.parquet
---location "boston common" --name "boston common" --segmentation.pad 1 --zoom 20 --model.bs_val 1 --vectorization.length 8 --polygon.simplify 3 --multi_scale_inference --model.extra_scales 0.5,2
-python -m tile2net --location "boston common" --name "boston common" --segmentation.pad 1 --zoom 20 --model.bs_val 1 --vectorization.length 8 --polygon.simplify 3 --multi_scale_inference --model.extra_scales 0.5,2
 
 concatenation still needs benchmarking as well
-
-return to debugging seggrid.predict memory consumption
-
-python -m tile2net --location "Portland, Maine" --name portland --segmentation.pad 1 --segmentation.dimension 1024 --zoom 20 --model.bs_val 1 --vectorization.length 8 --multi_scale_inference --model.extra_scales 0.5,2
-python -m tile2net --location "boston common" --name "boston common" --segmentation.pad 1 --zoom 20 --model.bs_val 1 --vectorization.length 8 --polygon.simplify 3 --multi_scale_inference --model.extra_scales 0.5,2
---location "boston common" --name "boston common" --segmentation.pad 1 --zoom 20 --model.bs_val 1 --vectorization.length 8 --polygon.simplify 3 --multi_scale_inference --model.extra_scales 0.5,2 --outdir ./.outdir
-
-
-
-python -m tile2net --location "Portland, Maine" --name portland --segmentation.pad 1 --segmentation.dimension 1024 --zoom 20 --model.bs_val 1 --vectorization.length 8 --multi_scale_inference --model.extra_scales 0.5,2
-
-python -m tile2net --location "Portland, Maine" --name portland --segmentation.pad 0 --segmentation.dimension 1024 --zoom 20 --model.bs_val 8 --vectorization.length 8 --outdir ./.outdir
 
 Stitcher should be dataclass with simple init

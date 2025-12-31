@@ -1,4 +1,5 @@
 from __future__ import annotations
+from tile2net.grid.seggrid.seggrid import SegGrid
 
 import argparse
 import dataclasses
@@ -109,40 +110,6 @@ class Data:
             cfg: Cfg,
     ):
 
-        logger.debug(f'ignore_label = {dataset_cls.ignore_label}')
-        cfg.dataset.num_classes = dataset_cls.num_classes
-        cfg.dataset.ignore_label = dataset_cls.ignore_label
-        crop_size = cfg.dataset.crop_size
-
-        # joint_transform_list = []
-        # if crop_size:
-        #     item = joint_transforms.RandomSizeAndCrop(
-        #         crop_size,
-        #         False,
-        #         scale_min=cfg.model.scale_min,
-        #         scale_max=cfg.model.scale_max,
-        #         full_size=cfg.model.full_crop_modeling,
-        #         pre_size=cfg.model.pre_size,
-        #     )
-        #     joint_transform_list.append(item)
-        # item = joint_transforms.RandomHorizontallyFlip()
-        # joint_transform_list.append(item)
-        #
-        # if cfg.model.rand_augment:
-        #     item = RandAugment(*cfg.model.rand_augment)
-        #     joint_transform_list.append(item)
-
-        # Image-only transforms
-        mean = cfg.dataset.mean
-        std = cfg.dataset.std
-
-        joint_transform_list = None
-        val_input_transform = standard_transforms.Compose([
-            standard_transforms.ToTensor(),
-            standard_transforms.Normalize(mean, std)
-        ])
-        label_transform = extended_transforms.MaskToTensor()
-
         mode = None
         match cfg.model.eval:
             case 'val' | None:
@@ -189,6 +156,7 @@ def run_inference(
         cfg: Cfg,
         wrapper: SampleDataWrapper,
         clip: int,
+        seggrid,
 ) -> None:
     """
     Run semantic segmentation inference.
@@ -197,6 +165,7 @@ def run_inference(
         cfg: Configuration object loaded from JSON
         wrapper: DataWrapper with tile metadata loaded from Parquet
         clip: Clipping value for padding
+        seggrid: SegGrid loaded from file
     """
     errors = []
 
@@ -275,9 +244,6 @@ def run_inference(
         assert_and_infer_cfg(cfg)
         prep_experiment()
 
-        # Note: We don't need the full grid here, just the wrapper
-        # struct = datasets.setup_loaders(tiles=grid)
-
         criterion, criterion_val = get_loss(cfg)
 
         cfg.restore_net = True
@@ -327,7 +293,7 @@ def run_inference(
         val_loss = AverageMeter()
         scales = [cfg.default_scale]
         if cfg.multi_scale_inference:
-            scales.extend(cfg.model.extra_scales.split(','))
+            scales.extend(cfg.model.extra_scales)
             msg = f'Using multi-scale inference (AVGPOOL) with scales {scales}'
         else:
             msg = f'Using single-scale inference with scale {scales}'
@@ -335,9 +301,6 @@ def run_inference(
 
         msg = f'Predicting segmentation masks'
         logger.info(msg)
-
-        cfg.dataset.num_classes
-        cfg.num_class
 
         # Replicate datasets.setup_loaders by building dataset/loader via Data
         data = Data.from_wrapper(wrapper, cfg)
@@ -365,7 +328,7 @@ def run_inference(
             try:
                 for n, batch in enumerate(loader):
                     input_images = batch['input']
-                    labels = batch['mask']
+                    labels = batch['label']
                     i = (
                         batch['i']
                         .detach()
@@ -373,13 +336,14 @@ def run_inference(
                         .numpy()
                     )
                     loc = dataset.index[i]
-                    grid_batch = wrapper.loc[loc].copy()
+                    grid_batch = seggrid.loc[loc].copy()
+                    grid_batch.predict = False
 
                     mb = MiniBatch.from_data(
                         images=input_images,
                         gt_image=labels,
                         net=net,
-                        grid=grid_batch,
+                        seggrid=grid_batch,
                         submit=submit,
                         clip=clip,
                     )
@@ -421,6 +385,7 @@ def main():
     parser = argparse.ArgumentParser(description="Semantic segmentation prediction subprocess")
     parser.add_argument("--cfg", type=str, required=True, help="Path to cfg JSON file")
     parser.add_argument("--wrapper", type=str, required=True, help="Path to wrapper Parquet file")
+    parser.add_argument("--seggrid", type=str, required=False, help="Path to SegGrid Parquet file")
     parser.add_argument("--clip", type=int, required=True, help="Clipping value for padding")
 
     args: argparse.Namespace = parser.parse_args()
@@ -428,6 +393,7 @@ def main():
     # Type hints for the parsed values
     args.cfg: str
     args.wrapper: str
+    args.seggrid: str
     args.clip: int
 
     # Load cfg from JSON
@@ -436,8 +402,10 @@ def main():
     # Load wrapper from Parquet
     wrapper: SampleDataWrapper = SampleDataWrapper.from_parquet(args.wrapper)
 
+    seggrid = SegGrid.from_parquet(args.seggrid)
+
     # Run inference
-    run_inference(cfg, wrapper, args.clip)
+    run_inference(cfg, wrapper, args.clip, seggrid)
 
 
 if __name__ == "__main__":
@@ -450,8 +418,6 @@ if __name__ == "__main__":
 
         traceback.print_exc(file=sys.stderr)
         sys.exit(1)
-# Cfg.from_json()
-# Cfg.to_json()
 
 
 if __name__ == '__main__':

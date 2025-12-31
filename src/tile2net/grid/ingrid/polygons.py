@@ -89,7 +89,7 @@ class Polygons(
                     .pipe(self.__class__.from_frame, wrapper=self)
                 )
             else:
-                with instance.polygon_sampler:
+                with instance.polygon_benchmark:
                     vecgrid = instance.vecgrid
                     n = len(instance.vecgrid.polygons)
                     grid_size = max(

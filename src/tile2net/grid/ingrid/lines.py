@@ -93,9 +93,9 @@ class Lines(
                 )
                 cache[key] = result
             else:
-                with instance.line_sampler:
+                lines: gpd.GeoDataFrame = instance.vecgrid.lines.frame.copy()
+                with instance.line_benchmark:
 
-                    lines: gpd.GeoDataFrame = instance.vecgrid.lines.frame.copy()
                     lines.columns = (
                         lines.columns.str
                         .removeprefix('lines.')

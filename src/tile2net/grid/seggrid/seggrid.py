@@ -3,10 +3,12 @@ from __future__ import annotations
 import copy
 import gc
 import hashlib
-import multiprocessing
 import os
+import pickle
 import resource
+import subprocess
 import sys
+import tempfile
 from contextlib import ExitStack
 from functools import *
 from pathlib import Path
@@ -28,17 +30,17 @@ from tile2net.tileseg.loss.optimizer import get_optimizer, restore_opt, restore_
 from tile2net.tileseg.loss.utils import get_loss
 from tile2net.tileseg.network.ocrnet import MscaleOCR
 from tile2net.tileseg.utils.misc import AverageMeter, prep_experiment
-from . import delayed
-from .file import File
-from .minibatch import MiniBatch
-from .padded import Padded
-from .submit import Submit
-from .vectile import VecTile
-from ..grid.grid import Grid
-from ..loaders.sample import SampleDataWrapper
-from ..loaders.val import ValDataSet, ValDataLoader
-from ...grid.frame.namespace import namespace
-from ...tileseg import datasets, network
+from tile2net.grid.seggrid import delayed
+from tile2net.grid.seggrid.file import File
+from tile2net.grid.seggrid.minibatch import MiniBatch
+from tile2net.grid.seggrid.padded import Padded
+from tile2net.grid.seggrid.submit import Submit
+from tile2net.grid.seggrid.vectile import VecTile
+from tile2net.grid.grid.grid import Grid
+from tile2net.grid.loaders.sample import SampleDataWrapper
+from tile2net.grid.loaders.val import ValDataSet, ValDataLoader
+from tile2net.grid.frame.namespace import namespace
+from tile2net.tileseg import datasets, network
 
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 
@@ -329,16 +331,21 @@ class SegGrid(
         """
         raise NotImplementedError
 
+
     def predict(self) -> None:
         """
-        Run semantic segmentation prediction on all tiles in the grid.
+        Run semantic segmentation prediction on all tiles in the grid using subprocess.
 
-        Executes neural network inference in an isolated subprocess for proper resource
-        cleanup. Downloads model weights if needed, processes tiles in batches, and saves
-        grayscale segmentation masks to disk. Progress is displayed via tqdm progress bar.
+        This version uses JSON/Parquet serialization instead of pickle, allowing for:
+        - Debugger breakpoints in subprocess
+        - No security vulnerabilities from pickle
+        - Clean subprocess isolation
 
-        The segmentation model predicts street infrastructure classes including sidewalks,
-        crosswalks, and road surfaces. Results are saved to outdir.seggrid.grayscale.
+        The subprocess runs predict.py which performs the actual inference.
+        Benchmarking is done in the parent process after subprocess completes.
+
+        If a debugger is detected (via sys.gettrace() or PYDEVD environment),
+        runs inference directly in the current process to enable debugging.
 
         Returns:
             None. See output file paths:
@@ -346,76 +353,143 @@ class SegGrid(
             >>> ingrid.seggrid.file.grayscale
             >>> ingrid.seggrid.file.colored
 
-
         Raises:
             RuntimeError: If subprocess fails or model weights checksum is invalid
             FileNotFoundError: If required model checkpoints are missing
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.seggrid.predict()
+            >>> ingrid.seggrid.predict_new()
             Downloading weights for segmentation...
             Predicting seg-tiles: 100%|██████| 64/64 [02:15<00:00]
             Finished predicting 64 seg-tiles.
         """
-        # Use multiprocessing Queue to communicate exceptions back to parent
-        exception_queue = multiprocessing.Queue()
+        ingrid = self.ingrid.broadcast
+        force = ~ingrid.segtile.grayscale.map(os.path.exists)
+        force |= self.cfg.force
 
-        def _subprocess_wrapper(ingrid_instance, exception_queue):
-            """Wrapper that catches exceptions and puts them in the queue."""
-            try:
-                ingrid_instance.seggrid._predict()
-            except BaseException as e:
-                # Capture the exception and put it in the queue
-                import traceback
-                exception_queue.put((type(e), str(e), traceback.format_exc()))
-            else:
-                # Signal success
-                exception_queue.put(None)
-
-        process = multiprocessing.Process(
-            target=_subprocess_wrapper,
-            args=(self.ingrid, exception_queue)
+        # Create wrapper
+        wrapper: SampleDataWrapper = SampleDataWrapper.from_tiles(
+            infile=ingrid.file.infile,
+            mask=[None] * len(ingrid),
+            index=ingrid.segtile.index,
+            background=0,
+            row=ingrid.segtile.r,
+            col=ingrid.segtile.c,
+            force=force,
         )
 
-        process.start()
-        process.join()
+        if wrapper.empty:
+            msg = f'All seg-tiles are already on disk.'
+            logger.info(msg)
+            return
 
-        # Check if an exception occurred in the subprocess
-        if not exception_queue.empty():
-            result = exception_queue.get()
-            if result is not None:
-                exc_type, exc_msg, exc_traceback = result
-                logger.error(f"Exception in prediction subprocess:\n{exc_traceback}")
-                # Re-raise an exception of the same type with the original message
-                # This preserves the exception type for proper error handling
-                if exc_type == KeyboardInterrupt:
-                    raise KeyboardInterrupt(exc_msg)
-                else:
-                    raise RuntimeError(
-                        f"{exc_type.__name__}: {exc_msg}\n\n"
-                        f"Original traceback from subprocess:\n{exc_traceback}"
-                    )
+        # Calculate clip value
+        clip = self.ingrid.dimension * self.cfg.segmentation.pad
 
-        # Check exit code
-        if process.exitcode != 0:
-            raise RuntimeError(
-                f"Prediction subprocess failed with exit code {process.exitcode}"
-            )
+        # Detect if we're running under a debugger
+        # Check for PyCharm/PyDev debugger, VS Code debugger, or general trace function
+        is_debugging = (
+            sys.gettrace() is not None
+            or 'pydevd' in sys.modules
+            or os.environ.get('PYDEVD_LOAD_VALUES_ASYNC', None) is not None
+            or self.cfg.debug  # Also check explicit debug flag
+        )
+
+        if is_debugging:
+            logger.info('Debugger detected - running inference directly (no subprocess)')
+            # Import here to avoid circular dependency
+            from tile2net.grid.seggrid.predict import run_inference
+
+            # self.broadcast.loc[wrapper.index]
+
+            # Run inference directly in this process
+            with self.benchmark as sampler:
+                run_inference(self.cfg, wrapper, clip, self.broadcast)
+
+            # Write benchmark summary (same as subprocess path)
+            self._write_benchmark_summary()
+            return
+
+        # Create temp files for cfg and wrapper
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as cfg_file, \
+             tempfile.NamedTemporaryFile(mode='w', suffix='.parquet', delete=False) as wrapper_file:
+
+            cfg_path = cfg_file.name
+            wrapper_path = wrapper_file.name
+
+        try:
+            # Save cfg to JSON
+            self.cfg.to_json(cfg_path)
+
+            # Save wrapper to Parquet
+            wrapper.to_parquet(wrapper_path)
+
+            # Save SegGrid to Parquet
+            seggrid_path = wrapper_path.replace('.parquet', '_seggrid.parquet')
+            self.to_parquet(seggrid_path)
+
+            # Prepare predict.py path
+            predict_script = Path(__file__).parent / "predict.py"
+
+            # Prepare the command
+            seggrid_path = wrapper_path.replace('.parquet', '_seggrid.parquet')
+            cmd = [
+                sys.executable,
+                str(predict_script),
+                "--cfg", cfg_path,
+                "--wrapper", wrapper_path,
+                "--seggrid", seggrid_path,
+                "--clip", str(clip)
+            ]
+
+            logger.info(f"Launching prediction subprocess: {' '.join(cmd)}")
+
+            # Start benchmarking in parent process
+            with self.benchmark as sampler:
+                # Launch subprocess
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=sys.stdout,
+                    stderr=subprocess.PIPE,
+                    env=os.environ.copy(),
+                )
+
+                # Wait for completion
+                _, stderr_data = process.communicate()
+
+            # Check for failure
+            if process.returncode != 0:
+                err_msg = stderr_data.decode('utf-8', errors='replace')
+
+                if process.returncode == 130:
+                    raise KeyboardInterrupt("Prediction interrupted by user")
+
+                raise RuntimeError(
+                    f"Prediction subprocess failed (Exit Code {process.returncode}).\n"
+                    f"Subprocess Traceback:\n{err_msg}"
+                )
+
+            # Write benchmark summary (after subprocess completes)
+            self._write_benchmark_summary()
+
+        finally:
+            # Clean up temp files
+            try:
+                os.unlink(cfg_path)
+                os.unlink(wrapper_path)
+                # Also remove metadata file
+                metadata_path = wrapper_path.replace('.parquet', '_metadata.json')
+                if os.path.exists(metadata_path):
+                    os.unlink(metadata_path)
+                # Remove SegGrid file
+                seggrid_path = wrapper_path.replace('.parquet', '_seggrid.parquet')
+                if os.path.exists(seggrid_path):
+                    os.unlink(seggrid_path)
+            except Exception as exc:
+                logger.warning(f"Could not clean up temp files: {exc}")
 
     def _predict(self):
-        """
-        Internal implementation of segmentation prediction.
-        Handles model initialization, GPU setup, batch processing, and file writing.
-
-        - Downloads and validates model weights
-        - Configures CUDA/GPU settings
-        - Loads the OCRNet segmentation model
-        - Processes tiles in batches with tqdm progress tracking
-        - Writes grayscale masks to disk
-        - Generates performance benchmark summary
-        """
-
         grid = self.broadcast.filled
 
         errors = []
@@ -553,7 +627,7 @@ class SegGrid(
             val_loss = AverageMeter()
             scales = [cfg.default_scale]
             if cfg.multi_scale_inference:
-                scales.extend(cfg.model.extra_scales.split(','))
+                scales.extend(cfg.model.extra_scales)
                 msg = f'Using multi-scale inference (AVGPOOL) with scales {scales}'
             else:
                 msg = f'Using single-scale inference with scale {scales}'
@@ -584,8 +658,6 @@ class SegGrid(
                 return
             dataset = ValDataSet.from_wrapper(wrapper)
             loader: ValDataLoader = dataset.loader
-
-            type(self)
 
             assert wrapper.index.difference(grid.index).empty
             len(wrapper.index.difference(grid.index))
@@ -639,7 +711,7 @@ class SegGrid(
                             images=input_images,
                             gt_image=labels,
                             net=net,
-                            grid=grid,
+                            seggrid=grid,
                             submit=submit,
                             clip=clip,
                         )
@@ -647,18 +719,6 @@ class SegGrid(
                         del mb
 
                         pbar.update(len(input_images))
-
-                        # RSS stats
-                        # proc = psutil.Process(os.getpid())
-                        # gb = 1024 ** 3
-                        # rss_gb = proc.memory_info().rss / gb
-                        #
-                        # msg = f'Batch {n} | RSS={rss_gb:.2f} GB'
-                        # tqdm.write(msg)
-                        # num, (soft, hard) = _fd_stats()
-                        # tqdm.write(f'FDs={num} (limit soft={soft}, hard={hard})')
-
-                        # logger.debug(msg)
 
                 finally:
                     # todo shut down threads
@@ -669,7 +729,7 @@ class SegGrid(
 
             # write segmentation benchmark summary to file
             try:
-                seg_s = self.sampler.samples
+                seg_s = self.benchmark.samples
                 seg_vals = {
                     'elapsed': seg_s.time_elapsed,
                     'gpu_avg': seg_s.avg_gpu,
@@ -756,6 +816,78 @@ class SegGrid(
 
         assert ingrid.segtile.grayscale.map(os.path.exists).all()
 
+    def _write_benchmark_summary(self) -> None:
+        """Write segmentation benchmark summary to file."""
+        try:
+            seg_s = self.benchmark.samples
+            seg_vals = {
+                'elapsed': seg_s.time_elapsed,
+                'gpu_avg': seg_s.avg_gpu,
+                'gpu_max': seg_s.max_gpu,
+                'vram_avg': seg_s.avg_vram,
+                'vram_max': seg_s.max_vram,
+                'ram_avg': seg_s.avg_ram,
+                'ram_max': seg_s.max_ram,
+                'cpu_avg': seg_s.avg_cpu,
+                'cpu_max': seg_s.max_cpu,
+            }
+
+            def _fmt_pct(v: float | None) -> str:
+                return "—" if v is None else f"{v:.1f}%"
+
+            def _fmt_duration(v: float | None) -> str:
+                if v is None:
+                    return "—"
+                secs = float(v)
+                if secs < 0:
+                    secs = 0.0
+                ms = secs * 1000.0
+                if secs < 1e-3:
+                    return "0s"
+                if secs < 1.0:
+                    return f"{ms:.0f}ms"
+                days = int(secs // 86400)
+                secs -= days * 86400
+                hours = int(secs // 3600)
+                secs -= hours * 3600
+                minutes = int(secs // 60)
+                secs -= minutes * 60
+                parts = []
+                if days:
+                    parts.append(f"{days}d")
+                if hours and len(parts) < 2:
+                    parts.append(f"{hours}h")
+                if minutes and len(parts) < 2:
+                    parts.append(f"{minutes}m")
+                if len(parts) < 2:
+                    parts.append(f"{secs:.1f}s" if secs < 10 else f"{int(secs)}s")
+                return " ".join(parts)
+
+            lines = []
+            lines.append("Segmentation benchmark")
+            lines.append("======================")
+            if seg_vals['elapsed'] is not None:
+                lines.append(f"Time Elapsed: {_fmt_duration(seg_vals['elapsed'])}")
+            lines.append(f"GPU Compute: avg {_fmt_pct(seg_vals['gpu_avg'])}, max {_fmt_pct(seg_vals['gpu_max'])}")
+            lines.append(f"VRAM Usage: avg {_fmt_pct(seg_vals['vram_avg'])}, max {_fmt_pct(seg_vals['vram_max'])}")
+            lines.append(f"RAM Usage:  avg {_fmt_pct(seg_vals['ram_avg'])}, max {_fmt_pct(seg_vals['ram_max'])}")
+            lines.append(f"CPU Usage:  avg {_fmt_pct(seg_vals['cpu_avg'])}, max {_fmt_pct(seg_vals['cpu_max'])}")
+
+            summary_path = Path(self.outdir.seggrid.summary)
+            summary_path.parent.mkdir(parents=True, exist_ok=True)
+            summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        except Exception as exc:
+            logger.warning(f"Could not write segmentation benchmark summary: {exc}")
+
+    @cached_property
+    def benchmark(self):
+        """
+        Benchmark for segmentation operations (GPU, VRAM, RAM, CPU).
+        """
+        from ..sampler.sampler import Benchmark
+        result = Benchmark(include_gpu=True)
+        return result
+
     @cached_property
     def disk_usage(self) -> int:
         """Total disk space used by all segmentation files in bytes."""
@@ -766,3 +898,36 @@ class SegGrid(
     def time_usage(self) -> float:
         """Time spent on segmentation operations in seconds."""
         return 0.
+
+
+def _subprocess_entrypoint():
+    """
+    Internal entry point for the prediction subprocess.
+    Reads pickled InGrid state from stdin and executes _predict.
+    """
+    import traceback
+
+    try:
+        # Read binary data from stdin pipe
+        # sys.stdin.buffer is required for binary I/O in Python 3
+        if sys.stdin.isatty():
+            print("Error: This module is intended to be run as a subprocess via pipe.", file=sys.stderr)
+            sys.exit(1)
+
+        # Deserialize the InGrid instance
+        ingrid_instance = pickle.load(sys.stdin.buffer)
+
+        # Execute the prediction logic
+        # This will utilize the existing logging/TQDM configuration
+        ingrid_instance.seggrid._predict()
+
+    except KeyboardInterrupt:
+        sys.exit(130)
+    except Exception:
+        # Print full traceback to stderr so the parent can capture and report it
+        traceback.print_exc(file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == "__main__":
+    _subprocess_entrypoint()
+

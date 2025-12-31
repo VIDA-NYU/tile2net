@@ -1,4 +1,5 @@
 from __future__ import annotations
+from . import datawrapper
 import os
 
 import concurrent.futures as cf
@@ -14,9 +15,8 @@ import torch.utils.data
 from toolz import pipe, curried
 
 from tile2net.grid.cfg import cfg
+from tile2net.grid.frame import frame
 
-if False:
-    from .datawrapper import DataWrapper
 
 
 def _worker_init(_: int) -> None:
@@ -28,6 +28,13 @@ def _worker_init(_: int) -> None:
         os.dup2(fd, 2)
     finally:
         os.close(fd)
+
+
+class DataWrapper(datawrapper.DataWrapper):
+    @frame.column
+    def mask(self):
+        ...
+
 
 
 class StitchDataSet(
@@ -49,17 +56,21 @@ class StitchDataSet(
             **kwargs,
     ):
         if read is None:
+            # Filter out None values when looking for file extension
             ext = next(
-                Path(file)
-                .suffix
-                .lower()
-                for file in wrapper.infile
+                (
+                    Path(file)
+                    .suffix
+                    .lower()
+                    for file in wrapper.infile
+                    if file is not None
+                ),
+                None
             )
-            match ext:
-                case '.npy':
-                    read = self.read_npy
-                case _:
-                    read = self.read_image
+            if ext == '.npy':
+                read = self.read_npy
+            else:
+                read = self.read_image
 
         self.wrapper = wrapper
         self.threads = threads
@@ -181,6 +192,8 @@ class StitchDataSet(
             )
         except StopIteration:
             raise FileNotFoundError('No existing input tiles to infer shape from.')
+        except Exception:
+            raise
         sample = self.read(path)
         if sample.ndim != 3:
             raise ValueError(f'{path!s}: unexpected ndim {sample.ndim}')
@@ -491,7 +504,7 @@ class StitchDataSet(
     ):
         outp = Path(file)
         outp.parent.mkdir(parents=True, exist_ok=True)
-        np.save(str(outp), arr, allow_pickle=False)
+        np.save(outp, arr, allow_pickle=False)
         return str(outp)
 
     @staticmethod
@@ -501,9 +514,8 @@ class StitchDataSet(
     ):
         outp = Path(file)
         outp.parent.mkdir(parents=True, exist_ok=True)
-        iio.imwrite(str(outp), arr)
+        iio.imwrite(outp, arr)
         return str(outp)
-
 
     def loader[T: BaseDataLoader](
             self,

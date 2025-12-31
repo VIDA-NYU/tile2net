@@ -62,7 +62,7 @@ class Padded(
                 .map(os.path.exists)
                 .all()
             )
-            ingrid._stitch(
+            ingrid._stitch_to_file(
                 small_grid=ingrid,
                 big_grid=seggrid,
                 r=ingrid.segtile.r,

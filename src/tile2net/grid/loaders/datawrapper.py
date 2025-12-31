@@ -1,3 +1,5 @@
+import json
+import os
 from functools import cached_property
 from typing import *
 from typing import Any, Union
@@ -5,7 +7,8 @@ from typing import Any, Union
 import numpy as np
 import pandas as pd
 
-from .stitch import StitchDataSet
+if False:
+    from .stitch import StitchDataSet
 from .. import frame
 
 ArrayLike = Union[
@@ -29,11 +32,11 @@ class DataWrapper(
         """input file paths"""
 
     @frame.column
-    def row(self):
+    def row(self) -> pd.Series:
         """row within the mosaic"""
 
     @frame.column
-    def col(self):
+    def col(self) -> pd.Series:
         """column within the mosaic"""
 
     @cached_property
@@ -56,7 +59,7 @@ class DataWrapper(
         """
         infiles:
             series of input files
-        i:
+        index:
             identifier for each tile
         row:
             row index for each tile
@@ -64,6 +67,8 @@ class DataWrapper(
             column index for each tile
         background:
             background value to use for padding
+        force:
+            whether to force stitching of tile
         """
         data = dict(
             infile=infile,
@@ -91,15 +96,18 @@ class DataWrapper(
             result.background = background
         return result
 
-    def dataset[T: StitchDataSet](
+    def dataset[T](
             self,
             threads: int = None,
             read=None,
             write=None,
-            cls: type[T] = StitchDataSet,
+            cls: type[T] = None,
             *args,
             **kwargs,
-    ) -> Union[T, StitchDataSet]:
+    ) -> Union[T]:
+        from .stitch import StitchDataSet
+        if cls is None:
+            cls = StitchDataSet
         out = cls(
             self,
             threads=threads,
@@ -109,3 +117,33 @@ class DataWrapper(
             **kwargs
         )
         return out
+
+    def to_parquet(self, path: str) -> None:
+        """Save DataWrapper to parquet file."""
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        frame_to_save = self.frame.copy()
+        frame_to_save.to_parquet(path)
+
+        # Store metadata in a separate json file
+        metadata = {
+            'background': self.background,
+        }
+        metadata_path = path.replace('.parquet', '_metadata.json')
+        with open(metadata_path, 'w') as f:
+            json.dump(metadata, f)
+
+    @classmethod
+    def from_parquet(cls, path: str) -> Self:
+        """Load DataWrapper from parquet file."""
+        frame = pd.read_parquet(path)
+        metadata_path = path.replace('.parquet', '_metadata.json')
+        try:
+            with open(metadata_path, 'r') as f:
+                metadata = json.load(f)
+            background = metadata.get('background', 0)
+        except FileNotFoundError:
+            background = 0
+
+        result = cls.from_frame(frame)
+        result.background = background
+        return result

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from torch.nn.parallel import DataParallel
 from contextlib import contextmanager
 from functools import singledispatchmethod, singledispatch
 
@@ -18,7 +19,6 @@ from tile2net.grid.cfg import cfg
 from tile2net.grid.cfg.logger import logger
 from tile2net.tileseg.utils.misc import fast_hist, fmt_scale
 from .submit import Submit
-from ..grid.grid import Grid
 
 cv2.setNumThreads(1)
 
@@ -170,7 +170,6 @@ class Max:
         prob, pred = probs.max(dim=dim)
         pred = pred.to(torch.uint8)
         result = cls(prob=prob, pred=pred)
-
         return result
 
     @cached_property
@@ -185,7 +184,6 @@ class Max:
 
     @cached_property
     def colors(self) -> torch.Tensor:
-
         return cfg.colormap(self.pred)
 
 
@@ -219,16 +217,30 @@ class Foreground(Max):
 @dataclass
 class MiniBatch:
     probs: Optional[torch.Tensor]
-    grid: SegGrid
+    seggrid: SegGrid
     submit: Submit
+
+    @classmethod
+    def _is_placeholder_gt(cls, gt_image: torch.Tensor) -> bool:
+        """
+        Check if ground truth tensor contains only placeholder values (-1).
+        Returns True if all values are -1, indicating no meaningful ground truth.
+        """
+        out = (
+            gt_image
+            .eq(-1)
+            .all()
+            .item()
+        )
+        return out
 
     @classmethod
     def from_data(
             cls,
             images: torch.Tensor,
             gt_image: torch.Tensor,
-            net: torch.nn.Module,
-            grid: Grid,
+            net: DataParallel | torch.nn.Module,
+            seggrid: SegGrid,
             submit: Submit,
             clip: int = 0,
     ):
@@ -236,13 +248,8 @@ class MiniBatch:
         # prepare scales & flips
         scales = [cfg.default_scale]
         if cfg.multi_scale_inference:
-            scales.extend(
-                float(x)
-                for x in cfg.model.extra_scales.split(',')
-            )
+            scales.extend( cfg.model.extra_scales )
 
-        assert len(images.size()) == 4 and len(gt_image.size()) == 3
-        assert images.size()[2:] == gt_image.size()[1:]
         input_size = images.size(2), images.size(3)
         if cfg.do_flip:
             flips = 1, 0
@@ -251,6 +258,9 @@ class MiniBatch:
 
         # AMP: logits in fp16 to cut VRAM; accumulate in fp32 for stability
         use_amp = True
+
+        # Check if ground truth is meaningful or just placeholder
+        has_meaningful_gt = not cls._is_placeholder_gt(gt_image)
 
         with torch.inference_mode():
             output_accum = None
@@ -263,11 +273,12 @@ class MiniBatch:
                     if scale != 1.0:
                         x = cls.resize_tensor(x, infer_size)
 
-                    inputs = dict(
-                        images=x.cuda(non_blocking=True),
-                        gts=gt_image.cuda(non_blocking=True)
-                    )
+                    inputs = dict(images=x.cuda(non_blocking=True))
+                    if has_meaningful_gt:
+                        inputs['gts'] = gt_image.cuda(non_blocking=True)
 
+
+                    assert cfg.dataset.num_classes == 4
                     with maybe_autocast(use_amp):
                         out = net(inputs)
                         pred = out["pred"]
@@ -301,7 +312,7 @@ class MiniBatch:
             )
             result = cls(
                 probs=probs,
-                grid=grid,
+                seggrid=seggrid,
                 submit=submit,
             )
             return result
@@ -436,10 +447,10 @@ class MiniBatch:
             self.submit.imwrite(file, array)
 
     def submit_colored(self):
-        self.imwrite(self.max.colors, self.grid.file.colored)
+        self.imwrite(self.max.colors, self.seggrid.file.colored)
 
     def submit_intensity(self):
-        self.imwrite(self.intensity, self.grid.file.intensity)
+        self.imwrite(self.intensity, self.seggrid.file.intensity)
 
     # def submit_probability(self):
     #     arrays = self.prob_mask
@@ -477,7 +488,7 @@ class MiniBatch:
             .cpu()
             .numpy()
         )
-        for array, file in zip(arrays, self.grid.file.grayscale):
+        for array, file in zip(arrays, self.seggrid.file.grayscale):
             if array.ndim == 3:
                 array = array.argmax(axis=-1)
             self.submit.imwrite(file, array)

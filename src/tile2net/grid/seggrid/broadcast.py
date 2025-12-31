@@ -97,7 +97,8 @@ class Broadcast(
     >>> InGrid.broadcast
     """
     instance: SegGrid
-    predict = False
+    def predict(self) -> None:
+        self.instance.predict()
 
     def _get(
             self: Broadcast,
