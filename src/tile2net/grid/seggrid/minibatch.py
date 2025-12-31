@@ -25,6 +25,7 @@ cv2.setNumThreads(1)
 if False:
     from .seggrid import SegGrid
     from tile2net.grid import Grid
+    from tile2net.grid.ingrid import InGrid
 
 
 @contextmanager
@@ -333,15 +334,12 @@ class MiniBatch:
         maxc = self.max.colors
         fore = self.foreground.colors
 
-        result = (
+        black_pixel_mask = (
             maxc
-            # build mask for black pixels in maxc
             .sum(dim=-1, keepdim=True)
             .eq(0)
-            .bool()
-            # replace black pixels from maxc with fore
-            .where(fore, maxc)
         )
+        result = torch.where(black_pixel_mask, fore, maxc)
 
         return result
 
@@ -531,3 +529,22 @@ class MiniBatch:
         del submit.next
         del submit.t
         _ = submit.t
+
+    @classmethod
+    def set_columns(
+            cls,
+            ingrid: InGrid
+    ):
+        """
+        Temporary workaround to have the columns show up in the SegGrid
+        before the subprocess
+        """
+        seggrid = ingrid.seggrid.broadcast
+        predict = seggrid.predict
+        seggrid.predict = False
+        _ = (
+            seggrid.file.colored,
+            seggrid.file.intensity,
+            seggrid.file.grayscale
+        )
+        seggrid.predict = predict

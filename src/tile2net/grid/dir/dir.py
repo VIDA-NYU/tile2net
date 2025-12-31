@@ -1,25 +1,22 @@
 from __future__ import annotations
 
 import copy
-
-from .. import util
-from tile2net.grid.cfg.logger import logger
-import shutil
-
 import dataclasses
 import functools
 import os
 import re
+import shutil
 from collections import deque
 from functools import cached_property
-from os import PathLike
-from os import fspath
+from os import PathLike, fspath
 from pathlib import Path
 from typing import Self
 
 import pandas as pd
 from toolz import curried, curry as cur, pipe
 
+from tile2net.grid import util
+from tile2net.grid.cfg.logger import logger
 from tile2net.grid.grid.grid import Grid
 from tile2net.grid.util import returns_or_assigns
 
@@ -303,19 +300,19 @@ class Dir:
             .__str__()
         )
 
-        indir = self.from_format(value)
+        dir = self.from_format(value)
 
-        indir.__name__ = self.__name__
-        instance.__dict__[self._trace] = indir
+        dir.__name__ = self.__name__
+        instance.__dict__[self._trace] = dir
 
-        indir.instance = instance
+        dir.instance = instance
         try:
             if isinstance(instance, Grid):
-                indir.grid = instance
+                dir.grid = instance
             else:
-                indir.grid = instance.grid
+                dir.grid = instance.grid
         except AttributeError:
-            indir.grid = None
+            dir.grid = None
 
     @cached_property
     def dir(self) -> str:

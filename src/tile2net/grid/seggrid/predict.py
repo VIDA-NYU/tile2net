@@ -1,5 +1,4 @@
 from __future__ import annotations
-from tile2net.grid.seggrid.seggrid import SegGrid
 
 import argparse
 import dataclasses
@@ -23,11 +22,11 @@ from tile2net.grid.grid.static import Static
 from tile2net.grid.loaders.sample import SampleDataWrapper
 from tile2net.grid.loaders.sampler import DistributedSampler
 from tile2net.grid.loaders.val import ValDataSet, ValDataLoader
+from tile2net.grid.seggrid.broadcast import Broadcast
 from tile2net.grid.seggrid.minibatch import MiniBatch
 from tile2net.grid.seggrid.submit import Submit
 from tile2net.tileseg import network
 from tile2net.tileseg.datasets.sampler import DistributedSampler
-from tile2net.tileseg.datasets.satellite import Loader as dataset_cls
 from tile2net.tileseg.loss.optimizer import get_optimizer, restore_net, restore_opt
 from tile2net.tileseg.loss.utils import get_loss
 from tile2net.tileseg.network.ocrnet import MscaleOCR
@@ -156,7 +155,7 @@ def run_inference(
         cfg: Cfg,
         wrapper: SampleDataWrapper,
         clip: int,
-        seggrid,
+        seggrid: Broadcast,
 ) -> None:
     """
     Run semantic segmentation inference.
@@ -312,7 +311,7 @@ def run_inference(
                 desc=msg,
                 unit=unit,
                 dynamic_ncols=True,
-                mininterval=5,
+                mininterval=1,
             )
 
             try:
@@ -379,7 +378,7 @@ def main():
     # Load wrapper from Parquet
     wrapper: SampleDataWrapper = SampleDataWrapper.from_parquet(args.wrapper)
 
-    seggrid = SegGrid.from_parquet(args.seggrid)
+    seggrid = Broadcast.from_parquet(args.seggrid)
 
     # Run inference
     run_inference(cfg, wrapper, args.clip, seggrid)

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from tile2net.grid.seggrid.minibatch import MiniBatch
 
 import copy
 import os
@@ -347,6 +348,7 @@ class SegGrid(
             cfg_path = cfg_file.name
             wrapper_path = wrapper_file.name
 
+        MiniBatch.set_columns(self.broadcast)
         self.cfg.to_json(cfg_path)
         wrapper.to_parquet(wrapper_path)
         seggrid = wrapper_path.replace('.parquet', '_seggrid.parquet')
@@ -375,20 +377,17 @@ class SegGrid(
             process = subprocess.Popen(
                 cmd,
                 stdout=sys.stdout,
-                stderr=subprocess.PIPE,
+                stderr=sys.stderr,
                 env=os.environ.copy(),
             )
-            _, stderr_data = process.communicate()
+            process.wait()
 
         if process.returncode != 0:
-            err_msg = stderr_data.decode('utf-8', errors='replace')
-
             if process.returncode == 130:
                 raise KeyboardInterrupt("Prediction interrupted by user")
 
             raise RuntimeError(
-                f"Prediction subprocess failed (Exit Code {process.returncode}).\n"
-                f"Subprocess Traceback:\n{err_msg}"
+                f"Prediction subprocess failed (Exit Code {process.returncode})."
             )
 
         self._write_benchmark_summary()
