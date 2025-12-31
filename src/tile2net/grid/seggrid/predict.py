@@ -167,7 +167,7 @@ def run_inference(
         clip: Clipping value for padding
         seggrid: SegGrid loaded from file
     """
-    errors = []
+    raise RuntimeError
 
     with cfg as cfg:
         if cfg.dump_percent:
@@ -278,22 +278,13 @@ def run_inference(
         gc.collect()
         torch.cuda.empty_cache()
 
-        if cfg.model.eval == 'folder':
-            criterion = criterion_val
-        elif cfg.model.eval == 'test':
-            criterion = None
-        else:
-            raise ValueError(f"Unknown evaluation mode: {cfg.model.eval}. ")
-
-        testing = False
-        if cfg.model.eval == 'test':
-            testing = True
 
         net.eval()
         val_loss = AverageMeter()
         scales = [cfg.default_scale]
         if cfg.multi_scale_inference:
             scales.extend(cfg.model.extra_scales)
+            scales.sort(reverse=True)
             msg = f'Using multi-scale inference (AVGPOOL) with scales {scales}'
         else:
             msg = f'Using single-scale inference with scale {scales}'
@@ -302,14 +293,14 @@ def run_inference(
         msg = f'Predicting segmentation masks'
         logger.info(msg)
 
-        # Replicate datasets.setup_loaders by building dataset/loader via Data
         data = Data.from_wrapper(wrapper, cfg)
         dataset = data.set
         loader: ValDataLoader = data.loader
-        # wrapper = data.wrapper  # keep reference consistent
 
         unit = f' seg-tiles'
         msg = 'Predicting seg-tiles'
+
+        # todo: check for optimizations: iterative softmax/avearging; clear cache; in-place addition
 
         with ExitStack() as stack, \
                 torch.inference_mode(), \
@@ -357,19 +348,6 @@ def run_inference(
                     pbar.close()
                 except Exception:
                     pass
-
-        if errors:
-            try:
-                raise ExceptionGroup("worker task errors", errors)
-            except NameError:
-                primary, *rest = errors
-                for ex in rest:
-                    if not hasattr(primary, "__notes__"):
-                        try:
-                            primary.add_note(str(ex))
-                        except Exception:
-                            pass
-                raise primary
 
         msg = f'Finished predicting {len(dataset)} seg-tiles.'
         logger.info(msg)

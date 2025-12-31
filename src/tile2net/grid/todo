@@ -89,3 +89,6 @@ name_lines.parquet
 concatenation still needs benchmarking as well
 
 Stitcher should be dataclass with simple init
+
+
+Also, note that the dump image doesn't work with multiple GPU

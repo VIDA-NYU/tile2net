@@ -122,6 +122,7 @@ def eval_minibatch(
     scales = [cfg.default_scale]
     if cfg.multi_scale_inference:
         scales.extend(cfg.model.extra_scales)
+        scales.sort()
         if val_idx == 0:
             logger.debug(f'Using multi-scale inference (AVGPOOL) with scales {scales}')
 

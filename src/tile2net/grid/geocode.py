@@ -49,7 +49,7 @@ class cached:
 
 class GeoCode:
     cache: dict[object, GeoCode] = {}
-    _round = functools.partial(round, ndigits=4)
+    _round = staticmethod(functools.partial(round, ndigits=4))
 
     @classmethod
     def from_inferred(cls, obj: str | Any) -> Self:

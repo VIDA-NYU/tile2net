@@ -249,6 +249,7 @@ class MiniBatch:
         scales = [cfg.default_scale]
         if cfg.multi_scale_inference:
             scales.extend( cfg.model.extra_scales )
+            scales.sort()
 
         input_size = images.size(2), images.size(3)
         if cfg.do_flip:
@@ -337,12 +338,12 @@ class MiniBatch:
             # build mask for black pixels in maxc
             .sum(dim=-1, keepdim=True)
             .eq(0)
+            .bool()
             # replace black pixels from maxc with fore
             .where(fore, maxc)
         )
 
         return result
-
 
     @cached_property
     def iou_acc(self):

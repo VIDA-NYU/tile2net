@@ -553,7 +553,7 @@ class VecGrid(Grid):
             mininterval=10,
         )
 
-        with self.ingrid.cfg, bar, self.benchmark as sampler:
+        with self.ingrid.cfg, bar, self.benchmark :
             for minibatch in loader:
                 bar.update(len(minibatch))
 
