@@ -1,7 +1,4 @@
 from __future__ import absolute_import, annotations, division, print_function, unicode_literals
-from PIL import ImageColor
-
-from .colormap import ColorMap
 
 import argparse
 import functools
@@ -19,9 +16,11 @@ from typing import *
 from typing import TypeVar, Callable
 
 import torch
+from PIL import ImageColor
 from toolz.curried import *
 
 from . import cmdline
+from .colormap import ColorMap
 from .nested import Nested
 
 if False:
@@ -163,7 +162,8 @@ class Dataset(cmdline.Namespace):
         """
         Number of classes in dataset
         """
-        return 0
+        return 4
+        # return 0
 
     @cmdline.property
     def ignore_label(self) -> int:
@@ -472,9 +472,9 @@ class Model(cmdline.Namespace):
         """
 
     @cmdline.property
-    def rand_augment(self) -> str:
+    def rand_augment(self) -> list[int]:
         """
-        RandAugment setting: set to 'N,M'
+        RandAugment setting: set to N,M
         """
 
     @cmdline.property
@@ -542,11 +542,8 @@ class Model(cmdline.Namespace):
         return False
 
     @cmdline.property
-    def extra_scales(self) -> str:
-        """
-        Extra scales for multi-scale inference, e.g.
-        """
-        return '0.5,1.5'
+    def extra_scales(self) -> list[float]:
+        return [0.5, 1.5]
 
     @cmdline.property
     def n_scales(self) -> str:
@@ -718,7 +715,6 @@ class Segmentation(cmdline.Namespace):
         is 10 seg-tiles long.
         """
 
-
     @cmdline.property
     def scale(self) -> int:
         """
@@ -747,7 +743,6 @@ class Segmentation(cmdline.Namespace):
         """Write intensity to file"""
         return True
         return False
-
 
     @cmdline.property
     def to_pkl(self) -> bool:
@@ -1214,8 +1209,6 @@ class Cfg(
             color_names=color_names,
         )
 
-
-
     @cmdline.property
     def outdir(self) -> str:
         """
@@ -1575,10 +1568,6 @@ class Cfg(
     location.add_options(short='-l')
 
     @cmdline.property
-    def num_class(self) -> int:
-        return 4
-
-    @cmdline.property
     def base_gridize(self) -> int:
         return 256
 
@@ -1835,7 +1824,7 @@ class Cfg(
         # restore context first, regardless of exception
         if Cfg._context is self:
             Cfg._context = self._backup
-        
+
         # let exception propagate naturally by returning False
         # don't re-raise explicitly - that interferes with ExitStack
         if exc_type is not None:

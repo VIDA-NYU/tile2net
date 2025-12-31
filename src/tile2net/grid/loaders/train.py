@@ -89,10 +89,11 @@ class TrainDataSet(
         result.append(item)
 
         if cfg.model.rand_augment is not None:
-            N, M = [
-                int(i)
-                for i in cfg.model.rand_augment.split(',')
-            ]
+            # N, M = [
+            #     int(i)
+            #     for i in cfg.model.rand_augment.split(',')
+            # ]
+            N, M  =cfg.model.rand_augment
             assert (
                     isinstance(N, int)
                     and isinstance(M, int)
@@ -121,10 +122,7 @@ class TrainDataSet(
     def rand_augment(self):
         if cfg.model.rand_augment is None:
             return None
-        N, M = [
-            int(i)
-            for i in cfg.model.rand_augment.split(',')
-        ]
+        N, M = cfg.model.rand_augment
         assert (
                 isinstance(N, int)
                 and isinstance(M, int)

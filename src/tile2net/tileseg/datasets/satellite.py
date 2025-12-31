@@ -83,10 +83,6 @@ trainId2color = {label.trainId: label.color for label in labels}
 
 
 class Loader(BaseLoader):
-    num_classes = 4
-    ignore_label = -1
-    trainid_to_name = {}
-    color_mapping = []
 
     def __init__(
             self,
@@ -107,10 +103,6 @@ class Loader(BaseLoader):
             tiles=tiles
         )
 
-        self.id_to_trainid = label2trainid
-        self.trainid_to_name = trainId2name
-        self.fill_colormap()
-
         # it = zip(files.tolist(), itertools.repeat(''))
         # imgs = list(it)
         # self.all_imgs = imgs
@@ -125,16 +117,3 @@ class Loader(BaseLoader):
         # self.centroids = self.fine_centroids
         # self.build_epoch()
 
-    def fill_colormap(self) -> None:
-
-        palette = [
-            0, 0, 255,
-            0, 128, 0,
-            255, 0, 0,
-            0, 0, 0
-        ]
-
-        zero_pad = 256 * 3 - len(palette)
-        for i in range(zero_pad):
-            palette.append(0)
-        self.color_mapping = palette
