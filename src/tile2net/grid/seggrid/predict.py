@@ -167,7 +167,6 @@ def run_inference(
         clip: Clipping value for padding
         seggrid: SegGrid loaded from file
     """
-    raise RuntimeError
 
     with cfg as cfg:
         if cfg.dump_percent:
