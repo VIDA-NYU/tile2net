@@ -18,7 +18,7 @@ from tile2net.grid.seggrid import delayed
 from tile2net.grid.seggrid.file import File
 from tile2net.grid.seggrid.padded import Padded
 from tile2net.grid.seggrid.vectile import VecTile
-from tile2net.grid.sampler.sampler import Benchmark
+from tile2net.grid.sampler.benchmark import Benchmark
 
 if False:
     from ..dir import Outdir

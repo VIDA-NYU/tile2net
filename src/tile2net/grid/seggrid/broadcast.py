@@ -6,7 +6,7 @@ import numpy as np
 from . import vectile
 from .seggrid import SegGrid
 from .. import frame
-from ..sampler.sampler import Sampler
+from ..sampler.benchmark import Benchmark
 
 if False:
     from .seggrid import SegGrid
@@ -189,6 +189,6 @@ class Broadcast(
         return self
 
     @property
-    def sampler(self) -> Sampler:
+    def sampler(self) -> Benchmark:
         return self.seggrid.sampler
 

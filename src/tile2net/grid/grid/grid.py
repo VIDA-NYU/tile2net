@@ -24,7 +24,7 @@ from ..cfg import cfg, Cfg
 from ..frame.framewrapper import FrameWrapper
 from ..loaders.datawrapper import DataWrapper
 from ..loaders.stitch import StitchDataSet
-from ..sampler.sampler import Sampler
+from ..sampler.benchmark import Benchmark
 
 if False:
     import folium
@@ -976,6 +976,6 @@ class Grid(
         return 0
 
     @cached_property
-    def sampler(self) -> Sampler:
-        result = Sampler(include_gpu=True)
+    def sampler(self) -> Benchmark:
+        result = Benchmark(include_gpu=True)
         return result

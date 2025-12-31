@@ -9,7 +9,7 @@ import pandas as pd
 import psutil
 
 
-class Sampler:
+class Benchmark:
     """
     Lightweight threaded worker that samples system metrics during execution.
     Should only exist within a Benchmark context manager scope.
@@ -179,11 +179,11 @@ class Benchmark:
         self.interval_s = interval_s
         self.include_gpu = include_gpu
         self._all_records: list[dict] = []
-        self._sampler: Optional[Sampler] = None
+        self._sampler: Optional[Benchmark] = None
 
-    def __enter__(self) -> Sampler:
+    def __enter__(self) -> Benchmark:
         """Create and start a new Sampler for this benchmarking session."""
-        self._sampler = Sampler(
+        self._sampler = Benchmark(
             interval_s=self.interval_s,
             include_gpu=self.include_gpu,
         )

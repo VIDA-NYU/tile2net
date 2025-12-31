@@ -8,7 +8,7 @@ import pandas as pd
 from . import vectile
 from .seggrid import SegGrid
 from ..grid import filled
-from ..sampler.sampler import Sampler
+from ..sampler.benchmark import Benchmark
 from ...grid.frame.namespace import namespace
 
 
@@ -107,5 +107,5 @@ class Filled(
         return self.instance.seggrid
 
     @property
-    def sampler(self) -> Sampler:
+    def sampler(self) -> Benchmark:
         return self.seggrid.sampler

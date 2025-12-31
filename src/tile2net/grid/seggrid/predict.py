@@ -298,8 +298,6 @@ def run_inference(
         unit = f' seg-tiles'
         msg = 'Predicting seg-tiles'
 
-        # todo: check for optimizations: iterative softmax/avearging; clear cache; in-place addition
-
         with ExitStack() as stack, \
                 torch.inference_mode(), \
                 Submit() as submit:

@@ -46,7 +46,7 @@ from ..grid.grid import Grid
 from ..grid.static import Static
 from ..loaders.datawrapper import DataWrapper
 from ..loaders.rescale import RescaleDataSet
-from ..sampler.sampler import Benchmark
+from ..sampler.benchmark import Benchmark
 from ..seggrid.seggrid import SegGrid
 from ..vecgrid.vecgrid import VecGrid
 from ...grid import util

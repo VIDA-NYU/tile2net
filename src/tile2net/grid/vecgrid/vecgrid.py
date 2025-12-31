@@ -37,7 +37,7 @@ from ..grid.grid import Grid
 from ..loaders.dataset import DataSet
 from ..loaders.vec import VecDataSet, VecDataWrapper
 from ..pednet import PedNet
-from ..sampler.sampler import Benchmark
+from ..sampler.benchmark import Benchmark
 from ...grid.util import recursion_block
 
 if False:
