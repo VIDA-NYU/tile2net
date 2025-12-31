@@ -1,48 +1,23 @@
 from __future__ import annotations
 
 import copy
-import gc
-import hashlib
 import os
-import pickle
-import resource
 import subprocess
 import sys
 import tempfile
-from contextlib import ExitStack
 from functools import *
 from pathlib import Path
 from typing import *
 
-import numpy
-import psutil
-import torch
-import torch.distributed as dist
-from torch.nn.parallel.data_parallel import DataParallel
-from tqdm import tqdm
-from tqdm.auto import tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
-
-from tile2net.grid.cfg.cfg import assert_and_infer_cfg
 from tile2net.grid.cfg.logger import logger
-from tile2net.grid.grid.static import Static
-from tile2net.tileseg.loss.optimizer import get_optimizer, restore_opt, restore_net
-from tile2net.tileseg.loss.utils import get_loss
-from tile2net.tileseg.network.ocrnet import MscaleOCR
-from tile2net.tileseg.utils.misc import AverageMeter, prep_experiment
-from tile2net.grid.seggrid import delayed
-from tile2net.grid.seggrid.file import File
-from tile2net.grid.seggrid.minibatch import MiniBatch
-from tile2net.grid.seggrid.padded import Padded
-from tile2net.grid.seggrid.submit import Submit
-from tile2net.grid.seggrid.vectile import VecTile
+from tile2net.grid.frame.namespace import namespace
 from tile2net.grid.grid.grid import Grid
 from tile2net.grid.loaders.sample import SampleDataWrapper
-from tile2net.grid.loaders.val import ValDataSet, ValDataLoader
-from tile2net.grid.frame.namespace import namespace
-from tile2net.tileseg import datasets, network
-
-sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
+from tile2net.grid.seggrid import delayed
+from tile2net.grid.seggrid.file import File
+from tile2net.grid.seggrid.padded import Padded
+from tile2net.grid.seggrid.vectile import VecTile
+from tile2net.grid.sampler.sampler import Benchmark
 
 if False:
     from ..dir import Outdir
@@ -50,22 +25,6 @@ if False:
     from .broadcast import Broadcast
     from ..ingrid import InGrid
 
-
-def _fd_stats() -> tuple[int, tuple[int, int]]:
-    # current open files
-    proc = psutil.Process(os.getpid())
-    num = proc.num_fds()  # Linux/macOS
-    # soft/hard limits
-    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-    return num, (soft, hard)
-
-
-def sha256sum(path):
-    h = hashlib.sha256()
-    with open(path, 'rb') as f:
-        for chunk in iter(lambda: f.read(8192), b''):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 class SegGrid(
@@ -337,15 +296,11 @@ class SegGrid(
         Run semantic segmentation prediction on all tiles in the grid using subprocess.
 
         This version uses JSON/Parquet serialization instead of pickle, allowing for:
-        - Debugger breakpoints in subprocess
         - No security vulnerabilities from pickle
         - Clean subprocess isolation
 
         The subprocess runs predict.py which performs the actual inference.
         Benchmarking is done in the parent process after subprocess completes.
-
-        If a debugger is detected (via sys.gettrace() or PYDEVD environment),
-        runs inference directly in the current process to enable debugging.
 
         Returns:
             None. See output file paths:
@@ -384,437 +339,72 @@ class SegGrid(
             logger.info(msg)
             return
 
-        # Calculate clip value
         clip = self.ingrid.dimension * self.cfg.segmentation.pad
-
-        # Detect if we're running under a debugger
-        # Check for PyCharm/PyDev debugger, VS Code debugger, or general trace function
-        is_debugging = (
-            sys.gettrace() is not None
-            or 'pydevd' in sys.modules
-            or os.environ.get('PYDEVD_LOAD_VALUES_ASYNC', None) is not None
-            or self.cfg.debug  # Also check explicit debug flag
-        )
-
-        if is_debugging:
-            logger.info('Debugger detected - running inference directly (no subprocess)')
-            # Import here to avoid circular dependency
-            from tile2net.grid.seggrid.predict import run_inference
-
-            # self.broadcast.loc[wrapper.index]
-
-            # Run inference directly in this process
-            with self.benchmark as sampler:
-                run_inference(self.cfg, wrapper, clip, self.broadcast)
-
-            # Write benchmark summary (same as subprocess path)
-            self._write_benchmark_summary()
-            return
-
-        # Create temp files for cfg and wrapper
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as cfg_file, \
-             tempfile.NamedTemporaryFile(mode='w', suffix='.parquet', delete=False) as wrapper_file:
-
+        with (
+            tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as cfg_file,
+            tempfile.NamedTemporaryFile(mode='w', suffix='.parquet', delete=False) as wrapper_file,
+        ):
             cfg_path = cfg_file.name
             wrapper_path = wrapper_file.name
 
+        self.cfg.to_json(cfg_path)
+        wrapper.to_parquet(wrapper_path)
+        seggrid = wrapper_path.replace('.parquet', '_seggrid.parquet')
+        self.broadcast.to_parquet(seggrid)
+        predict = (
+            Path(__file__)
+            .resolve()
+            .with_name('predict.py')
+            .__str__()
+        )
+
+        # Prepare the command
+        seggrid = wrapper_path.replace('.parquet', '_seggrid.parquet')
+        cmd = [
+            sys.executable,
+            str(predict),
+            "--cfg", cfg_path,
+            "--wrapper", wrapper_path,
+            "--seggrid", seggrid,
+            "--clip", str(clip)
+        ]
+
+        logger.info(f"Launching prediction subprocess: {' '.join(cmd)}")
+
+        with self.benchmark :
+            process = subprocess.Popen(
+                cmd,
+                stdout=sys.stdout,
+                stderr=subprocess.PIPE,
+                env=os.environ.copy(),
+            )
+            _, stderr_data = process.communicate()
+
+        if process.returncode != 0:
+            err_msg = stderr_data.decode('utf-8', errors='replace')
+
+            if process.returncode == 130:
+                raise KeyboardInterrupt("Prediction interrupted by user")
+
+            raise RuntimeError(
+                f"Prediction subprocess failed (Exit Code {process.returncode}).\n"
+                f"Subprocess Traceback:\n{err_msg}"
+            )
+
+        self._write_benchmark_summary()
+
         try:
-            # Save cfg to JSON
-            self.cfg.to_json(cfg_path)
+            os.unlink(cfg_path)
+            os.unlink(wrapper_path)
+            metadata_path = wrapper_path.replace('.parquet', '_metadata.json')
+            if os.path.exists(metadata_path):
+                os.unlink(metadata_path)
+            seggrid = wrapper_path.replace('.parquet', '_seggrid.parquet')
+            if os.path.exists(seggrid):
+                os.unlink(seggrid)
+        except Exception as exc:
+            logger.warning(f"Could not clean up temp files: {exc}")
 
-            # Save wrapper to Parquet
-            wrapper.to_parquet(wrapper_path)
-
-            # Save SegGrid to Parquet
-            seggrid_path = wrapper_path.replace('.parquet', '_seggrid.parquet')
-            self.to_parquet(seggrid_path)
-
-            # Prepare predict.py path
-            predict_script = Path(__file__).parent / "predict.py"
-
-            # Prepare the command
-            seggrid_path = wrapper_path.replace('.parquet', '_seggrid.parquet')
-            cmd = [
-                sys.executable,
-                str(predict_script),
-                "--cfg", cfg_path,
-                "--wrapper", wrapper_path,
-                "--seggrid", seggrid_path,
-                "--clip", str(clip)
-            ]
-
-            logger.info(f"Launching prediction subprocess: {' '.join(cmd)}")
-
-            # Start benchmarking in parent process
-            with self.benchmark as sampler:
-                # Launch subprocess
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=sys.stdout,
-                    stderr=subprocess.PIPE,
-                    env=os.environ.copy(),
-                )
-
-                # Wait for completion
-                _, stderr_data = process.communicate()
-
-            # Check for failure
-            if process.returncode != 0:
-                err_msg = stderr_data.decode('utf-8', errors='replace')
-
-                if process.returncode == 130:
-                    raise KeyboardInterrupt("Prediction interrupted by user")
-
-                raise RuntimeError(
-                    f"Prediction subprocess failed (Exit Code {process.returncode}).\n"
-                    f"Subprocess Traceback:\n{err_msg}"
-                )
-
-            # Write benchmark summary (after subprocess completes)
-            self._write_benchmark_summary()
-
-        finally:
-            # Clean up temp files
-            try:
-                os.unlink(cfg_path)
-                os.unlink(wrapper_path)
-                # Also remove metadata file
-                metadata_path = wrapper_path.replace('.parquet', '_metadata.json')
-                if os.path.exists(metadata_path):
-                    os.unlink(metadata_path)
-                # Remove SegGrid file
-                seggrid_path = wrapper_path.replace('.parquet', '_seggrid.parquet')
-                if os.path.exists(seggrid_path):
-                    os.unlink(seggrid_path)
-            except Exception as exc:
-                logger.warning(f"Could not clean up temp files: {exc}")
-
-    def _predict(self):
-        grid = self.broadcast.filled
-
-        errors = []
-        outer_exc = None
-        with grid.cfg as cfg:
-            if cfg.dump_percent:
-                raise NotImplementedError
-                logger.info(f'Inferencing. Segmentation results will be saved to {grid.outdir.seg_results}')
-            else:
-                logger.info('Inferencing. Segmentation results will not be saved.')
-
-            if (
-                    not os.path.exists(cfg.model.snapshot)
-                    and cfg.model.snapshot == Static.snapshot
-            ) or (
-                    not os.path.exists(cfg.model.hrnet_checkpoint)
-                    and cfg.model.hrnet_checkpoint == Static.hrnet_checkpoint
-            ):
-                logger.info('Downloading weights for segmentation, this may take a while...')
-                grid.static.download()
-                logger.info('Weights downloaded successfully.')
-                expected_checksum = '745f8c099e98f112a152aedba493f61fb6d80c1761e5866f936eb5f361c7ab4d'
-                actual_checksum = sha256sum(cfg.model.snapshot)
-                if actual_checksum != expected_checksum:
-                    raise RuntimeError(f"Checksum mismatch: expected {expected_checksum}, got {actual_checksum}")
-
-            if not os.path.exists(cfg.model.hrnet_checkpoint):
-                msg = f'HRNet checkpoint not found: {cfg.model.hrnet_checkpoint}. ' \
-                      f'You must have passed a custom path that does not exist.'
-                raise FileNotFoundError(msg)
-            if not os.path.exists(cfg.model.snapshot):
-                msg = f'Snapshot not found: {cfg.model.snapshot}. ' \
-                      f'You must have passed a custom path that does not exist.'
-                raise FileNotFoundError(msg)
-
-            # Enable CUDNN Benchmarking optimization
-            torch.backends.cudnn.benchmark = True
-            if cfg.deterministic:
-                torch.backends.cudnn.deterministic = True
-                torch.backends.cudnn.benchmark = False
-
-            cfg.world_size = 1
-
-            # Test Mode run two epochs with a few iterations of training and val
-            if cfg.options.test_mode:
-                cfg.max_epoch = 2
-
-            num_gpus = torch.cuda.device_count()
-            if num_gpus > 1:
-                if cfg.model.eval == 'test':
-                    # Single GPU setup
-                    logger.info('Using a single GPU.')
-                    cfg.local_rank = 0
-                    torch.cuda.set_device(cfg.local_rank)
-                else:
-                    # Distributed training setup
-                    if "RANK" not in os.environ:
-                        raise ValueError("You need to launch the process with torch.distributed.launch to \
-                        set RANK environment variable")
-                    cfg.world_size = int(os.environ.get('WORLD_SIZE', num_gpus))
-                    dist.init_process_group(backend='nccl', init_method='env://')
-                    cfg.local_rank = dist.get_rank()
-                    torch.cuda.set_device(cfg.local_rank)
-                    cfg.distributed = True
-                    cfg.global_rank = int(os.environ['RANK'])
-                    logger.info(f'Using distributed training with {cfg.world_size} GPUs.')
-            elif num_gpus == 1:
-                # Single GPU setup
-                cfg.local_rank = 0
-                torch.cuda.set_device(cfg.local_rank)
-                logger.info('Using a single GPU.')
-            else:
-                # CPU setup
-                logger.info('Using CPU. This is not recommended for inference.')
-                cfg.local_rank = -1  # Indicating CPU usage
-
-            assert_and_infer_cfg(cfg)
-            prep_experiment()
-            struct = datasets.setup_loaders(tiles=grid)
-
-            criterion, criterion_val = get_loss(cfg)
-
-            cfg.restore_net = True
-            msg = "Loading weights from \n\t{}".format(cfg.model.snapshot)
-            logger.debug(msg)
-            if cfg.model.snapshot != Static.snapshot:
-                msg = (
-                    f'Weights are being loaded using weights_only=False. '
-                    f'We assure the security of our weights by using a checksum, '
-                    f'but you are using a custom path: \n\t{cfg.model.snapshot}. '
-                )
-                logger.warning(msg)
-
-            checkpoint = torch.load(
-                cfg.model.snapshot,
-                map_location='cpu',
-                weights_only=False,
-            )
-
-            net: MscaleOCR = network.get_net(criterion)
-            optim, scheduler = get_optimizer(net)
-            net: DataParallel = network.wrap_network_in_dataparallel(net)
-
-            if cfg.restore_optimizer:
-                restore_opt(optim, checkpoint)
-            if cfg.restore_net:
-                restore_net(net, checkpoint)
-            if cfg.options.init_decoder:
-                net.module.init_mods()
-
-            del checkpoint
-            gc.collect()
-            torch.cuda.empty_cache()
-
-            if cfg.model.eval == 'folder':
-                criterion = criterion_val
-            elif cfg.model.eval == 'test':
-                criterion = None
-            else:
-                raise ValueError(f"Unknown evaluation mode: {cfg.model.eval}. ")
-
-            cfg = self.cfg
-            testing = False
-            if cfg.model.eval == 'test':
-                testing = True
-
-            input_images: torch.Tensor
-            labels: torch.Tensor
-            img_names: tuple
-            prediction: numpy.ndarray
-            pred: dict
-            values: numpy.ndarray
-
-            net.eval()
-            val_loss = AverageMeter()
-            scales = [cfg.default_scale]
-            if cfg.multi_scale_inference:
-                scales.extend(cfg.model.extra_scales)
-                msg = f'Using multi-scale inference (AVGPOOL) with scales {scales}'
-            else:
-                msg = f'Using single-scale inference with scale {scales}'
-            logger.debug(msg)
-            clip = self.ingrid.dimension * cfg.segmentation.pad
-
-            msg = (
-                f'Predicting segmentation to '
-                f'\n\t{self.outdir.seggrid.grayscale.dir}'
-            )
-            logger.info(msg)
-
-            ingrid = self.ingrid.broadcast
-            force = ~ingrid.segtile.grayscale.map(os.path.exists)
-            force |= self.cfg.force
-            wrapper: SampleDataWrapper = SampleDataWrapper.from_tiles(
-                infile=ingrid.file.infile,
-                mask=[None] * len(ingrid),
-                index=ingrid.segtile.index,
-                background=0,
-                row=ingrid.segtile.r,
-                col=ingrid.segtile.c,
-                force=force,
-            )
-            if wrapper.empty:
-                msg = f'All seg-tiles are already on disk.'
-                logger.info(msg)
-                return
-            dataset = ValDataSet.from_wrapper(wrapper)
-            loader: ValDataLoader = dataset.loader
-
-            assert wrapper.index.difference(grid.index).empty
-            len(wrapper.index.difference(grid.index))
-            len(wrapper.index.difference(self.index))
-            assert ingrid.segtile.index.difference(grid.index).empty
-
-            expected: Self = (
-                self.broadcast
-                .loc[~self.broadcast.index.duplicated()]
-                .loc[wrapper.index.unique()]
-            )
-            expected.file.grayscale.map(os.path.exists)
-
-            frame = grid.loc[~grid.index.duplicated()]
-
-            unit = f' seggrid.{self.file.grayscale.name}'
-            msg = 'Predicting seg-tiles'
-            futures = []
-
-            with ExitStack() as stack, \
-                    torch.inference_mode(), \
-                    self.sampler, \
-                    Submit() as submit \
-                    :
-
-                stack.enter_context(logging_redirect_tqdm())
-                stack.enter_context(cfg)
-
-                pbar = tqdm(
-                    total=len(dataset),
-                    desc=msg,
-                    unit=unit,
-                    dynamic_ncols=True,
-                    mininterval=5,
-                )
-
-                try:
-                    for n, batch in enumerate(loader):
-                        input_images = batch['input']
-                        labels = batch['mask']
-                        i = (
-                            batch['i']
-                            .detach()
-                            .cpu()
-                            .numpy()
-                        )
-                        loc = dataset.index[i]
-                        grid = frame.loc[loc].copy()
-
-                        mb = MiniBatch.from_data(
-                            images=input_images,
-                            gt_image=labels,
-                            net=net,
-                            seggrid=grid,
-                            submit=submit,
-                            clip=clip,
-                        )
-                        mb.submit_all()
-                        del mb
-
-                        pbar.update(len(input_images))
-
-                finally:
-                    # todo shut down threads
-                    try:
-                        pbar.close()
-                    except Exception:
-                        pass
-
-            # write segmentation benchmark summary to file
-            try:
-                seg_s = self.benchmark.samples
-                seg_vals = {
-                    'elapsed': seg_s.time_elapsed,
-                    'gpu_avg': seg_s.avg_gpu,
-                    'gpu_max': seg_s.max_gpu,
-                    'vram_avg': seg_s.avg_vram,
-                    'vram_max': seg_s.max_vram,
-                    'ram_avg': seg_s.avg_ram,
-                    'ram_max': seg_s.max_ram,
-                    'cpu_avg': seg_s.avg_cpu,
-                    'cpu_max': seg_s.max_cpu,
-                }
-
-                def _fmt_pct(v: float | None) -> str:
-                    return "—" if v is None else f"{v:.1f}%"
-
-                def _fmt_duration(v: float | None) -> str:
-                    if v is None:
-                        return "—"
-                    secs = float(v)
-                    if secs < 0:
-                        secs = 0.0
-                    ms = secs * 1000.0
-                    if secs < 1e-3:
-                        return "0s"
-                    if secs < 1.0:
-                        return f"{ms:.0f}ms"
-                    days = int(secs // 86400)
-                    secs -= days * 86400
-                    hours = int(secs // 3600)
-                    secs -= hours * 3600
-                    minutes = int(secs // 60)
-                    secs -= minutes * 60
-                    parts = []
-                    if days:
-                        parts.append(f"{days}d")
-                    if hours and len(parts) < 2:
-                        parts.append(f"{hours}h")
-                    if minutes and len(parts) < 2:
-                        parts.append(f"{minutes}m")
-                    if len(parts) < 2:
-                        parts.append(f"{secs:.1f}s" if secs < 10 else f"{int(secs)}s")
-                    return " ".join(parts)
-
-                lines = []
-                lines.append("Segmentation benchmark")
-                lines.append("======================")
-                if seg_vals['elapsed'] is not None:
-                    lines.append(f"Time Elapsed: {_fmt_duration(seg_vals['elapsed'])}")
-                lines.append(f"GPU Compute: avg {_fmt_pct(seg_vals['gpu_avg'])}, max {_fmt_pct(seg_vals['gpu_max'])}")
-                lines.append(f"VRAM Usage: avg {_fmt_pct(seg_vals['vram_avg'])}, max {_fmt_pct(seg_vals['vram_max'])}")
-                lines.append(f"RAM Usage:  avg {_fmt_pct(seg_vals['ram_avg'])}, max {_fmt_pct(seg_vals['ram_max'])}")
-                lines.append(f"CPU Usage:  avg {_fmt_pct(seg_vals['cpu_avg'])}, max {_fmt_pct(seg_vals['cpu_max'])}")
-
-                summary_path = Path(self.outdir.seggrid.summary)
-                summary_path.parent.mkdir(parents=True, exist_ok=True)
-                summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-            except Exception as exc:
-                logger.warning(f"Could not write segmentation benchmark summary: {exc}")
-
-            if errors:
-                try:
-                    raise ExceptionGroup("worker task errors", errors)  # Py 3.11+
-                except NameError:
-                    primary, *rest = errors
-                    for ex in rest:
-                        if not hasattr(primary, "__notes__"):
-                            try:
-                                primary.add_note(str(ex))  # Py 3.11 add_note if available
-                            except Exception:
-                                pass
-                    raise primary
-
-            msg = f'Finished predicting {len(dataset)} seg-tiles.'
-            logger.info(msg)
-
-            for name in (
-                    'dataset loader wrapper input_images labels net '
-                    'batch optim scheduler criterion criterion_val struct'
-            ).split():
-                if name in locals():
-                    del locals()[name]
-            gc.collect()
-            torch.cuda.empty_cache()
-
-        assert ingrid.segtile.grayscale.map(os.path.exists).all()
 
     def _write_benchmark_summary(self) -> None:
         """Write segmentation benchmark summary to file."""
@@ -884,7 +474,6 @@ class SegGrid(
         """
         Benchmark for segmentation operations (GPU, VRAM, RAM, CPU).
         """
-        from ..sampler.sampler import Benchmark
         result = Benchmark(include_gpu=True)
         return result
 
@@ -898,36 +487,3 @@ class SegGrid(
     def time_usage(self) -> float:
         """Time spent on segmentation operations in seconds."""
         return 0.
-
-
-def _subprocess_entrypoint():
-    """
-    Internal entry point for the prediction subprocess.
-    Reads pickled InGrid state from stdin and executes _predict.
-    """
-    import traceback
-
-    try:
-        # Read binary data from stdin pipe
-        # sys.stdin.buffer is required for binary I/O in Python 3
-        if sys.stdin.isatty():
-            print("Error: This module is intended to be run as a subprocess via pipe.", file=sys.stderr)
-            sys.exit(1)
-
-        # Deserialize the InGrid instance
-        ingrid_instance = pickle.load(sys.stdin.buffer)
-
-        # Execute the prediction logic
-        # This will utilize the existing logging/TQDM configuration
-        ingrid_instance.seggrid._predict()
-
-    except KeyboardInterrupt:
-        sys.exit(130)
-    except Exception:
-        # Print full traceback to stderr so the parent can capture and report it
-        traceback.print_exc(file=sys.stderr)
-        sys.exit(1)
-
-if __name__ == "__main__":
-    _subprocess_entrypoint()
-
