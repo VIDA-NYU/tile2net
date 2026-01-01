@@ -1493,7 +1493,7 @@ class Cfg(
     @cmdline.property
     def calc_metrics(self) -> bool:
         """"""
-        return True
+        return False
 
     @cmdline.property
     def ngpu(self) -> int:
