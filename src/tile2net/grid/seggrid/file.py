@@ -103,7 +103,7 @@ class File(
         return files
 
     @frame.column
-    def probability(self) -> pd.Series:
+    def prob(self) -> pd.Series:
         grid = self.grid
         files = grid.ingrid.outdir.seggrid.prob.files(grid)
         self.probability = files
@@ -113,7 +113,7 @@ class File(
             grid.predict
             and not files.map(os.path.exists).all()
         ):
-            grid.file.probability =  files
+            grid.file.prob =  files
             grid.predict()
             assert files.map(os.path.exists).all()
         return files
