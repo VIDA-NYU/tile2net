@@ -260,18 +260,20 @@ class Grid(
     @classmethod
     def from_location(
             cls,
-            location: str,
+            location: Union[str, tuple, list],
             zoom: int = None,
     ) -> Self:
         """
         Instantiate a Grid from a geocoded location string or tile coordinates.
 
         Args:
-            location: Location identifier as a string. Can be:
-                - An address (e.g., '1600 Pennsylvania Ave, Washington DC')
-                - A place name (e.g., 'Central Park')
-                - Bounding box in lat,lon,lat,lon format (4 floats)
-                - Bounding box in xtile,ytile,xtile,ytile format (4 integers)
+            location: Location identifier. Can be:
+                - An address string (e.g., '1600 Pennsylvania Ave, Washington DC')
+                - A place name string (e.g., 'Central Park')
+                - A string of 4 floats: lat,lon,lat,lon bounding box
+                - A string of 4 integers: xtile,ytile,xtile,ytile bounds
+                - A tuple/list of 4 floats: (lat, lon, lat, lon)
+                - A tuple/list of 4 integers: (xtile, ytile, xtile, ytile)
                 - Otherwise, geocoded via Nominatim
             zoom: Slippy-tile zoom level (scale) of Grid
                 - Higher value -> smaller tiles
@@ -291,12 +293,22 @@ class Grid(
 
             Create a grid from tile coordinates (xtile1, ytile1, xtile2, ytile2):
             >>> grid = Grid.from_location('317280,387840,317281,387841', zoom=20)
+            
+            Create a grid from a tuple of tile coordinates:
+            >>> grid = Grid.from_location((317280, 387840, 317312, 387872), zoom=20)
         """
-        if not location:
-            msg = 'location must be a non-empty string'
-            raise ValueError(msg)
+        # handle tuple/list input
+        if isinstance(location, (tuple, list)):
+            if len(location) != 4:
+                raise ValueError('tuple/list location must have exactly 4 elements')
+            result = cls.from_bounds(latlon=location, zoom=zoom)
+            result.location = str(location)
+            return result
 
-        # Parse location into coordinates
+        if not location:
+            raise ValueError('location must be a non-empty string')
+
+        # parse location into coordinates
         if ', ' in location:
             split = ', '
         elif ',' in location:
@@ -304,7 +316,7 @@ class Grid(
         elif ' ' in location:
             split = ' '
         else:
-            # Not a coordinate string, geocode it
+            # not a coordinate string, geocode it
             latlon = util.geocode(location)
             result = cls.from_bounds(
                 latlon=latlon,
@@ -313,7 +325,7 @@ class Grid(
             result.location = location
             return result
 
-        # Parse the coordinates
+        # parse the coordinates
         coords = [
             x.strip()
             for x in location.split(split)
@@ -321,13 +333,16 @@ class Grid(
         if len(coords) == 4:
             # check if all are integers (xtile, ytile bounds)
             try:
-                coords_int = [int(x) for x in coords]
-                # all parsed as integers, interpret as xtile, ytile bounds
+                coords = [int(x) for x in coords]
+            except ValueError:
+                # failed: must be floats or address
+                pass
+            else:
+                # success: all ints
                 if zoom is None:
-                    msg = 'zoom must be specified when using xtile, ytile bounds'
-                    raise ValueError(msg)
+                    raise ValueError('zoom must be specified when using xtile, ytile bounds')
 
-                xmin, ymin, xmax, ymax = coords_int
+                xmin, ymin, xmax, ymax = coords
                 tx = np.arange(xmin, xmax)
                 ty = np.arange(ymin, ymax)
                 index = pd.MultiIndex.from_product([tx, ty])
@@ -336,9 +351,6 @@ class Grid(
                 result = cls.from_integers(tx, ty, scale=zoom)
                 result.location = location
                 return result
-            except ValueError:
-                # otherwise, assume all are floats
-                pass
 
         latlon = util.geocode(location)
         result = cls.from_bounds(
@@ -359,6 +371,9 @@ class Grid(
             latlon: Union[
                 str,
                 list[float],
+                list[int],
+                tuple[float, float, float, float],
+                tuple[int, int, int, int],
             ],
             zoom: int = None,
     ) -> Self:
@@ -368,6 +383,7 @@ class Grid(
         """
         if zoom is None:
             zoom = cfg.zoom
+
         if isinstance(latlon, str):
             if ', ' in latlon:
                 split = ', '
@@ -384,6 +400,41 @@ class Grid(
                 float(x)
                 for x in latlon.split(split)
             ]
+
+        if isinstance(latlon, (tuple, list)):
+            if len(latlon) != 4:
+                raise ValueError('latlon must have exactly 4 elements')
+
+            is_all_int = all(
+                isinstance(x, (int, np.integer)) and not isinstance(x, bool)
+                for x in latlon
+            )
+            is_all_float = all(
+                isinstance(x, (int, float, np.integer, np.floating)) and not isinstance(x, bool)
+                for x in latlon
+            )
+
+            if not is_all_float:
+                types = {type(x) for x in latlon}
+                raise TypeError(
+                    'latlon elements must be numeric (int or float), '
+                    f'got types: {types}'
+                )
+
+            if is_all_int:
+                if zoom is None:
+                    raise ValueError('zoom must be specified when using xtile, ytile bounds')
+                xmin, ymin, xmax, ymax = latlon
+                tx = np.arange(xmin, xmax)
+                ty = np.arange(ymin, ymax)
+                index = pd.MultiIndex.from_product([tx, ty])
+                tx = index.get_level_values(0)
+                ty = index.get_level_values(1)
+                result = cls.from_integers(tx, ty, scale=zoom)
+                return result
+
+            latlon = list(latlon)
+
         gn, gw, gs, ge = latlon
         gn, gs = min(gn, gs), max(gn, gs)
         gw, ge = min(gw, ge), max(gw, ge)
@@ -418,7 +469,7 @@ class Grid(
             tn = ytile
         else:
             raise TypeError('ytile must be a Series, Index, or ndarray')
-        tn = tn.astype('uint32')
+        tn = tn.astype(np.uint32)
 
         if isinstance(xtile, (Series, Index)):
             tw = xtile.values
@@ -426,7 +477,7 @@ class Grid(
             tw = xtile
         else:
             raise TypeError('xtile must be a Series, Index, or ndarray')
-        tw = tw.astype('uint32')
+        tw = tw.astype(np.uint32)
 
         te = tw + 1
         ts = tn + 1
@@ -444,10 +495,6 @@ class Grid(
         geometry = shapely.box(pw, pn, pe, ps)
 
         data = dict(
-            # lonmin=gw,
-            # latmax=gn,
-            # lonmax=ge,
-            # latmin=gs,
             lonmin=pw,
             latmax=pn,
             lonmax=pe,
