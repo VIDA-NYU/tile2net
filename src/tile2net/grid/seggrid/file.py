@@ -31,7 +31,6 @@ class File(
 ):
     grid: SegGrid
 
-
     @PostProcess
     def postprocess(self) -> pd.Series:
         """
@@ -70,7 +69,7 @@ class File(
         return files
 
     @frame.column
-    def grayscale(self) -> pd.Series:
+    def pred(self) -> pd.Series:
         """
         File-paths to segmentation masks where each pixel value represents a class ID.
 
@@ -79,42 +78,85 @@ class File(
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.seggrid.file.grayscale
+            >>> ingrid.seggrid.file.pred
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
         grid = self.grid
-        files = grid.ingrid.outdir.seggrid.grayscale.files(grid)
-        self.grayscale = files
+        files = grid.ingrid.outdir.seggrid.pred.files(grid)
+        self.pred = files
         if (
-            grid.predict
-            and not files.map(os.path.exists).all()
+                bool(grid.predict)
+                and not files.map(os.path.exists).all()
         ):
-            # grid.ingrid.broadcast.segtile.index.difference()
-            # grid.filled.index.difference(grid.ingrid.broadcast.segtile.index)
-            assert (
-                grid.filled.index
-                .difference(grid.ingrid.broadcast.segtile.index)
-                .empty
-            )
-            grid.file.grayscale = files
-            grid.predict()
+            grid.file.pred = files
+            grid.predict(probs=False)
             assert files.map(os.path.exists).all()
         return files
 
     @frame.column
     def prob(self) -> pd.Series:
-        grid = self.grid
+        # problem is, we also need file.pred
+        grid = self.grid.broadcast
         files = grid.ingrid.outdir.seggrid.prob.files(grid)
-        self.probability = files
-        # if not files.map(os.path.exists).all():
-        #     grid.predict()
+        self.prob = files
         if (
-            grid.predict
+                bool(self.grid.predict)
+                and not files.map(os.path.exists).all()
+        ):
+            predict = getattr(grid, 'predict')
+            grid.file.prob = files
+            setattr(grid, 'predict', False)
+
+            _ = grid.file.pred
+            # grid.predict = predict
+            setattr(grid, 'predict', predict)
+            grid.predict(probs=True)
+
+            assert files.map(os.path.exists).all()
+        return files
+
+    @frame.column
+    def pred(self) -> pd.Series:
+        """
+        File-paths to segmentation masks where each pixel value represents a class ID.
+
+        Core output of the segmentation pipeline. Each pixel in the mask corresponds
+        to a semantic class.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.seggrid.file.pred
+            xtile  ytile
+            79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
+        """
+        grid = self.grid.broadcast
+        files = grid.outdir.seggrid.pred.files(grid)
+        loc = ~files.index.duplicated()
+        files = files.loc[loc]
+        grid.file.pred = files
+        self.pred = files
+        if (
+                not grid.predict
+                and not files.map(os.path.exists).all()
+        ):
+            grid.predict(probs=False)
+            assert files.map(os.path.exists).all()
+        return files
+
+    @frame.column
+    def prob(self) -> pd.Series:
+        grid = self.grid.broadcast
+        files = grid.outdir.seggrid.prob.files(grid)
+        loc = ~files.index.duplicated()
+        files = files.loc[loc]
+        grid.file.prob = files
+        self.prob = files
+        if (
+            not bool(grid.predict)
             and not files.map(os.path.exists).all()
         ):
-            grid.file.prob =  files
-            grid.predict()
+            grid.predict(probs=True)
             assert files.map(os.path.exists).all()
         return files
 
@@ -123,14 +165,12 @@ class File(
         grid = self.grid
         files = grid.ingrid.outdir.seggrid.error.files(grid)
         self.error = files
-        # if not files.map(os.path.exists).all():
-        #     grid.predict()
         if (
-            grid.predict
-            and not files.map(os.path.exists).all()
+                grid.predict
+                and not files.map(os.path.exists).all()
         ):
             grid.file.error = files
-            grid.predict()
+            grid.predict(probs=True)
             assert files.map(os.path.exists).all()
         return files
 
@@ -149,8 +189,8 @@ class File(
         files = grid.ingrid.outdir.seggrid.colored.files(grid)
         self.colored = files
         if (
-            grid.predict
-            and not files.map(os.path.exists).all()
+                grid.predict
+                and not files.map(os.path.exists).all()
         ):
             grid.file.colored = files
             grid.predict()
@@ -195,8 +235,8 @@ class File(
         # if not files.map(os.path.exists).all():
         #     grid.predict()
         if (
-            grid.predict
-            and not files.map(os.path.exists).all()
+                grid.predict
+                and not files.map(os.path.exists).all()
         ):
             grid.predict()
         assert files.map(os.path.exists).all()
@@ -204,7 +244,6 @@ class File(
 
     @frame.column
     def disk_usage(self):
-        result = util.path2fsize(self.grayscale)
+        result = util.path2fsize(self.pred)
         result += util.path2fsize(self.colored)
         return result
-

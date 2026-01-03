@@ -23,11 +23,11 @@ class PostProcess(
     """
 
     @frame.column
-    def grayscale(self) -> pd.Series:
+    def pred(self) -> pd.Series:
         """Segmentation masks, where each pixel is a class id"""
         grid = self.grid
-        files = grid.ingrid.outdir.seggrid.postprocess.grayscale.files(grid)
-        self.grayscale = files
+        files = grid.ingrid.outdir.seggrid.postprocess.pred.files(grid)
+        self.pred = files
         if (
             grid.postprocess
             and not files.map(os.path.exists).all()
@@ -37,13 +37,13 @@ class PostProcess(
                 .difference(grid.ingrid.broadcast.segtile.index)
                 .empty
             )
-            grid.file.grayscale = files
+            grid.file.pred = files
             grid.predict()
             assert files.map(os.path.exists).all()
         return files
 
     @frame.column
-    def probability(self) -> pd.Series:
+    def prob(self) -> pd.Series:
         grid = self.grid
         files = grid.ingrid.outdir.seggrid.postprocess.prob.files(grid)
         self.probability = files

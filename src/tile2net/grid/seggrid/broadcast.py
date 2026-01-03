@@ -1,4 +1,19 @@
 from __future__ import annotations
+
+import os
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from typing import *
+
+from tile2net.grid.cfg.logger import logger
+from tile2net.grid.loaders.sample import SampleDataWrapper
+from tile2net.grid.seggrid.minibatch import MiniBatch
+from ..util import recursion_block
+
+if False:
+    from ..ingrid import InGrid
 import pandas as pd
 
 import numpy as np
@@ -56,7 +71,7 @@ class VecTile(
         """seggrid.file broadcasted to ingrid"""
         ingrid = self.ingrid
         result = (
-            ingrid.seggrid.broadcast.file.grayscale
+            ingrid.seggrid.broadcast.file.pred
             .loc[self.index]
             .values
         )
@@ -97,8 +112,6 @@ class Broadcast(
     >>> InGrid.broadcast
     """
     instance: SegGrid
-    def predict(self) -> None:
-        self.instance.predict()
 
     def _get(
             self: Broadcast,
@@ -179,7 +192,6 @@ class Broadcast(
     def vectile(self):
         ...
 
-
     @property
     def ingrid(self) -> InGrid:
         return self.instance.ingrid
@@ -192,3 +204,153 @@ class Broadcast(
     def sampler(self) -> Benchmark:
         return self.seggrid.sampler
 
+    @property
+    def broadcast(self):
+        return self
+
+    @recursion_block
+    def predict(
+            self,
+            probs: Optional[bool] = None
+    ):
+        """
+        Run semantic segmentation prediction on all tiles in the grid using subprocess.
+
+        Args:
+            probs: If True, generate probability maps. If False, generate predictions only.
+                   If None, raises NotImplementedError.
+
+        This version uses JSON/Parquet serialization instead of pickle, allowing for:
+        - No security vulnerabilities from pickle
+        - Clean subprocess isolation
+
+        The subprocess runs predict.py which performs the actual inference.
+        Benchmarking is done in the parent process after subprocess completes.
+
+        Returns:
+            None. See output file paths:
+            >>> ingrid: InGrid
+            >>> ingrid.seggrid.file.pred
+            >>> ingrid.seggrid.file.colored
+
+        Raises:
+            RuntimeError: If subprocess fails or model weights checksum is invalid
+            FileNotFoundError: If required model checkpoints are missing
+            NotImplementedError: If probs is None
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.seggrid.predict(probs=False)
+            Downloading weights for segmentation...
+            Predicting seg-tiles: 100%|██████| 64/64 [02:15<00:00]
+            Finished predicting 64 seg-tiles.
+        """
+        if not self.predict:
+            return
+        if probs is None:
+            raise NotImplementedError("probs parameter must be explicitly set to True or False")
+        ingrid = self.ingrid.broadcast
+        force = ~ingrid.segtile.pred.map(os.path.exists)
+        if probs:
+            force |= ~ingrid.segtile.prob.map(os.path.exists)
+        force |= self.cfg.force
+
+        # Create wrapper
+        wrapper: SampleDataWrapper = SampleDataWrapper.from_tiles(
+            infile=ingrid.file.infile,
+            mask=[None] * len(ingrid),
+            index=ingrid.segtile.index,
+            background=0,
+            row=ingrid.segtile.r,
+            col=ingrid.segtile.c,
+            force=force,
+        )
+
+        if wrapper.empty:
+            msg = f'All seg-tiles are already on disk.'
+            logger.info(msg)
+            return
+
+        clip = self.ingrid.dimension * self.cfg.segmentation.pad
+        with (
+            tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as cfg_file,
+            tempfile.NamedTemporaryFile(mode='w', suffix='.parquet', delete=False) as wrapper_file,
+        ):
+            cfg_path = cfg_file.name
+            wrapper_path = wrapper_file.name
+
+        assert (
+            self.ingrid.file.infile
+            .map(os.path.exists)
+            .all()
+        )
+        # MiniBatch.set_columns(self.broadcast)
+        self.cfg.to_json(cfg_path)
+        wrapper.to_parquet(wrapper_path)
+        seggrid = wrapper_path.replace('.parquet', '_seggrid.parquet')
+        self.broadcast.to_parquet(seggrid)
+        predict = (
+            Path(__file__)
+            .resolve()
+            .with_name('predict.py')
+            .__str__()
+        )
+
+        # Prepare the command
+        seggrid = wrapper_path.replace('.parquet', '_seggrid.parquet')
+        cmd = [
+            sys.executable,
+            str(predict),
+            "--cfg", cfg_path,
+            "--wrapper", wrapper_path,
+            "--seggrid", seggrid,
+            "--clip", str(clip),
+            "--probs", 'true' if probs else 'false'
+        ]
+
+        logger.info(f"Launching prediction subprocess: {' '.join(cmd)}")
+
+        with self.benchmark:
+            process = subprocess.Popen(
+                cmd,
+                stdout=sys.stdout,
+                stderr=sys.stderr,
+                env=os.environ.copy(),
+            )
+            process.wait()
+
+        if process.returncode != 0:
+            if process.returncode == 130:
+                raise KeyboardInterrupt("Prediction interrupted by user")
+
+            raise RuntimeError(
+                f"Prediction subprocess failed (Exit Code {process.returncode})."
+            )
+
+        self._write_benchmark_summary()
+
+        try:
+            os.unlink(cfg_path)
+            os.unlink(wrapper_path)
+            metadata_path = wrapper_path.replace('.parquet', '_metadata.json')
+            if os.path.exists(metadata_path):
+                os.unlink(metadata_path)
+            seggrid = wrapper_path.replace('.parquet', '_seggrid.parquet')
+            if os.path.exists(seggrid):
+                os.unlink(seggrid)
+        except Exception as exc:
+            logger.warning(f"Could not clean up temp files: {exc}")
+
+        #
+        # assert (
+        #     ingrid.segtile.pred
+        #     .map(os.path.exists)
+        #     .all()
+        # )
+        # if probs:
+        #     assert (
+        #         ingrid.segtile.prob
+        #         .map(os.path.exists)
+        #         .all()
+        #     )
+        #

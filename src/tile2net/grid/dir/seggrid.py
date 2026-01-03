@@ -30,7 +30,7 @@ class Output(
 class Probability(
     Dir,
 ):
-    extension = 'npy'
+    extension = 'tif'
 
 
 class Prediction(
@@ -51,7 +51,7 @@ class InFile(
     ...
 
 
-class Grayscale(
+class Pred(
     Dir
 ):
     extension = 'npy'
@@ -80,8 +80,8 @@ class Postprocess(
 ):
     grid: SegGrid
 
-    @Grayscale
-    def grayscale(self):
+    @Pred
+    def pred(self):
         ...
 
     @Colored
@@ -118,17 +118,9 @@ class SegGrid(
     def postprocess(self):
         ...
 
-    @Grayscale
-    def grayscale(self):
+    @Pred
+    def pred(self):
         ...
-        # format = os.path.join(
-        #     self.dir,
-        #     'grayscale',
-        #     self.suffix + '.npy',
-        # )
-        # format = format
-        # result = Grayscale.from_format(format)
-        # return result
 
     @Colored
     def colored(self):
@@ -144,7 +136,14 @@ class SegGrid(
 
     @Probability
     def prob(self):
-        ...
+        format = os.path.join(
+            self.dir,
+            'prob',
+            self.suffix + '.tif',
+        )
+        format = format
+        result = Probability.from_format(format)
+        return result
 
     @Error
     def error(self):

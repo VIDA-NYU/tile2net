@@ -424,11 +424,11 @@ class Dir:
         if grayscale:
             msg = (
                 f'Cleaning up segmentation masks '
-                f'from \n\t{instance.outdir.seggrid.grayscale.dir} and '
-                f'\n\t{instance.outdir.vecgrid.grayscale.dir}'
+                f'from \n\t{instance.outdir.seggrid.pred.dir} and '
+                f'\n\t{instance.outdir.vecgrid.pred.dir}'
             )
             logger.info(msg)
-            util.cleanup(instance.seggrid.file.grayscale)
+            util.cleanup(instance.seggrid.file.pred)
             util.cleanup(instance.vecgrid.file.grayscale)
 
         root = Path(self.dir)

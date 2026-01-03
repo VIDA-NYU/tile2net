@@ -30,12 +30,12 @@ class File(
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.vecgrid.file.grayscale
+            >>> ingrid.vecgrid.file.pred
             xtile  ytile
             9915   12120    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
         vecgrid = self.grid
-        files = vecgrid.ingrid.outdir.vecgrid.grayscale.files(vecgrid)
+        files = vecgrid.ingrid.outdir.vecgrid.pred.files(vecgrid)
         self.grayscale = files
         if not files.map(os.path.exists).all():
             seggrid = vecgrid.seggrid.broadcast
@@ -43,14 +43,14 @@ class File(
 
             # preemptively predict so logging appears more sequential
             # else you get "now stitching" before "now predicting"
-            _ = seggrid.file.grayscale
+            _ = seggrid.file.pred
 
             vecgrid._stitch_to_file(
                 small_grid=seggrid,
                 big_grid=outgrid,
                 r=seggrid.vectile.r,
                 c=seggrid.vectile.c,
-                tiles=seggrid.file.grayscale,
+                tiles=seggrid.file.pred,
                 mosaics=seggrid.vectile.grayscale,
                 background=3,
             )

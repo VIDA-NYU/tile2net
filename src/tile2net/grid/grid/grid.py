@@ -32,6 +32,25 @@ if False:
     from ..ingrid.ingrid import InGrid
     from ..vecgrid.vecgrid import VecGrid
 
+# def wraps(item):
+#     return item
+
+class wraps[T]:
+    def __init__(self, item: T):
+        self.item = item
+
+    # @property
+    # def property(self, *args, **kwargs) -> Callable:
+    #     ...
+    #     # return self.item
+
+    def __call__(self, *args, **kwargs):
+        return self.item
+
+
+test = wraps(int)
+
+
 # thread-local store
 tls = threading.local()
 
@@ -1095,6 +1114,7 @@ class Grid(
         return lat_north, lon_west, lat_south, lon_east
 
     @cached_property
+    # @wraps(Cfg.location)
     def xtile_ytile(self) -> tuple[int, int, int, int]:
         """
         Overall bounding box of the grid in xtile/ytile format.

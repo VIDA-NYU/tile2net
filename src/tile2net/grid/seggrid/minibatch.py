@@ -20,7 +20,7 @@ from tile2net.grid.cfg.logger import logger
 from tile2net.tileseg.utils.misc import fast_hist, fmt_scale
 from .submit import Submit
 
-cv2.setNumThreads(1)
+# cv2.setNumThreads(1)
 
 if False:
     from .seggrid import SegGrid
@@ -451,11 +451,31 @@ class MiniBatch:
     def submit_intensity(self):
         self.imwrite(self.intensity, self.seggrid.file.intensity)
 
-    # def submit_probability(self):
-    #     arrays = self.prob_mask
-    #     files = self.grid.file.probability
-    #     for array, file in zip(arrays, files):
-    #         self.submit.imwrite(file, array)
+    # def submit_prob(self) -> None:
+    #     probs = (
+    #         self.probs
+    #         .to(torch.float16)
+    #         .cpu()
+    #         .numpy()
+    #     )
+    #     for array, file in zip(probs, self.seggrid.file.prob):
+    #         self.submit.to_tiff(file, array)
+
+
+    def write_all(self, probs_tensor, event, files):
+        event.synchronize()
+        probs_np = probs_tensor.numpy()
+        for arr, f in zip(probs_np, files):
+            self.submit._to_tiff(f, arr)
+
+    def submit_prob(self) -> None:
+        probs = self.probs.to(torch.float16).to('cpu', non_blocking=True)
+        stream = torch.cuda.current_stream()
+        event = stream.record_event()
+        files = list(self.seggrid.file.prob)
+        future = self.submit.threads.submit(self.write_all, probs, event, files)
+        self.submit.next.append(future)
+
 
     # def submit_output(self) -> None:
     #     if not self.output:
@@ -480,14 +500,14 @@ class MiniBatch:
     #         for array, file in zip(np_arr, files):
     #             self.submit.imwrite(file, array)
 
-    def submit_grayscale(self):
+    def submit_pred(self):
         arrays = (
             self.max.pred
             .to(torch.uint8)
             .cpu()
             .numpy()
         )
-        for array, file in zip(arrays, self.seggrid.file.grayscale):
+        for array, file in zip(arrays, self.seggrid.file.pred):
             if array.ndim == 3:
                 array = array.argmax(axis=-1)
             self.submit.imwrite(file, array)
@@ -519,7 +539,7 @@ class MiniBatch:
         # if cfg.segmentation.probability:
         #     self.submit_probability()
         # self.submit_output()
-        self.submit_grayscale()
+        self.submit_pred()
         if cfg.segmentation.colored:
             self.submit_colored()
         if cfg.segmentation.intensity:
@@ -530,21 +550,21 @@ class MiniBatch:
         del submit.t
         _ = submit.t
 
-    @classmethod
-    def set_columns(
-            cls,
-            ingrid: InGrid
-    ):
-        """
-        Temporary workaround to have the columns show up in the SegGrid
-        before the subprocess
-        """
-        seggrid = ingrid.seggrid.broadcast
-        predict = seggrid.predict
-        seggrid.predict = False
-        _ = (
-            seggrid.file.colored,
-            seggrid.file.intensity,
-            seggrid.file.grayscale
-        )
-        seggrid.predict = predict
+    # @classmethod
+    # def set_columns(
+    #         cls,
+    #         ingrid: InGrid
+    # ):
+    #     """
+    #     Temporary workaround to have the columns show up in the SegGrid
+    #     before the subprocess
+    #     """
+    #     seggrid = ingrid.seggrid.broadcast
+    #     predict = seggrid.predict
+    #     _ = (
+    #         seggrid.file.colored,
+    #         seggrid.file.intensity,
+    #         seggrid.file.pred,
+    #         seggrid.file.prob,
+    #     )
+    #     seggrid.predict = predict

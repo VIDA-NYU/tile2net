@@ -758,24 +758,27 @@ class Segmentation(cmdline.Namespace):
         """
         Number of batches to prefetch
         """
-        return 2
+        return 4
+
+        # return 2
 
     @cmdline.property
     def persistent_workers(self) -> bool:
         """
         Keep data loader workers alive
         """
-        return False
+        # return False
+        return True
 
-    @cmdline.property
-    def num_workers(self) -> int:
-        """
-        Number of data loader workers
-        """
-        # result = multiprocessing.cpu_count() // 2
-        result = 8
-        return result
-
+    # @cmdline.property
+    # def num_workers(self) -> int:
+    #     """
+    #     Number of data loader workers
+    #     """
+    #     # result = multiprocessing.cpu_count() // 2
+    #     result = 8
+    #     return result
+    #
 
 class Vectorization(cmdline.Namespace):
     """Vectorization configuration namespace."""
@@ -1634,11 +1637,16 @@ class Cfg(
         return 0
 
     @cmdline.property
-    def num_workers(self) -> int:
+    def load_workers(self) -> int:
         """
         Number of workers for data loading
         """
-        return 4
+        return min(os.cpu_count() // 2, 4)
+
+    @cmdline.property
+    def compress_workers(self) -> int:
+        """Number of workers for file compression"""
+        return min(os.cpu_count() // 2, 12)
 
     @cmdline.property
     def reduce_border_epoch(self) -> int:

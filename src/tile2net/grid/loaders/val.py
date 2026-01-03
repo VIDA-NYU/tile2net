@@ -91,11 +91,11 @@ class ValDataSet(
         if persistent_workers is None:
             persistent_workers = cfg.segmentation.persistent_workers
         if num_workers is None:
-            num_workers_upper = cfg.num_workers
+            num_workers_upper = cfg.load_workers
             if isinstance(num_workers_upper, int):
                 num_workers = max(0, num_workers_upper // 2)
             else:
-                num_workers = cfg.segmentation.num_workers
+                num_workers = cfg.segmentation.load_workers
         if cls is None:
             # default to ValDataLoader to keep type-specific behavior
             cls = ValDataLoader

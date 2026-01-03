@@ -32,7 +32,7 @@ from tile2net.grid.cfg.logger import logger
 from tile2net.grid.dir.indir import Indir
 from tile2net.grid.dir.outdir import Outdir
 from . import delayed
-from .file import File
+# from .file import File
 from .lines import Lines
 from .polygons import Polygons
 from .segtile import SegTile
@@ -104,17 +104,17 @@ class InGrid(
 
     """
 
-    @File
-    def file(self):
-        """
-        Namespace container for files aligned with the tiles of a Grid.
-
-        Example:
-            >>> ingrid: InGrid
-            >>> ingrid.file.infile
-            xtile   ytile
-            317280  387840    /home/<user>/tile2net/ma/ingrid/infile/20/31...
-        """
+    # @File
+    # def file(self):
+    #     """
+    #     Namespace container for files aligned with the tiles of a Grid.
+    #
+    #     Example:
+    #         >>> ingrid: InGrid
+    #         >>> ingrid.file.infile
+    #         xtile   ytile
+    #         317280  387840    /home/<user>/tile2net/ma/ingrid/infile/20/31...
+    #     """
 
     @VecGrid
     def vecgrid(self) -> VecGrid:
@@ -1278,12 +1278,12 @@ class InGrid(
         if grayscale:
             msg = (
                 f'Cleaning up segmentation masks '
-                f'from \n\t{self.outdir.seggrid.grayscale.dir} and '
-                f'\n\t{self.outdir.vecgrid.grayscale.dir}'
+                f'from \n\t{self.outdir.seggrid.pred.dir} and '
+                f'\n\t{self.outdir.vecgrid.pred.dir}'
             )
             logger.info(msg)
-            util.cleanup(self.seggrid.file.grayscale)
-            util.cleanup(self.vecgrid.file.grayscale)
+            util.cleanup(self.seggrid.file.pred)
+            util.cleanup(self.vecgrid.file.pred)
 
     @cached_property
     def disk_usage(self) -> int:

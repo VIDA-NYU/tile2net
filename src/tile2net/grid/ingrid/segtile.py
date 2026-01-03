@@ -127,12 +127,25 @@ class SegTile(
         return result
 
     @frame.column
-    def grayscale(self) -> pd.Series:
+    def pred(self) -> pd.Series:
         """Path to grayscale segmentation file for this tile."""
         ingrid = self.ingrid
         seggrid = ingrid.seggrid.broadcast
         result = (
-            seggrid.file.grayscale
+            seggrid.file.pred
+            .loc[~seggrid.index.duplicated()]
+            .loc[self.index]
+            .values
+        )
+        return result
+
+    @frame.column
+    def prob(self) -> pd.Series:
+        """Path to probability segmentation file for this tile."""
+        ingrid = self.ingrid
+        seggrid = ingrid.seggrid.broadcast
+        result = (
+            seggrid.file.prob
             .loc[~seggrid.index.duplicated()]
             .loc[self.index]
             .values

@@ -51,6 +51,7 @@ class Static:
         gdown.download_folder(
             url=url,
             output=self.path.__str__(),
+            quiet=True,
         )
 
     hrnet_checkpoint = (

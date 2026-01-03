@@ -1,4 +1,5 @@
 from __future__ import annotations
+import tifffile
 
 import os
 import time
@@ -149,4 +150,33 @@ class Submit:
         Schedule saving a numpy array to .npy with atomic replace.
         """
         future = self.threads.submit(self._to_npy, filename, arr)
+        self.next.append(future)
+
+
+    def _to_tiff(
+            self,
+            filename: str,
+            arr: np.ndarray,
+    ) -> None:
+        p = Path(filename)
+        parent = p.parent
+        parent.mkdir(parents=True, exist_ok=True)
+        tmp = p.parent / f'tmp.{p.name}'
+
+        try:
+            tifffile.imwrite(tmp, arr, compression='zlib')
+            os.replace(tmp, p)
+        except Exception:
+            try:
+                if tmp.exists():
+                    tmp.unlink()
+            finally:
+                raise
+
+    def to_tiff(
+            self,
+            filename: str,
+            arr: np.ndarray,
+    ):
+        future = self.threads.submit(self._to_tiff, filename, arr)
         self.next.append(future)

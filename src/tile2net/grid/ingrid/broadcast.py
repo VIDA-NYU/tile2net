@@ -148,3 +148,7 @@ class Broadcast(
     @property
     def filled(self):
         return self
+
+    @property
+    def broadcast(self):
+        return self

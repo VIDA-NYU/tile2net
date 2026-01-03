@@ -15,7 +15,7 @@ if False:
 class Probability(
     Dir,
 ):
-    extension = 'npy'
+    extension = 'tif'
 
 
 class Prediction(

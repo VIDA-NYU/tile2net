@@ -15,7 +15,7 @@ if __name__ == '__main__':
 
     cfg.to_json()
 
-    _ = ingrid.seggrid.file.grayscale
+    _ = ingrid.seggrid.file.pred
 
 
     with cfg:

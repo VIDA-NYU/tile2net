@@ -27,7 +27,6 @@ if False:
     from ..ingrid import InGrid
 
 
-
 class SegGrid(
     Grid,
 ):
@@ -52,7 +51,6 @@ class SegGrid(
     SegGrid handles:
     - Grouping in-tiles into larger seg-tiles (stitching)
     - Running model inference for semantic segmentation
-    - Managing file paths for grayscale and colored segmentation outputs
     - Padding tiles to provide more context during prediction
 
     Handles lazy-loading of SegGrid from InGrid:
@@ -227,7 +225,7 @@ class SegGrid(
     @property
     def skip(self):
         """Boolean mask indicating which tiles should be skipped during inference."""
-        result = ~self.file.grayscale.apply(os.path.exists)
+        result = ~self.file.pred.apply(os.path.exists)
         return result
 
     @delayed.Filled
@@ -290,120 +288,6 @@ class SegGrid(
         operations such as morphological operations or label refinement.
         """
         raise NotImplementedError
-
-
-    def predict(self) -> None:
-        """
-        Run semantic segmentation prediction on all tiles in the grid using subprocess.
-
-        This version uses JSON/Parquet serialization instead of pickle, allowing for:
-        - No security vulnerabilities from pickle
-        - Clean subprocess isolation
-
-        The subprocess runs predict.py which performs the actual inference.
-        Benchmarking is done in the parent process after subprocess completes.
-
-        Returns:
-            None. See output file paths:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.file.grayscale
-            >>> ingrid.seggrid.file.colored
-
-        Raises:
-            RuntimeError: If subprocess fails or model weights checksum is invalid
-            FileNotFoundError: If required model checkpoints are missing
-
-        Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.predict_new()
-            Downloading weights for segmentation...
-            Predicting seg-tiles: 100%|██████| 64/64 [02:15<00:00]
-            Finished predicting 64 seg-tiles.
-        """
-        ingrid = self.ingrid.broadcast
-        force = ~ingrid.segtile.grayscale.map(os.path.exists)
-        force |= self.cfg.force
-
-        # Create wrapper
-        wrapper: SampleDataWrapper = SampleDataWrapper.from_tiles(
-            infile=ingrid.file.infile,
-            mask=[None] * len(ingrid),
-            index=ingrid.segtile.index,
-            background=0,
-            row=ingrid.segtile.r,
-            col=ingrid.segtile.c,
-            force=force,
-        )
-
-        if wrapper.empty:
-            msg = f'All seg-tiles are already on disk.'
-            logger.info(msg)
-            return
-
-        clip = self.ingrid.dimension * self.cfg.segmentation.pad
-        with (
-            tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as cfg_file,
-            tempfile.NamedTemporaryFile(mode='w', suffix='.parquet', delete=False) as wrapper_file,
-        ):
-            cfg_path = cfg_file.name
-            wrapper_path = wrapper_file.name
-
-        MiniBatch.set_columns(self.broadcast)
-        self.cfg.to_json(cfg_path)
-        wrapper.to_parquet(wrapper_path)
-        seggrid = wrapper_path.replace('.parquet', '_seggrid.parquet')
-        self.broadcast.to_parquet(seggrid)
-        predict = (
-            Path(__file__)
-            .resolve()
-            .with_name('predict.py')
-            .__str__()
-        )
-
-        # Prepare the command
-        seggrid = wrapper_path.replace('.parquet', '_seggrid.parquet')
-        cmd = [
-            sys.executable,
-            str(predict),
-            "--cfg", cfg_path,
-            "--wrapper", wrapper_path,
-            "--seggrid", seggrid,
-            "--clip", str(clip)
-        ]
-
-        logger.info(f"Launching prediction subprocess: {' '.join(cmd)}")
-
-        with self.benchmark :
-            process = subprocess.Popen(
-                cmd,
-                stdout=sys.stdout,
-                stderr=sys.stderr,
-                env=os.environ.copy(),
-            )
-            process.wait()
-
-        if process.returncode != 0:
-            if process.returncode == 130:
-                raise KeyboardInterrupt("Prediction interrupted by user")
-
-            raise RuntimeError(
-                f"Prediction subprocess failed (Exit Code {process.returncode})."
-            )
-
-        self._write_benchmark_summary()
-
-        try:
-            os.unlink(cfg_path)
-            os.unlink(wrapper_path)
-            metadata_path = wrapper_path.replace('.parquet', '_metadata.json')
-            if os.path.exists(metadata_path):
-                os.unlink(metadata_path)
-            seggrid = wrapper_path.replace('.parquet', '_seggrid.parquet')
-            if os.path.exists(seggrid):
-                os.unlink(seggrid)
-        except Exception as exc:
-            logger.warning(f"Could not clean up temp files: {exc}")
-
 
     def _write_benchmark_summary(self) -> None:
         """Write segmentation benchmark summary to file."""
@@ -486,3 +370,6 @@ class SegGrid(
     def time_usage(self) -> float:
         """Time spent on segmentation operations in seconds."""
         return 0.
+
+    def predict(self, probs=None):
+        return self.broadcast.predict(probs=probs)

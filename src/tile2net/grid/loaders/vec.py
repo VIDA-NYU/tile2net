@@ -314,7 +314,7 @@ class VecDataSet(
             shuffle=False,
             drop_last=False,
             sampler=None,
-            num_workers=cfg.vectorization.num_workers,
+            num_workers=cfg.vectorization.load_workers,
             # num_workers=0,
             pin_memory=True,
             persistent_workers=cfg.vectorization.persistent_workers,

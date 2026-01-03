@@ -511,7 +511,7 @@ class VecGrid(Grid):
         seggrid: SegGrid = self.seggrid.broadcast
 
         assert (
-            seggrid.file.grayscale
+            seggrid.file.pred
             .map(os.path.exists)
             .all()
         )
@@ -521,7 +521,7 @@ class VecGrid(Grid):
             force |= self.cfg.force
 
         wrapper: VecDataWrapper = VecDataWrapper.from_segtiles(
-            infile=seggrid.file.grayscale,
+            infile=seggrid.file.pred,
             index=seggrid.vectile.index,
             row=seggrid.vectile.r,
             col=seggrid.vectile.c,

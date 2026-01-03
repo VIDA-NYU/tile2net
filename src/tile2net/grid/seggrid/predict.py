@@ -7,6 +7,8 @@ import hashlib
 import os
 import sys
 from contextlib import ExitStack
+from functools import cached_property
+from typing import Iterator
 
 import torch
 import torch.distributed as dist
@@ -44,6 +46,15 @@ def sha256sum(path):
         for chunk in iter(lambda: f.read(8192), b''):
             h.update(chunk)
     return h.hexdigest()
+
+
+@dataclasses.dataclass
+class Model:
+    net: DataParallel
+    optim: torch.optim.Optimizer
+    scheduler: torch.optim.lr_scheduler._LRScheduler
+    criterion: torch.nn.Module
+    criterion_val: torch.nn.Module
 
 
 @dataclasses.dataclass
@@ -121,7 +132,6 @@ class Data:
                 raise ValueError(f"Unknown eval mode: {cfg.model.eval}")
 
         bs_val = cfg.model.bs_val or 1
-        num_workers = max(0, cfg.num_workers // 2)
         dataset = ValDataSet.from_wrapper(
             wrapper=wrapper,
             mode=mode,
@@ -140,7 +150,6 @@ class Data:
             batch_size=bs_val,
             shuffle=False,
             drop_last=False,
-            num_workers=num_workers,
             sampler=sampler,
         )
         out = cls(
@@ -151,29 +160,25 @@ class Data:
         return out
 
 
-def run_inference(
-        cfg: Cfg,
-        wrapper: SampleDataWrapper,
-        clip: int,
-        seggrid: Broadcast,
-) -> None:
-    """
-    Run semantic segmentation inference.
+class Predict:
+    """Semantic segmentation prediction orchestrator."""
 
-    Args:
-        cfg: Configuration object loaded from JSON
-        wrapper: DataWrapper with tile metadata loaded from Parquet
-        clip: Clipping value for padding
-        seggrid: SegGrid loaded from file
-    """
+    def __init__(
+            self,
+            cfg: Cfg,
+            wrapper: SampleDataWrapper,
+            clip: int,
+            seggrid: Broadcast,
+    ):
+        self.cfg = cfg
+        self.wrapper = wrapper
+        self.clip = clip
+        self.seggrid = seggrid
+        self._setup_done = False
 
-    with cfg as cfg:
-        if cfg.dump_percent:
-            raise NotImplementedError
-            # logger.info(f'Inferencing. Segmentation results will be saved to {outdir}')
-        else:
-            logger.info('Inferencing. Segmentation results will not be saved.')
-
+    def _validate_and_download_checkpoints(self) -> None:
+        """Validate and download model checkpoints if needed."""
+        cfg = self.cfg
         if (
                 not os.path.exists(cfg.model.snapshot)
                 and cfg.model.snapshot == Static.snapshot
@@ -198,6 +203,9 @@ def run_inference(
                   f'You must have passed a custom path that does not exist.'
             raise FileNotFoundError(msg)
 
+    def _setup_device_and_distributed(self) -> None:
+        """Configure GPU/CPU device and distributed training settings."""
+        cfg = self.cfg
         # Enable CUDNN Benchmarking optimization
         torch.backends.cudnn.benchmark = True
         if cfg.deterministic:
@@ -239,8 +247,33 @@ def run_inference(
             logger.info('Using CPU. This is not recommended for inference.')
             cfg.local_rank = -1  # Indicating CPU usage
 
-        assert_and_infer_cfg(cfg)
+    def _setup(self) -> None:
+        """Perform one-time setup."""
+        if self._setup_done:
+            return
+
+        if self.cfg.dump_percent:
+            raise NotImplementedError
+        else:
+            logger.info('Inferencing. Segmentation results will not be saved.')
+
+        self._validate_and_download_checkpoints()
+        self._setup_device_and_distributed()
+
+        assert_and_infer_cfg(self.cfg)
         prep_experiment()
+
+        self._setup_done = True
+
+    @cached_property
+    def model(self) -> Model:
+        """Load and restore the segmentation model (cached).
+
+        Returns:
+            Model: Dataclass containing net, optimizer, scheduler, and criteria
+        """
+        self._setup()
+        cfg = self.cfg
 
         criterion, criterion_val = get_loss(cfg)
 
@@ -276,31 +309,49 @@ def run_inference(
         gc.collect()
         torch.cuda.empty_cache()
 
+        return Model(
+            net=net,
+            optim=optim,
+            scheduler=scheduler,
+            criterion=criterion,
+            criterion_val=criterion_val,
+        )
 
-        net.eval()
+    @cached_property
+    def data(self) -> Data:
+        """Load data wrapper, dataset, and loader (cached)."""
+        self._setup()
+        return Data.from_wrapper(self.wrapper, self.cfg)
+
+    def __iter__(self) -> Iterator[MiniBatch]:
+        """
+        Iterate through minibatches and yield MiniBatch objects.
+
+        Yields:
+            MiniBatch: Each processed minibatch
+        """
+        self.model.net.eval()
         val_loss = AverageMeter()
-        scales = [cfg.default_scale]
-        if cfg.multi_scale_inference:
-            scales.extend(cfg.model.extra_scales)
+        scales = [self.cfg.default_scale]
+        if self.cfg.multi_scale_inference:
+            scales.extend(self.cfg.model.extra_scales)
             scales.sort(reverse=True)
             msg = f'Using multi-scale inference (AVGPOOL) with scales {scales}'
         else:
             msg = f'Using single-scale inference with scale {scales}'
         logger.debug(msg)
 
-        msg = f'Predicting segmentation masks'
-        logger.info(msg)
+        logger.info('Predicting segmentation masks')
 
-        data = Data.from_wrapper(wrapper, cfg)
-        dataset = data.set
-        loader: ValDataLoader = data.loader
+        dataset = self.data.set
+        loader = self.data.loader
 
-        unit = f' seg-tiles'
+        unit = ' seg-tiles'
         msg = 'Predicting seg-tiles'
 
         with ExitStack() as stack, \
                 torch.inference_mode(), \
-                Submit() as submit:
+                Submit(workers=self.cfg.compress_workers) as submit:
 
             stack.enter_context(logging_redirect_tqdm())
 
@@ -323,19 +374,19 @@ def run_inference(
                         .numpy()
                     )
                     loc = dataset.index[i]
-                    grid_batch = seggrid.loc[loc].copy()
-                    grid_batch.predict = False
+                    grid_batch = self.seggrid.loc[loc]
+                    # grid_batch = self.seggrid.loc[loc].copy()
 
                     mb = MiniBatch.from_data(
                         images=input_images,
                         gt_image=labels,
-                        net=net,
+                        net=self.model.net,
                         seggrid=grid_batch,
                         submit=submit,
-                        clip=clip,
+                        clip=self.clip,
                     )
-                    mb.submit_all()
-                    del mb
+
+                    yield mb
 
                     pbar.update(len(input_images))
 
@@ -348,10 +399,28 @@ def run_inference(
         msg = f'Finished predicting {len(dataset)} seg-tiles.'
         logger.info(msg)
 
-        # Cleanup
-        del dataset, loader, wrapper, net, optim, scheduler, criterion, criterion_val
-        gc.collect()
-        torch.cuda.empty_cache()
+    def pred(self) -> Iterator[MiniBatch]:
+        """
+        Iterate through minibatches and submit predictions.
+
+        Yields:
+            MiniBatch: Each processed minibatch after submitting predictions
+        """
+        for mb in self:
+            mb.submit_pred()
+            yield mb
+
+    def prob(self) -> Iterator[MiniBatch]:
+        """
+        Iterate through minibatches and submit both predictions and probabilities.
+
+        Yields:
+            MiniBatch: Each processed minibatch after submitting predictions and probabilities
+        """
+        for mb in self:
+            mb.submit_pred()
+            mb.submit_prob()
+            yield mb
 
 
 def main():
@@ -361,6 +430,7 @@ def main():
     parser.add_argument("--wrapper", type=str, required=True, help="Path to wrapper Parquet file")
     parser.add_argument("--seggrid", type=str, required=False, help="Path to SegGrid Parquet file")
     parser.add_argument("--clip", type=int, required=True, help="Clipping value for padding")
+    parser.add_argument("--probs", type=str, required=True, choices=['true', 'false'], help="Whether to generate probability maps")
 
     args: argparse.Namespace = parser.parse_args()
 
@@ -369,17 +439,40 @@ def main():
     args.wrapper: str
     args.seggrid: str
     args.clip: int
+    args.probs: str
 
     # Load cfg from JSON
     cfg: Cfg = Cfg.from_json(args.cfg)
+
+    clip = args.clip
 
     # Load wrapper from Parquet
     wrapper: SampleDataWrapper = SampleDataWrapper.from_parquet(args.wrapper)
 
     seggrid = Broadcast.from_parquet(args.seggrid)
 
+    probs = args.probs == 'true'
+
     # Run inference
-    run_inference(cfg, wrapper, args.clip, seggrid)
+    with cfg as cfg:
+        predict = Predict(
+            cfg=cfg,
+            wrapper=wrapper,
+            clip=clip,
+            seggrid=seggrid,
+        )
+
+        if probs:
+            for mb in predict.prob():
+                del mb
+        else:
+            for mb in predict.pred():
+                del mb
+
+        # Cleanup
+        del predict, wrapper
+        gc.collect()
+        torch.cuda.empty_cache()
 
 
 if __name__ == "__main__":
@@ -393,6 +486,3 @@ if __name__ == "__main__":
         traceback.print_exc(file=sys.stderr)
         sys.exit(1)
 
-
-if __name__ == '__main__':
-    ...
