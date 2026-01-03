@@ -57,7 +57,7 @@ class cached(metaclass=metaclass):
         ):
             result = self.__wrapped__(owner)
             setattr(owner, self.__name__, result)
-            return getattr(owner, self.__name__)
+            return result
 
 
 class Options(cmdline.Namespace):
@@ -2080,15 +2080,15 @@ def assert_and_infer_cfg(cfg, train_mode: bool = True) -> None:
     cfg.model.bnfunc = torch.nn.BatchNorm2d
 
     # --- CLI-driven overrides ---------------------------------------------
-    if hasattr(cfg, "dataset") and hasattr(cfg.dataset, "name"):
+    if cfg.dataset.name is not None:
         cfg.dataset.name = cfg.dataset.name
-    if hasattr(cfg, "dump_augmentation_images"):
+    if cfg.dump_augmentation_images is not None:
         cfg.dump_augmentation_images = cfg.dump_augmentation_images
 
-    arch = getattr(cfg, "arch", cfg.arch)
+    arch = cfg.arch
     cfg.model.mscale = ("mscale" in arch.lower()) or ("attnscale" in arch.lower())
 
-    n_scales = getattr(cfg.model, "n_scales", None)
+    n_scales = cfg.model.n_scales
     if n_scales:
         cfg.model.n_scales = [float(x) for x in n_scales.split(",")]
 
