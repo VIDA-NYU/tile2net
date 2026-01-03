@@ -264,18 +264,20 @@ class Grid(
             zoom: int = None,
     ) -> Self:
         """
-        Instantiate a Grid from a geocoded location string.
-        
+        Instantiate a Grid from a geocoded location string or tile coordinates.
+
         Args:
             location: Location identifier as a string. Can be:
                 - An address (e.g., '1600 Pennsylvania Ave, Washington DC')
                 - A place name (e.g., 'Central Park')
-                - Bounding box in lat,lon,lat,lon format
+                - Bounding box in lat,lon,lat,lon format (4 floats)
+                - Bounding box in xtile,ytile,xtile,ytile format (4 integers)
                 - Otherwise, geocoded via Nominatim
             zoom: Slippy-tile zoom level (scale) of Grid
                 - Higher value -> smaller tiles
                 - Typically from 14 (large area) to 20 (high detail)
-                - If not passed, defaults to zoom defined in cfg
+                - Required when location is 4 integers (xtile, ytile bounds)
+                - If not passed for lat/lon, defaults to zoom defined in cfg
 
         Returns:
             Grid instance covering the geocoded bounding box at the specified zoom level.
@@ -284,12 +286,60 @@ class Grid(
             Create a grid from an address. Zoom will default to that given by the Source:
             >>> grid = Grid.from_location('Times Square, New York')
 
-            Create a grid from coordinates (lat1,lon1,lat2,lon2):
+            Create a grid from coordinates (lat1, lon1, lat2, lon2):
             >>> grid = Grid.from_location('42.3601,-71.0589,42.3551,-71.0539', zoom=20)
+
+            Create a grid from tile coordinates (xtile1, ytile1, xtile2, ytile2):
+            >>> grid = Grid.from_location('317280,387840,317281,387841', zoom=20)
         """
         if not location:
             msg = 'location must be a non-empty string'
             raise ValueError(msg)
+
+        # Parse location into coordinates
+        if ', ' in location:
+            split = ', '
+        elif ',' in location:
+            split = ','
+        elif ' ' in location:
+            split = ' '
+        else:
+            # Not a coordinate string, geocode it
+            latlon = util.geocode(location)
+            result = cls.from_bounds(
+                latlon=latlon,
+                zoom=zoom
+            )
+            result.location = location
+            return result
+
+        # Parse the coordinates
+        coords = [
+            x.strip()
+            for x in location.split(split)
+        ]
+        if len(coords) == 4:
+            # check if all are integers (xtile, ytile bounds)
+            try:
+                coords_int = [int(x) for x in coords]
+                # all parsed as integers, interpret as xtile, ytile bounds
+                if zoom is None:
+                    msg = 'zoom must be specified when using xtile, ytile bounds'
+                    raise ValueError(msg)
+
+                xmin, ymin, xmax, ymax = coords_int
+                tx = np.arange(xmin, xmax)
+                ty = np.arange(ymin, ymax)
+                index = pd.MultiIndex.from_product([tx, ty])
+                tx = index.get_level_values(0)
+                ty = index.get_level_values(1)
+                result = cls.from_integers(tx, ty, scale=zoom)
+                result.location = location
+                return result
+            except ValueError:
+                # otherwise, assume all are floats
+                pass
+
         latlon = util.geocode(location)
         result = cls.from_bounds(
             latlon=latlon,
@@ -962,11 +1012,6 @@ class Grid(
         """
         return self.cfg.colormap
 
-    def to_pickle(self, path):
-        frame = self.frame.copy()
-        frame.attrs.update(zoom=self.zoom, scale=self.scale)
-        frame.to_pickle(path)
-
     @cached_property
     def time_usage(self) -> float:
         return 0
@@ -979,3 +1024,44 @@ class Grid(
     def sampler(self) -> Benchmark:
         result = Benchmark(include_gpu=True)
         return result
+
+    @cached_property
+    def lat_lon(self) -> tuple[float, float, float, float]:
+        """
+        Overall bounding box of the grid in lat/lon format.
+
+        Returns:
+            Tuple of (lat_north, lon_west, lat_south, lon_east) covering all tiles.
+
+        Example:
+            >>> grid.lat_lon
+            (42.3601, -71.0589, 42.3551, -71.0539)
+        """
+        xmin = self.xtile.min()
+        ymin = self.ytile.min()
+        xmax = self.xtile.max() + 1
+        ymax = self.ytile.max() + 1
+
+        lon_west, lat_north = util.xy2lonlat(xmin, ymin, zoom=self.scale)
+        lon_east, lat_south = util.xy2lonlat(xmax, ymax, zoom=self.scale)
+
+        return lat_north, lon_west, lat_south, lon_east
+
+    @cached_property
+    def xtile_ytile(self) -> tuple[int, int, int, int]:
+        """
+        Overall bounding box of the grid in xtile/ytile format.
+
+        Returns:
+            Tuple of (xtile_min, ytile_min, xtile_max, ytile_max) covering all tiles.
+
+        Example:
+            >>> grid.xtile_ytile
+            (317280, 387840, 317281, 387841)
+        """
+        xmin = int(self.xtile.min())
+        ymin = int(self.ytile.min())
+        xmax = int(self.xtile.max()) + 1
+        ymax = int(self.ytile.max()) + 1
+
+        return xmin, ymin, xmax, ymax
