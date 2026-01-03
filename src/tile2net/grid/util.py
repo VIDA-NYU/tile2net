@@ -26,9 +26,8 @@ import geopy
 import math
 import numpy as np
 import toolz
-from geopy.geocoders import Nominatim
+from geopy.geocoders import Nominatim, Photon
 from numpy import ndarray
-from toolz import curried, pipe
 
 from tile2net.grid.cfg.logger import logger
 
@@ -108,15 +107,6 @@ def _(
     return lonlat2xy(lon.to_numpy(), lat.to_numpy(), zoom)
 
 
-def import_folium() -> 'folium':
-    # When debugging, importing folium seems to cause AttributeError: module 'posixpath' has no attribute 'sep'
-    import posixpath
-    sep = posixpath.sep
-    import folium
-    posixpath.sep = sep
-    return folium
-
-
 def round_loc(location: list[float], decimals=10) -> list[float]:
     return list(np.around(np.array(location), decimals=decimals))
 
@@ -169,67 +159,102 @@ def geocode(location) -> list[float]:
     # from address, get bbox
     if isinstance(location, str):
         try:
-            location: list[float] = pipe(
-                location.split(','),
-                curried.map(float),
-                list
-            )
+            location: list[float] = [
+                float(x.strip())
+                for x in location.split(',')
+            ]
         except (ValueError, AttributeError):  # fails if address or list
             msg = f'Geocoding the following, please wait:\n \t{location}'
             logger.info(msg)
-            nom: geopy.Location = (
-                Nominatim(user_agent='tile2net')
-                .geocode(location, timeout=None)
-            )
-            if nom is None:
+
+            result: geopy.Location = None
+            geocoder = None
+            try:
+                result = (
+                    Nominatim(user_agent='tile2net')
+                    .geocode(location, timeout=10)
+                )
+                geocoder = 'nominatim'
+            except Exception as e:
+                logger.debug(f"Nominatim geocoding failed: {e}, trying Photon")
+
+            if result is None:
+                try:
+                    result = (
+                        Photon(user_agent='tile2net')
+                        .geocode(location, timeout=10)
+                    )
+                    geocoder = 'photon'
+                except Exception as e:
+                    logger.error(f"Photon geocoding also failed: {e}")
+                    raise ValueError(f"Could not geocode '{location}'") from e
+
+            if result is None:
                 raise ValueError(f"Could not geocode '{location}'")
-            logger.info(f"Geocoded to\n\t{nom.raw['display_name']}")
-            location = pipe(
-                nom.raw['boundingbox'],
-                # convert lon, lon, lat, lat
-                # to lat, lon, lat, lon
-                curried.get([0, 2, 1, 3]),
-            )
-    location = pipe(
-        location,
-        curried.map(float),
-        list,
-        round_loc,
-        southwest_northeast,
-        tuple
-    )
-    return location
+
+            logger.info(f"Geocoded to\n\t{result.raw.get('display_name', result.address)}")
+
+            if geocoder == 'nominatim':
+                bbox = result.raw['boundingbox']
+                # nominatim format: [south, north, west, east]
+                # convert to [south, east, north, west] for consistency
+                location = [bbox[0], bbox[2], bbox[1], bbox[3]]
+            elif geocoder == 'photon':
+                extent = result.raw['properties']['extent']
+                # photon extent format: [minlon, minlat, maxlon, maxlat]
+                # convert to [south, east, north, west]
+                location = [extent[1], extent[0], extent[3], extent[2]]
+            else:
+                raise ValueError(f"Unknown geocoder '{geocoder}'")
+
+    location = [
+        float(x)
+        for x in location
+    ]
+    location = round_loc(location)
+    location = southwest_northeast(location)
+    out = tuple(location)
+    return out
 
 
 def reverse_geocode(location: list[float]) -> str:
-    # from bbox, get address of centroid
     msg = f'Reverse geocoding the following, please wait:\n \t{location}'
     logger.info(msg)
-    # nom: geopy.Location = Nominatim(user_agent='tile2net').reverse(location, timeout=None)
     y = (location[0] + location[2]) / 2
     x = (location[1] + location[3]) / 2
     centroid = (y, x)
-    nom: geopy.Location = Nominatim(
-        user_agent='tile2net',
-    ).reverse(centroid, timeout=None)
-    result = nom.raw['display_name']
-    return result
 
-    if nom is None:
-        raise ValueError(f"Could not geocode '{location}'")
-    logger.info(f"Geocoded to\n\t{nom.raw['display_name']}")
-    return nom.raw['display_name']
+    result: geopy.Location = None
+    try:
+        result = (
+            Nominatim(user_agent='tile2net')
+            .reverse(centroid, timeout=10)
+        )
+    except Exception as e:
+        logger.debug(f"Nominatim reverse geocoding failed: {e}, trying Photon")
+
+    if result is None:
+        try:
+            result = (
+                Photon(user_agent='tile2net')
+                .reverse(centroid, timeout=10)
+            )
+        except Exception as e:
+            logger.error(f"Photon reverse geocoding also failed: {e}")
+            raise ValueError(f"Could not reverse geocode '{location}'") from e
+
+    if result is None:
+        raise ValueError(f"Could not reverse geocode '{location}'")
+
+    logger.info(f"Geocoded to\n\t{result.address}")
+    return result.address
 
 
 def name_from_location(location: str | list[float, str]):
     if isinstance(location, str):
         try:
             # location is bbox
-            location = pipe(
-                location.split(','),
-                curried.map(float),
-                list,
-            )
+            location = [float(x.strip()) for x in location.split(',')]
         except (ValueError, AttributeError):  # fails if already address
             # location is address
             ...
@@ -241,18 +266,18 @@ def name_from_location(location: str | list[float, str]):
         )
         msg = f'Reverse geocoding the following, please wait:\n \t{centroid}'
         logger.info(msg)
-        nom: geopy.Location = Nominatim(user_agent='tile2net').reverse(centroid, timeout=None)
-        logger.info(f"Geocoded  to\n\t'{nom.raw['display_name']}'")
-        location = nom.raw['display_name']
+        result: geopy.Location = Nominatim(user_agent='tile2net').reverse(centroid, timeout=None)
+        logger.info(f"Geocoded  to\n\t'{result.raw['display_name']}'")
+        location = result.raw['display_name']
 
     if isinstance(location, str):
         # location is address
-        name = pipe(
+        name = (
             location.split(',')[0]
             .replace(' ', '_')
-            .casefold(),
-            os.path.normcase
+            .casefold()
         )
+        name = os.path.normcase(name)
         return name
     raise TypeError(f"location must be str or list, not {type(location)}")
 

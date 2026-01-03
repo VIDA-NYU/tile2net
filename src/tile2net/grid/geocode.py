@@ -13,6 +13,7 @@ import osmnx
 import shapely
 from geopandas import GeoDataFrame, GeoSeries
 from geopy.geocoders import Nominatim
+from geopy.geocoders import Photon
 
 from tile2net.logger import logger
 
@@ -194,45 +195,47 @@ class GeoCode:
         result.geometry = frame
         return result
 
-    # @cached_property
-    # def nwse(self) -> tuple[float, ...]:
-    #     logger.info(
-    #         f"Geocoding {self.address}, this may take a while..."
-    #     )
-    #     # noinspection PyTypeChecker
-    #     nom = (
-    #         Nominatim(user_agent='tile2net')
-    #         .geocode(self.address, timeout=None)
-    #     )
-    #     if nom is None:
-    #         raise ValueError(f"Could not geocode '{self.address}'")
-    #     logger.info(
-    #         f"Geocoded '{self.address}' to\n\t"
-    #         f"'{nom.raw['display_name']}'"
-    #     )
-    #     raw = map(float, nom.raw['boundingbox'])
-    #     s, n, w, e = map(self._round, raw)
-    #     value = n, w, s, e
-    #     return value
-
     @cached_property
     def nwse(self) -> tuple[float, ...]:
         msg = f'Geocoding the following, please wait:\n \t{self.address}'
         logger.info(msg)
 
-        nom: geopy.Location = (
-            Nominatim(user_agent='tile2net')
-            .geocode(self.address, timeout=None)
-        )
-        if nom is None:
+        result: geopy.Location = None
+        geocoder = None
+        try:
+            result = (
+                Nominatim(user_agent='tile2net')
+                .geocode(self.address, timeout=10)
+            )
+            geocoder = 'nominatim'
+        except Exception as e:
+            logger.debug(f"Nominatim geocoding failed: {e}, trying Photon")
+
+        if result is None:
+            try:
+                result = (
+                    Photon(user_agent='tile2net')
+                    .geocode(self.address, timeout=10)
+                )
+                geocoder = 'photon'
+            except Exception as e:
+                logger.error(f"Photon geocoding also failed: {e}")
+                raise ValueError(f"Could not geocode '{self.address}'") from e
+
+        if result is None:
             raise ValueError(f"Could not geocode '{self.address}'")
 
-        logger.info(f"Geocoded to\n\t{nom.raw['display_name']}")
+        logger.info(f"Geocoded to\n\t{result.raw.get('display_name', result.address)}")
 
-        raw = map(float, nom.raw['boundingbox'])
-        s, n, w, e = map(self._round, raw)
+        if geocoder == 'nominatim':
+            bbox = result.raw['boundingbox']
+            it = (float(x) for x in bbox)
+            s, n, w, e = (self._round(x) for x in it)
+        else:
+            extent = result.raw['properties']['extent']
+            # Photon extent format: [minlon, minlat, maxlon, maxlat]
+            w, s, e, n = map(self._round, extent)
         return n, w, s, e
-
 
     @cached_property
     def wsen(self):
@@ -241,15 +244,29 @@ class GeoCode:
 
     @cached_property
     def address(self) -> str:
-        # noinspection PyTypeChecker
-        reverse = (
-            Nominatim(user_agent='tile2net', )
-            .reverse(self.centroid, timeout=None)
-        )
-        if reverse is None:
-            raise ValueError(f"Could not geocode '{self.centroid}'")
-        result = reverse.raw['display_name']
-        return result
+        result: geopy.Location = None
+        try:
+            result = (
+                Nominatim(user_agent='tile2net')
+                .reverse(self.centroid, timeout=10)
+            )
+        except Exception as e:
+            logger.debug(f"Nominatim reverse geocoding failed: {e}, trying Photon")
+
+        if result is None:
+            try:
+                result = (
+                    Photon(user_agent='tile2net')
+                    .reverse(self.centroid, timeout=10)
+                )
+            except Exception as e:
+                logger.error(f"Photon reverse geocoding also failed: {e}")
+                raise ValueError(f"Could not reverse geocode '{self.centroid}'") from e
+
+        if result is None:
+            raise ValueError(f"Could not reverse geocode '{self.centroid}'")
+
+        return result.address
 
     @cached_property
     def centroid(self) -> tuple[float, float]:
