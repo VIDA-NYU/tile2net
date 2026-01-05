@@ -231,7 +231,7 @@ class Broadcast(
             None. See output file paths:
             >>> ingrid: InGrid
             >>> ingrid.seggrid.file.pred
-            >>> ingrid.seggrid.file.colored
+            >>> ingrid.seggrid.file.colorized
 
         Raises:
             RuntimeError: If subprocess fails or model weights checksum is invalid

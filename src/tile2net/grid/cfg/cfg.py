@@ -728,8 +728,8 @@ class Segmentation(cmdline.Namespace):
         return True
 
     @cmdline.property
-    def colored(self) -> bool:
-        """Write colored segmentation masks to file"""
+    def colorized(self) -> bool:
+        """Write colorized segmentation masks to file"""
         return True
         return False
 

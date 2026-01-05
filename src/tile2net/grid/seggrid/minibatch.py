@@ -445,8 +445,8 @@ class MiniBatch:
         for array, file in zip(arrays, files):
             self.submit.imwrite(file, array)
 
-    def submit_colored(self):
-        self.imwrite(self.max.colors, self.seggrid.file.colored)
+    def submit_colorized(self):
+        self.imwrite(self.max.colors, self.seggrid.file.colorized)
 
     def submit_intensity(self):
         self.imwrite(self.intensity, self.seggrid.file.intensity)
@@ -540,8 +540,8 @@ class MiniBatch:
         #     self.submit_probability()
         # self.submit_output()
         self.submit_pred()
-        if cfg.segmentation.colored:
-            self.submit_colored()
+        if cfg.segmentation.colorized:
+            self.submit_colorized()
         if cfg.segmentation.intensity:
             self.submit_intensity()
 
@@ -562,7 +562,7 @@ class MiniBatch:
     #     seggrid = ingrid.seggrid.broadcast
     #     predict = seggrid.predict
     #     _ = (
-    #         seggrid.file.colored,
+    #         seggrid.file.colorized,
     #         seggrid.file.intensity,
     #         seggrid.file.pred,
     #         seggrid.file.prob,

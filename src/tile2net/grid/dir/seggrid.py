@@ -57,7 +57,7 @@ class Pred(
     extension = 'npy'
 
 
-class Colored(
+class colorized(
     Dir
 ):
     ...
@@ -84,8 +84,8 @@ class Postprocess(
     def pred(self):
         ...
 
-    @Colored
-    def colored(self):
+    @colorized
+    def colorized(self):
         ...
 
     @Overlay
@@ -122,8 +122,8 @@ class SegGrid(
     def pred(self):
         ...
 
-    @Colored
-    def colored(self):
+    @colorized
+    def colorized(self):
         ...
 
     @InFile

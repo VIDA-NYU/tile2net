@@ -16,7 +16,7 @@ class File:
         ...
 
     @cached.property
-    def colored(self) -> str:
+    def colorized(self) -> str:
         ...
 
     def __init__(self, *args):
@@ -53,7 +53,7 @@ class Tile:
         """Nested namespace for file-related properties."""
         # This code block does not run, it is syntactic sugar. See:
         greyscale = self.file.greyscale
-        colored = self.file.colored
+        colorized = self.file.colorized
 
     def __repr__(self):
         return (

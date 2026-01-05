@@ -155,11 +155,11 @@ class VecTile(
         return result
 
     @frame.column
-    def colored(self):
+    def colorized(self):
         """seggrid.file broadcasted to ingrid"""
         vecgrid = self.vecgrid
         result = (
-            vecgrid.file.colored
+            vecgrid.file.colorized
             .loc[self.index]
             .values
         )

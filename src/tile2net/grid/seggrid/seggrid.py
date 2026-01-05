@@ -212,7 +212,7 @@ class SegGrid(
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.seggrid.file.colored
+            >>> ingrid.seggrid.file.colorized
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """

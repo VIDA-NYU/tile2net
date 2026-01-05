@@ -81,10 +81,10 @@ class PostProcess(
         return files
 
     @frame.column
-    def colored(self) -> pd.Series:
+    def colorized(self) -> pd.Series:
         grid = self.grid
-        files = grid.ingrid.outdir.seggrid.postprocess.colored.files(grid)
-        self.colored = files
+        files = grid.ingrid.outdir.seggrid.postprocess.colorized.files(grid)
+        self.colorized = files
         if (
             grid.postprocess
             and not files.map(os.path.exists).all()
@@ -94,7 +94,7 @@ class PostProcess(
                 .difference(grid.ingrid.broadcast.segtile.index)
                 .empty
             )
-            grid.file.colored = files
+            grid.file.colorized = files
             grid.predict()
             assert files.map(os.path.exists).all()
         return files

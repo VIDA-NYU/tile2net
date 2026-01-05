@@ -57,30 +57,30 @@ class File(
         return files
 
     @frame.column
-    def colored(self) -> pd.Series:
+    def colorized(self) -> pd.Series:
         """
         File-paths to stitched color-coded segmentation masks for each vec-tile.
         Not used in pipeline, but vailable for user's convenience.
 
         Returns:
-            pd.Series: File paths to colored segmentation masks for each vec-tile
+            pd.Series: File paths to colorized segmentation masks for each vec-tile
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.vecgrid.file.colored
+            >>> ingrid.vecgrid.file.colorized
             xtile  ytile
             9915   12120    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
         vecgrid = self.grid
-        files = vecgrid.ingrid.outdir.vecgrid.colored.files(vecgrid)
-        self.colored = files
+        files = vecgrid.ingrid.outdir.vecgrid.colorized.files(vecgrid)
+        self.colorized = files
         if not files.map(os.path.exists).all():
             seggrid = vecgrid.seggrid.broadcast
             outgrid = vecgrid
 
             # preemptively predict so logging appears more sequential
             # else you get "now stitching" before "now predicting"
-            _ = seggrid.file.colored
+            _ = seggrid.file.colorized
 
             # only stitch the seggrid which are implicated by the vecgrid
             loc = seggrid.vectile.xtile.isin(outgrid.xtile)
@@ -92,8 +92,8 @@ class File(
                 big_grid=outgrid,
                 r=seggrid.vectile.r,
                 c=seggrid.vectile.c,
-                tiles=seggrid.file.colored,
-                mosaics=seggrid.vectile.colored,
+                tiles=seggrid.file.colorized,
+                mosaics=seggrid.vectile.colorized,
             )
             assert files.map(os.path.exists).all()
 
@@ -244,5 +244,5 @@ class File(
     @frame.column
     def disk_usage(self):
         result = util.path2fsize(self.grayscale)
-        result += util.path2fsize(self.colored)
+        result += util.path2fsize(self.colorized)
         return result

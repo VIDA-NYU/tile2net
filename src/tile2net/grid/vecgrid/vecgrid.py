@@ -172,9 +172,9 @@ class VecGrid(Grid):
     @recursion_block
     def _overlay(self) -> Self:
         """
-        Create colored segmentation overlays on input imagery for visualization
+        Create colorized segmentation overlays on input imagery for visualization
 
-        Alpha-blends colored segmentation masks onto original input images for each
+        Alpha-blends colorized segmentation masks onto original input images for each
         vec-tile. Only creates overlays for tiles missing on disk unless
         force=True. Uses memory-bounded threading to avoid RAM exhaustion on large grids.
 
@@ -183,7 +183,7 @@ class VecGrid(Grid):
         """
         vecgrid = self
 
-        mask = self.file.colored
+        mask = self.file.colorized
         infile = self.file.infile
         overlay = self.file.overlay
 

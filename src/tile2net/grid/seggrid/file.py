@@ -175,24 +175,24 @@ class File(
         return files
 
     @frame.column
-    def colored(self) -> pd.Series:
+    def colorized(self) -> pd.Series:
         """
         File-paths to color-coded segmentation masks for visualization.
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.seggrid.file.colored
+            >>> ingrid.seggrid.file.colorized
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
         grid = self.grid
-        files = grid.ingrid.outdir.seggrid.colored.files(grid)
-        self.colored = files
+        files = grid.ingrid.outdir.seggrid.colorized.files(grid)
+        self.colorized = files
         if (
                 grid.predict
                 and not files.map(os.path.exists).all()
         ):
-            grid.file.colored = files
+            grid.file.colorized = files
             grid.predict()
             assert files.map(os.path.exists).all()
         return files
@@ -245,5 +245,5 @@ class File(
     @frame.column
     def disk_usage(self):
         result = util.path2fsize(self.pred)
-        result += util.path2fsize(self.colored)
+        result += util.path2fsize(self.colorized)
         return result

@@ -1072,8 +1072,8 @@ class InGrid(
             rows.append(('Output directory', outdir))
 
         rows.append(('Input imagery', _p(self.outdir.ingrid.infile.dir)))
-        if self.cfg.segmentation.colored:
-            rows.append(('Segmentation (colored)', _p(self.outdir.seggrid.colored.dir)))
+        if self.cfg.segmentation.colorized:
+            rows.append(('Segmentation (colorized)', _p(self.outdir.seggrid.colorized.dir)))
         if self.cfg.polygon.concat:
             rows.append(('Polygons', _p(self.outdir.polygons.parquet)))
         if self.cfg.line.concat:
@@ -1342,7 +1342,7 @@ class InGrid(
         else:
             scale = maxdim / m
 
-        # build a wrapper that knows how to place tiles with a divider-colored background
+        # build a wrapper that knows how to place tiles with a divider-colorized background
         if files is None:
             files = self.file.infile
 
