@@ -4,6 +4,7 @@ from typing import TypeVar
 import numpy as np
 import torch
 from PIL import Image, ImageColor
+from typing import *
 
 if False:
     pass
@@ -80,6 +81,18 @@ class ColorMap:
         out = item.convert("P")
         out.putpalette(self.palette)
         return out
+
+    @overload
+    def __call__(self, item: Image.Image) -> Image.Image:
+        ...
+
+    @overload
+    def __call__(self, item: np.ndarray) -> np.ndarray:
+        ...
+
+    @overload
+    def __call__(self, item: torch.Tensor) -> torch.Tensor:
+        ...
 
     @__call__.register
     def _(
