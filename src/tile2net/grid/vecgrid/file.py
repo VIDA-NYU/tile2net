@@ -45,7 +45,7 @@ class File(
             # else you get "now stitching" before "now predicting"
             _ = seggrid.file.pred
 
-            vecgrid._stitch_to_file(
+            vecgrid._stitch2file(
                 row=seggrid.vectile.row,
                 col=seggrid.vectile.col,
                 tiles=seggrid.file.pred,
@@ -85,7 +85,7 @@ class File(
             loc &= seggrid.vectile.ytile.isin(outgrid.ytile)
             seggrid = seggrid.loc[loc]
 
-            vecgrid._stitch_to_file(
+            vecgrid._stitch2file(
                 row=seggrid.vectile.row,
                 col=seggrid.vectile.col,
                 tiles=seggrid.file.colorized,
@@ -126,7 +126,7 @@ class File(
             loc &= seggrid.vectile.ytile.isin(outgrid.ytile)
             seggrid = seggrid.loc[loc]
 
-            vecgrid._stitch_to_file(
+            vecgrid._stitch2file(
                 row=seggrid.vectile.row,
                 col=seggrid.vectile.col,
                 tiles=seggrid.file.infile,

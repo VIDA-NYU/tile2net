@@ -957,7 +957,7 @@ class Grid(
 
         return scale
 
-    def _stitch_to_file(
+    def _stitch2file(
             self,
             tiles: pd.Series,
             mosaics: pd.Series,

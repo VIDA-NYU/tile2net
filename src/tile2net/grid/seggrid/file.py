@@ -62,7 +62,7 @@ class File(
                 .map(os.path.exists)
                 .all()
             )
-            ingrid._stitch_to_file(
+            ingrid._stitch2file(
                 tiles=ingrid.file.infile,
                 mosaics=mosaics,
                 row=ingrid.segtile.row,
