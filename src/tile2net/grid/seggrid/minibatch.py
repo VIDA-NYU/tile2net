@@ -28,26 +28,6 @@ if False:
     from tile2net.grid.ingrid import InGrid
 
 
-@contextmanager
-def maybe_autocast(
-        enabled: bool,
-        dtype: torch.dtype = torch.float16,
-):
-    # prefer new API if present; otherwise fall back
-    if not enabled:
-        yield
-        return
-    if (
-            hasattr(torch, "amp")
-            and hasattr(torch.amp, "autocast")
-    ):
-        with torch.amp.autocast("cuda", dtype=dtype):
-            yield
-    else:
-        # older PyTorch
-        with torch.cuda.amp.autocast(dtype=dtype):
-            yield
-
 
 def to_numpy(obj: Any):
     """converts tensors to ndarrays; preserves lists, dicts, etc."""
@@ -258,9 +238,6 @@ class MiniBatch:
         else:
             flips = 0,
 
-        # AMP: logits in fp16 to cut VRAM; accumulate in fp32 for stability
-        use_amp = True
-
         # Check if ground truth is meaningful or just placeholder
         has_meaningful_gt = not cls._is_placeholder_gt(gt_image)
 
@@ -281,7 +258,7 @@ class MiniBatch:
 
 
                     assert cfg.dataset.num_classes == 4
-                    with maybe_autocast(use_amp):
+                    with torch.amp.autocast("cuda", dtype=torch.float16):
                         out = net(inputs)
                         pred = out["pred"]
 
