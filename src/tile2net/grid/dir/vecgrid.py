@@ -4,7 +4,7 @@ import os
 import os.path
 
 from .dir import Dir
-from .seggrid import SegGrid
+from .grid import Grid
 
 
 class Polygons(
@@ -20,7 +20,7 @@ class Network(
 
 
 class VecGrid(
-    SegGrid
+    Grid
 ):
 
     @Polygons
