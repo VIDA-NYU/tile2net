@@ -990,16 +990,12 @@ class Grid(
                 Additional arguments passed to the stitching process.
         """
 
-        # keep original row/col
-        # row = row
-        # col = c
-
         # skip mosaics that already exist unless force=True
         if not force:
             loc = ~mosaics.map(os.path.exists)
             tiles = tiles.loc[loc]
-            # row = r.loc[loc]
-            # col = c.loc[loc]
+            row = row.loc[loc]
+            col = col.loc[loc]
             mosaics = mosaics.loc[loc]
 
         stitched = mosaics.drop_duplicates()
