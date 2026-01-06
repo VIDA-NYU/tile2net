@@ -410,9 +410,19 @@ class StitchDataSet(
     def w(self):
         return (self.ncol + 1) * self.sample.shape[1]
 
+    @cached_property
+    def _mosaic_pool(self):
+        """Pre-allocated mosaic buffer pool for memory reuse.
+        Improves performance by avoiding malloc and free under-the-hood.
+        """
+        return np.empty((self.h, self.w, 3), dtype=np.uint8)
+
     @property
     def mosaic(self):
-        out = np.zeros((self.h, self.w, 3), dtype=np.uint8)
+        """Get a zeroed mosaic array from the pool.
+        Reuses the same underlying buffer to avoid repeated allocations.
+        """
+        out = self._mosaic_pool
         out.fill(0)
         return out
 

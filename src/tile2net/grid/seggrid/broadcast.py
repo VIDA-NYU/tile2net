@@ -231,7 +231,7 @@ class Broadcast(
             None. See output file paths:
             >>> ingrid: InGrid
             >>> ingrid.seggrid.file.pred
-            >>> ingrid.seggrid.file.colorized
+            >>> ingrid.seggrid.file.prob
 
         Raises:
             RuntimeError: If subprocess fails or model weights checksum is invalid
@@ -255,7 +255,6 @@ class Broadcast(
             force |= ~ingrid.segtile.prob.map(os.path.exists)
         force |= self.cfg.force
 
-        # Create wrapper
         wrapper: SampleDataWrapper = SampleDataWrapper.from_tiles(
             infile=ingrid.file.infile,
             mask=[None] * len(ingrid),
@@ -284,7 +283,8 @@ class Broadcast(
             .map(os.path.exists)
             .all()
         )
-        # MiniBatch.set_columns(self.broadcast)
+
+        # serialize
         self.cfg.to_json(cfg_path)
         wrapper.to_parquet(wrapper_path)
         seggrid = wrapper_path.replace('.parquet', '_seggrid.parquet')
@@ -296,7 +296,6 @@ class Broadcast(
             .__str__()
         )
 
-        # Prepare the command
         seggrid = wrapper_path.replace('.parquet', '_seggrid.parquet')
         cmd = [
             sys.executable,
@@ -329,6 +328,7 @@ class Broadcast(
 
         self._write_benchmark_summary()
 
+        # cleanup
         try:
             os.unlink(cfg_path)
             os.unlink(wrapper_path)
@@ -340,17 +340,3 @@ class Broadcast(
                 os.unlink(seggrid)
         except Exception as exc:
             logger.warning(f"Could not clean up temp files: {exc}")
-
-        #
-        # assert (
-        #     ingrid.segtile.pred
-        #     .map(os.path.exists)
-        #     .all()
-        # )
-        # if probs:
-        #     assert (
-        #         ingrid.segtile.prob
-        #         .map(os.path.exists)
-        #         .all()
-        #     )
-        #

@@ -365,6 +365,8 @@ class Predict:
 
             try:
                 for n, batch in enumerate(loader):
+                    submit.rotate()
+                    
                     input_images = batch['input']
                     labels = batch['label']
                     i = (
@@ -375,7 +377,6 @@ class Predict:
                     )
                     loc = dataset.index[i]
                     grid_batch = self.seggrid.loc[loc]
-                    # grid_batch = self.seggrid.loc[loc].copy()
 
                     mb = MiniBatch.from_data(
                         images=input_images,
@@ -387,8 +388,17 @@ class Predict:
                     )
 
                     yield mb
-
-                    pbar.update(len(input_images))
+                    
+                    mb.probs = None
+                    # todo: arethese dels needed?
+                    if 'max' in mb.__dict__:
+                        del mb.__dict__['max']
+                    if 'foreground' in mb.__dict__:
+                        del mb.__dict__['foreground']
+                    if 'intensity' in mb.__dict__:
+                        del mb.__dict__['intensity']
+                    
+                    pbar.update(len(grid_batch))
 
             finally:
                 try:
@@ -410,6 +420,12 @@ class Predict:
             mb.submit_pred()
             yield mb
 
+            try:
+                del mb.submit.t
+            except AttributeError:
+                ...
+            _ = mb.submit.t
+
     def prob(self) -> Iterator[MiniBatch]:
         """
         Iterate through minibatches and submit both predictions and probabilities.
@@ -421,6 +437,13 @@ class Predict:
             mb.submit_pred()
             mb.submit_prob()
             yield mb
+
+            # del mb.submit.next
+            try:
+                del mb.submit.t
+            except AttributeError:
+                ...
+            _ = mb.submit.t
 
 
 def main():
@@ -434,26 +457,12 @@ def main():
 
     args: argparse.Namespace = parser.parse_args()
 
-    # Type hints for the parsed values
-    args.cfg: str
-    args.wrapper: str
-    args.seggrid: str
-    args.clip: int
-    args.probs: str
-
-    # Load cfg from JSON
     cfg: Cfg = Cfg.from_json(args.cfg)
-
     clip = args.clip
-
-    # Load wrapper from Parquet
     wrapper: SampleDataWrapper = SampleDataWrapper.from_parquet(args.wrapper)
-
     seggrid = Broadcast.from_parquet(args.seggrid)
-
     probs = args.probs == 'true'
 
-    # Run inference
     with cfg as cfg:
         predict = Predict(
             cfg=cfg,
@@ -469,7 +478,6 @@ def main():
             for mb in predict.pred():
                 del mb
 
-        # Cleanup
         del predict, wrapper
         gc.collect()
         torch.cuda.empty_cache()
@@ -485,4 +493,3 @@ if __name__ == "__main__":
 
         traceback.print_exc(file=sys.stderr)
         sys.exit(1)
-

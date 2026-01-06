@@ -70,90 +70,41 @@ class Submit:
                         _ = f.result()
                     except BaseException as e:
                         self.errors.append(e)
+
+            if self.errors:
+                # raise the first error that crashed a subprocess
+                raise self.errors[0]
+
         finally:
             try:
                 self.threads.shutdown(wait=True, cancel_futures=False)
             except Exception:
                 pass
-            # free lists
+
+            # free the threads
             self.prev.clear()
             self.next.clear()
 
-    def _imwrite(
-            self,
-            filename: str,
-            img,
-            params
-    ):
-        p = Path(filename)
-        parent = p.parent
-        parent.mkdir(exist_ok=True)
-        tmp = p.parent / f'tmp.{p.name}'
-        # fd, tmp = tempfile.mkstemp(
-        #     prefix=".tmp_",
-        #     dir=str(p.parent),
-        # )
-        # os.close(fd)
-        try:
-            ok = cv2.imwrite(tmp, img, params)
-            if not ok:
-                raise RuntimeError(
-                    f'imwrite failed for {filename} with '
-                    f'shape={img.shape} dtype={img.dtype}'
-                )
-            os.replace(tmp, p)
-        except Exception:
+
+    def rotate(self) -> None:
+        """
+        Wait for previous batch to complete, then rotate next -> prev.
+        Call this between minibatch iterations to ensure we don't get
+        too far ahead of disk I/O.
+        """
+        # wait for prev batch to finish
+        for f in self.prev:
             try:
-                os.unlink(tmp)
-            finally:
-                raise
+                f.result()
+            except BaseException as e:
+                self.errors.append(e)
+        self.prev.clear()
+        
+        # move next -> prev
+        self.prev.extend(self.next)
+        self.next.clear()
 
-    def imwrite(
-            self,
-            filename: str,
-            img,
-            params=(cv2.IMWRITE_PNG_COMPRESSION, 1),
-    ):
-        """
-        Schedule saving an image to disk with atomic replace.
-        """
-        future = self.threads.submit(self._imwrite, filename, img, params)
-        self.next.append(future)
-
-    def _to_npy(
-            self,
-            filename: str,
-            arr: np.ndarray,
-    ) -> None:
-        p = Path(filename)
-        parent = p.parent
-        parent.mkdir(parents=True, exist_ok=True)
-        tmp = p.parent / f'tmp.{p.name}'
-
-        try:
-            # Save array to a temporary .npy file
-            np.save(tmp, arr)
-            os.replace(tmp, p)
-        except Exception:
-            try:
-                if tmp.exists():
-                    tmp.unlink()
-            finally:
-                raise
-
-    def to_npy(
-            self,
-            filename: str,
-            arr: np.ndarray,
-    ):
-        """
-        Schedule saving a numpy array to .npy with atomic replace.
-        """
-        future = self.threads.submit(self._to_npy, filename, arr)
-        self.next.append(future)
-
-
-    def _to_tiff(
+    def to_tiff(
             self,
             filename: str,
             arr: np.ndarray,
@@ -173,10 +124,32 @@ class Submit:
             finally:
                 raise
 
-    def to_tiff(
+    def imwrite(
             self,
             filename: str,
-            arr: np.ndarray,
+            img,
+            params: list
     ):
-        future = self.threads.submit(self._to_tiff, filename, arr)
-        self.next.append(future)
+        p = Path(filename)
+        parent = p.parent
+        parent.mkdir(exist_ok=True)
+        tmp = (
+            p.parent
+            .joinpath(f'tmp.{p.name}')
+            .__str__()
+        )
+        if not params:
+            params = None
+        try:
+            if not cv2.imwrite(tmp, img, params):
+                raise RuntimeError(
+                    f'imwrite failed for {filename} with '
+                    f'shape={img.shape} dtype={img.dtype}'
+                )
+            os.replace(tmp, p)
+        except Exception:
+            try:
+                if os.path.exists(tmp):
+                    os.unlink(tmp)
+            finally:
+                raise

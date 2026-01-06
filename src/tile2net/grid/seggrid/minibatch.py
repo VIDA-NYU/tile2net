@@ -28,7 +28,6 @@ if False:
     from tile2net.grid.ingrid import InGrid
 
 
-
 def to_numpy(obj: Any):
     """converts tensors to ndarrays; preserves lists, dicts, etc."""
     if isinstance(obj, torch.Tensor):
@@ -61,28 +60,39 @@ def _clip_image_np(
 
     if nd == 2:
         h, w = array.shape
-        assert h > 2 * clip and w > 2 * clip, (
-            f"Invalid clip={clip} for shape {array.shape}"
-        )
+
+        msg = f"Invalid clip={clip} for shape {array.shape}"
+        assert (
+                h > 2 * clip
+                and w > 2 * clip
+        ), msg
         view = array[clip:-clip, clip:-clip]
 
     elif nd == 3:
         # assume channel-last (H, W, C)
         h, w = array.shape[0], array.shape[1]
-        assert h > 2 * clip and w > 2 * clip, (
-            f"Invalid clip={clip} for shape {array.shape}"
-        )
+        msg = f"Invalid clip={clip} for shape {array.shape}"
+        assert (
+                h > 2 * clip
+                and w > 2 * clip
+        ), msg
         view = array[clip:-clip, clip:-clip, :]
 
     elif nd == 4:
         # support both (N, C, H, W) and (N, H, W, C)
         # decide by which axes look like spatial
         n0, n1, n2, n3 = array.shape
-        # if channel-first -> (N,C,H,W): spatial = (-2,-1)
-        if n2 >= 2 * clip + 1 and n3 >= 2 * clip + 1:
+        # # if channel-first -> (N,C,H,W): spatial = (-2,-1)
+        if (
+                n2 >= 2 * clip + 1
+                and n3 >= 2 * clip + 1
+        ):
+            # assume channel-first (N,C,H,W)
             view = array[:, :, clip:-clip, clip:-clip]
-        # if channel-last -> (N,H,W,C): spatial = (1,2)
-        elif n1 >= 2 * clip + 1 and n2 >= 2 * clip + 1:
+        elif (
+                n1 >= 2 * clip + 1
+                and n2 >= 2 * clip + 1
+        ):
             view = array[:, clip:-clip, clip:-clip, :]
         else:
             raise AssertionError(f"Invalid clip={clip} for shape {array.shape}")
@@ -91,7 +101,8 @@ def _clip_image_np(
         # leave uncommon ranks unchanged
         return array
 
-    return np.ascontiguousarray(view)
+    out = np.ascontiguousarray(view)
+    return out
 
 
 @clip_image.register
@@ -106,26 +117,32 @@ def _clip_image_torch(
 
     if nd == 2:
         h, w = array.shape
-        assert h > 2 * clip and w > 2 * clip, (
-            f"Invalid clip={clip} for shape {tuple(array.shape)}"
-        )
+        msg = f"Invalid clip={clip} for shape {tuple(array.shape)}"
+        assert (
+                h > 2 * clip
+                and w > 2 * clip
+        ), msg
         view = array[clip:-clip, clip:-clip]
 
     elif nd == 3:
         # treat as (..., H, W) if it’s actually CHW or NHW?
         # be explicit: for 3D tensors we assume channel-first (C,H,W)
         h, w = array.shape[-2], array.shape[-1]
-        assert h > 2 * clip and w > 2 * clip, (
-            f"Invalid clip={clip} for shape {tuple(array.shape)}"
-        )
+        msg = f"Invalid clip={clip} for shape {tuple(array.shape)}"
+        assert (
+                h > 2 * clip
+                and w > 2 * clip
+        ), msg
         view = array[..., clip:-clip, clip:-clip]
 
     elif nd == 4:
         # common case: (N, C, H, W) -> clip last two dims
         h, w = array.shape[-2], array.shape[-1]
-        assert h > 2 * clip and w > 2 * clip, (
-            f"Invalid clip={clip} for shape {tuple(array.shape)}"
-        )
+        msg = f"Invalid clip={clip} for shape {tuple(array.shape)}"
+        assert (
+                h > 2 * clip
+                and w > 2 * clip
+        ), msg
         view = array[..., clip:-clip, clip:-clip]
 
     else:
@@ -229,7 +246,7 @@ class MiniBatch:
         # prepare scales & flips
         scales = [cfg.default_scale]
         if cfg.multi_scale_inference:
-            scales.extend( cfg.model.extra_scales )
+            scales.extend(cfg.model.extra_scales)
             scales.sort()
 
         input_size = images.size(2), images.size(3)
@@ -238,10 +255,10 @@ class MiniBatch:
         else:
             flips = 0,
 
-        # Check if ground truth is meaningful or just placeholder
         has_meaningful_gt = not cls._is_placeholder_gt(gt_image)
 
         with torch.inference_mode():
+            # preallocate accumulator to avoid repeated allocations
             output_accum = None
 
             for flip in flips:
@@ -256,9 +273,11 @@ class MiniBatch:
                     if has_meaningful_gt:
                         inputs['gts'] = gt_image.cuda(non_blocking=True)
 
-
-                    assert cfg.dataset.num_classes == 4
-                    with torch.amp.autocast("cuda", dtype=torch.float16):
+                    if torch.cuda.is_available():
+                        device_type = 'cuda'
+                    else:
+                        device_type = 'cpu'
+                    with torch.amp.autocast(device_type=device_type, dtype=torch.float16):
                         out = net(inputs)
                         pred = out["pred"]
 
@@ -270,17 +289,14 @@ class MiniBatch:
                     if flip == 1:
                         pred = cls.flip_tensor(pred, 3)
 
-                    # upcast once to fp32 for accumulation; free per-iter refs ASAP
                     pred_f32 = pred.to(torch.float32)
 
-                    # lazy allocate accumulator with correct shape/dtype/device
+                    # if first iteration, allocate accum to be like pred
                     if output_accum is None:
                         output_accum = torch.zeros_like(pred_f32)
-
-                    # accumulate and drop intermediates to release VRAM sooner
                     output_accum.add_(pred_f32)
 
-                    # aggressively drop references to let the allocator reclaim
+                    # aggressively drop refs
                     del pred_f32, pred, out
 
             probs = clip_image(
@@ -304,7 +320,6 @@ class MiniBatch:
     @cached_property
     def foreground(self) -> Foreground:
         return Foreground.from_probs(self.probs)
-
 
     @cached_property
     def intensity(self) -> torch.Tensor:
@@ -378,7 +393,7 @@ class MiniBatch:
         """
         calculate class-specific error masks
         """
-        # Class-specific error mask
+        # class-specific error mask
         class_mask = gtruth >= 0
         class_mask &= gtruth == classid
         fp = pred == classid
@@ -408,140 +423,74 @@ class MiniBatch:
     def dump_percent(self) -> int:
         return 100
 
-    def imwrite(
-            self,
-            tensor: torch.Tensor,
-            files: pd.Series
-    ) -> None:
-        arrays = (
-            tensor
-            .to(torch.uint8)
-            .cpu()
-            .numpy()
-        )
-        for array, file in zip(arrays, files):
-            self.submit.imwrite(file, array)
-
-    def submit_colorized(self):
-        self.imwrite(self.max.colors, self.seggrid.file.colorized)
-
-    def submit_intensity(self):
-        self.imwrite(self.intensity, self.seggrid.file.intensity)
-
-    # def submit_prob(self) -> None:
-    #     probs = (
-    #         self.probs
-    #         .to(torch.float16)
-    #         .cpu()
-    #         .numpy()
-    #     )
-    #     for array, file in zip(probs, self.seggrid.file.prob):
-    #         self.submit.to_tiff(file, array)
-
-
-    def write_all(self, probs_tensor, event, files):
-        event.synchronize()
-        probs_np = probs_tensor.numpy()
-        for arr, f in zip(probs_np, files):
-            self.submit._to_tiff(f, arr)
-
     def submit_prob(self) -> None:
-        probs = self.probs.to(torch.float16).to('cpu', non_blocking=True)
+        """Submit probability maps for parallel writing to disk.
+
+        Uses CUDA event synchronization to ensure GPU->CPU transfer completes
+        before handing off to thread pool for parallel compression and writing.
+        """
+        probs = (
+            self.probs
+            .to(torch.float16)
+            # avoids sequential sync
+            .to('cpu', non_blocking=True)
+        )
         stream = torch.cuda.current_stream()
         event = stream.record_event()
         files = list(self.seggrid.file.prob)
-        future = self.submit.threads.submit(self.write_all, probs, event, files)
+
+        def write_batch():
+            # wait once for all gpu->cpu transfers to complete
+            event.synchronize()
+
+            it = zip(files, probs.numpy())
+            futures = [
+                self.submit
+                .to_tiff(file, prob)
+                for file, prob in it
+            ]
+
+            for future in futures:
+                future.result()
+
+        # thread-within-thread necessary bc event.synchronize() is blocking
+        future = self.submit.threads.submit(write_batch)
         self.submit.next.append(future)
 
-
-    # def submit_output(self) -> None:
-    #     if not self.output:
-    #         return
-    #     colorize = self.grid.colormap
-    #     for dirname, arrays in self.output.items():
-    #         files = self.grid.file.output(dirname)
-    #         # move only this tensor (no dict-wide to_numpy)
-    #         arr = arrays
-    #         if isinstance(arr, torch.Tensor):
-    #             arr = arr.detach().to('cpu')  # keep as tensor to avoid extra copies
-    #             if 'pred_' in dirname:
-    #                 # integer labels expected before colorize
-    #                 arr = arr.argmax(dim=1).to(torch.uint8)
-    #                 np_arr = arr.numpy()
-    #                 np_arr = colorize(np_arr)  # colorize on CPU
-    #             else:
-    #                 np_arr = arr.numpy()
-    #         else:
-    #             np_arr = np.asarray(arr)
-    #
-    #         for array, file in zip(np_arr, files):
-    #             self.submit.imwrite(file, array)
-
     def submit_pred(self):
-        arrays = (
+        """Submit prediction masks for parallel writing to disk.
+
+        Uses async GPU->CPU transfer and batched submission to avoid
+        blocking the GPU pipeline during file I/O operations.
+        """
+        pred_tensor = (
             self.max.pred
             .to(torch.uint8)
-            .cpu()
-            .numpy()
+            .to('cpu', non_blocking=True)
         )
-        for array, file in zip(arrays, self.seggrid.file.pred):
-            if array.ndim == 3:
-                array = array.argmax(axis=-1)
-            self.submit.imwrite(file, array)
+        event = (
+            torch.cuda
+            .current_stream()
+            .record_event()
+        )
+        files = list(self.seggrid.file.pred)
 
-    def submit_all(self):
-        # await previous writes
-        submit = self.submit
-        prev = self.submit.prev
-        for future in prev:
-            future.result()
+        def write_batch():
+            # wait once for gpu->cpu transfer to complete
+            event.synchronize()
 
-        dt = time.time() - submit.t
-        if dt > submit.period:
-            # rotate thread pool
-            msg = f'Rotating thread pool'
-            logger.debug(msg)
-            submit.threads.shutdown(wait=True)
-            del submit.threads
-            # trim memory
-            try:
-                msg = f'Trimming memory'
-                logger.debug(msg)
-                libc = ctypes.CDLL("libc.so.6")
-                libc.malloc_trim(0)
-            except Exception:
-                pass
+            it = zip(files, pred_tensor.numpy())
+            args = [cv2.IMWRITE_PNG_COMPRESSION, 1]
 
-        next = submit.next
-        # if cfg.segmentation.probability:
-        #     self.submit_probability()
-        # self.submit_output()
-        self.submit_pred()
-        if cfg.segmentation.colorized:
-            self.submit_colorized()
-        if cfg.segmentation.intensity:
-            self.submit_intensity()
+            futures = [
+                self.submit
+                .imwrite(file, prob, args)
+                for file, prob in it
+            ]
 
-        submit.prev = next
-        del submit.next
-        del submit.t
-        _ = submit.t
+            for future in futures:
+                future.result()
 
-    # @classmethod
-    # def set_columns(
-    #         cls,
-    #         ingrid: InGrid
-    # ):
-    #     """
-    #     Temporary workaround to have the columns show up in the SegGrid
-    #     before the subprocess
-    #     """
-    #     seggrid = ingrid.seggrid.broadcast
-    #     predict = seggrid.predict
-    #     _ = (
-    #         seggrid.file.colorized,
-    #         seggrid.file.intensity,
-    #         seggrid.file.pred,
-    #         seggrid.file.prob,
-    #     )
-    #     seggrid.predict = predict
+        # thread-within-thread necessary bc event.synchronize() is blocking
+        future = self.submit.threads.submit(write_batch)
+        self.submit.next.append(future)

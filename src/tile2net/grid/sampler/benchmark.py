@@ -1,12 +1,14 @@
 import os
-import time
+import subprocess
 import threading
+import time
 from functools import cached_property
-from typing import Any, Optional
+from typing import Optional
 
-from .samples import Samples
 import pandas as pd
 import psutil
+
+from .samples import Samples
 
 
 class Sampler:
@@ -98,41 +100,24 @@ class Sampler:
                     gpu_total_gb = total_b / (1024 ** 3)
                     gpu_percent = (used_b / total_b) * 100 if total_b else float("nan")
 
-                    # try NVML for utilization and cores
+                    # get GPU utilization using pre-determined method
                     try:
-                        from pynvml import (
-                            nvmlInit,
-                            nvmlShutdown,
-                            nvmlDeviceGetHandleByIndex,
-                            nvmlDeviceGetUtilizationRates,
-                            nvmlDeviceGetMultiprocessorCount,
+                        result = subprocess.run(
+                            [
+                                "nvidia-smi",
+                                "--query-gpu=utilization.gpu",
+                                "--format=csv,noheader,nounits",
+                                "-i",
+                                str(dev),
+                            ],
+                            capture_output=True,
+                            text=True,
+                            timeout=0.3,
                         )
-                        nvmlInit()
-                        handle = nvmlDeviceGetHandleByIndex(int(dev))
-                        util = nvmlDeviceGetUtilizationRates(handle)
-                        gpu_util_percent = float(util.gpu)
-                        try:
-                            gpu_cores = float(nvmlDeviceGetMultiprocessorCount(handle))
-                        except Exception:
-                            gpu_cores = float("nan")
-                        nvmlShutdown()
-                    except Exception:
-                        # fallback via nvidia-smi, if available
-                        try:
-                            import subprocess
-                            out = subprocess.check_output(
-                                [
-                                    "nvidia-smi",
-                                    "--query-gpu=utilization.gpu",
-                                    "--format=csv,noheader,nounits",
-                                    f"-i{int(dev)}",
-                                ],
-                                timeout=0.2,
-                            )
-                            # may return like b'35\n'
-                            gpu_util_percent = float(out.decode().strip().splitlines()[0])
-                        except Exception:
-                            pass
+                        if result.returncode == 0:
+                            gpu_util_percent = float(result.stdout.strip())
+                    except (subprocess.TimeoutExpired, ValueError, Exception):
+                        pass
                 except Exception:
                     pass
 
@@ -173,7 +158,7 @@ class Benchmark:
 
     def __init__(
             self,
-            interval_s: float = 1.,
+            interval_s: float = 0.25,
             include_gpu: bool = True,
     ):
         self.interval_s = interval_s
@@ -213,3 +198,25 @@ class Benchmark:
         )
         result = Samples.from_frame(df)
         return result
+
+    def save_csv(self, filepath: str) -> None:
+        """
+        Save benchmark data to CSV file with VRAM usage, GPU usage, and time since startup.
+
+        Args:
+            filepath: Path where the CSV file will be saved
+        """
+        if not self._all_records:
+            raise ValueError("No benchmark data to save")
+
+        df = pd.DataFrame(self._all_records)
+
+        # Select and order columns for the output CSV
+        output_df = pd.DataFrame({
+            'vram_percent': df['gpu_percent'],
+            'gpu_percent': df['gpu_util_percent'],
+            'time_s': df['t'],
+        })
+
+        output_df.to_csv(filepath, index=False)
+        return filepath

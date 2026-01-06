@@ -290,7 +290,7 @@ class SegGrid(
         raise NotImplementedError
 
     def _write_benchmark_summary(self) -> None:
-        """Write segmentation benchmark summary to file."""
+        """Write segmentation benchmark summary to file and save detailed CSV."""
         try:
             seg_s = self.benchmark.samples
             seg_vals = {
@@ -349,6 +349,13 @@ class SegGrid(
             summary_path = Path(self.outdir.seggrid.summary)
             summary_path.parent.mkdir(parents=True, exist_ok=True)
             summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+            # save detailed CSV with all samples
+            # todo: have summary.txt and benchmark.csv controlled by cfg
+            # csv_path = summary_path.parent / "benchmark.csv"
+            # self.benchmark.save_csv(str(csv_path))
+            # logger.info(f"Saved detailed benchmark data to {csv_path}")
+
         except Exception as exc:
             logger.warning(f"Could not write segmentation benchmark summary: {exc}")
 
