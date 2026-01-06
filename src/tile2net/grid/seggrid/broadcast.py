@@ -34,7 +34,7 @@ class VecTile(
 ):
 
     @frame.column
-    def r(self):
+    def row(self):
         """row within the segtile of this tile"""
 
         ytile = self.grid.ytile.to_series()
@@ -49,7 +49,7 @@ class VecTile(
         return result
 
     @frame.column
-    def c(self):
+    def col(self):
         """column within the segtile of this tile"""
         xtile = self.grid.xtile.to_series()
         result = (
@@ -171,7 +171,7 @@ class Broadcast(
             d = seggrid.scale - vecgrid.scale
             expected = 2 ** (2 * d) + 4 * 2 ** d + 4
             assert len(result) == expected * len(vecgrid)
-            _ = result.vectile.r, result.vectile.c
+            _ = result.vectile.row, result.vectile.col
 
         result.instance = instance
         return result
@@ -260,8 +260,8 @@ class Broadcast(
             mask=[None] * len(ingrid),
             index=ingrid.segtile.index,
             background=0,
-            row=ingrid.segtile.r,
-            col=ingrid.segtile.c,
+            row=ingrid.segtile.row,
+            col=ingrid.segtile.col,
             force=force,
         )
 

@@ -90,7 +90,7 @@ class SegTile(
         return result
 
     @frame.column
-    def r(self) -> pd.Series:
+    def row(self) -> pd.Series:
         """Row index within the seg-tile (0 to length-1)."""
         ingrid = self.ingrid
         result = (
@@ -103,7 +103,7 @@ class SegTile(
         return result
 
     @frame.column
-    def c(self) -> pd.Series:
+    def col(self) -> pd.Series:
         """Column index within the seg-tile (0 to length-1)."""
         ingrid = self.ingrid
         result = (

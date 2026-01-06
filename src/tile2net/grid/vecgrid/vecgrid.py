@@ -523,8 +523,8 @@ class VecGrid(Grid):
         wrapper: VecDataWrapper = VecDataWrapper.from_segtiles(
             infile=seggrid.file.pred,
             index=seggrid.vectile.index,
-            row=seggrid.vectile.r,
-            col=seggrid.vectile.c,
+            row=seggrid.vectile.row,
+            col=seggrid.vectile.col,
             background=3,
             force=force,
             affine=seggrid.vectile.affine,

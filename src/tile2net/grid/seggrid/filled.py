@@ -17,12 +17,12 @@ class VecTile(
 ):
 
     @property
-    def r(self) -> pd.Series:
+    def row(self) -> pd.Series:
         """row within the segtile of this tile"""
         raise NotImplementedError
 
     @property
-    def c(self) -> pd.Series:
+    def col(self) -> pd.Series:
         """column within the segtile of this tile"""
         raise NotImplementedError
 

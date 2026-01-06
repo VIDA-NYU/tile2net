@@ -961,24 +961,45 @@ class Grid(
             self,
             tiles: pd.Series,
             mosaics: pd.Series,
-            small_grid: Grid,
-            r: pd.Series,
-            c: pd.Series,
+            row: pd.Series,
+            col: pd.Series,
             background: int = 0,
             force=False,
             **kwargs
     ):
+        """
+        Stitch multiple input tiles into larger mosaic images and write them to disk.
+    
+        Takes individual tile file paths and combines them into larger mosaics based on
+        their row/column positions. Skips existing mosaics unless force=True.
+    
+        Args:
+            tiles:
+                Series of input tile file paths to be stitched together.
+            mosaics:
+                Series of output mosaic file paths where stitched images will be saved.
+            row:
+                Row indices indicating vertical position of each tile within its mosaic.
+            col:
+                Column indices indicating horizontal position of each tile within its mosaic.
+            background:
+                Pixel value to use for empty/background areas in mosaics.
+            force:
+                If True, regenerate all mosaics even if they already exist on disk.
+            **kwargs:
+                Additional arguments passed to the stitching process.
+        """
 
         # keep original row/col
-        row = r
-        col = c
+        # row = row
+        # col = c
 
         # skip mosaics that already exist unless force=True
         if not force:
             loc = ~mosaics.map(os.path.exists)
             tiles = tiles.loc[loc]
-            row = r.loc[loc]
-            col = c.loc[loc]
+            # row = r.loc[loc]
+            # col = c.loc[loc]
             mosaics = mosaics.loc[loc]
 
         stitched = mosaics.drop_duplicates()
@@ -991,9 +1012,9 @@ class Grid(
         else:
             msg = (
                 f'Stitching {n_missing:,} '
-                f'{small_grid.__class__.__name__}.{tiles.name} '
+                f'{self.__class__.__name__}.{tiles.name} '
                 f'into {n_total:,} '
-                f'{small_grid.__class__.__name__}.{mosaics.name}'
+                f'{self.__class__.__name__}.{mosaics.name}'
             )
             logger.info(msg)
 

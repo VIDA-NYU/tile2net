@@ -3,7 +3,6 @@ from __future__ import annotations
 import copy
 from functools import *
 from typing import *
-from .weak import weak
 
 from tile2net.grid.util import returns_or_assigns
 from .wrapper import Wrapper

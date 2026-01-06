@@ -63,12 +63,10 @@ class File(
                 .all()
             )
             ingrid._stitch_to_file(
-                small_grid=ingrid,
-                big_grid=grid,
-                r=ingrid.segtile.r,
-                c=ingrid.segtile.c,
                 tiles=ingrid.file.infile,
                 mosaics=mosaics,
+                row=ingrid.segtile.row,
+                col=ingrid.segtile.col,
             )
             msg = f"Files not stitched: {files[~files.map(os.path.exists)]}"
             assert files.map(os.path.exists).all(), msg
@@ -243,6 +241,7 @@ class File(
                     for prob, pred, file in it
                 }
                 for future, file in futures:
+
                     future.result()
 
             assert (

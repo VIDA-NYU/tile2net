@@ -17,7 +17,7 @@ class SegTile(
 ):
 
     @frame.column
-    def r(self):
+    def row(self):
         """row within the segtile of this tile"""
 
         ytile = self.grid.ytile.to_series()
@@ -32,7 +32,7 @@ class SegTile(
         return result
 
     @frame.column
-    def c(self):
+    def col(self):
         """column within the segtile of this tile"""
         xtile = self.grid.xtile.to_series()
         result = (
@@ -124,7 +124,7 @@ class Broadcast(
             # expected = 2 ** (2 * d) + 4 * 2 ** d + 4
             # expected = 2 ** (2 * d * pad) + 4 * 2 ** (d * pad) + 4
             # assert len(result) == expected * len(seggrid)
-            _ = result.segtile.r, result.segtile.c
+            _ = result.segtile.row, result.segtile.col
 
         result.instance = instance
         return result

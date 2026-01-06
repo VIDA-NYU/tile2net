@@ -184,13 +184,13 @@ class VecTile(
         return result
 
     @frame.column
-    def r(self):
+    def row(self):
         """
         Row index within the vec-tile (0 to length-1).
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.r
+            >>> ingrid.seggrid.vectile.row
             xtile  ytile
             79320  96960    0
                    96961    1
@@ -213,13 +213,13 @@ class VecTile(
         return result
 
     @frame.column
-    def c(self):
+    def col(self):
         """
         Column index within the vec-tile (0 to length-1).
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.c
+            >>> ingrid.seggrid.vectile.col
             xtile  ytile
             79320  96960    0
                    96961    0

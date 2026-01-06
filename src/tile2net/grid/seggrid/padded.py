@@ -63,10 +63,8 @@ class Padded(
                 .all()
             )
             ingrid._stitch_to_file(
-                small_grid=ingrid,
-                big_grid=seggrid,
-                r=ingrid.segtile.r,
-                c=ingrid.segtile.c,
+                row=ingrid.segtile.row,
+                col=ingrid.segtile.col,
                 tiles= small_files,
                 mosaics= big_files,
             )

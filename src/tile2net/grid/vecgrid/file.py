@@ -46,10 +46,8 @@ class File(
             _ = seggrid.file.pred
 
             vecgrid._stitch_to_file(
-                small_grid=seggrid,
-                big_grid=outgrid,
-                r=seggrid.vectile.r,
-                c=seggrid.vectile.c,
+                row=seggrid.vectile.row,
+                col=seggrid.vectile.col,
                 tiles=seggrid.file.pred,
                 mosaics=seggrid.vectile.grayscale,
                 background=3,
@@ -88,10 +86,8 @@ class File(
             seggrid = seggrid.loc[loc]
 
             vecgrid._stitch_to_file(
-                small_grid=seggrid,
-                big_grid=outgrid,
-                r=seggrid.vectile.r,
-                c=seggrid.vectile.c,
+                row=seggrid.vectile.row,
+                col=seggrid.vectile.col,
                 tiles=seggrid.file.colorized,
                 mosaics=seggrid.vectile.colorized,
             )
@@ -131,10 +127,8 @@ class File(
             seggrid = seggrid.loc[loc]
 
             vecgrid._stitch_to_file(
-                small_grid=seggrid,
-                big_grid=outgrid,
-                r=seggrid.vectile.r,
-                c=seggrid.vectile.c,
+                row=seggrid.vectile.row,
+                col=seggrid.vectile.col,
                 tiles=seggrid.file.infile,
                 mosaics=seggrid.vectile.infile,
             )
