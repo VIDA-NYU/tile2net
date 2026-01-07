@@ -1,31 +1,14 @@
 from __future__ import annotations
 
-import os
-from typing import (
-    TYPE_CHECKING,
-)
-
-if TYPE_CHECKING:
-    pass
-
-from typing import (
-    TYPE_CHECKING,
-)
-
-if TYPE_CHECKING:
-    from pandas._typing import (
-        Self,
-    )
-
-from tile2net.grid.frame.namespace import namespace
-
-import geopandas as gpd
-
 import copy
+import os
 from functools import *
 from typing import *
 
+import geopandas as gpd
 import pandas as pd
+
+from tile2net.grid.frame.namespace import namespace
 from .wrapper import Wrapper
 
 
@@ -222,6 +205,3 @@ class FrameWrapper(
         """Load FrameWrapper from parquet file."""
         frame = pd.read_parquet(path)
         return cls.from_frame(frame)
-
-
-
