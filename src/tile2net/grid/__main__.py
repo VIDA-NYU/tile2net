@@ -9,6 +9,7 @@ import subprocess
 
 # Must be within main to avoid parallelism issues
 if __name__ == '__main__':
+    raise NotImplementedError
 
     ingrid = InGrid.from_cfg()
     cfg = ingrid.cfg

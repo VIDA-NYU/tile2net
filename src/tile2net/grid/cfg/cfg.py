@@ -110,6 +110,53 @@ class Train(cmdline.Namespace):
         return False
 
 
+class HasImagery:
+    @cmdline.property
+    def pred(self) -> bool:
+        """Save predictions to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def prob(self) -> bool:
+        """Save per-class probabilities to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def colorized(self) -> bool:
+        """Save colorized segmentation masks to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def intensity(self) -> bool:
+        """Save intensity visualization to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def sidebyside(self) -> bool:
+        """Save side-by-side input and colorized segmentation masks to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def overlay(self) -> bool:
+        """Save overlay visualization to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def error(self) -> bool:
+        """Save error visualization to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def soft(self) -> bool:
+        """Save soft segmentation masks to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def static(self) -> bool:
+        """Save static imagery to file at the respective scale."""
+        return False
+
+
 class Dataset(cmdline.Namespace):
     @cmdline.property
     def translate_aug_fix(self) -> bool:
@@ -689,7 +736,10 @@ class Download(cmdline.Namespace):
         return False
 
 
-class Segmentation(cmdline.Namespace):
+class Segmentation(
+    cmdline.Namespace,
+    HasImagery
+):
     """Segmenation configuration namespace."""
 
     @cmdline.property
@@ -728,27 +778,6 @@ class Segmentation(cmdline.Namespace):
         return True
 
     @cmdline.property
-    def colorized(self) -> bool:
-        """Write colorized segmentation masks to file"""
-        return True
-        return False
-
-    @cmdline.property
-    def probability(self) -> bool:
-        """Write probability to file"""
-        return False
-
-    @cmdline.property
-    def intensity(self) -> bool:
-        """Write intensity to file"""
-        return True
-        return False
-
-    @cmdline.property
-    def to_pkl(self) -> bool:
-        return False
-
-    @cmdline.property
     def pad(self) -> int:
         """Number of seg-tiles to pad each vec-tile by."""
         return 1
@@ -760,8 +789,6 @@ class Segmentation(cmdline.Namespace):
         """
         return 4
 
-        # return 2
-
     @cmdline.property
     def persistent_workers(self) -> bool:
         """
@@ -770,17 +797,11 @@ class Segmentation(cmdline.Namespace):
         # return False
         return True
 
-    # @cmdline.property
-    # def num_workers(self) -> int:
-    #     """
-    #     Number of data loader workers
-    #     """
-    #     # result = multiprocessing.cpu_count() // 2
-    #     result = 8
-    #     return result
-    #
 
-class Vectorization(cmdline.Namespace):
+class Vectorization(
+    cmdline.Namespace,
+    HasImagery,
+):
     """Vectorization configuration namespace."""
 
     @cmdline.property
@@ -993,6 +1014,7 @@ class Indir(
 class Cfg(
     Nested,
     UserDict,
+    HasImagery,
 ):
     grid = None
     grid: Grid
@@ -1532,7 +1554,8 @@ class Cfg(
         """
         return False
 
-    @cmdline.property
+    G @ cmdline.property
+
     def dump_topn(self) -> int:
         """
         Dump worst validation images
