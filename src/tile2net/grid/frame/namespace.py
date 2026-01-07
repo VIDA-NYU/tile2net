@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 from functools import *
+from types import TracebackType
 from typing import *
 
 from tile2net.grid.util import returns_or_assigns
@@ -18,14 +19,7 @@ class namespace(
 ):
     __wrapped__ = None
     __name__ = None
-
-    # @weak.property
-    # def wrapper(self) -> Wrapper:
-    #     ...
-    #
-    # @weak.property
-    # def instance(self) -> TGrid:
-    #     ...
+    instance: object
 
     def _get(
             self,
@@ -75,3 +69,31 @@ class namespace(
     ):
         instance.__dict__[self.__name__] = value
         value.instance = instance
+
+    def __enter__(self):
+        """
+        Supports using namespace as a truthy context manager,
+        allowing for creative and convenient uses. For example:
+        >>> with self.file:
+        >>>     static = self.file.static
+        The retrieval of `static` uses the truthy context to behave differently.
+        Normally, it is configured to start downloading the static files for user
+        convenience. With this context manager, it allows us to check if `self.file`
+        to temporarily disable the auto-download, getting the paths without downloading.
+        """
+        self.instance.__dict__[self.__name__] = True
+
+    def __exit__(
+            self,
+            exc_type: Optional[Type[BaseException]],
+            exc: Optional[BaseException],
+            tb: Optional[TracebackType],
+    ):
+        try:
+            del self.instance.__dict__[self.__name__]
+        except KeyError:
+            ...
+        return False
+
+    def __bool__(self):
+        return self.instance.__dict__[self.__name__]
