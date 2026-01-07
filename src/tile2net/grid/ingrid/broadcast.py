@@ -50,9 +50,9 @@ class SegTile(
         return self.ingrid.seggrid.padded.length
 
     @frame.column
-    def infile(self):
+    def static(self):
         result = (
-            self.grid.ingrid.seggrid.padded.infile
+            self.grid.ingrid.seggrid.padded.static
             .loc[self.index]
             .values
         )

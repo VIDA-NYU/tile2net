@@ -256,7 +256,7 @@ class Broadcast(
         force |= self.cfg.force
 
         wrapper: SampleDataWrapper = SampleDataWrapper.from_tiles(
-            infile=ingrid.file.infile,
+            static=ingrid.file.static,
             mask=[None] * len(ingrid),
             index=ingrid.segtile.index,
             background=0,
@@ -279,7 +279,7 @@ class Broadcast(
             wrapper_path = wrapper_file.name
 
         assert (
-            self.ingrid.file.infile
+            self.ingrid.file.static
             .map(os.path.exists)
             .all()
         )

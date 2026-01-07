@@ -28,7 +28,7 @@ class DataWrapper(
     """
 
     @frame.column
-    def infile(self):
+    def static(self):
         """input file paths"""
 
     @frame.column
@@ -48,7 +48,7 @@ class DataWrapper(
     def from_tiles(
             cls,
             *,
-            infile: ArrayLike,
+            static: ArrayLike,
             index: ArrayLike,
             row: ArrayLike,
             col: ArrayLike,
@@ -57,7 +57,7 @@ class DataWrapper(
             **kwargs,
     ) -> Self:
         """
-        infiles:
+        statics:
             series of input files
         index:
             identifier for each tile
@@ -71,7 +71,7 @@ class DataWrapper(
             whether to force stitching of tile
         """
         data = dict(
-            infile=infile,
+            static=static,
             row=row,
             col=col,
             force=force,

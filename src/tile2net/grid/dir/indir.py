@@ -7,7 +7,7 @@ from tile2net.grid.ingrid.source import Source
 from .dir import Dir, Dir
 
 
-class InFile(
+class static(
     Dir
 ):
     ...

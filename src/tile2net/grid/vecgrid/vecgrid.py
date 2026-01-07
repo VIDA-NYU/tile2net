@@ -46,7 +46,7 @@ if False:
 
 
 class VectorizeTask(NamedTuple):
-    infile: str
+    static: str
     affine: tuple[float, ...]
     xmin: float
     ymin: float
@@ -184,12 +184,12 @@ class VecGrid(Grid):
         vecgrid = self
 
         mask = self.file.colorized
-        infile = self.file.infile
+        static = self.file.static
         overlay = self.file.overlay
 
         loc = ~overlay.map(os.path.exists)
         pred_files = mask.loc[loc]
-        in_files = infile.loc[loc]
+        in_files = static.loc[loc]
         out_files = overlay.loc[loc]
 
         n_missing = int(np.sum(loc))
@@ -362,7 +362,7 @@ class VecGrid(Grid):
         grid_size = 0.1
         with cfg:
             try:
-                # polys = Mask2Poly.from_path(infile, affine,crs=3857)
+                # polys = Mask2Poly.from_path(static, affine,crs=3857)
                 polys = Mask2Poly.from_array(grayscale, affine, crs=3857)
                 assert isinstance(polys, Mask2Poly)
                 # return
@@ -521,7 +521,7 @@ class VecGrid(Grid):
             force |= self.cfg.force
 
         wrapper: VecDataWrapper = VecDataWrapper.from_segtiles(
-            infile=seggrid.file.pred,
+            static=seggrid.file.pred,
             index=seggrid.vectile.index,
             row=seggrid.vectile.row,
             col=seggrid.vectile.col,
@@ -644,7 +644,7 @@ class VecGrid(Grid):
             grid.file.lines,
         )
         for (
-                infile,
+                static,
                 affine,
                 xmin,
                 ymin,
@@ -654,7 +654,7 @@ class VecGrid(Grid):
                 network_file,
         ) in it:
             yield VectorizeTask(
-                infile=infile,
+                static=static,
                 affine=affine,
                 xmin=float(xmin),
                 ymin=float(ymin),

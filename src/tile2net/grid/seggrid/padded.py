@@ -44,21 +44,21 @@ class Padded(
         return self.instance
 
     @frame.column
-    def infile(self) -> pd.Series:
+    def static(self) -> pd.Series:
         """
         Padded input imagery file for each seg-tile.
         Stitches input files when seggrid.file is accessed.
         """
         seggrid = self.grid
-        files = seggrid.ingrid.outdir.seggrid.padded.infile.files(seggrid)
+        files = seggrid.ingrid.outdir.seggrid.padded.static.files(seggrid)
 
-        self.infile = files
+        self.static = files
         if not files.map(os.path.exists).all():
             ingrid = seggrid.ingrid.broadcast
-            small_files = ingrid.file.infile
-            big_files = ingrid.segtile.infile
+            small_files = ingrid.file.static
+            big_files = ingrid.segtile.static
             assert (
-                ingrid.file.infile
+                ingrid.file.static
                 .map(os.path.exists)
                 .all()
             )

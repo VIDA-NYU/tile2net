@@ -62,7 +62,7 @@ class StitchDataSet(
                     Path(file)
                     .suffix
                     .lower()
-                    for file in wrapper.infile
+                    for file in wrapper.static
                     if file is not None
                 ),
                 None
@@ -145,12 +145,12 @@ class StitchDataSet(
         return ncol.iloc[0]
 
     @cached_property
-    def infile(self) -> list[list[str]]:
+    def static(self) -> list[list[str]]:
         result = (
             self.wrapper
             .frame
             .groupby(level=self.wrapper.frame.index.names, )
-            .infile
+            .static
             .apply(list)
             .tolist()
         )
@@ -186,7 +186,7 @@ class StitchDataSet(
         try:
             path: str = next(
                 path
-                for paths in self.infile
+                for paths in self.static
                 for path in paths
                 if Path(path).is_file()
             )
@@ -282,7 +282,7 @@ class StitchDataSet(
     #     # composite tiles into a single RGB mosaic
     #
     #     # pull grouped lists
-    #     files = self.infile[item]
+    #     files = self.static[item]
     #     rows = self.row[item]
     #     cols = self.col[item]
     #
@@ -433,7 +433,7 @@ class StitchDataSet(
         # composite tiles into a single RGB mosaic
 
         # pull grouped lists
-        files = self.infile[item]
+        files = self.static[item]
         rows = self.row[item]
         cols = self.col[item]
         index = self.index[item]

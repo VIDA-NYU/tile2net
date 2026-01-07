@@ -22,7 +22,7 @@ class Error(
     extension = 'npy'
 
 
-class InFile(
+class static(
     Dir
 ):
     ...
@@ -99,8 +99,8 @@ class Grid(
     def colorized(self):
         ...
 
-    @InFile
-    def infile(self):
+    @static
+    def static(self):
         ...
 
     @Overlay

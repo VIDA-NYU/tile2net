@@ -7,5 +7,5 @@ class InGrid(
     Grid,
 ):
     @property
-    def infile(self):
+    def static(self):
         return self.grid.indir

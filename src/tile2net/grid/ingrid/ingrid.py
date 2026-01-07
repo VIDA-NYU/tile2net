@@ -110,9 +110,9 @@ class InGrid(
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.file.infile
+            >>> ingrid.file.static
             xtile   ytile
-            317280  387840    /home/<user>/tile2net/ma/ingrid/infile/20/31...
+            317280  387840    /home/<user>/tile2net/ma/ingrid/static/20/31...
         """
 
     @VecGrid
@@ -179,7 +179,7 @@ class InGrid(
         try:
             sample = next(
                 p
-                for p in self.file.infile
+                for p in self.file.static
                 if Path(p).is_file()
             )
         except StopIteration:
@@ -187,7 +187,7 @@ class InGrid(
             try:
                 sample = next(
                     p
-                    for p in self.file.infile
+                    for p in self.file.static
                     if Path(p).is_file()
                 )
             except StopIteration:
@@ -281,7 +281,7 @@ class InGrid(
         ingrid = self.ingrid.outdir.ingrid
         format = os.path.join(
             ingrid.dir,
-            'infile',
+            'static',
             f'z/x_y'
         )
         result = Indir.from_format(format)
@@ -338,8 +338,8 @@ class InGrid(
             >>> ingrid: InGrid
             >>> ingrid.tempdir
             Tempdir(
-                dir='/tmp/tile2net/ma/ingrid/infile'
-                original='/tmp/tile2net/ma/ingrid/infile/z/x_y',
+                dir='/tmp/tile2net/ma/ingrid/static'
+                original='/tmp/tile2net/ma/ingrid/static/z/x_y',
             )
         """
         format = os.path.join(
@@ -396,10 +396,10 @@ class InGrid(
                 Download only one file for testing
 
         Returns:
-            Self with downloaded files available at InGrid.file.infile
+            Self with downloaded files available at InGrid.file.static
         """
 
-        paths = self.file.infile
+        paths = self.file.static
         urls = self.source.urls
         if paths.empty or urls.empty:
             return self
@@ -414,7 +414,7 @@ class InGrid(
         if exists.all() and not force:
             msg = (
                 f'All {len(paths):,} '
-                f'{self.__class__.__qualname__}.{self.file.infile.name} '
+                f'{self.__class__.__qualname__}.{self.file.static.name} '
                 f'on disk at {self.indir.dir}. '
             )
             logger.info(msg)
@@ -430,7 +430,7 @@ class InGrid(
 
         msg = (
             f'Downloading {len(mapping):,} '
-            f'{self.__class__.__qualname__}.{self.file.infile.name} '
+            f'{self.__class__.__qualname__}.{self.file.static.name} '
             f'from {self.source.name} to \n\t{self.indir.dir} '
         )
         logger.info(msg)
@@ -531,7 +531,7 @@ class InGrid(
             logger.info("Downloaded one file successfully (one=True).")
             return self
 
-        if len(not_found) + len(failed) == len(self.file.infile):
+        if len(not_found) + len(failed) == len(self.file.static):
             msg = f'All {len(not_found) + len(failed):,} grid failed to download.'
             raise FileNotFoundError(msg)
 
@@ -720,7 +720,7 @@ class InGrid(
         ingrid = result.outdir.ingrid
         format = os.path.join(
             ingrid.dir,
-            'infile',
+            'static',
             f'z/x_y'
         )
         result = result.set_indir(format)
@@ -754,7 +754,7 @@ class InGrid(
             result.name = name
         try:
             result.indir = indir
-            # result.outdir.ingrid.infile = indir
+            # result.outdir.ingrid.static = indir
             indir: Indir = result.indir
             msg = f'Setting input directory to \n\t{indir.original} '
 
@@ -1070,7 +1070,7 @@ class InGrid(
         if outdir:
             rows.append(('Output directory', outdir))
 
-        rows.append(('Input imagery', _p(self.outdir.ingrid.infile.dir)))
+        rows.append(('Input imagery', _p(self.outdir.ingrid.static.dir)))
         if self.cfg.segmentation.colorized:
             rows.append(('Segmentation (colorized)', _p(self.outdir.seggrid.colorized.dir)))
         if self.cfg.polygon.concat:
@@ -1239,7 +1239,7 @@ class InGrid(
             self,
             polygons: bool = True,
             lines: bool = True,
-            infile: bool = True,
+            static: bool = True,
             grayscale: bool = True
     ):
         """ignore for now."""
@@ -1264,15 +1264,15 @@ class InGrid(
             logger.info(msg)
             util.cleanup(self.vecgrid.file.lines)
 
-        if infile:
+        if static:
             msg = (
                 f'Cleaning up previously downloaded imagery '
                 f'from {self.ingrid.indir.dir} and '
-                f'{self.ingrid.outdir.seggrid.infile.dir}'
+                f'{self.ingrid.outdir.seggrid.static.dir}'
             )
             logger.info(msg)
-            util.cleanup(self.ingrid.file.infile)
-            util.cleanup(self.seggrid.file.infile)
+            util.cleanup(self.ingrid.file.static)
+            util.cleanup(self.seggrid.file.static)
 
         if grayscale:
             msg = (
@@ -1343,10 +1343,10 @@ class InGrid(
 
         # build a wrapper that knows how to place tiles with a divider-colorized background
         if files is None:
-            files = self.file.infile
+            files = self.file.static
 
         wrapper = DataWrapper.from_tiles(
-            infile=self.file.infile,
+            static=self.file.static,
             index=self.index,
             row=self.r,
             col=self.c,

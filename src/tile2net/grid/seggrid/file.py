@@ -41,24 +41,24 @@ class File(
         """
 
     @frame.column
-    def infile(self) -> pd.Series:
+    def static(self) -> pd.Series:
         """
         A file for each seg-tile: the stitched input grid.
         Stitches input files when seggrid.file is accessed
         """
         grid = self.grid
-        files = grid.ingrid.outdir.seggrid.infile.files(grid)
-        self.infile = files
+        files = grid.ingrid.outdir.seggrid.static.files(grid)
+        self.static = files
         if not files.map(os.path.exists).all():
             ingrid = grid.ingrid
             assert (
-                ingrid.file.infile
+                ingrid.file.static
                 .map(os.path.exists)
                 .all()
             )
-            mosaics = ingrid.segtile.infile
+            mosaics = ingrid.segtile.static
             ingrid._stitch2file(
-                tiles=ingrid.file.infile,
+                tiles=ingrid.file.static,
                 mosaics=mosaics,
                 row=ingrid.segtile.row,
                 col=ingrid.segtile.col,

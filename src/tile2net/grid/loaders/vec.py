@@ -67,7 +67,7 @@ class VecDataWrapper(
     def from_segtiles(
             cls,
             *,
-            infile: ArrayLike,
+            static: ArrayLike,
             index: ArrayLike,
             row: ArrayLike,
             col: ArrayLike,
@@ -83,7 +83,7 @@ class VecDataWrapper(
             **kwargs,
     ) -> Self:
         return super().from_tiles(
-            infile=infile,
+            static=static,
             index=index,
             row=row,
             col=col,
@@ -147,7 +147,7 @@ class VecDataSet(
                         empty_gdf.to_parquet(polygons_file)
                         empty_gdf.to_parquet(network_file)
 
-                        # msg = f'No polygons generated for {infile}; wrote empty layers instead.'
+                        # msg = f'No polygons generated for {static}; wrote empty layers instead.'
                         msg = f'No polygons generated for {polygons_file}; wrote empty layers instead.'
                         logging.warning(msg)
                         return item
@@ -169,7 +169,7 @@ class VecDataSet(
                         empty_gdf.to_parquet(polygons_file)
                         empty_gdf.to_parquet(network_file)
 
-                        # msg = f'No network generated for {infile}; wrote empty layers instead.'
+                        # msg = f'No network generated for {static}; wrote empty layers instead.'
                         msg = f'No network generated for {polygons_file}; wrote empty layers instead.'
                         logging.warning(msg)
                         return item

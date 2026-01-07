@@ -389,7 +389,7 @@ class Dir:
             self,
             polygons: bool = True,
             lines: bool = True,
-            infile: bool = True,
+            static: bool = True,
             grayscale: bool = True
     ):
         instance = self.grid
@@ -411,15 +411,15 @@ class Dir:
             logger.info(msg)
             util.cleanup(instance.vecgrid.file.lines)
 
-        if infile:
+        if static:
             msg = (
                 f'Cleaning up previously downloaded imagery '
                 f'from {instance.ingrid.indir.dir} and '
-                f'{instance.ingrid.outdir.seggrid.infile.dir}'
+                f'{instance.ingrid.outdir.seggrid.static.dir}'
             )
             logger.info(msg)
-            util.cleanup(instance.ingrid.file.infile)
-            util.cleanup(instance.seggrid.file.infile)
+            util.cleanup(instance.ingrid.file.static)
+            util.cleanup(instance.seggrid.file.static)
 
         if grayscale:
             msg = (

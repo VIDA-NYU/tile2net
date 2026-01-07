@@ -276,7 +276,7 @@ class SegGrid(
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.seggrid.padded.infile
+            >>> ingrid.seggrid.padded.static
             >>> ingrid.seggrid.padded.length
         """
 

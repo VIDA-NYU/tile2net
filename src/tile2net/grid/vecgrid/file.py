@@ -19,25 +19,25 @@ class File(
     grid: VecGrid
 
     @frame.column
-    def infile(self) -> pd.Series:
+    def static(self) -> pd.Series:
         """
         A file for each seg-tile: the stitched input grid.
         Stitches input files when seggrid.file is accessed
         """
         grid = self.grid
-        files = grid.outdir.vecgrid.infile.files(grid)
-        self.infile = files
+        files = grid.outdir.vecgrid.static.files(grid)
+        self.static = files
         if not files.map(os.path.exists).all():
             seggrid = grid.seggrid
-            loc = ~seggrid.vectile.infile.map(os.path.exists)
+            loc = ~seggrid.vectile.static.map(os.path.exists)
             seggrid = seggrid.loc[loc]
             seggrid._stitch2file(
-                tiles=seggrid.file.infile,
-                mosaics=seggrid.vectile.infile,
+                tiles=seggrid.file.static,
+                mosaics=seggrid.vectile.static,
                 row=seggrid.vectile.row,
                 col=seggrid.vectile.col,
             )
-            loc = ~seggrid.vectile.infile.map(os.path.exists)
+            loc = ~seggrid.vectile.static.map(os.path.exists)
             msg = f"Files not stitched: {files[loc]}"
             assert not loc.any(), msg
 

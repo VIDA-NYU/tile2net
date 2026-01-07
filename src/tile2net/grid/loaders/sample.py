@@ -30,7 +30,7 @@ class SampleDataWrapper(
     def from_tiles(
             cls,
             *,
-            infile: ArrayLike,
+            static: ArrayLike,
             index: ArrayLike,
             row: ArrayLike,
             col: ArrayLike,
@@ -40,7 +40,7 @@ class SampleDataWrapper(
             **kwargs,
     ) -> Self:
         return super().from_tiles(
-            infile=infile,
+            static=static,
             index=index,
             row=row,
             col=col,
@@ -158,21 +158,21 @@ class SampleDataSet(
             mode: str | None = None,
     ) -> Self:
         # raise NotImplementedError
-        infile = wrapper.infile
+        static = wrapper.static
         mask = wrapper.mask
         index = wrapper.index
         row = wrapper.row
         col = wrapper.col
         background = wrapper.background
         raster = RasterDataSet.from_tiles(
-            infile=infile,
+            static=static,
             index=index,
             row=row,
             col=col,
             background=background,
         )
         mask = MaskDataSet.from_tiles(
-            infile=mask,
+            static=mask,
             index=index,
             row=row,
             col=col,
@@ -196,7 +196,7 @@ class SampleDataSet(
     #         background: int = 0,
     # ) -> Self:
     #     wrapper = DataWrapper.from_tiles(
-    #         infile=raster,
+    #         static=raster,
     #         mask=mask,
     #         index=i,
     #         row=row,

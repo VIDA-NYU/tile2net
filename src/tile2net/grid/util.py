@@ -621,13 +621,13 @@ def ensure_tempdir_for_indir(indir: str | os.PathLike, **kwargs) -> Path:
     return d
 
 def cleanup(
-        infiles: pd.Series,
+        statics: pd.Series,
         max_workers: int | None = None,
 ) -> tuple[int, int, int]:
     """Given a series of file paths, delete them in parallel."""
 
     paths = (
-        pd.Series(infiles, copy=False)
+        pd.Series(statics, copy=False)
         .dropna()
     )
 

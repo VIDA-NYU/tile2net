@@ -38,8 +38,8 @@ class RescaleDataSet(
         self.dim = dim
 
     @cached_property
-    def infile(self) -> list[str]:
-        result = self.wrapper.infile.tolist()
+    def static(self) -> list[str]:
+        result = self.wrapper.static.tolist()
         return result
 
     @cached_property

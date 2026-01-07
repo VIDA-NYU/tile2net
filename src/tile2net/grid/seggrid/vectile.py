@@ -145,11 +145,11 @@ class VecTile(
         return result
 
     @frame.column
-    def infile(self):
+    def static(self):
         """seggrid.file broadcasted to ingrid"""
         vecgrid = self.vecgrid
         result = (
-            vecgrid.file.infile
+            vecgrid.file.static
             .loc[self.index]
             .values
         )

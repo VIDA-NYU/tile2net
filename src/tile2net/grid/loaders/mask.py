@@ -26,14 +26,14 @@ class MaskDataSet(
     def from_tiles(
             cls,
             *,
-            infile: ArrayLike,
+            static: ArrayLike,
             index: ArrayLike,
             row: ArrayLike,
             col: ArrayLike,
             background: int = 0,
     ) -> Self:
         wrapper = DataWrapper.from_tiles(
-            infile=infile,
+            static=static,
             index=index,
             row=row,
             col=col,
@@ -49,7 +49,7 @@ class MaskDataSet(
         If no mask paths are provided, we return -1 to save memory.
         If some mask paths are provided, we have an unexpected situation.
         """
-        isna = self.wrapper.infile.isna()
+        isna = self.wrapper.static.isna()
         if not isna.any():
             return False
         elif isna.all():

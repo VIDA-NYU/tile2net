@@ -30,7 +30,7 @@ class UnstitchDataWrapper(DataWrapper):
     def from_tiles(
             cls,
             *,
-            infile,
+            static,
             outfile,
             index,
             row,
@@ -39,7 +39,7 @@ class UnstitchDataWrapper(DataWrapper):
             **kwargs,
     ) -> Self:
         data = dict(
-            infile=infile,
+            static=static,
             outfile=outfile,
             row=row,
             col=col,
@@ -86,7 +86,7 @@ class UnstitchDataSet(torch.utils.data.Dataset):
             ext = next(
                 (
                     Path(f).suffix.lower()
-                    for f in wrapper.infile
+                    for f in wrapper.static
                     if f is not None
                 ),
                 None,
@@ -154,9 +154,9 @@ class UnstitchDataSet(torch.utils.data.Dataset):
     def tile_shape(self) -> tuple[int, int]:
         """infer tile dimensions from first existing mosaic"""
         for idx in self.index:
-            infile = self.grouped[idx].infile.iloc[0]
-            if infile is not None and Path(infile).is_file():
-                mosaic = self.read(infile)
+            static = self.grouped[idx].static.iloc[0]
+            if static is not None and Path(static).is_file():
+                mosaic = self.read(static)
                 h = mosaic.shape[0] // (self.nrow + 1)
                 w = mosaic.shape[1] // (self.ncol + 1)
                 return h, w
@@ -227,8 +227,8 @@ class UnstitchDataSet(torch.utils.data.Dataset):
         idx = self.index[item]
         group = self.grouped[idx]
 
-        infile = group.infile.iloc[0]
-        mosaic = self.read(infile)
+        static = group.static.iloc[0]
+        mosaic = self.read(static)
 
         rows = group.row.tolist()
         cols = group.col.tolist()

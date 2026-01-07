@@ -116,11 +116,11 @@ class SegTile(
         return result
 
     @frame.column
-    def infile(self) -> pd.Series:
+    def static(self) -> pd.Series:
         """Path to input file for this seg-tile."""
         ingrid = self.ingrid
         result = (
-            ingrid.seggrid.filled.file.infile
+            ingrid.seggrid.filled.file.static
             .loc[self.index]
             .values
         )

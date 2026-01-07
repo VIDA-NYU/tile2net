@@ -165,7 +165,7 @@ class File(
         """
         File-paths to side-by-side composite images of input and prediction.
 
-        Lazily generated from infile and colorized files already saved to disk.
+        Lazily generated from static and colorized files already saved to disk.
         Creates composite images with the original input on the left and the
         colorized prediction on the right.
 
@@ -189,16 +189,16 @@ class File(
         loc = ~FILES.map(os.path.exists)
         if loc.any():
             files = FILES.loc[loc]
-            infiles = self.infile.loc[loc]
+            statics = self.static.loc[loc]
             colorized = self.colorized.loc[loc]
 
             max_workers = min(len(files), self.grid.cfg.compress_workers)
             with ThreadPoolExecutor(max_workers=max_workers) as threads:
-                it = zip(infiles, colorized, files)
+                it = zip(statics, colorized, files)
                 futures: dict[Future, str] = {
-                    threads.submit(self._compute_sidebyside, infile, colorized_file, file):
+                    threads.submit(self._compute_sidebyside, static, colorized_file, file):
                         file
-                    for infile, colorized_file, file in it
+                    for static, colorized_file, file in it
                 }
                 for future, file in futures:
                     future.result()
@@ -216,7 +216,7 @@ class File(
         """
         File-paths to overlay images with colorized predictions blended onto input.
 
-        Lazily generated from infile and colored files already saved to disk.
+        Lazily generated from static and colored files already saved to disk.
         Creates overlay images with 20% opacity colorized predictions on top of
         original input, with 0% opacity for black pixels from the colormaps.
 
@@ -240,16 +240,16 @@ class File(
         loc = ~FILES.map(os.path.exists)
         if loc.any():
             files = FILES.loc[loc]
-            infiles = self.infile.loc[loc]
+            statics = self.static.loc[loc]
             colored = self.colored.loc[loc]
 
             max_workers = min(len(files), self.grid.cfg.compress_workers)
             with ThreadPoolExecutor(max_workers=max_workers) as threads:
-                it = zip(infiles, colored, files)
+                it = zip(statics, colored, files)
                 futures: dict[Future, str] = {
-                    threads.submit(self._compute_overlay, infile, colored_file, file):
+                    threads.submit(self._compute_overlay, static, colored_file, file):
                         file
-                    for infile, colored_file, file in it
+                    for static, colored_file, file in it
                 }
                 for future, file in futures:
                     future.result()
@@ -385,13 +385,13 @@ class File(
     @classmethod
     def _compute_sidebyside(
             cls,
-            infile: str,
+            static: str,
             colorized_file: str,
             output_file: str,
     ) -> str:
         """Generate side-by-side composite from input and colorized prediction files."""
 
-        input_image = Image.open(infile).convert('RGB')
+        input_image = Image.open(static).convert('RGB')
         colorized_image = Image.open(colorized_file).convert('RGB')
 
         size = input_image.width * 2, input_image.height
@@ -480,7 +480,7 @@ class File(
     @classmethod
     def _compute_overlay(
             cls,
-            infile: str,
+            static: str,
             colored_file: str,
             output_file: str,
             opacity: float = 0.20,
@@ -493,7 +493,7 @@ class File(
         using PIL's blend and paste with alpha mask.
 
         Args:
-            infile: Path to input image
+            static: Path to input image
             colored_file: Path to colored prediction
             output_file: Path to save overlay
             opacity: Opacity for non-black pixels (default: 0.20)
@@ -504,7 +504,7 @@ class File(
         if not 0.0 <= opacity <= 1.0:
             raise ValueError('opacity must be within [0, 1]')
 
-        input_image = Image.open(infile).convert('RGB')
+        input_image = Image.open(static).convert('RGB')
         colored_image = Image.open(colored_file).convert('RGB')
 
         # create mask for non-black pixels

@@ -238,10 +238,10 @@ class Grid(
         Namespace for file attributes
 
         Example:
-            >>> self.file.infile
+            >>> self.file.static
             xtile   ytile
-            317280  387840    /home/<user>/tile2net/ma/ingrid/infile/20/31...
-                    387841    /home/<user>/tile2net/ma/ingrid/infile/20/31...
+            317280  387840    /home/<user>/tile2net/ma/ingrid/static/20/31...
+                    387841    /home/<user>/tile2net/ma/ingrid/static/20/31...
         """
 
     @property
@@ -801,8 +801,8 @@ class Grid(
             >>> ingrid: InGrid
             >>> ingrid.tempdir
             Tempdir(
-                dir='/tmp/tile2net/ma/ingrid/infile'
-                original='/tmp/tile2net/ma/ingrid/infile/z/x_y',
+                dir='/tmp/tile2net/ma/ingrid/static'
+                original='/tmp/tile2net/ma/ingrid/static/z/x_y',
             )
         """
         return self.ingrid.tempdir
@@ -999,7 +999,7 @@ class Grid(
             loader = (
                 DataWrapper
                 .from_tiles(
-                    infile=tiles,
+                    static=tiles,
                     index=mosaics,
                     row=row,
                     col=col,
@@ -1086,7 +1086,7 @@ class Grid(
             logger.info(msg)
 
             wrapper = UnstitchDataWrapper.from_tiles(
-                infile=mosaics,
+                static=mosaics,
                 outfile=tiles,
                 index=mosaics,
                 row=row,

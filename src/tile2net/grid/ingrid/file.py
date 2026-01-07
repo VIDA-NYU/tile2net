@@ -24,7 +24,7 @@ class File(
     grid: InGrid
 
     @frame.column
-    def infile(self):
+    def static(self):
         grid = self.grid
         files = grid.indir.files(grid)
         if (

@@ -52,13 +52,13 @@ class DataSet(
         return result
 
     @cached_property
-    def infile(self) -> list[str]:
+    def static(self) -> list[str]:
         raise NotImplementedError
 
     def __getitem__(self, item):
-        infile = self.infile[item]
+        static = self.static[item]
         # read the sample and coerce to RGBA
-        result = iio.imread(infile)
+        result = iio.imread(static)
         result = self._coerce_to_rgba(result)
         return result
 

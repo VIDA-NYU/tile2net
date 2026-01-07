@@ -25,14 +25,14 @@ class RasterDataSet(
     def from_tiles(
             cls,
             *,
-            infile: ArrayLike,
+            static: ArrayLike,
             index: ArrayLike,
             row: ArrayLike,
             col: ArrayLike,
             background: int = 0,
     ) -> Self:
         wrapper = DataWrapper.from_tiles(
-            infile=infile,
+            static=static,
             index=index,
             row=row,
             col=col,
