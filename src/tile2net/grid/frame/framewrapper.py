@@ -12,17 +12,12 @@ from tile2net.grid.frame.namespace import namespace
 from .wrapper import Wrapper
 
 
-class Loc:
-    # @weak.property
-    # def instance(self) -> FrameWrapper:
-    #     ...
-
+class Loc[T]:
     def __init__(
             self,
-            *args,
-            **kwargs,
+            instance: T
     ):
-        ...
+        self.instance = instance
 
     def __get__(
             self,
@@ -35,7 +30,7 @@ class Loc:
     def __set_name__(self, owner, name):
         self.__name__ = name
 
-    def __getitem__(self, item):
+    def __getitem__(self, item) -> T:
         result = (
             getattr(self.instance.frame, self.__name__)
             [item]
@@ -97,13 +92,13 @@ class FrameWrapper(
         return result
 
     @property
-    def loc(self):
+    def loc(self) -> Loc[Self]:
         """
         Wrapper for self.frame.loc.
         self.loc[...] is equivalent to self.frame.loc[...] but
         returns a Grid instance instead of a GeoDataFrame.
         """
-        return partial(self._loc)
+        return Loc(self)
 
     def copy(self) -> Self:
         result = copy.copy(self)
@@ -205,3 +200,16 @@ class FrameWrapper(
         """Load FrameWrapper from parquet file."""
         frame = pd.read_parquet(path)
         return cls.from_frame(frame)
+
+
+if __name__ == '__main__':
+    # example: (don't run this, but type hinting should work)
+    # `.test` shows up in the type-hinnts after loc[...], seesm seems to work
+    class Test(FrameWrapper):
+        test = None
+    _ = (
+        Test()
+        .loc[...]
+        .test
+    )
+
