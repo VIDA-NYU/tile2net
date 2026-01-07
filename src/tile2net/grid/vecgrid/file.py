@@ -26,6 +26,8 @@ class File(
         """
         grid = self.grid
         files = grid.outdir.vecgrid.static.files(grid)
+        if self:
+            return files
         self.static = files
         if not files.map(os.path.exists).all():
             seggrid = grid.seggrid
@@ -55,6 +57,8 @@ class File(
         """
         grid = self.grid
         files = grid.outdir.vecgrid.pred.files(grid)
+        if self:
+            return files
         self.pred = files
         if not files.map(os.path.exists).all():
             seggrid = grid.seggrid
@@ -81,6 +85,8 @@ class File(
         """
         grid = self.grid
         files = grid.outdir.vecgrid.prob.files(grid)
+        if self:
+            return files
         self.prob = files
         if not files.map(os.path.exists).all():
             seggrid = grid.seggrid
@@ -119,6 +125,8 @@ class File(
         """
         vecgrid = self.grid
         files = vecgrid.ingrid.outdir.vecgrid.lines.files(vecgrid)
+        if self:
+            return files
         self.lines = files
         if (
                 not vecgrid.vectorize
@@ -147,6 +155,8 @@ class File(
         """
         vecgrid = self.grid
         files = vecgrid.ingrid.outdir.vecgrid.polygons.files(vecgrid)
+        if self:
+            return files
         self.polygons = files
         if (
                 not vecgrid.vectorize
@@ -161,6 +171,8 @@ class File(
         # todo: needs documentation
         vecgrid = self.grid
         files = vecgrid.ingrid.outdir.vecgrid.curbs.files(vecgrid)
+        if self:
+            return files
         self.curbs = files
         if (
                 not vecgrid.vectorize

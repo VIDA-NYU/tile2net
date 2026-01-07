@@ -28,7 +28,6 @@ class File(
     def grid(self) -> Grid:
         return self.instance
 
-
     @frame.column
     def pred(self) -> pd.Series:
         """
@@ -83,6 +82,8 @@ class File(
             getattr(grid.outdir, name)
             .colorized.files(grid)
         )
+        if self:
+            return FILES
         self.colorized = FILES
 
         loc = ~FILES.map(os.path.exists)
@@ -133,6 +134,8 @@ class File(
             getattr(grid.ingrid.outdir, name)
             .intensity.files(grid)
         )
+        if self:
+            return FILES
         self.intensity = FILES
 
         loc = ~FILES.map(os.path.exists)
@@ -184,6 +187,8 @@ class File(
             getattr(grid.ingrid.outdir, name)
             .sidebyside.files(grid)
         )
+        if self:
+            return FILES
         self.sidebyside = FILES
 
         loc = ~FILES.map(os.path.exists)
@@ -235,6 +240,8 @@ class File(
             getattr(grid.ingrid.outdir, name)
             .overlay.files(grid)
         )
+        if self:
+            return FILES
         self.overlay = FILES
 
         loc = ~FILES.map(os.path.exists)
@@ -324,6 +331,8 @@ class File(
             getattr(grid.ingrid.outdir, name)
             .soft.files(grid)
         )
+        if self:
+            return FILES
         self.soft = FILES
 
         loc = ~FILES.map(os.path.exists)

@@ -47,6 +47,8 @@ class File(
 
         ingrid = self.grid
         files = ingrid.outdir.ingrid.pred.files()
+        if self:
+            return files
         self.pred = files
         loc = ~files.map(os.path.exists)
         if not loc.all():
@@ -70,6 +72,8 @@ class File(
         """
         ingrid = self.grid
         files = ingrid.outdir.ingrid.prob.files()
+        if self:
+            return files
         self.prob = files
         loc = ~files.map(os.path.exists)
         if not loc.all():
