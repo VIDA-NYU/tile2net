@@ -1,10 +1,86 @@
+from __future__ import annotations
+
+import os
+
+import pandas as pd
+
+if False:
+    from tile2net.grid.frame import column
+    from tile2net.grid.ingrid import InGrid
+    from tile2net.grid.frame import column
+    from tile2net.grid.ingrid import InGrid
+
+from .. import frame
 from tile2net.grid.grid import file
+
 if False:
     from .ingrid import InGrid
 
-# todo: we seem to have forgotten to commit ingrid.file and have to implement this once again
+
 class File(
     file.File
 ):
     instance: InGrid
+    grid: InGrid
 
+    @frame.column
+    def infile(self):
+        grid = self.grid
+        files = grid.indir.files(grid)
+        if (
+                not grid.download
+                and not files.map(os.path.exists).all()
+        ):
+            grid.download()
+        return files
+
+    @frame.column
+    def pred(self) -> pd.Series:
+        """
+        File-paths to segmentation masks where each pixel value represents a class ID.
+
+        Core output of the segmentation pipeline. Each pixel in the mask corresponds
+        to a semantic class.
+
+        # TODO: update
+        """
+
+        ingrid = self.grid
+        files = ingrid.outdir.ingrid.pred.files()
+        self.pred = files
+        loc = ~files.map(os.path.exists)
+        if not loc.all():
+            ingrid = ingrid.loc[loc]
+            ingrid._unstitch2file(
+                tiles=ingrid.file.pred,
+                mosaics=ingrid.segtile.pred,
+                row=ingrid.segtile.row,
+                col=ingrid.segtile.col,
+            )
+            loc = ~files.map(os.path.exists)
+            msg = f"Files not unstiched: {files[loc]}"
+            assert not loc.any(), msg
+        return files
+
+    @frame.column
+    def prob(self) -> pd.Series:
+        """
+        File-paths to color-coded segmentation masks for visualization.
+        # TODO: update
+        """
+        ingrid = self.grid
+        files = ingrid.outdir.ingrid.prob.files()
+        self.prob = files
+        loc = ~files.map(os.path.exists)
+        if not loc.all():
+            ingrid = ingrid.loc[loc]
+            ingrid._unstitch2file(
+                tiles=ingrid.file.prob,
+                mosaics=ingrid.segtile.prob,
+                row=ingrid.segtile.row,
+                col=ingrid.segtile.col,
+            )
+            loc = ~files.map(os.path.exists)
+            msg = f"Files not unstiched: {files[loc]}"
+            assert not loc.any(), msg
+        return files

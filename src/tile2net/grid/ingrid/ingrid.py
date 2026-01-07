@@ -31,27 +31,26 @@ from urllib3.util.retry import Retry
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.dir.indir import Indir
 from tile2net.grid.dir.outdir import Outdir
-from . import delayed
-# from .file import File
-from .lines import Lines
-from .polygons import Polygons
-from .segtile import SegTile
-from .source import Source, SourceNotFound
-from .vectile import VecTile
-from ..cfg import cfg
-from ..cfg.cfg import Cfg
-from ..dir.dir import Dir, ExtensionNotFoundError, XYNotFoundError
-from ..dir.tempdir import TempDir
-from ..grid.grid import Grid
-from ..grid.static import Static
-from ..loaders.datawrapper import DataWrapper
-from ..loaders.rescale import RescaleDataSet
-from ..sampler.benchmark import Benchmark
-from ..seggrid.seggrid import SegGrid
-from ..vecgrid.vecgrid import VecGrid
-from ...grid import util
-from ...grid.util import recursion_block, assert_perfect_overlap
-
+from tile2net.grid.ingrid import delayed
+from tile2net.grid.ingrid.lines import Lines
+from tile2net.grid.ingrid.polygons import Polygons
+from tile2net.grid.ingrid.segtile import SegTile
+from tile2net.grid.ingrid.source import Source, SourceNotFound
+from tile2net.grid.ingrid.vectile import VecTile
+from tile2net.grid.cfg import cfg
+from tile2net.grid.cfg.cfg import Cfg
+from tile2net.grid.dir.dir import Dir, ExtensionNotFoundError, XYNotFoundError
+from tile2net.grid.dir.tempdir import TempDir
+from tile2net.grid.grid.grid import Grid
+from tile2net.grid.grid.static import Static
+from tile2net.grid.loaders.datawrapper import DataWrapper
+from tile2net.grid.loaders.rescale import RescaleDataSet
+from tile2net.grid.sampler.benchmark import Benchmark
+from tile2net.grid.seggrid.seggrid import SegGrid
+from tile2net.grid.vecgrid.vecgrid import VecGrid
+from tile2net.grid import util
+from tile2net.grid.util import recursion_block, assert_perfect_overlap
+from tile2net.grid.ingrid.file import File
 if False:
     from .filled import Filled
     from .broadcast import Broadcast
@@ -104,17 +103,17 @@ class InGrid(
 
     """
 
-    # @File
-    # def file(self):
-    #     """
-    #     Namespace container for files aligned with the tiles of a Grid.
-    #
-    #     Example:
-    #         >>> ingrid: InGrid
-    #         >>> ingrid.file.infile
-    #         xtile   ytile
-    #         317280  387840    /home/<user>/tile2net/ma/ingrid/infile/20/31...
-    #     """
+    @File
+    def file(self):
+        """
+        Namespace container for files aligned with the tiles of a Grid.
+
+        Example:
+            >>> ingrid: InGrid
+            >>> ingrid.file.infile
+            xtile   ytile
+            317280  387840    /home/<user>/tile2net/ma/ingrid/infile/20/31...
+        """
 
     @VecGrid
     def vecgrid(self) -> VecGrid:

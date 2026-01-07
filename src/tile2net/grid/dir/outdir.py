@@ -113,4 +113,4 @@ class Outdir(
 
     @property
     def ingrid(self):
-        return self.sourcedir.ingrid
+        return self.sourcedir.namedir.ingrid

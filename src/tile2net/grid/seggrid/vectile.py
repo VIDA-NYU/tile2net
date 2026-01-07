@@ -20,6 +20,7 @@ class VecTile(
     See usage:
         >>> InGrid.vectile
     """
+
     @property
     def seggrid(self) -> SegGrid:
         """Reference to the SegGrid instance"""
@@ -149,6 +150,28 @@ class VecTile(
         vecgrid = self.vecgrid
         result = (
             vecgrid.file.infile
+            .loc[self.index]
+            .values
+        )
+        return result
+
+    @frame.column
+    def pred(self):
+        """seggrid.file broadcasted to ingrid"""
+        vecgrid = self.vecgrid
+        result = (
+            vecgrid.file.pred
+            .loc[self.index]
+            .values
+        )
+        return result
+
+    @frame.column
+    def prob(self):
+        """seggrid.file broadcasted to ingrid"""
+        vecgrid = self.vecgrid
+        result = (
+            vecgrid.file.prob
             .loc[self.index]
             .values
         )

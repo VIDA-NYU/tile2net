@@ -32,24 +32,7 @@ if False:
     from ..ingrid.ingrid import InGrid
     from ..vecgrid.vecgrid import VecGrid
 
-# def wraps(item):
-#     return item
-
-class wraps[T]:
-    def __init__(self, item: T):
-        self.item = item
-
-    # @property
-    # def property(self, *args, **kwargs) -> Callable:
-    #     ...
-    #     # return self.item
-
-    def __call__(self, *args, **kwargs):
-        return self.item
-
-
 test = wraps(int)
-
 
 # thread-local store
 tls = threading.local()
@@ -959,20 +942,19 @@ class Grid(
 
     def _stitch2file(
             self,
-            tiles: pd.Series,
-            mosaics: pd.Series,
-            row: pd.Series,
-            col: pd.Series,
+            mosaics: Union[pd.Series, Any],
+            tiles: Union[pd.Series, Any],
+            row: Union[pd.Series, Any],
+            col: Union[pd.Series, Any],
             background: int = 0,
             force=False,
-            **kwargs
     ):
         """
         Stitch multiple input tiles into larger mosaic images and write them to disk.
-    
+
         Takes individual tile file paths and combines them into larger mosaics based on
         their row/column positions. Skips existing mosaics unless force=True.
-    
+
         Args:
             tiles:
                 Series of input tile file paths to be stitched together.
@@ -1047,6 +1029,89 @@ class Grid(
 
             msg = 'Not all stitched mosaics were written to disk.'
             assert mosaics.map(os.path.exists).all(), msg
+
+    def _unstitch2file(
+            self,
+            mosaics: Union[pd.Series, Any],
+            tiles: Union[pd.Series, Any],
+            row: Union[pd.Series, Any],
+            col: Union[pd.Series, Any],
+            force: bool = False,
+    ):
+        """
+        Split mosaic images into individual tiles and write them to disk.
+
+        Performs the inverse of _stitch2file: reads mosaic images and extracts
+        tiles at specified row/column positions, writing each tile to its
+        corresponding output path.
+
+        Args:
+            mosaics:
+                Series of input mosaic file paths to be split into tiles.
+            tiles:
+                Series of output tile file paths where extracted tiles will be saved.
+            row:
+                Row indices indicating vertical position of each tile within its mosaic.
+            col:
+                Column indices indicating horizontal position of each tile within its mosaic.
+            force:
+                If True, regenerate all tiles even if they already exist on disk.
+            **kwargs:
+                Additional arguments (unused, for API consistency).
+        """
+        from ..loaders.unstitch import UnstitchDataSet, UnstitchDataWrapper
+
+        # skip tiles that already exist unless force=True
+        if not force:
+            loc = ~tiles.map(os.path.exists)
+            mosaics = mosaics.loc[loc]
+            tiles = tiles.loc[loc]
+            row = row.loc[loc]
+            col = col.loc[loc]
+
+        unique_mosaics = mosaics.drop_duplicates()
+        n_missing = len(tiles)
+        n_mosaics = len(unique_mosaics)
+
+        if n_missing == 0:
+            msg = f'All {len(tiles):,} tiles already exist.'
+            logger.info(msg)
+        else:
+            msg = (
+                f'Unstitching {n_mosaics:,} '
+                f'{self.__class__.__name__}.{mosaics.name} '
+                f'into {n_missing:,} '
+                f'{self.__class__.__name__}.{tiles.name}'
+            )
+            logger.info(msg)
+
+            wrapper = UnstitchDataWrapper.from_tiles(
+                infile=mosaics,
+                outfile=tiles,
+                index=mosaics,
+                row=row,
+                col=col,
+            )
+            dataset = UnstitchDataSet(
+                wrapper=wrapper,
+                write=UnstitchDataSet.write_image,
+            )
+            loader = dataset.loader()
+
+            bar = tqdm.tqdm(
+                total=n_mosaics,
+                desc=f'Unstitching to file',
+                unit=f' {mosaics.name}',
+                smoothing=0.01,
+                mininterval=10,
+            )
+
+            with self.ingrid.cfg, bar, self.sampler:
+                for minibatch in loader:
+                    bar.update(len(minibatch))
+
+            msg = 'Not all tiles were written to disk.'
+            assert tiles.map(os.path.exists).all(), msg
 
     @property
     def crs(self):

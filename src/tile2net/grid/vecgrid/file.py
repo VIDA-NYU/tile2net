@@ -5,10 +5,8 @@ import os.path
 
 import pandas as pd
 
-from .. import frame
+from .. import frame, util
 from ..grid import file
-
-# from ...grid.util import recursion_block
 
 if False:
     from .vecgrid import VecGrid
@@ -21,149 +19,84 @@ class File(
     grid: VecGrid
 
     @frame.column
-    def grayscale(self) -> pd.Series:
-        """
-        File-paths to stitched grayscale segmentation masks for each vec-tile.
-
-        Returns:
-            pd.Series: File paths to grayscale segmentation masks for each vec-tile
-
-        Example:
-            >>> ingrid: InGrid
-            >>> ingrid.vecgrid.file.pred
-            xtile  ytile
-            9915   12120    /home/<user>/tile2net/ma/Boston Common, MA/v...
-        """
-        vecgrid = self.grid
-        files = vecgrid.ingrid.outdir.vecgrid.pred.files(vecgrid)
-        self.grayscale = files
-        if not files.map(os.path.exists).all():
-            seggrid = vecgrid.seggrid.broadcast
-            outgrid = vecgrid
-
-            # preemptively predict so logging appears more sequential
-            # else you get "now stitching" before "now predicting"
-            _ = seggrid.file.pred
-
-            vecgrid._stitch2file(
-                row=seggrid.vectile.row,
-                col=seggrid.vectile.col,
-                tiles=seggrid.file.pred,
-                mosaics=seggrid.vectile.grayscale,
-                background=3,
-            )
-        return files
-
-    @frame.column
-    def colorized(self) -> pd.Series:
-        """
-        File-paths to stitched color-coded segmentation masks for each vec-tile.
-        Not used in pipeline, but vailable for user's convenience.
-
-        Returns:
-            pd.Series: File paths to colorized segmentation masks for each vec-tile
-
-        Example:
-            >>> ingrid: InGrid
-            >>> ingrid.vecgrid.file.colorized
-            xtile  ytile
-            9915   12120    /home/<user>/tile2net/ma/Boston Common, MA/v...
-        """
-        vecgrid = self.grid
-        files = vecgrid.ingrid.outdir.vecgrid.colorized.files(vecgrid)
-        self.colorized = files
-        if not files.map(os.path.exists).all():
-            seggrid = vecgrid.seggrid.broadcast
-            outgrid = vecgrid
-
-            # preemptively predict so logging appears more sequential
-            # else you get "now stitching" before "now predicting"
-            _ = seggrid.file.colorized
-
-            # only stitch the seggrid which are implicated by the vecgrid
-            loc = seggrid.vectile.xtile.isin(outgrid.xtile)
-            loc &= seggrid.vectile.ytile.isin(outgrid.ytile)
-            seggrid = seggrid.loc[loc]
-
-            vecgrid._stitch2file(
-                row=seggrid.vectile.row,
-                col=seggrid.vectile.col,
-                tiles=seggrid.file.colorized,
-                mosaics=seggrid.vectile.colorized,
-            )
-            assert files.map(os.path.exists).all()
-
-        return files
-
-    @frame.column
     def infile(self) -> pd.Series:
         """
-        File-paths to stitched input imagery for each vec-tile.
-        Not used in pipeline, but vailable for user's convenience.
-
-        Returns:
-            pd.Series: File paths to stitched input imagery for each vec-tile
-
-        Example:
-            >>> ingrid: InGrid
-            >>> ingrid.vecgrid.file.infile
-            xtile  ytile
-            9915   12120    /home/<user>/tile2net/ma/Boston Common, MA/v...
+        A file for each seg-tile: the stitched input grid.
+        Stitches input files when seggrid.file is accessed
         """
-        vecgrid = self.grid
-        files = vecgrid.ingrid.outdir.vecgrid.infile.files(vecgrid)
+        grid = self.grid
+        files = grid.outdir.vecgrid.infile.files(grid)
         self.infile = files
         if not files.map(os.path.exists).all():
-            seggrid = vecgrid.seggrid
-            outgrid = vecgrid
-
-            # preemptively predict so logging appears more sequential
-            # else you get "now stitching vectiles" before "now predicting"
-            _ = seggrid.file.infile
-
-            # only stitch the seggrid which are implicated by the vecgrid
-            loc = seggrid.vectile.xtile.isin(outgrid.xtile)
-            loc &= seggrid.vectile.ytile.isin(outgrid.ytile)
+            seggrid = grid.seggrid
+            loc = ~seggrid.vectile.infile.map(os.path.exists)
             seggrid = seggrid.loc[loc]
-
-            vecgrid._stitch2file(
-                row=seggrid.vectile.row,
-                col=seggrid.vectile.col,
+            seggrid._stitch2file(
                 tiles=seggrid.file.infile,
                 mosaics=seggrid.vectile.infile,
+                row=seggrid.vectile.row,
+                col=seggrid.vectile.col,
             )
-            assert (
-                seggrid.vectile.infile
-                .map(os.path.exists)
-                .all()
-            )
-            assert files.map(os.path.exists).all()
+            loc = ~seggrid.vectile.infile.map(os.path.exists)
+            msg = f"Files not stitched: {files[loc]}"
+            assert not loc.any(), msg
 
         return files
 
     @frame.column
-    def overlay(self) -> pd.Series:
+    def pred(self) -> pd.Series:
         """
-        File-paths to overlay images showing segmentation masks alpha-blended onto input imagery.
-        Not used in pipeline, but vailable for user's convenience.
+        File-paths to segmentation masks where each pixel value represents a class ID.
+        # TODO: update
 
-        Returns:
-            pd.Series: File paths to overlay visualization images for each vec-tile
+        Core output of the segmentation pipeline. Each pixel in the mask corresponds
+        to a semantic class.
 
-        Example:
-            >>> ingrid: InGrid
-            >>> ingrid.vecgrid.file.overlay
-            xtile  ytile
-            9915   12120    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
-        vecgrid = self.grid
-        files = vecgrid.ingrid.outdir.vecgrid.overlay.files(vecgrid)
-        self.overlay = files
-        if (
-                not vecgrid.vectorize
-                and not files.map(os.path.exists).all()
-        ):
-            vecgrid.vectorize()
+        grid = self.grid
+        files = grid.outdir.vecgrid.pred.files(grid)
+        self.pred = files
+        if not files.map(os.path.exists).all():
+            seggrid = grid.seggrid
+            loc = ~seggrid.vectile.pred.map(os.path.exists)
+            seggrid = seggrid.loc[loc]
+            seggrid._stitch2file(
+                tiles=seggrid.file.pred,
+                mosaics=seggrid.vectile.pred,
+                row=seggrid.vectile.row,
+                col=seggrid.vectile.col,
+            )
+
+            loc = ~seggrid.vectile.pred.map(os.path.exists)
+            msg = f"Files not stitched: {files[loc]}"
+            assert not loc.any(), msg
+
+        return files
+
+    @frame.column
+    def prob(self) -> pd.Series:
+        """
+        File-paths to color-coded segmentation masks for visualization.
+        # TODO: update
+        """
+        grid = self.grid
+        files = grid.outdir.vecgrid.prob.files(grid)
+        self.prob = files
+        if not files.map(os.path.exists).all():
+            seggrid = grid.seggrid
+            loc = ~seggrid.vectile.prob.map(os.path.exists)
+            seggrid = seggrid.loc[loc]
+            seggrid._stitch2file(
+                tiles=seggrid.file.prob,
+                mosaics=seggrid.vectile.prob,
+                row=seggrid.vectile.row,
+                col=seggrid.vectile.col,
+            )
+
+            loc = ~seggrid.vectile.prob.map(os.path.exists)
+            msg = f"Files not stitched: {files[loc]}"
+            assert not loc.any(), msg
+
         return files
 
     @frame.column
@@ -225,6 +158,7 @@ class File(
 
     @frame.column
     def curbs(self) -> pd.Series:
+        # todo: needs documentation
         vecgrid = self.grid
         files = vecgrid.ingrid.outdir.vecgrid.curbs.files(vecgrid)
         self.curbs = files
@@ -237,6 +171,7 @@ class File(
 
     @frame.column
     def disk_usage(self):
+        # todo: include other files
         result = util.path2fsize(self.grayscale)
         result += util.path2fsize(self.colorized)
         return result
