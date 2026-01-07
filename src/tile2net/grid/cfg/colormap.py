@@ -198,3 +198,39 @@ class ColorMap:
 
         lines.append(")")
         return "\n".join(lines)
+
+
+    @classmethod
+    def from_mappings(
+            cls,
+            label2color: dict[str, str],
+            label2id: dict[str, int],
+    ) -> Self:
+        id2rgb = {}
+        id2name = {}
+        color_names = {}
+
+        for label_name, class_id in label2id.items():
+            id2name[class_id] = label_name
+
+            if label_name in label2color:
+                color_spec = label2color[label_name]
+                # parse color specification (name or hex)
+                try:
+                    rgb = ImageColor.getrgb(color_spec)
+                    id2rgb[class_id] = rgb
+                    color_names[class_id] = color_spec
+                except ValueError:
+                    # fallback to black if color parse fails
+                    id2rgb[class_id] = (0, 0, 0)
+            else:
+                # default to black for unmapped labels
+                id2rgb[class_id] = (0, 0, 0)
+
+        return ColorMap(
+            id2rgb=id2rgb,
+            id2name=id2name,
+            color_names=color_names,
+        )
+        ...
+

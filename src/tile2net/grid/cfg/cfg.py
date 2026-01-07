@@ -148,7 +148,7 @@ class HasImagery:
 
     @cmdline.property
     def soft(self) -> bool:
-        """Save soft segmentation masks to file at the respective scale."""
+        """Save soft segmentation masks (color multiplied by probability) to file at the respective scale."""
         return False
 
     @cmdline.property
@@ -1114,47 +1114,47 @@ class Cfg(
 
     @Train
     def train(self):
-        ...
+        """Namespace for arguments pertaining to training."""
 
     @Dataset
     def dataset(self):
-        ...
+        """Namespace for arguments pertaining to dataset handling."""
 
     @Loss
     def loss(self):
-        ...
+        """Namespace for arguments pertaining to loss computation."""
 
     @Model
     def model(self):
-        ...
+        """Namespace for arguments pertaining to model architecture and training."""
 
     @Download
     def download(self):
-        ...
+        """Namespace for arguments pertaining to downloading static imagery tiles."""
 
     @Segmentation
     def segmentation(self):
-        ...
+        """Namespace for arguments pertaining to segmentation."""
 
     @Vectorization
     def vectorization(self):
-        ...
+        """Namespace for arguments pertaining to vectorization."""
 
     @Polygon
     def polygon(self):
-        ...
+        """Namespace for arguments pertaining to polygon vectorization."""
 
     @Curb
     def curb(self):
-        ...
+        """Namespace for arguments pertaining to curb vectorization."""
 
     @Indir
     def indir(self):
-        ...
+        """Namespace for arguments pertaining to input directory of imagery tiles."""
 
     @Line
     def line(self):
-        ...
+        """Namespace for arguments pertaining to line vectorization."""
 
     @cmdline.property
     def inference(self) -> bool:
@@ -1207,31 +1207,31 @@ class Cfg(
         Build ColorMap from label2id and label2color mappings.
         Maps class IDs to RGB colors for visualization.
         """
-        id2rgb = {}
-        id2name = {}
-        color_names = {}
+        return ColorMap.from_mappings(
+            label2color=self.label2color,
+            label2id=self.label2id,
+        )
 
-        for label_name, class_id in self.label2id.items():
-            id2name[class_id] = label_name
+    @cmdline.property
+    def label2soft_color(self) -> dict[str, str]:
+        """
+        Mapping from label names to colors for soft segmentation visualization
+        """
+        return dict(
+            sidewalk='red',
+            road='blue',
+            crosswalk='green',
+        )
 
-            if label_name in self.label2color:
-                color_spec = self.label2color[label_name]
-                # parse color specification (name or hex)
-                try:
-                    rgb = ImageColor.getrgb(color_spec)
-                    id2rgb[class_id] = rgb
-                    color_names[class_id] = color_spec
-                except ValueError:
-                    # fallback to black if color parse fails
-                    id2rgb[class_id] = (0, 0, 0)
-            else:
-                # default to black for unmapped labels
-                id2rgb[class_id] = (0, 0, 0)
-
-        return ColorMap(
-            id2rgb=id2rgb,
-            id2name=id2name,
-            color_names=color_names,
+    @functools.cached_property
+    def soft_colormap(self) -> ColorMap:
+        """
+        Build ColorMap from label2id and label2soft_color mappings.
+        Maps class IDs to RGB colors for soft segmentation visualization.
+        """
+        return ColorMap.from_mappings(
+            label2color=self.label2soft_color,
+            label2id=self.label2id,
         )
 
     @cmdline.property
