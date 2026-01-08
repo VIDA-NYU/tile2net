@@ -504,7 +504,7 @@ class Model(cmdline.Namespace):
         """
         return True
 
-    bblur.add_options(long='--no_bblur')
+    # bblur.add_options(long='--no_bblur')
 
     @cmdline.property
     def full_crop_modeling(self) -> bool:
@@ -553,7 +553,7 @@ class Model(cmdline.Namespace):
         """
         return True
 
-    img_wt_loss.add_options(long='--no_img_wt_loss')
+    # img_wt_loss.add_options(long='--no_img_wt_loss')
 
     @cmdline.property
     def bn(self) -> str:
@@ -648,7 +648,7 @@ class Model(cmdline.Namespace):
         """
         return True
 
-    mscale_inner_3x3.add_options(long='--no_mscale_inner_3x3')
+    # mscale_inner_3x3.add_options(long='--no_mscale_inner_3x3')
 
     @cmdline.property
     def mscale_dropout(self) -> bool:
@@ -1167,7 +1167,8 @@ class Cfg(
         """
         return True
 
-    inference.add_options(long='--no-inference')
+    # inference.add_options(long='--no-inference')
+
 
     @cmdline.property
     def cleanup(self) -> bool:
@@ -1178,7 +1179,7 @@ class Cfg(
         """
         return False
 
-    cleanup.add_options(long='--no-cleanup')
+    # cleanup.add_options(long='--no-cleanup')
 
     @cmdline.property
     def label2id(self) -> dict[str, int]:
@@ -1751,6 +1752,7 @@ class Cfg(
     @cached[dict[str, cmdline.property]]
     @cached.classmethod
     def _trace2property(cls) -> dict[str, cmdline.property]:
+        # todo: problem is, --long is cached from the first nesting, so it does not represent the full trace
         active = cls._active
         cls._active = False
         nested = [
@@ -1773,6 +1775,7 @@ class Cfg(
                 if isinstance(value, cmdline.property):
                     value: cmdline.property = getattr(namespace, key)
                     key = f'{namespace._trace}.{key}'
+                    assert f'--{value._trace}' == value.long
                     result[key] = value
                 elif isinstance(value, cmdline.Namespace):
                     stack.append(getattr(namespace, key))
@@ -1800,8 +1803,16 @@ class Cfg(
         # Iterate in deterministic order by each property's trace key
         for trace in sorted(cls._trace2property):
             prop = cls._trace2property[trace]
-            if any(opt in seen_opts for opt in prop.posargs):
+            if any(
+                opt in seen_opts
+                for opt in prop.posargs
+            ):
                 raise ValueError(f"Duplicate option detected in {prop.posargs}")
+                {
+                    key: prop
+                    for key, prop in cls._trace2property.items()
+                    if '--colorized' in prop.posargs
+                }
             seen_opts.update(prop.posargs)
             parser.add_argument(*prop.posargs, **prop.kwargs)
 
@@ -2107,7 +2118,6 @@ class Cfg(
 cfg = Cfg.from_defaults()
 Cfg._default = cfg
 
-
 def assert_and_infer_cfg(cfg, train_mode: bool = True) -> None:
     """
     Port of detectron‐style assert_and_infer_cfg for the new `Cfg`.
@@ -2151,3 +2161,8 @@ def update_dataset_cfg(num_classes: int, ignore_label: int) -> None:
 def update_dataset_inst(dataset_inst) -> None:
     """Attach a dataset instance for downstream convenience."""
     cfg.dataset_inst = dataset_inst
+
+if __name__ == '__main__':
+    Cfg._default
+    Cfg._trace2property
+    vec._nested
