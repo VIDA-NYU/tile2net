@@ -16,12 +16,10 @@ from typing import *
 from typing import TypeVar, Callable
 
 import torch
-from PIL import ImageColor
 from toolz.curried import *
 
-from . import cmdline
-from .colormap import ColorMap
-from .nested import Nested
+from tile2net.grid.cfg import cmdline
+from tile2net.grid.cfg.colormap import ColorMap
 
 if False:
     from ..grid import Grid
@@ -110,7 +108,9 @@ class Train(cmdline.Namespace):
         return False
 
 
-class HasImagery:
+class HasImagery(
+    cmdline.Namespace
+):
     @cmdline.property
     def pred(self) -> bool:
         """Save predictions to file at the respective scale."""
@@ -741,23 +741,14 @@ class Download(cmdline.Namespace):
     def force(self):
         return False
 
-    @cmdline.property
-    def only(self):
-        return False
-
 
 class Segmentation(
-    cmdline.Namespace,
     HasImagery
 ):
     """Segmenation configuration namespace."""
 
     @cmdline.property
     def force(self):
-        return False
-
-    @cmdline.property
-    def only(self):
         return False
 
     @cmdline.property
@@ -809,17 +800,12 @@ class Segmentation(
 
 
 class Vectorization(
-    cmdline.Namespace,
     HasImagery,
 ):
     """Vectorization configuration namespace."""
 
     @cmdline.property
     def force(self):
-        return False
-
-    @cmdline.property
-    def only(self):
         return False
 
     @cmdline.property
@@ -905,10 +891,6 @@ class Line(cmdline.Namespace):
         return False
 
     @cmdline.property
-    def only(self):
-        return False
-
-    @cmdline.property
     def concat(self) -> bool:
         """Concatenate the lines from each tile into a single vector."""
         return True
@@ -929,10 +911,6 @@ class Polygon(cmdline.Namespace):
 
     @cmdline.property
     def force(self):
-        return False
-
-    @cmdline.property
-    def only(self):
         return False
 
     @cmdline.property
@@ -1022,7 +1000,6 @@ class Indir(
 
 
 class Cfg(
-    Nested,
     UserDict,
     HasImagery,
 ):
@@ -1030,7 +1007,6 @@ class Cfg(
     grid: Grid
     instance: Grid = None
     owner: Type[Grid] = None
-    _nested: dict[str, cmdline.Nested] = {}
     __name__ = ''
     _active = True
 
@@ -1165,7 +1141,6 @@ class Cfg(
     @Line
     def line(self):
         """Namespace for arguments pertaining to line vectorization."""
-
 
     @cmdline.property
     def static(self) -> bool:
@@ -2088,7 +2063,10 @@ class Cfg(
                     for k, vv in v.items()
                     if isinstance(k, str)
                 }
-            if isinstance(v, Sequence) and not isinstance(v, (str, bytes, bytearray)):
+            if (
+                    isinstance(v, Sequence)
+                    and not isinstance(v, (str, bytes, bytearray))
+            ):
                 out = []
                 for el in v:
                     se = _sanitize_incoming(el)

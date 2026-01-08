@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import UserDict
 from functools import *
 from typing import *
 
@@ -8,6 +9,25 @@ if False:
     from ..grid import Grid
 
 
+class _Nested(UserDict[str, 'Nested']):
+    data: dict[
+        type[Nested],
+        dict[str, Nested]
+    ]
+    def __get__(
+            self,
+            instance,
+            owner: type[Nested]
+    ) -> dict[str, Nested]:
+        cache = self.data
+        if owner not in cache:
+            cache[owner] = {
+                name: nested
+                for base in reversed(owner.__bases__)
+                if issubclass(base, Nested)
+                for name, nested in base._nested.items()
+            }
+        return cache[owner]
 
 
 class Nested(
@@ -15,7 +35,7 @@ class Nested(
 ):
     instance: Nested = None
     owner: Type[Nested] = None
-    _nested: dict[str, Nested]
+    _nested = _Nested()
 
     def _get(
             self: Nested,
@@ -54,7 +74,6 @@ class Nested(
     def _trace(self):
         if (
                 self.instance is None
-                # or self.instance.instance is None
                 or not isinstance(self.instance, Nested)
         ):
             return self.__name__
@@ -75,8 +94,6 @@ class Nested(
         self.__name__ = name
         self.owner = owner
         if issubclass(owner, Nested):
-            if '_nested' not in owner.__dict__:
-                owner._nested = {}
             owner._nested[name] = self
 
     def __getattr__(self, key: str) -> Any:
@@ -95,16 +112,6 @@ class Nested(
         else:
             trace = key
 
-        # try:
-        #     return self._cfg[trace]
-        # except KeyError:
-        #     ...
-
-        # try if it's cached
-        # try:
-        #     return self._cfg._lookup(trace)
-        # except KeyError as e:
-        #     ...
         try:
             return self._cfg._lookup(trace)
         except KeyError:
@@ -142,16 +149,6 @@ class Nested(
         except KeyError as e:
             msg = f'{self.__class__.__name__} has no attribute {key!r} (trace: {trace})'
             raise AttributeError(msg) from e
-
-        # try:
-        #     attrs = trace.split('.')
-        #     obj = self._cfg
-        #     for attr in attrs[:-1]:
-        #         obj = object.__getattribute__(obj, attr)
-        #     object.__setattr__(obj, attrs[-1], value)
-        # except AttributeError as e:
-        #     msg = f'{self.__class__.__name__} has no attribute {key!r} (trace: {trace})'
-        #     raise AttributeError(msg) from e
 
     def __delattr__(self, key: str) -> None:
         KEY = key

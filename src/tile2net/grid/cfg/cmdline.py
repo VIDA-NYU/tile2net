@@ -1,16 +1,12 @@
 from __future__ import annotations
-import types
 
-import builtins
+import argparse
 import functools
-import inspect
+import types
 from functools import *
-from torch.fx.experimental.recording import trace_shape_events_log
 from typing import *
 
-from pandas.core.indexing import is_nested_tuple
 from .nested import Nested
-import argparse
 
 if False:
     from .cfg import Cfg
@@ -21,29 +17,13 @@ T = TypeVar(
     bound=Callable[..., Any]
 )
 
-P = ParamSpec("P")  # parameters of the wrapped function
-R = TypeVar("R")  # return type of the wrapped function
-
-
-# ── helpers ────────────────────────────────────────────────────────────────────
-
-def _is_dict_like(ann) -> bool:
-    if ann is None:
-        return False
-    origin = get_origin(ann)
-    if origin is dict:
-        return True
-    if origin is Union:
-        return any(_is_dict_like(a) for a in get_args(ann))
-    return False
-
 
 def _is_dict_like(ann) -> bool:
     """True if *ann* is (or contains) a Dict-style annotation."""
     if ann is None:
         return False
     origin = get_origin(ann)
-    if origin is dict:  # plain Dict[…]
+    if origin is dict:
         return True
     if origin in {Union, types.UnionType}:  # PEP484 / PEP604 unions
         return any(_is_dict_like(a) for a in get_args(ann))
@@ -62,17 +42,14 @@ class _DictOrFloatAction(argparse.Action):
         scalar: float | None = None
         mapping: dict[str, float] = {}
         for val in values:
-            if isinstance(val, tuple):  # key:value
+            if isinstance(val, tuple):
                 k, v = val
                 mapping[k] = v
-            else:  # bare float
+            else:
                 scalar = val
         if scalar is not None and mapping:
             parser.error(f"{option_string} cannot mix scalar and key:value pairs")
         setattr(namespace, self.dest, scalar if scalar is not None else mapping)
-
-
-# ── patched cmdline.property ───────────────────────────────────────────────────
 
 
 class property(
@@ -114,7 +91,7 @@ class property(
         if cfg._default is not None:
             stack.append(cfg._default)
 
-        for _cfg in  stack :
+        for _cfg in stack:
             if trace in _cfg:
                 return _cfg[trace]
         msg = f'No default value for {self._trace!r} in {cfg!r}'
@@ -285,66 +262,6 @@ class Namespace(
     namespaces, similar to how argparse works with subparsers.
     """
 
-    # def _trace_key(self, key: str) -> str:
-    #     key = key.lower() if key.isupper() else key
-    #     return f"{self._trace}.{key}" if self._trace else key
-    #
-    # def __getitem__(self, key: str):
-    #     trace = self._trace_key(key)
-    #     return self._cfg[trace]
-    #
-    # def __setitem__(self, key: str, value):
-    #     trace = self._trace_key(key)
-    #     self._cfg[trace] = value
-    #
-    # def __delitem__(self, key: str):
-    #     trace = self._trace_key(key)
-    #     if trace in self._cfg:
-    #         del self._cfg[trace]
-    #     else:
-    #         raise KeyError(trace)
-
-    # def _trace_key(self, key: str) -> str:
-    #     key = key.lower() if key.isupper() else key
-    #     return f"{self._trace}.{key}" if self._trace else key
-    #
-    # def _navigate(self, dotted: str):
-    #     obj: Any = self
-    #     for part in dotted.split("."):
-    #         part = part.lower() if part.isupper() else part
-    #         obj = getattr(obj, part)
-    #     return obj
-    #
-    # def __getitem__(self, key: str):
-    #     trace = self._trace_key(key)
-    #     try:
-    #         return self._cfg[trace]
-    #     except KeyError:
-    #         if "." in key:
-    #             return self._navigate(key)
-    #         raise
-    #
-    # def __setitem__(self, key: str, value):
-    #     if "." in key:
-    #         obj = self._navigate(".".join(key.split(".")[:-1]))
-    #         leaf = key.split(".")[-1]
-    #         setattr(obj, leaf.lower() if leaf.isupper() else leaf, value)
-    #     else:
-    #         self._cfg[self._trace_key(key)] = value
-    #
-    # def __delitem__(self, key: str):
-    #     if "." in key:
-    #         obj = self._navigate(".".join(key.split(".")[:-1]))
-    #         leaf = key.split(".")[-1]
-    #         delattr(obj, leaf.lower() if leaf.isupper() else leaf)
-    #     else:
-    #         trace = self._trace_key(key)
-    #         if trace in self._cfg:
-    #             del self._cfg[trace]
-    #         else:
-    #             raise KeyError(trace)
-
-    # --------------------------- helpers ---------------------------------
     def _trace_key(self, key: str) -> str:
         key = key.lower() if key.isupper() else key
         return f"{self._trace}.{key}" if self._trace else key
@@ -356,7 +273,6 @@ class Namespace(
             obj = getattr(obj, part)
         return obj
 
-    # --------------------- mapping interface -----------------------------
     def __getitem__(self, key: str):
         trace = self._trace_key(key)
         try:
