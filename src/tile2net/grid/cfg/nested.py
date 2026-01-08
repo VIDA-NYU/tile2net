@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from collections import UserDict
 from functools import *
 from typing import *
@@ -14,12 +15,36 @@ class _Nested(UserDict[str, 'Nested']):
         type[Nested],
         dict[str, Nested]
     ]
+
     def __get__(
             self,
             instance,
             owner: type[Nested]
     ) -> dict[str, Nested]:
         cache = self.data
+
+        if instance is None:
+            if owner not in cache:
+                cache[owner] = {
+                    name: nested
+                    for base in reversed(owner.__bases__)
+                    if issubclass(base, Nested)
+                    for name, nested in base._nested.items()
+                }
+                for name in cache[owner]:
+                    assert isinstance(name, str)
+
+            return cache[owner]
+        else:
+            if self.__name__ not in instance.__dict__:
+                instance.__dict__[self.__name__] = {
+                    name: getattr(instance, name)
+                    for name, nested in owner._nested.items()
+                }
+                for name in instance.__dict__[self.__name__]:
+                    assert isinstance(name, str)
+            return instance.__dict__[self.__name__]
+
         if owner not in cache:
             cache[owner] = {
                 name: nested
@@ -29,6 +54,26 @@ class _Nested(UserDict[str, 'Nested']):
             }
         return cache[owner]
 
+    def __set_name__(self, owner, name):
+        self.__name__ = name
+
+    def __set__(
+            self,
+            instance: Nested,
+            value,
+    ):
+        instance.__dict__[self.__name__] = value
+
+    def __delete__(
+            self,
+            instance,
+    ):
+        if self.__name__ in instance.__dict__:
+            del instance.__dict__[self.__name__]
+
+
+
+
 
 class Nested(
 
@@ -36,24 +81,90 @@ class Nested(
     instance: Nested = None
     owner: Type[Nested] = None
     _nested = _Nested()
+    _owner2instance: dict[Type[Nested], Nested]
+
+    # def _get(
+    #         self: Nested,
+    #         instance: Nested,
+    #         owner: Type[Nested],
+    # ):
+    #     from .cfg import Cfg
+    #     self.instance = instance
+    #     self.owner = owner
+    #
+    #     if issubclass(owner, Cfg):
+    #         self._cfg = instance
+    #         self._Cfg = owner
+    #     elif isinstance(instance, Nested):
+    #         self._cfg = instance._cfg
+    #         self._Cfg = instance._Cfg
+    #     else:
+    #         raise NotImplementedError
+    #
+    #     # if (
+    #     #         instance is None
+    #     #         # or isinstance(instance, Cfg)
+    #     # ):
+    #     #     return self
+    #
+    #     key = self.__name__
+    #     if key in instance.__dict__:
+    #         out = instance.__dict__[key]
+    #         out.instance = instance
+    #         out.instance = instance
+    #         out._cfg = self._cfg
+    #         out._Cfg = self._Cfg
+    #     else:
+    #         # problem is, we base has no init args, and property has func
+    #         # but we don't want to use copy.copy because it preserves cached properties
+    #         out = self.__class__(self)
+    #         out.instance = instance
+    #         out.owner = owner
+    #         out._cfg = self._cfg
+    #         out._Cfg = self._Cfg
+    #         instance.__dict__[key] = out
+    #     return out
+
 
     def _get(
             self: Nested,
             instance: Nested,
             owner: Type[Nested],
     ):
-        """"""
-        from .cfg import Cfg
-        self.instance = instance
-        self.owner = owner
-        if issubclass(owner, Cfg):
-            self._cfg = instance
-            self._Cfg = owner
+        if instance is None:
+            # from owner
+            if owner in self._owner2instance:
+                out = self._owner2instance[owner]
+            else:
+                out = copy.copy(self)
         else:
-            self._cfg = instance._cfg
-            self._Cfg = instance._Cfg
+            # from instance
+            key = self.__name__
+            if key in instance.__dict__:
+                out = instance.__dict__[key]
+            else:
+                out = copy.copy(self)
+                instance.__dict__[key] = out
 
-        return self
+        out.instance = instance
+        out.owner = owner
+
+        from .cfg import Cfg
+        if issubclass(owner, Cfg):
+            out._cfg = instance
+            out._Cfg = owner
+        elif isinstance(instance, Nested):
+            out._cfg = instance._cfg
+            out._Cfg = instance._Cfg
+        else:
+            raise NotImplementedError
+
+        return out
+
+
+
+
+
 
     locals().update(
         __get__=_get
@@ -95,6 +206,7 @@ class Nested(
         self.owner = owner
         if issubclass(owner, Nested):
             owner._nested[name] = self
+        self._owner2instance = {}
 
     def __getattr__(self, key: str) -> Any:
         KEY = key
@@ -112,21 +224,41 @@ class Nested(
         else:
             trace = key
 
-        try:
-            return self._cfg._lookup(trace)
-        except KeyError:
-            ...
+        if self._cfg is not None:
+            try:
+                return self._cfg._lookup(trace)
+            except KeyError:
+                ...
 
-        try:
-            attrs = trace.split('.')
-            obj = self._cfg
-            for attr in attrs[:-1]:
-                obj = object.__getattribute__(obj, attr)
-            result = object.__getattribute__(obj, attrs[-1])
-            return result
-        except AttributeError as e:
-            msg = f'{self.__class__.__name__} has no attribute {key!r} (trace: {trace})'
-            raise AttributeError(msg) from e
+        attrs = trace.split('.')
+        obj = self._Cfg
+        for attr in attrs[:-1]:
+            obj = object.__getattribute__(obj, attr)
+        result = object.__getattribute__(obj, attrs[-1])
+        return result
+
+        # try:
+        #     attrs = trace.split('.')
+        #     obj = self._Cfg
+        #     for attr in attrs[:-1]:
+        #         obj = object.__getattribute__(obj, attr)
+        #     result = object.__getattribute__(obj, attrs[-1])
+        #     return result
+        # except AttributeError as e:
+        #     msg = f'{self.__class__.__name__} has no attribute {key!r} (trace: {trace})'
+        #     result = object.__getattribute__(obj, attrs[-1])
+        #     raise AttributeError(msg) from e
+
+        # try:
+        #     attrs = trace.split('.')
+        #     obj = self._cfg
+        #     for attr in attrs[:-1]:
+        #         obj = object.__getattribute__(obj, attr)
+        #     result = object.__getattribute__(obj, attrs[-1])
+        #     return result
+        # except AttributeError as e:
+        #     msg = f'{self.__class__.__name__} has no attribute {key!r} (trace: {trace})'
+        #     raise AttributeError(msg) from e
 
     def __setattr__(self, key: str, value: Any) -> None:
         KEY = key

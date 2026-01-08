@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import builtins
 import functools
 import types
 from functools import *
@@ -65,36 +66,32 @@ class property(
             instance: Nested,
             owner: type[Nested]
     ):
-        from .cfg import Cfg
-        self.instance = instance
-        self.owner = owner
-        if issubclass(owner, Cfg):
-            self._cfg = instance
-            self._Cfg = owner
-        else:
-            self._cfg = instance._cfg
-            self._Cfg = instance._Cfg
+        out = super(property, self)._get(instance, owner)
+        cfg = out._cfg
 
-        cfg = self._cfg
+        if cfg is None:
+            return out
+
+        trace = out._trace
         if (
-                cfg is None
-                or not cfg._active
+                cfg is not cfg._default
+                and trace in cfg
         ):
-            return self
+            return cfg[trace]
 
-        trace = self._trace
-        stack = []
-        if cfg is not cfg._default:
-            stack.append(cfg)
-        if cfg._context is not None:
-            stack.append(cfg._context)
-        if cfg._default is not None:
-            stack.append(cfg._default)
+        if (
+                cfg._context is not None
+                and trace in cfg._context
+        ):
+            return cfg._context[trace]
 
-        for _cfg in stack:
-            if trace in _cfg:
-                return _cfg[trace]
-        msg = f'No default value for {self._trace!r} in {cfg!r}'
+        if (
+                cfg._default is not None
+                and trace in cfg._default
+        ):
+            return cfg._default[trace]
+
+        msg = f'No default value for {out._trace!r} in {cfg!r}'
         raise AttributeError(msg)
 
     locals().update(
@@ -106,29 +103,18 @@ class property(
             instance: Nested,
             value,
     ):
-        from .cfg import Cfg
-        self.instance = instance
-        self.owner = owner = type(instance)
-        if issubclass(owner, Cfg):
-            self._cfg = instance
-            self._Cfg = owner
-        else:
-            self._cfg = instance._cfg
-            self._Cfg = instance._Cfg
-
-        cfg = instance._cfg
-        cfg[self._trace] = value
+        out = self.__get__(instance, type(instance))
+        cfg = out._cfg
+        cfg[out._trace] = value
 
     def __delete__(
             self,
             instance: Nested,
     ):
-        cfg = instance._cfg
-        if self._trace in cfg:
-            del cfg[self._trace]
-        else:
-            msg = f"{type(self).__name__!r} object has no attribute {self._trace!r}"
-            raise AttributeError(msg)
+        out = self.__get__(instance, type(instance))
+        cfg = out._cfg
+        if out._trace in cfg:
+            del cfg[out._trace]
 
     def add_options(
             self,
@@ -209,7 +195,6 @@ class property(
     @cached_property
     def dest(self) -> str:
         return self._trace
-        # return self._trace.replace(".", "_")
 
     @cached_property
     def help(self) -> str:
@@ -251,7 +236,7 @@ class property(
         if self.default is not None:
             meta.append(f"default={self.default!r}")
         joined = ", ".join(meta)
-        return f"<{opts}{', ' + joined if joined else ''}>"
+        return f"[{opts}{', ' + joined if joined else ''}]"
 
 
 class Namespace(
