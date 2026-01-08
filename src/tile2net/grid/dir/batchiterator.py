@@ -60,7 +60,7 @@ class BatchIterator:
             self.key = key
 
         cfg = grid.cfg
-        n = cfg.model.bs_val
+        n = cfg.validation.batch_size
         if not cfg.force:
             loc = ~grid.skip
             series = series.loc[loc]

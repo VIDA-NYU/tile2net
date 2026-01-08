@@ -748,7 +748,7 @@ class Grid(
             >>> grid.cfg.zoom
             20
             # access batch size config
-            >>> grid.cfg.model.bs_val
+            >>> grid.cfg.validation.batch_size
             32
             # access polygon param
             >>> grid.cfg.polygon.max_hole_area

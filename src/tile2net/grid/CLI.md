@@ -27,7 +27,7 @@ These are the core arguments to quickly get Tile2Net up and running.
   - A plain-text place name: `"Washington Square Park"`, or `"Cambridge, MA"`  
   - A bounding box string in **lat, lon** order: `"40.729, -73.999, 40.732, -73.995"`
 
-### `--model.bs_val` (`-b`)
+### `--validation.batch_size` (`-b`)
 - Batch size per GPU during segmentation
 - Increase based on available VRAM
 

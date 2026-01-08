@@ -92,6 +92,12 @@ class Options(cmdline.Namespace):
 
 
 class Train(cmdline.Namespace):
+    @cmdline.property
+    def batch_size(self) -> int:
+        """
+        Batch size for training per GPU
+        """
+        return 2
 
     @cmdline.property
     def random_brightness_shift_value(self) -> int:
@@ -476,14 +482,6 @@ class Model(cmdline.Namespace):
         """
         return 2
 
-    @cmdline.property
-    def bs_val(self) -> int:
-        """
-        Batch size per GPU for the validation run
-        """
-        return 1
-
-    bs_val.add_options(short='-b')
 
     @cmdline.property
     def color_aug(self) -> float:
@@ -971,6 +969,17 @@ class Polygon(cmdline.Namespace):
         """Line thickness for polygon preview"""
         return 1.
 
+class Validation(
+    cmdline.Namespace
+):
+    @cmdline.property
+    def batch_size(self):
+        """
+        Batch size per GPU for the validation run
+        """
+        return 1
+
+    batch_size.add_options(short='-b')
 
 class Indir(
     cmdline.Namespace
@@ -1141,6 +1150,10 @@ class Cfg(
     @Line
     def line(self):
         """Namespace for arguments pertaining to line vectorization."""
+
+    @Validation
+    def validation(self):
+        """Namespace for arguments pertaining to validation."""
 
     @cmdline.property
     def static(self) -> bool:

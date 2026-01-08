@@ -198,7 +198,7 @@ def setup_loaders(
         val_sampler = None
 
     val_loader = DataLoader(
-        val_set, batch_size=cfg.MODEL.BS_VAL,
+        val_set, batch_size=cfg.validation.batch_size,
         num_workers=cfg.NUM_WORKERS // 2,
         shuffle=False, drop_last=False,
         sampler=val_sampler

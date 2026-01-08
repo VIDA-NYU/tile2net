@@ -80,9 +80,9 @@ class ValDataSet(
         # Mirror datasets.setup_loaders defaults for validation loader
         if batch_size is None:
             # Prefer upper-case path, then lower-case fallback
-            bs_val = cfg.model.bs_val
+            bs_val = cfg.validation.batch_size
             if bs_val is None:
-                bs_val = cfg.model.bs_val
+                bs_val = cfg.validation.batch_size
             batch_size = bs_val
         if shuffle is None:
             shuffle = False

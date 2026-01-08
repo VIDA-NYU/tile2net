@@ -103,7 +103,7 @@ commandline = compose_left(
         '--bs_val', type=int,
         # default=1,
         help='Batch size for Validation per gpu',
-        dest='model.bs_val',
+        dest='validation.batch_size',
     ),
     arg(
         '--restore_net', action='store_true',

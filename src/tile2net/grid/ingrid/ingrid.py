@@ -890,7 +890,7 @@ class InGrid(
         scale = self._to_scale(dimension, length, mosaic, scale)
 
         if batch_size:
-            self.cfg.model.bs_val = batch_size
+            self.cfg.validation.batch_size = batch_size
         if fill is None:
             fill = self.cfg.segmentation.fill
 

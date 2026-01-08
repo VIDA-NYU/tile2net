@@ -131,7 +131,7 @@ class Data:
             case _:
                 raise ValueError(f"Unknown eval mode: {cfg.model.eval}")
 
-        bs_val = cfg.model.bs_val or 1
+        bs_val = cfg.validation.batch_size or 1
         dataset = ValDataSet.from_wrapper(
             wrapper=wrapper,
             mode=mode,
