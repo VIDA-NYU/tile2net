@@ -156,6 +156,16 @@ class HasImagery:
         """Save static imagery to file at the respective scale."""
         return False
 
+    @cmdline.property
+    def polygons(self) -> bool:
+        """Save vectorized polygons to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def lines(self) -> bool:
+        """Save vectorized lines to file at the respective scale."""
+        return False
+
 
 class Dataset(cmdline.Namespace):
     @cmdline.property
@@ -1156,6 +1166,12 @@ class Cfg(
     def line(self):
         """Namespace for arguments pertaining to line vectorization."""
 
+
+    @cmdline.property
+    def static(self) -> bool:
+        """Save static imagery to file at the respective scale."""
+        return True
+
     @cmdline.property
     def inference(self) -> bool:
         """
@@ -1554,8 +1570,7 @@ class Cfg(
         """
         return False
 
-    G @ cmdline.property
-
+    @cmdline.property
     def dump_topn(self) -> int:
         """
         Dump worst validation images

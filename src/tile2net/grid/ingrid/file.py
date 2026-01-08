@@ -88,3 +88,17 @@ class File(
             msg = f"Files not unstiched: {files[loc]}"
             assert not loc.any(), msg
         return files
+
+    @property
+    def lines(self):
+        if self:
+            return self.grid.outdir.lines.parquet
+        else:
+            return self.grid.lines.file
+
+    @property
+    def polygons(self):
+        if self:
+            return self.grid.outdir.polygons.parquet
+        else:
+            return self.grid.polygons.file

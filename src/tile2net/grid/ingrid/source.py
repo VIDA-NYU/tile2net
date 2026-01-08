@@ -158,13 +158,11 @@ class cls_attr(
 T = TypeVar('T')
 
 
-# noinspection PyMethodParameters
 class Source(
     ABC,
 ):
     grid: InGrid
     catalog: dict[str, type[Source]] = {}
-
     outdated: bool = False
 
     def _get(
@@ -175,7 +173,7 @@ class Source(
         """Return the source object for the grid instance."""
         try:
             result = instance.__dict__[self.__name__]
-            result.seggrid = instance
+            result.grid = instance
             result.InGrid = owner
         except KeyError as e:
             msg = (

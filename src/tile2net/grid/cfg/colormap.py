@@ -82,18 +82,6 @@ class ColorMap:
         out.putpalette(self.palette)
         return out
 
-    @overload
-    def __call__(self, item: Image.Image) -> Image.Image:
-        ...
-
-    @overload
-    def __call__(self, item: np.ndarray) -> np.ndarray:
-        ...
-
-    @overload
-    def __call__(self, item: torch.Tensor) -> torch.Tensor:
-        ...
-
     @__call__.register
     def _(
             self,
@@ -232,5 +220,4 @@ class ColorMap:
             id2name=id2name,
             color_names=color_names,
         )
-        ...
 
