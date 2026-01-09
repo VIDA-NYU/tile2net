@@ -72,6 +72,41 @@ class _Default(UserDict):
         return cache[owner]
 
 
+class Group:
+    def __init__(
+            self,
+            name: str,
+            order: float
+    ):
+        self.name = name
+        self.order = order
+
+    def __call__(
+            self,
+            arg: Union[cmdline.property, float, int]
+    ):
+        # case 1: used as a factory with a specific order, e.g., @basic(0)
+        if isinstance(arg, (int, float)):
+            def wrapper(prop: cmdline.property):
+                # bypass nested.__setattr__ to avoid runtime config lookups
+                object.__setattr__(prop, 'group', self)
+                object.__setattr__(prop, 'group_order', arg)
+                return prop
+
+            return wrapper
+
+        # case 2: used as a standard decorator, e.g., @basic
+        prop = arg
+        object.__setattr__(prop, 'group', self)
+        object.__setattr__(prop, 'group_order', None)
+        return prop
+
+
+basic = Group('Basic Options', 0)
+outputs = Group('Output Options', 1)
+architecture = Group('Architecture Options', 2)
+
+
 class Options(cmdline.Namespace):
 
     @cmdline.property
@@ -109,7 +144,7 @@ class Train(cmdline.Namespace):
     @cmdline.property
     def batch_size(self) -> int:
         """
-        Batch size for training per GPU
+        Batch size per GPU for the training run
         """
         return 2
 
@@ -125,65 +160,6 @@ class Train(cmdline.Namespace):
         """
         Use half-precision (fp16) training
         """
-        return False
-
-
-class HasImagery(
-    cmdline.Namespace
-):
-    @cmdline.property
-    def pred(self) -> bool:
-        """Save predictions to file at the respective scale."""
-        return False
-
-    @cmdline.property
-    def prob(self) -> bool:
-        """Save per-class probabilities to file at the respective scale."""
-        return False
-
-    @cmdline.property
-    def colorized(self) -> bool:
-        """Save colorized segmentation masks to file at the respective scale."""
-        return False
-
-    @cmdline.property
-    def intensity(self) -> bool:
-        """Save intensity visualization to file at the respective scale."""
-        return False
-
-    @cmdline.property
-    def sidebyside(self) -> bool:
-        """Save side-by-side input and colorized segmentation masks to file at the respective scale."""
-        return False
-
-    @cmdline.property
-    def overlay(self) -> bool:
-        """Save overlay visualization to file at the respective scale."""
-        return False
-
-    @cmdline.property
-    def error(self) -> bool:
-        """Save error visualization to file at the respective scale."""
-        return False
-
-    @cmdline.property
-    def soft(self) -> bool:
-        """Save soft segmentation masks (color multiplied by probability) to file at the respective scale."""
-        return False
-
-    @cmdline.property
-    def static(self) -> bool:
-        """Save static imagery to file at the respective scale."""
-        return False
-
-    @cmdline.property
-    def polygons(self) -> bool:
-        """Save vectorized polygons to file at the respective scale."""
-        return False
-
-    @cmdline.property
-    def lines(self) -> bool:
-        """Save vectorized lines to file at the respective scale."""
         return False
 
 
@@ -747,13 +723,9 @@ class Download(cmdline.Namespace):
 
 
 class Segmentation(
-    HasImagery
+    cmdline.Namespace
 ):
     """Segmenation configuration namespace."""
-
-    @cmdline.property
-    def force(self):
-        return False
 
     @cmdline.property
     def dimension(self) -> int:
@@ -762,6 +734,7 @@ class Segmentation(
         """
         return 1024
 
+    @basic
     @cmdline.property
     def length(self) -> int:
         """
@@ -802,15 +775,66 @@ class Segmentation(
         # return False
         return True
 
-
-class Vectorization(
-    HasImagery,
-):
-    """Vectorization configuration namespace."""
+    @cmdline.property
+    def pred(self) -> bool:
+        """Save predictions to file at the respective scale."""
+        return False
 
     @cmdline.property
-    def force(self):
+    def prob(self) -> bool:
+        """Save per-class probabilities to file at the respective scale."""
         return False
+
+    @cmdline.property
+    def colorized(self) -> bool:
+        """Save colorized segmentation masks to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def intensity(self) -> bool:
+        """Save intensity visualization to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def sidebyside(self) -> bool:
+        """Save side-by-side input and colorized segmentation masks to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def overlay(self) -> bool:
+        """Save overlay visualization to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def error(self) -> bool:
+        """Save error visualization to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def soft(self) -> bool:
+        """Save soft segmentation masks (color multiplied by probability) to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def static(self) -> bool:
+        """Save static imagery to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def polygons(self) -> bool:
+        """Save vectorized polygons to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def lines(self) -> bool:
+        """Save vectorized lines to file at the respective scale."""
+        return False
+
+
+class Vectorization(
+    cmdline.Namespace
+):
+    """Vectorization configuration namespace."""
 
     @cmdline.property
     def dimension(self) -> int:
@@ -820,6 +844,7 @@ class Vectorization(
         is before geometries are extracted.
         """
 
+    @basic
     @cmdline.property
     def length(self) -> int:
         """
@@ -844,8 +869,12 @@ class Vectorization(
         """Number of in-tiles to pad each seg-tile by."""
         return 1
 
+    @basic
     @cmdline.property
     def batch_size(self):
+        """
+        Batch size per GPU for the validation run
+        """
         return 1
 
     @cmdline.property
@@ -862,6 +891,61 @@ class Vectorization(
     @cmdline.property
     def num_loaders(self):
         return 4
+
+    @cmdline.property
+    def pred(self) -> bool:
+        """Save predictions to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def prob(self) -> bool:
+        """Save per-class probabilities to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def colorized(self) -> bool:
+        """Save colorized segmentation masks to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def intensity(self) -> bool:
+        """Save intensity visualization to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def sidebyside(self) -> bool:
+        """Save side-by-side input and colorized segmentation masks to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def overlay(self) -> bool:
+        """Save overlay visualization to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def error(self) -> bool:
+        """Save error visualization to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def soft(self) -> bool:
+        """Save soft segmentation masks (color multiplied by probability) to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def static(self) -> bool:
+        """Save static imagery to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def polygons(self) -> bool:
+        """Save vectorized polygons to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def lines(self) -> bool:
+        """Save vectorized lines to file at the respective scale."""
+        return False
 
 
 class Loss(cmdline.Namespace):
@@ -1018,7 +1102,7 @@ class Indir(
 
 class Cfg(
     UserDict,
-    HasImagery,
+    cmdline.Namespace
 ):
     grid = None
     grid: Grid
@@ -1179,17 +1263,70 @@ class Cfg(
 
     # inference.add_options(long='--no-inference')
 
+    @basic
     @cmdline.property
-    def cleanup(self) -> bool:
-        """
-        After performing segmentation, delete all input imagery.
-        After performing vectorization, delete all segmentation masks.
-        After merging tiles into single geometries, delete all tile geometries.
-        """
+    def pred(self) -> bool:
+        """Save predictions to file at the respective scale."""
         return False
 
-    # cleanup.add_options(long='--no-cleanup')
+    @cmdline.property
+    def prob(self) -> bool:
+        """Save per-class probabilities to file at the respective scale."""
+        return False
 
+    @basic
+    @cmdline.property
+    def colorized(self) -> bool:
+        """Save colorized segmentation masks to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def intensity(self) -> bool:
+        """Save intensity visualization to file at the respective scale."""
+        return False
+
+    @basic
+    @cmdline.property
+    def sidebyside(self) -> bool:
+        """Save side-by-side input and colorized segmentation masks to file at the respective scale."""
+        return False
+
+    @basic
+    @cmdline.property
+    def overlay(self) -> bool:
+        """Save overlay visualization to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def error(self) -> bool:
+        """Save error visualization to file at the respective scale."""
+        return False
+
+    @basic
+    @cmdline.property
+    def soft(self) -> bool:
+        """Save soft segmentation masks (color multiplied by probability) to file at the respective scale."""
+        return False
+
+    @basic
+    @cmdline.property
+    def static(self) -> bool:
+        """Save static imagery to file at the respective scale."""
+        return True
+
+    @basic
+    @cmdline.property
+    def polygons(self) -> bool:
+        """Save vectorized polygons to file at the respective scale."""
+        return False
+
+    @basic
+    @cmdline.property
+    def lines(self) -> bool:
+        """Save vectorized lines to file at the respective scale."""
+        return False
+
+    @basic
     @cmdline.property
     def label2id(self) -> dict[str, int]:
         """
@@ -1202,6 +1339,7 @@ class Cfg(
             ignore_label=3
         )
 
+    @basic
     @cmdline.property
     def label2color(self) -> dict[str, str]:
         """
@@ -1248,6 +1386,7 @@ class Cfg(
             label2id=self.label2id,
         )
 
+    @basic(1)
     @cmdline.property
     def outdir(self) -> str:
         """
@@ -1595,6 +1734,7 @@ class Cfg(
 
     name.add_options(short='-n')
 
+    @basic(0)
     @cmdline.property
     def location(self) -> str:
         """
@@ -1606,10 +1746,7 @@ class Cfg(
 
     location.add_options(short='-l')
 
-    @cmdline.property
-    def base_gridize(self) -> int:
-        return 256
-
+    @basic
     @cmdline.property
     def zoom(self) -> int:
         return 20
@@ -1639,6 +1776,7 @@ class Cfg(
     #
     # stitch_step.add_options(short='-st')
 
+    @basic(1)
     @cmdline.property
     def source(self) -> Optional[str]:
         ...
@@ -1793,36 +1931,82 @@ class Cfg(
         cls._active = active
         return result
 
-    # @cached_property
+
+
     @cached[argparse.ArgumentParser]
     @cached.classmethod
     def parser(cls) -> argparse.ArgumentParser:
-        """
-        Lazily construct an `ArgumentParser` populated with every
-        collected `cmdline.property`.
-        """
         parser = argparse.ArgumentParser(
             prog="tile2net",
-            description="Tile2Net configuration parser",
+            # todo: good description in CLI
+            # description="Tile2Net",
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+            usage='%(prog)s [options]'
         )
+        used_groups = {
+            prop.group
+            for prop in cls._trace2property.values()
+            if prop.group
+        }
 
+        it = sorted(used_groups, key=lambda g: g.order)
+        arg_groups = {
+            group: parser.add_argument_group(group.name)
+            for group in it
+        }
+
+        def prop_sort_key(prop: cmdline.property):
+            group = prop.group
+            primary = group.order if group else 1000
+            order = prop.group_order
+            is_unordered = not isinstance(order, (int, float))
+            if not is_unordered:
+                val_order = order
+            else:
+                val_order = 0
+            quaternary = prop.dest
+            return primary, is_unordered, val_order, quaternary
+
+
+
+        all_props = sorted(cls._trace2property.values(), key=prop_sort_key)
         seen_opts: set[str] = set()
-        # Iterate in deterministic order by each property's trace key
-        for trace in sorted(cls._trace2property):
-            prop = cls._trace2property[trace]
-            if any(
-                    opt in seen_opts
-                    for opt in prop.posargs
-            ):
+
+        for prop in all_props:
+            if any(opt in seen_opts for opt in prop.posargs):
                 raise ValueError(f"Duplicate option detected in {prop.posargs}")
-                {
-                    key: prop
-                    for key, prop in cls._trace2property.items()
-                    if '--colorized' in prop.posargs
-                }
+
             seen_opts.update(prop.posargs)
-            parser.add_argument(*prop.posargs, **prop.kwargs)
+            group = prop.group
+            if (
+                group is not None
+                and group in arg_groups
+            ):
+                target = arg_groups[group]
+            else:
+                target = parser
+
+            target.add_argument(*prop.posargs, **prop.kwargs)
+
+        def get_group_order(action_group):
+            if action_group.title == 'positional arguments':
+                return -100
+            if action_group.title == 'options':
+                return 1000
+
+            for g in used_groups:
+                if g.name == action_group.title:
+                    return g.order
+
+            return 500
+
+        # todo: doesn't seem to work, how do we make the default "options" look nice after "Basic Options"?
+        # for group in parser._action_groups:
+        #     if group.title == 'options':
+        #         group.title = 'Options'
+        #         break
+
+        parser._action_groups.sort(key=get_group_order)
 
         return parser
 
@@ -2127,9 +2311,6 @@ class Cfg(
         return result
 
 
-cfg = Cfg._default
-
-
 def assert_and_infer_cfg(cfg, train_mode: bool = True) -> None:
     """
     Port of detectron‐style assert_and_infer_cfg for the new `Cfg`.
@@ -2177,6 +2358,9 @@ def update_dataset_inst(dataset_inst) -> None:
     """Attach a dataset instance for downstream convenience."""
     cfg.dataset_inst = dataset_inst
 
+
+
+cfg = Cfg._default
 
 if __name__ == '__main__':
     Cfg._default

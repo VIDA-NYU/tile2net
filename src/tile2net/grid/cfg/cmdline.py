@@ -60,6 +60,7 @@ class property(
     This class allows for properties to also generate metadata
     that can be used as a command line argument.
     """
+    group = None
 
     def _get(
             self: property,
@@ -225,6 +226,13 @@ class property(
             kw["nargs"] = self.nargs
         if self.default is not None:
             kw["default"] = self.default
+            
+        # Suppress the ALL_CAPS metavar in help text
+        # For store_true/store_false actions, no metavar is needed
+        # For other actions, use empty string to hide it
+        if self.action not in ("store_true", "store_false"):
+            kw["metavar"] = ""
+            
         return kw
 
     def __repr__(self):
