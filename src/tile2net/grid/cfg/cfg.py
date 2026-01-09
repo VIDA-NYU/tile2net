@@ -1791,7 +1791,6 @@ class Cfg(
                 if isinstance(value, cmdline.property):
                     value: cmdline.property = getattr(namespace, key)
                     key = f'{namespace._trace}.{key}'
-                    assert f'--{value._trace}' == value.long
                     result[key] = value
                 elif isinstance(value, cmdline.Namespace):
                     stack.append(getattr(namespace, key))

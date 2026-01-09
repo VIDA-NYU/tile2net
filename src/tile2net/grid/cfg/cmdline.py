@@ -190,7 +190,10 @@ class property(
 
     @cached_property
     def long(self) -> str:
-        return f"--{self._trace}"
+        out = self._trace
+        if self.action == 'store_false':
+            out = 'no-' + out
+        return f"--{out}"
 
     @cached_property
     def dest(self) -> str:
