@@ -58,6 +58,20 @@ class cached(metaclass=metaclass):
             return result
 
 
+class _Default(UserDict):
+    data: dict[type[Cfg], Cfg]
+
+    def __get__(
+            self,
+            instance,
+            owner: type[Cfg]
+    ):
+        cache = self.data
+        if owner not in cache:
+            cache[owner] = owner.from_defaults()
+        return cache[owner]
+
+
 class Options(cmdline.Namespace):
 
     @cmdline.property
@@ -481,7 +495,6 @@ class Model(cmdline.Namespace):
         Batch size for training per GPU
         """
         return 2
-
 
     @cmdline.property
     def color_aug(self) -> float:
@@ -969,6 +982,7 @@ class Polygon(cmdline.Namespace):
         """Line thickness for polygon preview"""
         return 1.
 
+
 class Validation(
     cmdline.Namespace
 ):
@@ -980,6 +994,7 @@ class Validation(
         return 1
 
     batch_size.add_options(short='-b')
+
 
 class Indir(
     cmdline.Namespace
@@ -1019,7 +1034,9 @@ class Cfg(
     __name__ = ''
     _active = True
 
-    _default: Self = None
+    _default = _Default()
+
+    # _default: Self = None
     _context: Self = None
     _backup: Self = None
 
@@ -1168,7 +1185,6 @@ class Cfg(
         return True
 
     # inference.add_options(long='--no-inference')
-
 
     @cmdline.property
     def cleanup(self) -> bool:
@@ -1804,8 +1820,8 @@ class Cfg(
         for trace in sorted(cls._trace2property):
             prop = cls._trace2property[trace]
             if any(
-                opt in seen_opts
-                for opt in prop.posargs
+                    opt in seen_opts
+                    for opt in prop.posargs
             ):
                 raise ValueError(f"Duplicate option detected in {prop.posargs}")
                 {
@@ -1881,6 +1897,10 @@ class Cfg(
     @property
     def _cfg(self) -> Self:
         return self
+
+    @property
+    def _Cfg(self) -> type[Self]:
+        return type(self)
 
     def flatten(self) -> Self:
         merged = type(self)()  # new empty Cfg
@@ -2115,8 +2135,8 @@ class Cfg(
         return result
 
 
-cfg = Cfg.from_defaults()
-Cfg._default = cfg
+cfg = Cfg._default
+
 
 def assert_and_infer_cfg(cfg, train_mode: bool = True) -> None:
     """
@@ -2133,14 +2153,17 @@ def assert_and_infer_cfg(cfg, train_mode: bool = True) -> None:
         cfg.dump_augmentation_images = cfg.dump_augmentation_images
 
     arch = cfg.arch
-    cfg.model.mscale = ("mscale" in arch.lower()) or ("attnscale" in arch.lower())
+    cfg.model.mscale = (
+            'mscale' in arch.lower()
+            or 'attnscale' in arch.lower()
+    )
 
     n_scales = cfg.model.n_scales
     if n_scales:
         cfg.model.n_scales = [float(x) for x in n_scales.split(",")]
 
     # canonical crop override to match legacy behaviour
-    cfg.dataset.crop_size = (1024, 1024)
+    cfg.dataset.crop_size = 1024, 1024
 
     # freeze read-only when not training
     if not train_mode:
@@ -2162,7 +2185,8 @@ def update_dataset_inst(dataset_inst) -> None:
     """Attach a dataset instance for downstream convenience."""
     cfg.dataset_inst = dataset_inst
 
+
 if __name__ == '__main__':
     Cfg._default
     Cfg._trace2property
-    vec._nested
+    Cfg._nested
