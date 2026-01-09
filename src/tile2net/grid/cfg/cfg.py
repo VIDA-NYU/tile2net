@@ -490,13 +490,6 @@ class Model(cmdline.Namespace):
         return 2.0
 
     @cmdline.property
-    def bs_trn(self) -> int:
-        """
-        Batch size for training per GPU
-        """
-        return 2
-
-    @cmdline.property
     def color_aug(self) -> float:
         """
         Color augmentation intensity

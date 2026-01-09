@@ -225,11 +225,11 @@ def setup_loaders(
                 permutation=True,
                 consecutive_sample=False,
             )
-            train_batch_size = cfg.MODEL.BS_TRN
+            train_batch_size = cfg.train.batch_size
         else:
             # Assuming args.distributed indicates if distributed training is being used
             train_sampler = None
-            train_batch_size = cfg.MODEL.BS_TRN * cfg.ngpu
+            train_batch_size = cfg.train.batch_size * cfg.ngpu
 
         train_loader = DataLoader(
             train_set,
