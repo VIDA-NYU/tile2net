@@ -2320,23 +2320,6 @@ class Cfg(
 
         return result
 
-
-def update_epoch(epoch: int) -> None:
-    """Update runtime epoch counter inside `cfg`."""
-    cfg.epoch = epoch
-
-
-def update_dataset_cfg(num_classes: int, ignore_label: int) -> None:
-    """Synchronise dataset cardinality and ignore label."""
-    cfg.dataset.num_classes = num_classes
-    cfg.dataset.ignore_label = ignore_label
-
-
-def update_dataset_inst(dataset_inst) -> None:
-    """Attach a dataset instance for downstream convenience."""
-    cfg.dataset_inst = dataset_inst
-
-
 cfg = Cfg._default
 
 if __name__ == '__main__':
