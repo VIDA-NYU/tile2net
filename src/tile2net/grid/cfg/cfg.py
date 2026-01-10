@@ -721,6 +721,11 @@ class Download(cmdline.Namespace):
     def force(self):
         return False
 
+    @cmdline.property
+    def only(self) -> bool:
+        """Do not perform any tasks past the downloading step."""
+        return False
+
 
 class Segmentation(
     cmdline.Namespace
@@ -828,6 +833,11 @@ class Segmentation(
     @cmdline.property
     def network(self) -> bool:
         """Save vectorized network to file at the respective scale."""
+        return False
+
+    @cmdline.property
+    def only(self) -> bool:
+        """Do not perform any tasks past the segmentation step."""
         return False
 
 
@@ -1266,67 +1276,65 @@ class Cfg(
     @basic
     @cmdline.property
     def pred(self) -> bool:
-        """Save predictions to file at the respective scale."""
+        """Save predictions to file aligned with the source imagery."""
         return False
 
     @cmdline.property
     def prob(self) -> bool:
-        """Save per-class probabilities to file at the respective scale."""
+        """Save per-class probabilities to file aligned with the source imagery."""
         return False
 
     @basic
     @cmdline.property
     def colorized(self) -> bool:
-        """Save colorized segmentation masks to file at the respective scale."""
+        """Save colorized segmentation masks to file aligned with the source imagery."""
         return False
 
     @cmdline.property
     def intensity(self) -> bool:
-        """Save intensity visualization to file at the respective scale."""
+        """Save intensity visualization to file aligned with the source imagery."""
         return False
 
     @basic
     @cmdline.property
     def sidebyside(self) -> bool:
-        """Save side-by-side input and colorized segmentation masks to file at the respective scale."""
+        """Save side-by-side input and colorized segmentation masks to file aligned with the source imagery."""
         return False
 
     @basic
     @cmdline.property
     def overlay(self) -> bool:
-        """Save overlay visualization to file at the respective scale."""
+        """Save overlay visualization to file aligned with the source imagery."""
         return False
 
     @cmdline.property
     def error(self) -> bool:
-        """Save error visualization to file at the respective scale."""
+        """Save error visualization to file aligned with the source imagery."""
         return False
 
     @basic
     @cmdline.property
     def soft(self) -> bool:
-        """Save soft segmentation masks (color multiplied by probability) to file at the respective scale."""
+        """Save soft segmentation masks (color multiplied by probability) to file aligned with the source imagery."""
         return False
 
     @basic
     @cmdline.property
     def static(self) -> bool:
-        """Save static imagery to file at the respective scale."""
+        """Save static imagery to file aligned with the source imagery."""
         return True
 
     @basic
     @cmdline.property
     def polygons(self) -> bool:
-        """Save vectorized polygons to file at the respective scale."""
+        """Save vectorized polygons to file aligned with the source imagery."""
         return True
-
+    
     @basic
     @cmdline.property
     def network(self) -> bool:
-        """Save vectorized lines to file at the respective scale."""
+        """Save vectorized lines to file aligned with the source imagery."""
         return True
-
-    @basic
     @cmdline.property
     def label2id(self) -> dict[str, int]:
         """

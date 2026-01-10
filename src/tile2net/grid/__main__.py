@@ -206,77 +206,84 @@ class Process:
 
         paths = []
 
-        with ingrid.file, seggrid.file, vecgrid.file:
+        def func():
 
-            if not cfg.static:
-                paths.append(ingrid.file.static)
-            if not cfg.prob:
-                paths.append(ingrid.file.prob)
-            if not cfg.pred:
-                paths.append(ingrid.file.pred)
-            if not cfg.colorized:
-                paths.append(ingrid.file.colorized)
-            if not cfg.intensity:
-                paths.append(ingrid.file.intensity)
-            if not cfg.sidebyside:
-                paths.append(ingrid.file.sidebyside)
-            if not cfg.overlay:
-                paths.append(ingrid.file.overlay)
-            if not cfg.error:
-                paths.append(ingrid.file.error)
-            if not cfg.soft:
-                paths.append(ingrid.file.soft)
-            if not cfg.network:
-                paths.append(vecgrid.file.network)
-            if not cfg.polygons:
-                paths.append(vecgrid.file.polygons)
-            if not cfg.line.preview:
-                paths.append(ingrid.outdir.network.preview)
-            if not cfg.polygon.preview:
-                paths.append(ingrid.outdir.polygons.preview)
+            with ingrid.file, seggrid.file, vecgrid.file:
 
-            if not cfg.segmentation.static:
-                paths.append(seggrid.file.static)
-            if not cfg.segmentation.prob:
-                paths.append(seggrid.file.prob)
-            if not cfg.segmentation.pred:
-                paths.append(seggrid.file.pred)
-            if not cfg.segmentation.colorized:
-                paths.append(seggrid.file.colorized)
-            if not cfg.segmentation.intensity:
-                paths.append(seggrid.file.intensity)
-            if not cfg.segmentation.sidebyside:
-                paths.append(seggrid.file.sidebyside)
-            if not cfg.segmentation.overlay:
-                paths.append(seggrid.file.overlay)
-            if not cfg.segmentation.error:
-                paths.append(seggrid.file.error)
-            if not cfg.segmentation.soft:
-                paths.append(seggrid.file.soft)
+                if not cfg.static:
+                    paths.append(ingrid.file.static)
+                if not cfg.prob:
+                    paths.append(ingrid.file.prob)
+                if not cfg.pred:
+                    paths.append(ingrid.file.pred)
+                if not cfg.colorized:
+                    paths.append(ingrid.file.colorized)
+                if not cfg.intensity:
+                    paths.append(ingrid.file.intensity)
+                if not cfg.sidebyside:
+                    paths.append(ingrid.file.sidebyside)
+                if not cfg.overlay:
+                    paths.append(ingrid.file.overlay)
+                if not cfg.error:
+                    paths.append(ingrid.file.error)
+                if not cfg.soft:
+                    paths.append(ingrid.file.soft)
+                if not cfg.network:
+                    paths.append(vecgrid.file.network)
+                if not cfg.polygons:
+                    paths.append(vecgrid.file.polygons)
+                if not cfg.line.preview:
+                    paths.append(ingrid.outdir.network.preview)
+                if not cfg.polygon.preview:
+                    paths.append(ingrid.outdir.polygons.preview)
+                if cfg.download.only:
+                    return
 
-            if not cfg.vectorization.static:
-                paths.append(vecgrid.file.static)
-            if not cfg.vectorization.prob:
-                paths.append(vecgrid.file.prob)
-            if not cfg.vectorization.pred:
-                paths.append(vecgrid.file.pred)
-            if not cfg.vectorization.colorized:
-                paths.append(vecgrid.file.colorized)
-            if not cfg.vectorization.intensity:
-                paths.append(vecgrid.file.intensity)
-            if not cfg.vectorization.sidebyside:
-                paths.append(vecgrid.file.sidebyside)
-            if not cfg.vectorization.overlay:
-                paths.append(vecgrid.file.overlay)
-            if not cfg.vectorization.error:
-                paths.append(vecgrid.file.error)
-            if not cfg.vectorization.soft:
-                paths.append(vecgrid.file.soft)
-            if not cfg.vectorization.network:
-                paths.append(vecgrid.file.network)
-            if not cfg.vectorization.polygons:
-                paths.append(vecgrid.file.polygons)
+                if not cfg.segmentation.static:
+                    paths.append(seggrid.file.static)
+                if not cfg.segmentation.prob:
+                    paths.append(seggrid.file.prob)
+                if not cfg.segmentation.pred:
+                    paths.append(seggrid.file.pred)
+                if not cfg.segmentation.colorized:
+                    paths.append(seggrid.file.colorized)
+                if not cfg.segmentation.intensity:
+                    paths.append(seggrid.file.intensity)
+                if not cfg.segmentation.sidebyside:
+                    paths.append(seggrid.file.sidebyside)
+                if not cfg.segmentation.overlay:
+                    paths.append(seggrid.file.overlay)
+                if not cfg.segmentation.error:
+                    paths.append(seggrid.file.error)
+                if not cfg.segmentation.soft:
+                    paths.append(seggrid.file.soft)
+                if cfg.segmentation.only:
+                    return
 
+                if not cfg.vectorization.static:
+                    paths.append(vecgrid.file.static)
+                if not cfg.vectorization.prob:
+                    paths.append(vecgrid.file.prob)
+                if not cfg.vectorization.pred:
+                    paths.append(vecgrid.file.pred)
+                if not cfg.vectorization.colorized:
+                    paths.append(vecgrid.file.colorized)
+                if not cfg.vectorization.intensity:
+                    paths.append(vecgrid.file.intensity)
+                if not cfg.vectorization.sidebyside:
+                    paths.append(vecgrid.file.sidebyside)
+                if not cfg.vectorization.overlay:
+                    paths.append(vecgrid.file.overlay)
+                if not cfg.vectorization.error:
+                    paths.append(vecgrid.file.error)
+                if not cfg.vectorization.soft:
+                    paths.append(vecgrid.file.soft)
+                if not cfg.vectorization.network:
+                    paths.append(vecgrid.file.network)
+                if not cfg.vectorization.polygons:
+                    paths.append(vecgrid.file.polygons)
+
+        func()
         out = {
             string
             for it in paths
