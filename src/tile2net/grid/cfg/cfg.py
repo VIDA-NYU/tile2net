@@ -826,8 +826,8 @@ class Segmentation(
         return False
 
     @cmdline.property
-    def lines(self) -> bool:
-        """Save vectorized lines to file at the respective scale."""
+    def network(self) -> bool:
+        """Save vectorized network to file at the respective scale."""
         return False
 
 
@@ -943,8 +943,8 @@ class Vectorization(
         return False
 
     @cmdline.property
-    def lines(self) -> bool:
-        """Save vectorized lines to file at the respective scale."""
+    def network(self) -> bool:
+        """Save vectorized network to file at the respective scale."""
         return False
 
 
@@ -1318,13 +1318,13 @@ class Cfg(
     @cmdline.property
     def polygons(self) -> bool:
         """Save vectorized polygons to file at the respective scale."""
-        return False
+        return True
 
     @basic
     @cmdline.property
-    def lines(self) -> bool:
+    def network(self) -> bool:
         """Save vectorized lines to file at the respective scale."""
-        return False
+        return True
 
     @basic
     @cmdline.property

@@ -90,11 +90,11 @@ class File(
         return files
 
     @property
-    def lines(self):
+    def network(self):
         if self:
-            return self.grid.outdir.lines.parquet
+            return self.grid.outdir.network.parquet
         else:
-            return self.grid.lines.file
+            return self.grid.network.file
 
     @property
     def polygons(self):

@@ -106,7 +106,7 @@ class File(
         return files
 
     @frame.column
-    def lines(self) -> pd.Series:
+    def network(self) -> pd.Series:
         """
         File-paths to line geometry parquet files extracted from segmentation masks.
 
@@ -119,7 +119,7 @@ class File(
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.vecgrid.file.lines
+            >>> ingrid.vecgrid.file.network
             xtile  ytile
             9915   12120    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """

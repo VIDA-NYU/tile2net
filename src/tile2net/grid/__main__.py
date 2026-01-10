@@ -25,8 +25,8 @@ from tile2net.grid.cfg.logger import logger
 #             exit(0)
 #
 #         if cfg.line.concat:
-#             # concatenate lines into single file and save
-#             lines = ingrid.lines
+#             # concatenate network into single file and save
+#             network = ingrid.network
 #         if cfg.polygon.concat:
 #             # concatenate polygons into single file and save
 #             polygons = ingrid.polygons
@@ -44,17 +44,17 @@ from tile2net.grid.cfg.logger import logger
 #             img = ingrid.polygons.preview(maxdim=maxdim, show=False)
 #             img.save(dest)
 #
-#         # save a preview of the lines to file
+#         # save a preview of the network to file
 #         if cfg.line.preview:
-#             dest = ingrid.outdir.lines.preview
-#             _ = ingrid.lines
+#             dest = ingrid.outdir.network.preview
+#             _ = ingrid.network
 #             msg = (
-#                 f'Saving preview of lines to '
+#                 f'Saving preview of network to '
 #                 f'\n\t{dest}'
 #             )
 #             logger.info(msg)
 #             maxdim = cfg.line.preview
-#             img = ingrid.lines.preview(maxdim=maxdim, show=False)
+#             img = ingrid.network.preview(maxdim=maxdim, show=False)
 #             img.save(dest)
 #
 #         if cfg.segmentation.to_pkl:
@@ -122,14 +122,14 @@ class Process:
             if cfg.soft:
                 _ = ingrid.file.soft
                 mapping['soft'] = outdir.ingrid.soft.dir
-            if cfg.lines:
-                _ = vecgrid.file.lines
-                mapping['lines'] = outdir.vecgrid.lines.dir
+            if cfg.network:
+                _ = vecgrid.file.network
+                mapping['network'] = outdir.vecgrid.network.dir
             if cfg.polygons:
                 _ = vecgrid.file.polygons
                 mapping['polygons'] = outdir.vecgrid.polygons.dir
             if cfg.line.preview:
-                mapping['line.preview'] = outdir.lines.preview
+                mapping['line.preview'] = outdir.network.preview
             if cfg.polygon.preview:
                 mapping['polygon.preview'] = outdir.polygons.preview
 
@@ -188,9 +188,9 @@ class Process:
             if cfg.vectorization.soft:
                 _ = vecgrid.file.soft
                 mapping['vectorization.soft'] = outdir.vecgrid.soft.dir
-            if cfg.vectorization.lines:
-                _ = vecgrid.file.lines
-                mapping['vectorization.lines'] = outdir.vecgrid.lines.dir
+            if cfg.vectorization.network:
+                _ = vecgrid.file.network
+                mapping['vectorization.network'] = outdir.vecgrid.network.dir
             if cfg.vectorization.polygons:
                 _ = vecgrid.file.polygons
                 mapping['vectorization.polygons'] = outdir.vecgrid.polygons.dir
@@ -226,12 +226,12 @@ class Process:
                 paths.append(ingrid.file.error)
             if not cfg.soft:
                 paths.append(ingrid.file.soft)
-            if not cfg.lines:
-                paths.append(vecgrid.file.lines)
+            if not cfg.network:
+                paths.append(vecgrid.file.network)
             if not cfg.polygons:
                 paths.append(vecgrid.file.polygons)
             if not cfg.line.preview:
-                paths.append(ingrid.outdir.lines.preview)
+                paths.append(ingrid.outdir.network.preview)
             if not cfg.polygon.preview:
                 paths.append(ingrid.outdir.polygons.preview)
 
@@ -272,8 +272,8 @@ class Process:
                 paths.append(vecgrid.file.error)
             if not cfg.vectorization.soft:
                 paths.append(vecgrid.file.soft)
-            if not cfg.vectorization.lines:
-                paths.append(vecgrid.file.lines)
+            if not cfg.vectorization.network:
+                paths.append(vecgrid.file.network)
             if not cfg.vectorization.polygons:
                 paths.append(vecgrid.file.polygons)
 

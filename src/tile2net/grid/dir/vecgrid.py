@@ -35,10 +35,10 @@ class VecGrid(
         return result
 
     @Network
-    def lines(self):
+    def network(self):
         format = os.path.join(
             self.dir,
-            'lines',
+            'network',
             self.suffix,
         )
         format = format + '.parquet'

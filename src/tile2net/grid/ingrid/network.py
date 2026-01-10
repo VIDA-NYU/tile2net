@@ -17,7 +17,7 @@ from PIL import Image, ImageColor
 from math import ceil
 from scipy.spatial import cKDTree
 
-import tile2net.grid.pednet.lines
+import tile2net.grid.pednet.network
 from ..cfg import cfg
 from ..cfg.logger import logger
 from ..explore import explore
@@ -29,27 +29,27 @@ if False:
     import folium
 
 
-class Lines(
+class Network(
     FrameWrapper
 ):
     """
-    Lines for each feature and region, dissolved across tiles.
+    Network for each feature and region, dissolved across tiles.
 
-    Handles lazy-loading of concatenated lines from vecgrid tiles:
-        >>> Lines._get
+    Handles lazy-loading of concatenated network from vecgrid tiles:
+        >>> Network._get
 
     See usage:
-        >>> InGrid.lines
+        >>> InGrid.network
     """
-    __name__ = 'lines'
+    __name__ = 'network'
 
     def _get(
-            self: Lines,
+            self: Network,
             instance: InGrid,
             owner: type[InGrid]
-    ) -> Lines:
+    ) -> Network:
         """
-        Lazy-load factory method for accessing lines for each feature, dissolved across tiles.
+        Lazy-load factory method for accessing network for each feature, dissolved across tiles.
 
         Automatically concatenates and dissolves line geometries from all
         vec-tiles if not already cached. Stitches line segments at tile
@@ -57,12 +57,12 @@ class Lines(
         for persistence across sessions.
 
         Returns:
-            Lines instance with dissolved features from all vecgrid tiles
+            Network instance with dissolved features from all vecgrid tiles
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.lines
-            Lines:
+            >>> ingrid.network
+            Network:
                                                         geometry
             feature
             crosswalk  LINESTRING (-7910926 5213692.6, -7910925.6 521...
@@ -93,23 +93,23 @@ class Lines(
                 )
                 cache[key] = result
             else:
-                lines: gpd.GeoDataFrame = instance.vecgrid.lines.frame.copy()
+                network: gpd.GeoDataFrame = instance.vecgrid.network.frame.copy()
                 with instance.line_benchmark:
 
-                    lines.columns = (
-                        lines.columns.str
-                        .removeprefix('lines.')
+                    network.columns = (
+                        network.columns.str
+                        .removeprefix('network.')
                     )
-                    cols = lines.dtypes == 'geometry'
+                    cols = network.dtypes == 'geometry'
 
                     msg = f"Stacking geometric columns into a single geometry column."
                     logger.debug(msg)
-                    result: Lines = (
-                        lines
+                    result: Network = (
+                        network
                         .loc[:, cols]
                         .stack(future_stack=True)
                         .rename('geometry')
-                        .set_crs(lines.crs)
+                        .set_crs(network.crs)
                         .dropna()
                         .explode()
                         .reset_index()
@@ -170,7 +170,7 @@ class Lines(
                     COORDS[ileft] = mean
                     COORDS[iright] = mean
 
-                    msg = 'Dissolving and merging lines'
+                    msg = 'Dissolving and merging network'
                     logger.debug(msg)
                     geometry = shapely.linestrings(COORDS, indices=indices)
 
@@ -178,7 +178,7 @@ class Lines(
 
                     result = (
                         result.frame
-                        .pipe(tile2net.grid.pednet.lines.Lines.from_center)
+                        .pipe(tile2net.grid.pednet.network.Network.from_center)
                         .drop2nodes()
                         .frame
                         .set_index('feature')
@@ -197,7 +197,7 @@ class Lines(
                     result.frame.to_parquet(file)
 
                     msg = (
-                        f'Finished concatenating the lines from {len(lines)} '
+                        f'Finished concatenating the network from {len(network)} '
                         f'tiles into a single vector of {len(result)} '
                         f'geometries'
                     )
@@ -222,18 +222,18 @@ class Lines(
     @property
     def file(self):
         """
-        File at which the lines are cached
+        File at which the network are cached
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.lines.file
-            '/home/<user>/tile2net/ma/lines/parquet/Boston Common, MA.parquet'
+            >>> ingrid.network.file
+            '/home/<user>/tile2net/ma/network/parquet/Boston Common, MA.parquet'
         """
-        return self.ingrid.outdir.lines.parquet
+        return self.ingrid.outdir.network.parquet
 
 
     def unlink(self):
-        """Delete the lines file."""
+        """Delete the network file."""
         file = self.file
         msg = (
             f'Uncaching {self.ingrid.__name__}.{self.__name__} and '

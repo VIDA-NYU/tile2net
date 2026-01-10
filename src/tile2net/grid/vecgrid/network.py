@@ -19,17 +19,17 @@ if False:
     import folium
 
 
-class Lines(
+class Network(
     FrameWrapper,
 ):
     """
     Lines for each vec-tile, feature, and region.
 
     Handles lazy-loading of concatenated line geometries from vecgrid tiles:
-        >>> Lines._get
+        >>> Network._get
 
     See usage:
-        >>> VecGrid.lines
+        >>> VecGrid.network
     """
     __name__ = 'lines'
     vecgrid: VecGrid = None
@@ -51,7 +51,7 @@ class Lines(
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.vecgrid.lines
+            >>> ingrid.vecgrid.network
             Lines:
             feature                                              crosswalk
             xtile ytile

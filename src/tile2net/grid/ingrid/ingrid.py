@@ -32,7 +32,7 @@ from tile2net.grid.cfg.logger import logger
 from tile2net.grid.dir.indir import Indir
 from tile2net.grid.dir.outdir import Outdir
 from tile2net.grid.ingrid import delayed
-from tile2net.grid.ingrid.lines import Lines
+from tile2net.grid.ingrid.network import Network
 from tile2net.grid.ingrid.polygons import Polygons
 from tile2net.grid.ingrid.segtile import SegTile
 from tile2net.grid.ingrid.source import Source, SourceNotFound
@@ -225,15 +225,14 @@ class InGrid(
         """
         return self.dimension, self.dimension
 
-    @Lines
-    def lines(self):
+    @Network
+    def network(self):
         """
-        Lines from all features (e.g. sidewalks, crosswalks) from all tiles dissolved into
-        continuous line geometries.
+        Networks from all features (e.g. sidewalks, crosswalks) from all tiles dissolved.
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.lines
+            >>> ingrid.network
             Lines:
                                                     geometry
             feature
@@ -1076,11 +1075,11 @@ class InGrid(
         if self.cfg.polygon.concat:
             rows.append(('Polygons', _p(self.outdir.polygons.parquet)))
         if self.cfg.line.concat:
-            rows.append(('Network', _p(self.outdir.lines.parquet)))
+            rows.append(('Network', _p(self.outdir.network.parquet)))
         if self.cfg.polygon.preview:
             rows.append(('Polygon preview', _p(self.outdir.polygons.preview)))
         if self.cfg.line.preview:
-            rows.append(('Network preview', _p(self.outdir.lines.preview)))
+            rows.append(('Network preview', _p(self.outdir.network.preview)))
         if self.cfg.segmentation.to_pkl:
             rows.append(('seg-tiles (zoom and scale in attrs)', _p(self.outdir.seggrid.pickle)))
 
@@ -1259,10 +1258,10 @@ class InGrid(
             msg = (
                 f'Cleaning up the lines for each tile from '
                 f'\n\t'
-                f'{self.ingrid.outdir.vecgrid.lines.dir}'
+                f'{self.ingrid.outdir.vecgrid.network.dir}'
             )
             logger.info(msg)
-            util.cleanup(self.vecgrid.file.lines)
+            util.cleanup(self.vecgrid.file.network)
 
         if static:
             msg = (

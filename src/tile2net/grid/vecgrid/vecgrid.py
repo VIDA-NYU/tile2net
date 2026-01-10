@@ -26,7 +26,7 @@ from tqdm.auto import tqdm
 from tile2net.grid.cfg.logger import logger
 from .feature import Feature
 from .file import File
-from .lines import Lines
+from .network import Network
 from .mask2poly import Mask2Poly
 from .padded import Padded
 from .polygons import Polygons
@@ -489,7 +489,7 @@ class VecGrid(Grid):
             None. See output file paths:
             >>> ingrid: InGrid
             >>> ingrid.vecgrid.file.polygons
-            >>> ingrid.vecgrid.file.lines
+            >>> ingrid.vecgrid.file.network
 
         Example:
             >>> ingrid: InGrid = InGrid.from_location('Boston Common, MA')
@@ -772,8 +772,8 @@ class VecGrid(Grid):
         # todo: is this still needed?
         raise NotImplementedError
 
-    @Lines
-    def lines(self):
+    @Network
+    def network(self):
         """
         Dissolved line features from all vec-tiles.
 
@@ -782,7 +782,7 @@ class VecGrid(Grid):
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.vecgrid.lines
+            >>> ingrid.vecgrid.network
             Lines:
             feature                                              crosswalk
             xtile ytile

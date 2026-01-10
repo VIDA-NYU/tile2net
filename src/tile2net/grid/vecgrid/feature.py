@@ -48,7 +48,7 @@ class Feature(
         return self.grid.frame[key]
 
     @property
-    def lines(self) -> gpd.GeoSeries:
+    def network(self) -> gpd.GeoSeries:
         key = f'lines.{self.__name__}'
         if key not in self.grid:
             self.grid._load_lines()

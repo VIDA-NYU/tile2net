@@ -92,8 +92,8 @@ class Outdir(
         return result
 
     @property
-    def lines(self):
-        return self.sourcedir.lines
+    def network(self):
+        return self.sourcedir.network
 
     @property
     def polygons(self):

@@ -28,7 +28,7 @@ class Polygons(
         return filename
 
 
-class Lines(
+class Network(
     Dir
 ):
 
@@ -65,8 +65,8 @@ class SourceDir(
         result = NameDir.from_format(format)
         return result
 
-    @Lines
-    def lines(self):
+    @Network
+    def network(self):
         ...
 
     @Polygons

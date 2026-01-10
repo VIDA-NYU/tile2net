@@ -132,18 +132,6 @@ class Edges(
     )
     __name__ = 'edges'
 
-    # @property
-    # def lines(self) -> Lines:
-    #     try:
-    #         return self.frame.attrs['lines']
-    #     except KeyError as e:
-    #         raise AttributeError(
-    #             'Lines not set. Please set lines attribute before accessing Nodes.'
-    #         ) from e
-    #
-    # @lines.setter
-    # def lines(self, value: Lines):
-    #     self.frame.attrs['lines'] = value
 
     @property
     def lines(self) -> Lines:
