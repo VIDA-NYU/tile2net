@@ -72,7 +72,7 @@ class File(
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.seggrid.file.colorized
+            >>> ingrid.seggrid.file.Colorized
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
@@ -184,7 +184,7 @@ class File(
         grid = self.grid
         name = grid.__name__
         FILES = (
-            getattr(grid.ingrid.outdir, name)
+            getattr(grid.outdir, name)
             .sidebyside.files(grid)
         )
         if self:

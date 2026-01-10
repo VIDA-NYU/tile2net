@@ -75,7 +75,7 @@ class namespace(
         Supports using namespace as a truthy context manager,
         allowing for creative and convenient uses. For example:
         >>> with self.file:
-        >>>     static = self.file.static
+        >>>     static = self.file.Static
         The retrieval of `static` uses the truthy context to behave differently.
         Normally, it is configured to start downloading the static files for user
         convenience. With this context manager, it allows us to check if `self.file`
@@ -96,4 +96,8 @@ class namespace(
         return False
 
     def __bool__(self):
-        return self.instance.__dict__[self.__name__]
+        # seee __enter__/__exit__
+        return (
+            self.instance.__dict__
+            .get(self.__name__, False)
+        )

@@ -28,7 +28,8 @@ class File(
         grid = self.grid
         files = grid.indir.files(grid)
         if (
-                not grid.download
+                not self
+                and not grid.download
                 and not files.map(os.path.exists).all()
         ):
             grid.download()
@@ -46,12 +47,12 @@ class File(
         """
 
         ingrid = self.grid
-        files = ingrid.outdir.ingrid.pred.files()
-        if self:
-            return files
+        files = ingrid.outdir.ingrid.pred.files(ingrid)
         self.pred = files
-        loc = ~files.map(os.path.exists)
-        if not loc.all():
+        if (
+            not self
+            and (loc := ~files.map(os.path.exists)).any()
+        ):
             ingrid = ingrid.loc[loc]
             ingrid._unstitch2file(
                 tiles=ingrid.file.pred,
@@ -71,12 +72,12 @@ class File(
         # TODO: update
         """
         ingrid = self.grid
-        files = ingrid.outdir.ingrid.prob.files()
-        if self:
-            return files
+        files = ingrid.outdir.ingrid.prob.files(ingrid)
         self.prob = files
-        loc = ~files.map(os.path.exists)
-        if not loc.all():
+        if (
+            not self
+            and (loc := ~files.map(os.path.exists)).any()
+        ):
             ingrid = ingrid.loc[loc]
             ingrid._unstitch2file(
                 tiles=ingrid.file.prob,

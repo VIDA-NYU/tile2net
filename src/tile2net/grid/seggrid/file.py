@@ -49,7 +49,10 @@ class File(
         grid = self.grid
         files = grid.ingrid.outdir.seggrid.static.files(grid)
         self.static = files
-        if not files.map(os.path.exists).all():
+        if (
+            not self
+            and not files.map(os.path.exists).all()
+        ):
             ingrid = grid.ingrid
             assert (
                 ingrid.file.static
@@ -89,7 +92,8 @@ class File(
         grid.file.pred = files
         self.pred = files
         if (
-                not grid.predict
+            not self
+                and not grid.predict
                 and not files.map(os.path.exists).all()
         ):
             grid.predict(probs=False)
@@ -114,8 +118,9 @@ class File(
         grid.file.prob = files
         self.prob = files
         if (
-                not bool(grid.predict)
-                and not files.map(os.path.exists).all()
+            not self
+            and not bool(grid.predict)
+            and not files.map(os.path.exists).all()
         ):
             grid.predict(probs=True)
             assert files.map(os.path.exists).all()
