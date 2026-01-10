@@ -158,7 +158,7 @@ class SampleDataSet(
             mode: str | None = None,
     ) -> Self:
         # raise NotImplementedError
-        static = wrapper.static
+        static = wrapper.Static
         mask = wrapper.mask
         index = wrapper.index
         row = wrapper.row

@@ -123,10 +123,10 @@ class Process:
                 _ = ingrid.file.soft
                 mapping['soft'] = outdir.ingrid.soft.dir
             if cfg.network:
-                _ = vecgrid.file.network
+                _ = ingrid.file.network
                 mapping['network'] = outdir.vecgrid.network.dir
             if cfg.polygons:
-                _ = vecgrid.file.polygons
+                _ = ingrid.file.polygons
                 mapping['polygons'] = outdir.vecgrid.polygons.dir
             if cfg.line.preview:
                 mapping['line.preview'] = outdir.network.preview
@@ -224,8 +224,8 @@ class Process:
                     paths.append(ingrid.file.sidebyside)
                 if not cfg.overlay:
                     paths.append(ingrid.file.overlay)
-                if not cfg.error:
-                    paths.append(ingrid.file.error)
+                # if not cfg.error:
+                #     paths.append(ingrid.file.error)
                 if not cfg.soft:
                     paths.append(ingrid.file.soft)
                 if not cfg.network:
@@ -253,8 +253,8 @@ class Process:
                     paths.append(seggrid.file.sidebyside)
                 if not cfg.segmentation.overlay:
                     paths.append(seggrid.file.overlay)
-                if not cfg.segmentation.error:
-                    paths.append(seggrid.file.error)
+                # if not cfg.segmentation.error:
+                #     paths.append(seggrid.file.error)
                 if not cfg.segmentation.soft:
                     paths.append(seggrid.file.soft)
                 if cfg.segmentation.only:
@@ -274,8 +274,8 @@ class Process:
                     paths.append(vecgrid.file.sidebyside)
                 if not cfg.vectorization.overlay:
                     paths.append(vecgrid.file.overlay)
-                if not cfg.vectorization.error:
-                    paths.append(vecgrid.file.error)
+                # if not cfg.vectorization.error:
+                #     paths.append(vecgrid.file.error)
                 if not cfg.vectorization.soft:
                     paths.append(vecgrid.file.soft)
                 if not cfg.vectorization.network:

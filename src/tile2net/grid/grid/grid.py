@@ -238,7 +238,7 @@ class Grid(
         Namespace for file attributes
 
         Example:
-            >>> self.file.static
+            >>> self.file.Static
             xtile   ytile
             317280  387840    /home/<user>/tile2net/ma/ingrid/static/20/31...
                     387841    /home/<user>/tile2net/ma/ingrid/static/20/31...

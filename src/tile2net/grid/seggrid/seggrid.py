@@ -212,7 +212,7 @@ class SegGrid(
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.seggrid.file.colorized
+            >>> ingrid.seggrid.file.Colorized
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
@@ -276,7 +276,7 @@ class SegGrid(
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.seggrid.padded.static
+            >>> ingrid.seggrid.padded.Static
             >>> ingrid.seggrid.padded.length
         """
 

@@ -110,7 +110,7 @@ class InGrid(
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.file.static
+            >>> ingrid.file.Static
             xtile   ytile
             317280  387840    /home/<user>/tile2net/ma/ingrid/static/20/31...
         """
@@ -261,9 +261,9 @@ class InGrid(
 
         Example:
             >>> ingrid: InGrid
-            >>> ingrid.static.black
-            >>> ingrid.static.hrnet_checkpoint
-            >>> ingrid.static.snapshot
+            >>> ingrid.Static.black
+            >>> ingrid.Static.hrnet_checkpoint
+            >>> ingrid.Static.snapshot
         """
 
     @Indir
@@ -1069,7 +1069,7 @@ class InGrid(
         if outdir:
             rows.append(('Output directory', outdir))
 
-        rows.append(('Input imagery', _p(self.outdir.ingrid.static.dir)))
+        rows.append(('Input imagery', _p(self.outdir.ingrid.Static.dir)))
         if self.cfg.segmentation.colorized:
             rows.append(('Segmentation (colorized)', _p(self.outdir.seggrid.colorized.dir)))
         if self.cfg.polygon.concat:
@@ -1267,11 +1267,11 @@ class InGrid(
             msg = (
                 f'Cleaning up previously downloaded imagery '
                 f'from {self.ingrid.indir.dir} and '
-                f'{self.ingrid.outdir.seggrid.static.dir}'
+                f'{self.ingrid.outdir.seggrid.Static.dir}'
             )
             logger.info(msg)
-            util.cleanup(self.ingrid.file.static)
-            util.cleanup(self.seggrid.file.static)
+            util.cleanup(self.ingrid.file.Static)
+            util.cleanup(self.seggrid.file.Static)
 
         if grayscale:
             msg = (
@@ -1619,3 +1619,5 @@ class InGrid(
         """Quick access for the InGrid of a project."""
         return self
 
+
+    __name__ = 'ingrid'

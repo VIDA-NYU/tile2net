@@ -1133,7 +1133,7 @@ class Cfg(
     instance: Grid = None
     owner: Type[Grid] = None
     __name__ = ''
-    # _active = True
+    _active = True
 
     _default = _Default()
 
@@ -1344,6 +1344,12 @@ class Cfg(
     @cmdline.property
     def polygons(self) -> bool:
         """Save vectorized polygons, aligned with the source imagery, to the output directory."""
+        return True
+
+    @basic
+    @cmdline.property
+    def network(self) -> bool:
+        """Save vectorized network, aligned with the source imagery, to the output directory."""
         return True
 
     def label2id(self) -> dict[str, int]:

@@ -78,6 +78,14 @@ class Grid(
     def intensity(self):
         ...
 
+    @Dir
+    def sidebyside(self):
+        ...
+
+    @Dir
+    def soft(self):
+        ...
+
 
 class Padded(
     Grid
