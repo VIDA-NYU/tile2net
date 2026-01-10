@@ -1,2 +1,2 @@
-from .frame import column, index
+from .frame import column, index, property
 from .framewrapper import FrameWrapper

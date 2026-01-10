@@ -128,6 +128,102 @@ class Index(Column):
 
 
 
+class Property(
+    namespace
+):
+    """
+    Wraps column operations (get, set, del) for Grid.grid
+    """
+    test = None
+
+    def __set_name__(self, owner, name):
+        self.__name__ = name
+
+    def _get(
+            self,
+            instance: FrameWrapper,
+            owner: type
+    ) -> Self | pd.Series:
+        self = super()._get(instance, owner)
+        frame = self.wrapper.frame
+        result = copy.copy(self)
+        if instance is None:
+            return result
+        key = self.key
+        if key in frame.__dict__:
+            return frame.__dict__[key]
+        if key in frame:
+            return frame[key]
+        if key in frame.index.names:
+            return frame.index.get_level_values(key)
+        wrapped = self.__wrapped__
+        if wrapped is None:
+            msg = (
+                f'No wrapper implemented for '
+                f'{owner.__qualname__}.{self.__name__}'
+            )
+            raise NotImplementedError(msg)
+        result = (
+            self.__wrapped__
+            .__get__(instance, owner)
+            .__call__()
+        )
+        frame.__dict__[key] = result
+        result = frame.__dict__[key]
+        return result
+
+    locals().update(
+        __get__=_get
+    )
+
+    if False:
+        def __get__(self, instance, owner) -> Union[
+            Self,
+            pd.Series,
+            Iterable
+        ]:
+            ...
+
+    @cached_property
+    def key(self):
+        from .framewrapper import FrameWrapper
+        instance = self
+        names = []
+        while True:
+            names.append(instance.__name__)
+            instance = instance.instance
+            if (
+                    instance is None
+                    or isinstance(instance, FrameWrapper)
+            ):
+                break
+
+        result = '.'.join(names[::-1])
+        return result
+
+    def __set__(
+            self,
+            instance: namespace,
+            value,
+    ):
+        self.instance = instance
+        self.wrapper = instance.wrapper
+        wrapper: FrameWrapper = self.wrapper
+        frame = wrapper.frame
+        key = self.key
+        frame.__dict__[key] = value
+
+    def __delete__(
+            self,
+            instance: namespace,
+    ):
+        self.instance = instance
+        self.wrapper = instance.wrapper
+        wrapper: FrameWrapper = self.wrapper
+        frame = wrapper.frame
+        key = self.key
+        del frame.__dict__[key]
+
 def column(
         *args, **kwargs
 ) -> Union[
@@ -145,3 +241,13 @@ def index(
     Index
 ]:
     return Index(*args, **kwargs)
+
+
+def property(
+        *args, **kwargs
+) -> Union[
+    pd.Series,
+    gpd.GeoSeries,
+    # Property,
+]:
+    return Property(*args, **kwargs)
