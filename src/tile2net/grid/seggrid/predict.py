@@ -18,7 +18,7 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 import tile2net.tileseg.transforms.transforms as extended_transforms
-from tile2net.grid.cfg.cfg import Cfg, assert_and_infer_cfg
+from tile2net.grid.cfg.cfg import Cfg
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.grid.static import Static
 from tile2net.grid.loaders.sample import SampleDataWrapper
@@ -32,14 +32,8 @@ from tile2net.tileseg.datasets.sampler import DistributedSampler
 from tile2net.tileseg.loss.optimizer import get_optimizer, restore_net, restore_opt
 from tile2net.tileseg.loss.utils import get_loss
 from tile2net.tileseg.network.ocrnet import MscaleOCR
-from tile2net.tileseg.utils.misc import AverageMeter, prep_experiment
+from tile2net.tileseg.utils.misc import AverageMeter
 from tile2net.grid.cfg import cfg
-
-"""
-Standalone prediction script for semantic segmentation.
-Run in isolated subprocess to avoid GPU/memory leaks and enable debugging.
-"""
-
 
 def sha256sum(path):
     h = hashlib.sha256()
@@ -260,8 +254,6 @@ class Predict:
 
         self._validate_and_download_checkpoints()
         self._setup_device_and_distributed()
-
-        assert_and_infer_cfg(self.cfg)
 
         self._setup_done = True
 

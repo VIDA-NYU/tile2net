@@ -1,4 +1,5 @@
 from __future__ import absolute_import, annotations, division, print_function, unicode_literals
+from functools import cached_property
 
 import argparse
 import functools
@@ -544,18 +545,29 @@ class Model(cmdline.Namespace):
         """
         return 'regularnorm'
 
-    @cmdline.property
-    def bnfunc(self) -> str:
-        """
-        BatchNorm function override
-        """
+    # @cmdline.property
+    # def bnfunc(self) -> str:
+    #     """
+    #     BatchNorm function override
+    #     """
 
-    @cmdline.property
+    @cached_property
+    def bnfunc(self):
+        return torch.nn.BatchNorm2d
+
+    # @cmdline.property
+    # def mscale(self) -> bool:
+    #     """
+    #     Use multi-scale input during training
+    #     """
+    #     self._cfg.arch.
+    #     return False
+    @cached_property
     def mscale(self) -> bool:
-        """
-        Use multi-scale input during training
-        """
-        return False
+        return (
+            'mscale' in self._cfg.arch
+            or 'attnscale' in self._cfg.arch
+        )
 
     @cmdline.property
     def three_scale(self) -> bool:
@@ -583,7 +595,7 @@ class Model(cmdline.Namespace):
         return [0.5, 1.5]
 
     @cmdline.property
-    def n_scales(self) -> str:
+    def n_scales(self) -> list[float]:
         """
         Number of scales for multi-scale inference, e.g. '1,2,3'
         """
@@ -1121,7 +1133,7 @@ class Cfg(
     instance: Grid = None
     owner: Type[Grid] = None
     __name__ = ''
-    _active = True
+    # _active = True
 
     _default = _Default()
 
@@ -2307,38 +2319,6 @@ class Cfg(
             result[k] = v
 
         return result
-
-
-def assert_and_infer_cfg(cfg, train_mode: bool = True) -> None:
-    """
-    Port of detectron‐style assert_and_infer_cfg for the new `Cfg`.
-    Mutates the global `cfg` in-place based on parsed CLI `cfg`.
-    """
-    # --- static assignments ------------------------------------------------
-    cfg.model.bnfunc = torch.nn.BatchNorm2d
-
-    # --- CLI-driven overrides ---------------------------------------------
-    if cfg.dataset.name is not None:
-        cfg.dataset.name = cfg.dataset.name
-    if cfg.dump_augmentation_images is not None:
-        cfg.dump_augmentation_images = cfg.dump_augmentation_images
-
-    arch = cfg.arch
-    cfg.model.mscale = (
-            'mscale' in arch.lower()
-            or 'attnscale' in arch.lower()
-    )
-
-    n_scales = cfg.model.n_scales
-    if n_scales:
-        cfg.model.n_scales = [float(x) for x in n_scales.split(",")]
-
-    # canonical crop override to match legacy behaviour
-    cfg.dataset.crop_size = 1024, 1024
-
-    # freeze read-only when not training
-    if not train_mode:
-        cfg._active = False
 
 
 def update_epoch(epoch: int) -> None:
