@@ -33,6 +33,7 @@ from tile2net.tileseg.loss.optimizer import get_optimizer, restore_net, restore_
 from tile2net.tileseg.loss.utils import get_loss
 from tile2net.tileseg.network.ocrnet import MscaleOCR
 from tile2net.tileseg.utils.misc import AverageMeter, prep_experiment
+from tile2net.grid.cfg import cfg
 
 """
 Standalone prediction script for semantic segmentation.
@@ -261,7 +262,6 @@ class Predict:
         self._setup_device_and_distributed()
 
         assert_and_infer_cfg(self.cfg)
-        prep_experiment()
 
         self._setup_done = True
 

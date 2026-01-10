@@ -721,6 +721,7 @@ class Download(cmdline.Namespace):
     def force(self):
         return False
 
+    @basic
     @cmdline.property
     def only(self) -> bool:
         """Do not perform any tasks past the downloading step."""
@@ -835,6 +836,7 @@ class Segmentation(
         """Save vectorized network to file at the respective scale."""
         return False
 
+    @basic
     @cmdline.property
     def only(self) -> bool:
         """Do not perform any tasks past the segmentation step."""
@@ -1276,66 +1278,62 @@ class Cfg(
     @basic
     @cmdline.property
     def pred(self) -> bool:
-        """Save predictions to file aligned with the source imagery."""
+        """Save predictions, aligned with the source imagery, to the output directory."""
         return False
 
     @cmdline.property
     def prob(self) -> bool:
-        """Save per-class probabilities to file aligned with the source imagery."""
+        """Save per-class probabilities, aligned with the source imagery, to the output directory."""
         return False
 
     @basic
     @cmdline.property
     def colorized(self) -> bool:
-        """Save colorized segmentation masks to file aligned with the source imagery."""
+        """Save colorized segmentation masks, aligned with the source imagery, to the output directory."""
         return False
 
     @cmdline.property
     def intensity(self) -> bool:
-        """Save intensity visualization to file aligned with the source imagery."""
+        """Save intensity visualization, aligned with the source imagery, to the output directory."""
         return False
 
     @basic
     @cmdline.property
     def sidebyside(self) -> bool:
-        """Save side-by-side input and colorized segmentation masks to file aligned with the source imagery."""
+        """Save static imagery and colorized segmentation masks side-by-side, aligned with the source imagery,
+        to the output directory.
+        """
         return False
 
     @basic
     @cmdline.property
     def overlay(self) -> bool:
-        """Save overlay visualization to file aligned with the source imagery."""
+        """Save overlay visualization, aligned with the source imagery, to the output directory."""
         return False
 
     @cmdline.property
     def error(self) -> bool:
-        """Save error visualization to file aligned with the source imagery."""
+        """Save error visualization, aligned with the source imagery, to the output directory."""
         return False
 
     @basic
     @cmdline.property
     def soft(self) -> bool:
-        """Save soft segmentation masks (color multiplied by probability) to file aligned with the source imagery."""
+        """Save soft segmentation masks (color multiplied by probability), aligned with the source imagery, to the output directory."""
         return False
 
     @basic
     @cmdline.property
     def static(self) -> bool:
-        """Save static imagery to file aligned with the source imagery."""
+        """Save static imagery, aligned with the source imagery, to the output directory."""
         return True
 
     @basic
     @cmdline.property
     def polygons(self) -> bool:
-        """Save vectorized polygons to file aligned with the source imagery."""
+        """Save vectorized polygons, aligned with the source imagery, to the output directory."""
         return True
-    
-    @basic
-    @cmdline.property
-    def network(self) -> bool:
-        """Save vectorized lines to file aligned with the source imagery."""
-        return True
-    @cmdline.property
+
     def label2id(self) -> dict[str, int]:
         """
         Mapping from label names to IDs
@@ -1799,12 +1797,6 @@ class Cfg(
         return 1
 
     @cmdline.property
-    def city_info_path(self) -> Optional[str]:
-        """
-        Path to city info metadata
-        """
-
-    @cmdline.property
     def do_flip(self) -> bool:
         """
         Enable horizontal flipping in inference
@@ -1864,23 +1856,25 @@ class Cfg(
         """
         return False
 
-    @cmdline.property
-    def _best_record(self) -> dict[str, Union[int, float]]:
-        return dict(
-            epoch=-1,
-            iter=0,
-            val_loss=1e10,
-            acc=0,
-            acc_cls=0,
-            mean_iu=0,
-            fwavacc=0
-        )
+    # todo: cfg._best_record doesn't seem to be used anywhere, but evalmetrics.best_record is, so I commented it out
+    # @cmdline.property
+    # def _best_record(self) -> dict[str, Union[int, float]]:
+    #     return dict(
+    #         epoch=-1,
+    #         iter=0,
+    #         val_loss=1e10,
+    #         acc=0,
+    #         acc_cls=0,
+    #         mean_iu=0,
+    #         fwavacc=0
+    #     )
 
     @cmdline.property
     def log_level(self) -> str:
         """
         Logging level for the application
         """
+        # DEBUG for now, even for end-user probably better while we are developing
         return 'DEBUG'
         # return 'INFO'
 
@@ -1939,8 +1933,6 @@ class Cfg(
         cls._active = active
         return result
 
-
-
     @cached[argparse.ArgumentParser]
     @cached.classmethod
     def parser(cls) -> argparse.ArgumentParser:
@@ -1975,8 +1967,6 @@ class Cfg(
             quaternary = prop.dest
             return primary, is_unordered, val_order, quaternary
 
-
-
         all_props = sorted(cls._trace2property.values(), key=prop_sort_key)
         seen_opts: set[str] = set()
 
@@ -1987,8 +1977,8 @@ class Cfg(
             seen_opts.update(prop.posargs)
             group = prop.group
             if (
-                group is not None
-                and group in arg_groups
+                    group is not None
+                    and group in arg_groups
             ):
                 target = arg_groups[group]
             else:
@@ -2365,7 +2355,6 @@ def update_dataset_cfg(num_classes: int, ignore_label: int) -> None:
 def update_dataset_inst(dataset_inst) -> None:
     """Attach a dataset instance for downstream convenience."""
     cfg.dataset_inst = dataset_inst
-
 
 
 cfg = Cfg._default

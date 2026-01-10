@@ -1,28 +1,25 @@
 from __future__ import annotations
-from ..benchmark import benchmark
-from matplotlib.collections import LineCollection
-from .. import util
 
-from pathlib import Path
 import io
 import os
+from functools import *
+from math import ceil
+from pathlib import Path
 
-import PIL.Image
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import shapely
-from PIL import Image, ImageColor
-from math import ceil
+from PIL import Image
+from matplotlib.collections import LineCollection
 from scipy.spatial import cKDTree
 
-import tile2net.grid.pednet.network
+import tile2net.grid.pednet.lines
 from ..cfg import cfg
 from ..cfg.logger import logger
 from ..explore import explore
 from ..frame.framewrapper import FrameWrapper
-from functools import *
 
 if False:
     from .ingrid import InGrid
@@ -178,7 +175,7 @@ class Network(
 
                     result = (
                         result.frame
-                        .pipe(tile2net.grid.pednet.network.Network.from_center)
+                        .pipe(tile2net.grid.pednet.lines.Lines.from_center)
                         .drop2nodes()
                         .frame
                         .set_index('feature')

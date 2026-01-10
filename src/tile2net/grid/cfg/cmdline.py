@@ -61,6 +61,7 @@ class property(
     that can be used as a command line argument.
     """
     group = None
+    group_order = None
 
     def _get(
             self: property,
@@ -230,8 +231,8 @@ class property(
         # Suppress the ALL_CAPS metavar in help text
         # For store_true/store_false actions, no metavar is needed
         # For other actions, use empty string to hide it
-        if self.action not in ("store_true", "store_false"):
-            kw["metavar"] = ""
+        # if self.action not in ("store_true", "store_false"):
+        #     kw["metavar"] = ""
             
         return kw
 

@@ -33,10 +33,11 @@ Miscellanous Functions
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
+import functools
 import os
+import sys
 from concurrent.futures import Future, ThreadPoolExecutor
+from dataclasses import dataclass
 from typing import *
 from typing import Optional
 
@@ -47,6 +48,7 @@ import torch
 import torchvision.transforms as standard_transforms
 from PIL import Image
 from geopandas import GeoDataFrame
+
 from tile2net.grid.cfg import cfg
 from tile2net.grid.cfg.logger import logger
 
@@ -102,12 +104,6 @@ def calculate_iou(
     return iu, acc, acc_cls
 
 
-def prep_experiment(
-) -> None:
-    cfg.ngpu = torch.cuda.device_count()
-    cfg.best_record = dict(mean_iu=-1, epoch=0)
-
-
 def tensor_to_pil(
         img: torch.Tensor,
 ) -> Image.Image:
@@ -118,68 +114,77 @@ def tensor_to_pil(
     return standard_transforms.ToPILImage()(img).convert('RGB')
 
 
-def eval_metrics(
-        iou_acc: np.ndarray,
-        net: torch.nn.Module,
-        optim: torch.optim.Optimizer,
-        val_loss: AverageMeter,
-        epoch: int,
-        mf_score: Optional[float] = None,
-) -> None:
-    was_best = False
-
-    iou_per_scale = dict()
-    iou_per_scale[1.0] = iou_acc
-    if cfg.distributed:
-        iou_tensor = torch.cuda.FloatTensor(iou_acc)
-        torch.distributed.all_reduce(iou_tensor, op=torch.distributed.ReduceOp.SUM)
-        iou_per_scale[1.0] = iou_tensor.cpu().numpy()
-
-    if cfg.global_rank != 0:
-        return
-
-    hist = iou_per_scale[cfg.default_scale]
-    iu, acc, acc_cls = calculate_iou(hist)
-    iou_per_scale = dict({cfg.default_scale: iu})
-
-    print_evaluate_results(hist, iu, epoch, iou_per_scale)
-
-    freq = hist.sum(axis=1) / hist.sum()
-    mean_iu = np.nanmean(iu)
-    fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
-
-    _ = dict(
-        loss=val_loss.avg,
-        mean_iu=mean_iu,
-        acc_cls=acc_cls,
-        acc=acc,
-    )  # metrics for potential logging
-
-    save_dict = dict(
-        epoch=epoch,
-        arch=cfg.arch,
-        num_classes=cfg.dataset_inst.num_classes,
-        state_dict=net.state_dict(),
-        optimizer=optim.state_dict(),
-        mean_iu=mean_iu,
-        command=' '.join(sys.argv[1:]),
-    )
-    torch.cuda.synchronize()
-
-    if mean_iu > cfg.best_record['mean_iu']:
-        was_best = True
-        cfg.best_record = dict(
-            val_loss=val_loss.avg,
-            mask_f1_score=mf_score.avg if mf_score else None,
-            acc=acc,
-            acc_cls=acc_cls,
-            fwavacc=fwavacc,
-            mean_iu=mean_iu,
-            epoch=epoch,
+class EvalMetrics:
+    @functools.cached_property
+    def best_record(self):
+        return dict(
+            mean_iu=-1,
+            epoch=0,
         )
 
-    logger.debug('-' * 107)
-    return was_best
+    def __call__(
+            self,
+            iou_acc: np.ndarray,
+            net: torch.nn.Module,
+            optim: torch.optim.Optimizer,
+            val_loss: AverageMeter,
+            epoch: int,
+            mf_score: Optional[float] = None,
+    ) -> None:
+        was_best = False
+
+        iou_per_scale = dict()
+        iou_per_scale[1.0] = iou_acc
+        if cfg.distributed:
+            iou_tensor = torch.cuda.FloatTensor(iou_acc)
+            torch.distributed.all_reduce(iou_tensor, op=torch.distributed.ReduceOp.SUM)
+            iou_per_scale[1.0] = iou_tensor.cpu().numpy()
+
+        if cfg.global_rank != 0:
+            return
+
+        hist = iou_per_scale[cfg.default_scale]
+        iu, acc, acc_cls = calculate_iou(hist)
+        iou_per_scale = dict({cfg.default_scale: iu})
+
+        print_evaluate_results(hist, iu, epoch, iou_per_scale)
+
+        freq = hist.sum(axis=1) / hist.sum()
+        mean_iu = np.nanmean(iu)
+        fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
+
+        _ = dict(
+            loss=val_loss.avg,
+            mean_iu=mean_iu,
+            acc_cls=acc_cls,
+            acc=acc,
+        )  # metrics for potential logging
+
+        save_dict = dict(
+            epoch=epoch,
+            arch=cfg.arch,
+            num_classes=cfg.dataset_inst.num_classes,
+            state_dict=net.state_dict(),
+            optimizer=optim.state_dict(),
+            mean_iu=mean_iu,
+            command=' '.join(sys.argv[1:]),
+        )
+        torch.cuda.synchronize()
+
+        if mean_iu > self.best_record['mean_iu']:
+            was_best = True
+            self.best_record = dict(
+                val_loss=val_loss.avg,
+                mask_f1_score=mf_score.avg if mf_score else None,
+                acc=acc,
+                acc_cls=acc_cls,
+                fwavacc=fwavacc,
+                mean_iu=mean_iu,
+                epoch=epoch,
+            )
+
+        logger.debug('-' * 107)
+        return was_best
 
 
 def print_evaluate_results(
