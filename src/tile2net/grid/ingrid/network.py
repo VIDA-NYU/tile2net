@@ -226,7 +226,8 @@ class Network(
             >>> ingrid.network.file
             '/home/<user>/tile2net/ma/network/parquet/Boston Common, MA.parquet'
         """
-        return self.ingrid.outdir.network.parquet
+        return self.ingrid.file.network
+        # return self.ingrid.outdir.network.parquet
 
 
     def unlink(self):

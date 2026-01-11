@@ -50,8 +50,8 @@ class File(
         files = ingrid.outdir.ingrid.pred.files(ingrid)
         self.pred = files
         if (
-            not self
-            and (loc := ~files.map(os.path.exists)).any()
+                not self
+                and (loc := ~files.map(os.path.exists)).any()
         ):
             ingrid = ingrid.loc[loc]
             ingrid._unstitch2file(
@@ -74,9 +74,10 @@ class File(
         ingrid = self.grid
         files = ingrid.outdir.ingrid.prob.files(ingrid)
         self.prob = files
+        loc = ~files.map(os.path.exists)
         if (
-            not self
-            and (loc := ~files.map(os.path.exists)).any()
+                not self
+                and loc.any()
         ):
             ingrid = ingrid.loc[loc]
             ingrid._unstitch2file(
@@ -90,16 +91,18 @@ class File(
             assert not loc.any(), msg
         return files
 
-    @property
+    @frame.property
     def network(self):
-        if self:
-            return self.grid.outdir.network.parquet
-        else:
-            return self.grid.network.file
+        file = self.grid.outdir.network.parquet
+        self.network = file
+        if not self:
+            _ = self.grid.network
+        return file
 
-    @property
+    @frame.property
     def polygons(self):
-        if self:
-            return self.grid.outdir.polygons.parquet
-        else:
-            return self.grid.polygons.file
+        file = self.grid.outdir.polygons.parquet
+        self.polygons = file
+        if not self:
+            _ = self.grid.polygons
+        return file

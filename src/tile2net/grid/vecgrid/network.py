@@ -23,7 +23,7 @@ class Network(
     FrameWrapper,
 ):
     """
-    Lines for each vec-tile, feature, and region.
+    Network for each vec-tile, feature, and region.
 
     Handles lazy-loading of concatenated line geometries from vecgrid tiles:
         >>> Network._get
@@ -31,7 +31,7 @@ class Network(
     See usage:
         >>> VecGrid.network
     """
-    __name__ = 'lines'
+    __name__ = 'network'
     vecgrid: VecGrid = None
 
     def _get(
@@ -40,19 +40,19 @@ class Network(
             owner: type[VecGrid]
     ) -> Self:
         """
-        Lazy-load factory method for accessing lines for each vec-tile, feature, and region.
+        Lazy-load factory method for accessing network for each vec-tile, feature, and region.
 
         Automatically reads and dissolves line geometries from all vecgrid
         parquet files if not already cached. Groups by feature and tile,
         then pivots into a grid-aligned dataframe.
 
         Returns:
-            Lines instance with MultiLineString geometries per tile and feature
+            Network instance with MultiNetworktring geometries per tile and feature
 
         Example:
             >>> ingrid: InGrid
             >>> ingrid.vecgrid.network
-            Lines:
+            Network:
             feature                                              crosswalk
             xtile ytile
             9915  12120  MULTILINESTRING ((-7910926 5213692.6, -7910925...
@@ -78,13 +78,13 @@ class Network(
                     idx = (idx,)
                 for name, val in zip(idx_names, idx):
                     gdf[name] = val
-                gdf['src'] = 'lines'
+                gdf['src'] = 'network'
                 return gdf
 
             tasks = [
                 (i, p)
                 for i, p in
-                instance.file.lines.items()
+                instance.file.network.items()
             ]
 
             with ThreadPoolExecutor() as ex:
@@ -134,21 +134,21 @@ class Network(
 
     @property
     def sidewalk(self) -> Self:
-        """Subset of lines where the feature is sidewalk."""
+        """Subset of network where the feature is sidewalk."""
         loc = self.frame.feature == 'sidewalk'
         result = self.loc[loc]
         return result
 
     @property
     def road(self) -> Self:
-        """Subset of lines where the feature is road."""
+        """Subset of network where the feature is road."""
         loc = self.frame.feature == 'road'
         result = self.loc[loc]
         return result
 
     @property
     def crosswalk(self) -> Self:
-        """Subset of lines where the feature is crosswalk."""
+        """Subset of network where the feature is crosswalk."""
         loc = self.frame.feature == 'crosswalk'
         result = self.loc[loc]
         return result
@@ -161,7 +161,7 @@ class Network(
             simplify=None,
             **kwargs,
     ) -> folium.Map:
-        """Explore lines by feature and vec-tile using folium."""
+        """Explore network by feature and vec-tile using folium."""
         import folium
         feature2color = cfg.label2color
 

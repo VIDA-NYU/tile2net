@@ -1919,7 +1919,6 @@ class Cfg(
     @cached[dict[str, cmdline.property]]
     @cached.classmethod
     def _trace2property(cls) -> dict[str, cmdline.property]:
-        # todo: problem is, --long is cached from the first nesting, so it does not represent the full trace
         active = cls._active
         cls._active = False
         nested = [

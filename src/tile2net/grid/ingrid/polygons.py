@@ -165,7 +165,8 @@ class Polygons(
             '/home/<user>/tile2net/ma/polygons/parquet/Boston Common, MA.parquet'
 
         """
-        return self.ingrid.outdir.polygons.parquet
+        return self.ingrid.file.polygons
+        # return self.ingrid.outdir.polygons.parquet
 
     @property
     def feature(self):
