@@ -76,7 +76,7 @@ class Outdir(
         grid = self.grid
         name = None
         try:
-            name = grid.source.name
+            name = grid.remote.name
         except ValueError:
             ...
         if name is None:

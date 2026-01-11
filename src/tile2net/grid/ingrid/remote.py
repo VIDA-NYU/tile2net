@@ -31,7 +31,7 @@ if False:
     from .ingrid import InGrid
 
 
-class SourceNotFound(Exception):
+class RemoteNotFound(Exception):
     ...
 
 
@@ -45,7 +45,7 @@ class Coverage:
     def __get__(
             self,
             instance,
-            owner: type[Source]
+            owner: type[Remote]
     ):
         if self.file.exists():
             coverage = gpd.read_feather(self.file)
@@ -59,14 +59,14 @@ class Coverage:
                 # noinspection PyTypeChecker
                 return coverage.geometry
         coverages: list[GeoSeries] = []
-        for source in owner.catalog.values():
-            # source is WashingtonDC
+        for remote in owner.catalog.values():
+            # remote is WashingtonDC
 
-            if source.outdated:
+            if remote.outdated:
                 continue
             try:
-                coverage = source.coverage
-                axis = pd.Index([source.name] * len(coverage), name='source')
+                coverage = remote.coverage
+                axis = pd.Index([remote.name] * len(coverage), name='remote')
                 coverage = (
                     coverage
                     .set_crs('epsg:4326')
@@ -74,7 +74,7 @@ class Coverage:
                 )
             except Exception as e:
                 logger.error(
-                    f'Could not get coverage for {source.name},'
+                    f'Could not get coverage for {remote.name},'
                     f' skipping:\n\t'
                     f'{e}'
                 )
@@ -109,7 +109,7 @@ class cls_attr(
     def _get(
             self: cls_attr,
             instance,
-            owner: Source | type[Source]
+            owner: Remote | type[Remote]
     ) -> T:
         result = self.__wrapped__(owner)
         type.__setattr__(owner, self.name, result)
@@ -138,7 +138,7 @@ class cls_attr(
             ...
 
     @classmethod
-    def relevant_to(cls, item: type[Source]) -> set[cls_attr]:
+    def relevant_to(cls, item: type[Remote]) -> set[cls_attr]:
         res = {
             attr
             for subclass in item.mro()
@@ -158,27 +158,27 @@ class cls_attr(
 T = TypeVar('T')
 
 
-class Source(
+class Remote(
     ABC,
 ):
     grid: InGrid
-    catalog: dict[str, type[Source]] = {}
+    catalog: dict[str, type[Remote]] = {}
     outdated: bool = False
 
     def _get(
-            self: Source,
+            self: Remote,
             instance: InGrid,
             owner: type[InGrid],
-    ) -> Source:
-        """Return the source object for the grid instance."""
+    ) -> Remote:
+        """Return the remote object for the grid instance."""
         try:
             result = instance.__dict__[self.__name__]
             result.grid = instance
             result.InGrid = owner
         except KeyError as e:
             msg = (
-                f'Source has not yet been set. To set the source, you '
-                f'must call `InGrid.with_source()`.'
+                f'Remote has not yet been set. To set the remote, you '
+                f'must call `InGrid.with_remote()`.'
             )
             raise ValueError(msg) from e
         return result
@@ -188,36 +188,36 @@ class Source(
     )
 
     """
-    Catalog of all sources available in the package.
-    This is used to look up sources by name.
+    Catalog of all remotes available in the package.
+    This is used to look up remotes by name.
     """
 
     @cls_attr
     def name(cls) -> str:
-        """Short name of the source, e.g. `nyc` for New York City."""
+        """Short name of the remote, e.g. `nyc` for New York City."""
 
     @Coverage
     def coverage(cls) -> GeoSeries:
         """
-        Spatial coverage of the source, to be used for deciding which
-        sources are relevant to an area.
+        Spatial coverage of the remote, to be used for deciding which
+        remotes are relevant to an area.
         """
 
     @cls_attr
     def zoom(cls) -> int:
         """
-        Default XYZ zoom level for the source.
+        Default XYZ zoom level for the remote.
         Our model performs best with a zoom of at least 19.
         """
 
     @cls_attr
     def extension(cls) -> str:
-        """File extension for the source, e.g. 'png' or 'jpg'."""
+        """File extension for the remote, e.g. 'png' or 'jpg'."""
         return 'png'
 
     @cls_attr
     def dimension(cls):
-        """Default dimension of the source grid, e.g. 256 pixels."""
+        """Default dimension of the remote grid, e.g. 256 pixels."""
         return 256
 
     @cls_attr
@@ -237,7 +237,7 @@ class Source(
     ]:
         """
         A dropword is the reverse of a keyword. If a reverse geocode
-        contains this, the source is not relevant.
+        contains this, the remote is not relevant.
         """
 
     @cls_attr
@@ -253,7 +253,7 @@ class Source(
             instance: InGrid,
             value,
     ):
-        """Set the source object for the grid instance."""
+        """Set the remote object for the grid instance."""
         instance.__dict__[self.__name__] = value
 
     def __set_name__(self, owner, name):
@@ -263,9 +263,9 @@ class Source(
             self,
             instance: InGrid,
     ):
-        """Delete the source object for the grid instance."""
-        if hasattr(instance, '_source'):
-            del instance._source
+        """Delete the remote object for the grid instance."""
+        if hasattr(instance, '_remote'):
+            del instance._remote
 
     def __repr__(self):
         return f'<{self.__class__.__qualname__} {self.name} at {hex(id(self))}>'
@@ -295,14 +295,14 @@ class Source(
     def from_name(
             cls,
             name: str,
-    ) -> Optional['Source']:
+    ) -> Optional['Remote']:
         """
-        Return a source by its name.
-        If the source is not found, return None.
+        Return a remote by its name.
+        If the remote is not found, return None.
         """
         if name in cls.catalog:
             return cls.catalog[name]()
-        raise SourceNotFound(f'Source {name} not found.')
+        raise RemoteNotFound(f'Remote {name} not found.')
 
     @classmethod
     # @not_found_none
@@ -315,14 +315,14 @@ class Source(
                 gpd.GeoSeries,
                 gpd.GeoDataFrame,
             ]
-    ) -> Optional['Source']:
+    ) -> Optional['Remote']:
         if isinstance(item, str):
             try:
                 return cls.from_name(item)
-            except SourceNotFound:
+            except RemoteNotFound:
                 ...
 
-        matches: GeoSeries = Source.coverage.geometry
+        matches: GeoSeries = Remote.coverage.geometry
         if isinstance(item, (GeoSeries, GeoDataFrame)):
             infer = item.geometry.iat[0].centroid
         else:
@@ -341,7 +341,7 @@ class Source(
             del geocode.polygon
             loc = matches.intersects(geocode.polygon)
             if not loc.any():
-                raise SourceNotFound
+                raise RemoteNotFound
         matches = matches.loc[loc]
 
         # to resolve discrepancies, select where keyword is in the address
@@ -381,7 +381,7 @@ class Source(
         if any(loc):
             matches = matches.loc[loc]
         elif 'address' not in geocode.__dict__:
-            raise SourceNotFound
+            raise RemoteNotFound
         else:
             logger.warning(
                 f'No keyword matches found for {item=} using '
@@ -399,17 +399,17 @@ class Source(
         item = bboxs.idxmax()
         if len(bboxs) > 1:
             logger.info(
-                f'Found multiple sources for the location, in descending IOU: '
+                f'Found multiple remotes for the location, in descending IOU: '
                 f'{bboxs.sort_values(ascending=False).index.tolist()} and '
                 f'chose {item} ({cls.catalog[item].keyword})'
             )
         if isinstance(item, str):
             if item not in cls.catalog:
-                raise SourceNotFound
-            source = cls.catalog[item]
+                raise RemoteNotFound
+            remote = cls.catalog[item]
         else:
             raise TypeError(f'Invalid type {type(item)} for {item}')
-        return source()
+        return remote()
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__()
@@ -425,10 +425,10 @@ class Source(
 
     def __eq__(self, other):
         if (
-                isinstance(other, Source)
+                isinstance(other, Remote)
         ) or (
                 isinstance(other, type)
-                and issubclass(other, Source)
+                and issubclass(other, Remote)
         ):
             return self.name == other.name
         if isinstance(other, str):
@@ -438,7 +438,7 @@ class Source(
 
 # noinspection PyMethodParameters
 class ArcGis(
-    Source,
+    Remote,
     ABC
 ):
     @cls_attr
@@ -579,8 +579,8 @@ class LosAngeles(ArcGis):
         "POLYGON ((-117.63102 33.28853, -117.63102 34.83012, -118.95937 34.83012, -118.95937 33.28853, -117.63102 33.28853))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
 
-    # to test case where a source raises an error due to metadata failure
-    #   other sources should still function
+    # to test case where a remote raises an error due to metadata failure
+    #   other remotes should still function
     # @cls_attr
     # @property
     # def metadata(cls):
@@ -642,7 +642,7 @@ class Virginia(ArcGis):
 
 
 class AlamedaCounty(
-    Source,
+    Remote,
 ):
     # https://www.arcgis.com/home/item.html?id=46db377005dc4e76bbc234c680771573
     # ignore = True
@@ -682,7 +682,7 @@ class AlamedaCounty(
 
 
 class SanFranciscoBase(
-    Source,
+    Remote,
     ABC
 ):
     # static attributes
@@ -764,7 +764,7 @@ class MaineOrthoBase(
     extension: str = "jpeg"  # ArcGIS ImageServer delivers JPEG by default
 
 
-class VexCel(Source, ABC):
+class VexCel(Remote, ABC):
     flip_y = False
     prefer_layers: Iterable[str] = ('wide-area', 'urban', 'urban-r', 'graysky')
     server: str = 'https://api.vexcelgroup.com/v2/ortho'
@@ -908,7 +908,7 @@ class Maine(VexCel):
     coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
-# todo: refactor this because SourceMeta is not used anymore
+# todo: refactor this because RemoteMeta is not used anymore
 
 # def print_coverages(
 #         simplify: Optional[float] = 5,
@@ -917,7 +917,7 @@ class Maine(VexCel):
 #     utility function to print all coverages to be hard-coded
 #     get the canonical coverage series; ensure EPSG:4326 for consistency
 #     """
-#     coverages = SourceMeta.coverage
+#     coverages = RemoteMeta.coverage
 #     # coerce to integer decimals if provided
 #     decimals: Optional[int] = None
 #     if simplify is not None:
@@ -930,26 +930,26 @@ class Maine(VexCel):
 #         else:
 #             txt = geom.wkt
 #
-#         # print the source name (index) and its WKT
+#         # print the remote name (index) and its WKT
 #         print(name)
 #         print(txt)
 
 
 if __name__ == '__main__':
-    assert Source.from_inferred('Portland, Maine') == Maine
-    assert Source.from_inferred('Maine') == Maine
-    assert Source.from_inferred('New Brunswick, New Jersey') == NewJersey
-    assert Source.from_inferred('New York City') == NewYorkCity
-    assert Source.from_inferred('New York') in (NewYorkCity, NewYork)
-    assert Source.from_inferred('Massachusetts') == Massachusetts
-    assert Source.from_inferred('King County, Washington') == KingCountyWashington
-    # assert Source.from_inferred('Washington, DC') == WashingtonDC
-    assert Source.from_inferred('Los Angeles') == LosAngeles
-    assert Source.from_inferred('Jersey City') == NewJersey
-    assert Source.from_inferred('Hoboken') == NewJersey
-    assert Source.from_inferred("Spring Hill, TN") == SpringHillTN
-    assert Source.from_inferred('Virginia') == Virginia
-    assert Source.from_inferred('Berkeley, California') == AlamedaCounty
-    assert Source.from_inferred('Fremont, California') == AlamedaCounty
-    assert Source.from_inferred('Oakland, California') == AlamedaCounty
-    assert Source.from_inferred('San Francisco, California') == SanFrancisco2024
+    assert Remote.from_inferred('Portland, Maine') == Maine
+    assert Remote.from_inferred('Maine') == Maine
+    assert Remote.from_inferred('New Brunswick, New Jersey') == NewJersey
+    assert Remote.from_inferred('New York City') == NewYorkCity
+    assert Remote.from_inferred('New York') in (NewYorkCity, NewYork)
+    assert Remote.from_inferred('Massachusetts') == Massachusetts
+    assert Remote.from_inferred('King County, Washington') == KingCountyWashington
+    # assert Remote.from_inferred('Washington, DC') == WashingtonDC
+    assert Remote.from_inferred('Los Angeles') == LosAngeles
+    assert Remote.from_inferred('Jersey City') == NewJersey
+    assert Remote.from_inferred('Hoboken') == NewJersey
+    assert Remote.from_inferred("Spring Hill, TN") == SpringHillTN
+    assert Remote.from_inferred('Virginia') == Virginia
+    assert Remote.from_inferred('Berkeley, California') == AlamedaCounty
+    assert Remote.from_inferred('Fremont, California') == AlamedaCounty
+    assert Remote.from_inferred('Oakland, California') == AlamedaCounty
+    assert Remote.from_inferred('San Francisco, California') == SanFrancisco2024

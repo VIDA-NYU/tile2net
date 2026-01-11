@@ -35,7 +35,7 @@ from tile2net.grid.ingrid import delayed
 from tile2net.grid.ingrid.network import Network
 from tile2net.grid.ingrid.polygons import Polygons
 from tile2net.grid.ingrid.segtile import SegTile
-from tile2net.grid.ingrid.source import Source, SourceNotFound
+from tile2net.grid.ingrid.remote import Remote, RemoteNotFound
 from tile2net.grid.ingrid.vectile import VecTile
 from tile2net.grid.cfg import cfg
 from tile2net.grid.cfg.cfg import Cfg
@@ -51,6 +51,7 @@ from tile2net.grid.vecgrid.vecgrid import VecGrid
 from tile2net.grid import util
 from tile2net.grid.util import recursion_block, assert_perfect_overlap
 from tile2net.grid.ingrid.file import File
+
 if False:
     from .filled import Filled
     from .broadcast import Broadcast
@@ -80,8 +81,6 @@ def file_md5(path: Path, chunk_size: int = 8192) -> str:
         for chunk in iter(lambda: f.read(chunk_size), b""):
             h.update(chunk)
     return h.hexdigest()
-
-
 
 
 class InGrid(
@@ -304,15 +303,15 @@ class InGrid(
         >>> ingrid = ingrid.set_outdir('/path/to/output')
         """
 
-    @Source
-    def source(self):
+    @Remote
+    def remote(self):
         """
         Returns the Source class, which wraps a tile server.
-        See `Grid.with_source()` to actually set a source.
+        See `Grid.set_remote()` to actually set a source.
 
         Automatically sets the source:
         >>> ingrid: InGrid
-        >>> ingrid = ingrid.set_source(...)
+        >>> ingrid = ingrid.set_remote(...)
         """
 
     @delayed.Pickle
@@ -326,7 +325,6 @@ class InGrid(
         """
         Module which offers pre-constructed `InGrid` instances.
         """
-
 
     @TempDir
     def tempdir(self):
@@ -399,7 +397,7 @@ class InGrid(
         """
 
         paths = self.file.static
-        urls = self.source.urls
+        urls = self.remote.urls
         if paths.empty or urls.empty:
             return self
         if len(paths) != len(urls):
@@ -430,7 +428,7 @@ class InGrid(
         msg = (
             f'Downloading {len(mapping):,} '
             f'{self.__class__.__qualname__}.{self.file.static.name} '
-            f'from {self.source.name} to \n\t{self.indir.dir} '
+            f'from {self.remote.name} to \n\t{self.indir.dir} '
         )
         logger.info(msg)
 
@@ -624,63 +622,63 @@ class InGrid(
                    387839          79319          96960          0          0
         """
 
-    def set_source(
+    def set_remote(
             self,
-            source=None,
+            remote=None,
             outdir: Union[str, Path] = None,
     ) -> Self:
         """
-        Assign a tile source for downloading imagery.
+        Assign a tile remote for downloading imagery.
 
         Args:
-            source: Source name, abbreviation, or Source instance. If None, infers from location.
+            remote: remote name, abbreviation, or remote instance. If None, infers from location.
             outdir: Optional output directory path
 
         Returns:
-            InGrid with source and directories configured
+            InGrid with remote and directories configured
 
         Example:
-            >>> ingrid: InGrid = InGrid.from_location('Boston Common, MA').set_source('ma')
+            >>> ingrid: InGrid = InGrid.from_location('Boston Common, MA').set_remote('ma')
         """
-        if source is None:
-            source = self.cfg.source
-        if source is None:
+        if remote is None:
+            remote = self.cfg.remote
+        if remote is None:
             try:
-                source = (
+                remote = (
                     gpd.GeoSeries(
                         [self.frame.union_all()],
                         crs=self.frame.crs
                     )
                     .to_crs(4326)
-                    .pipe(Source.from_inferred)
+                    .pipe(Remote.from_inferred)
                 )
-            except SourceNotFound as e:
-                msg = f'Unable to infer a source for {self.location=}'
+            except RemoteNotFound as e:
+                msg = f'Unable to infer a remote for {self.location=}'
                 raise ValueError(msg) from e
-        elif isinstance(source, Source):
-            source = copy.copy(source)
+        elif isinstance(remote, Remote):
+            remote = copy.copy(remote)
         else:
             try:
-                source = Source.from_inferred(source)
-            except SourceNotFound as e:
+                remote = Remote.from_inferred(remote)
+            except RemoteNotFound as e:
                 msg = (
-                    f'Unable to infer a source from {source}. '
-                    f'Please specify a valid source or use a '
+                    f'Unable to infer a remote from {remote}. '
+                    f'Please specify a valid remote or use a '
                     f'different method to set the grid.'
                 )
                 raise ValueError(msg) from e
 
         result = self.copy()
-        result.source = source
+        result.remote = remote
         msg = (
-            f'Setting source to {source.__class__.__name__} '
-            f'({source.name})'
+            f'Setting remote to {remote.__class__.__name__} '
+            f'({remote.name})'
         )
         logger.info(msg)
 
         # if not outdir:
         #     outdir = (
-        #         Path(f'./{source.name}')
+        #         Path(f'./{remote.name}')
         #         .expanduser()
         #         .resolve()
         #         .__str__()
@@ -1486,7 +1484,7 @@ class InGrid(
                 ingrid = ingrid.set_indir()
             else:
                 # set a source if specified or infer from location
-                ingrid = ingrid.set_source()
+                ingrid = ingrid.set_remote()
 
             if cfg.outdir:
                 ingrid = ingrid.set_outdir()
@@ -1602,7 +1600,7 @@ class InGrid(
         ingrid = (
             InGrid
             .from_location(location)
-            .set_source(
+            .set_remote(
                 outdir=outdir,
             )
             .set_segmentation(
@@ -1618,6 +1616,5 @@ class InGrid(
     def ingrid(self) -> InGrid:
         """Quick access for the InGrid of a project."""
         return self
-
 
     __name__ = 'ingrid'

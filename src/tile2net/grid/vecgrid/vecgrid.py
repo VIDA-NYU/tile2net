@@ -493,7 +493,7 @@ class VecGrid(Grid):
 
         Example:
             >>> ingrid: InGrid = InGrid.from_location('Boston Common, MA')
-            >>> ingrid = ingrid.set_source().set_segmentation().set_vectorization()
+            >>> ingrid = ingrid.set_remote().set_segmentation().set_vectorization()
             >>> ingrid.vecgrid.vectorize()
             Vectorizing to /home/<user>/tile2net/ma/vecgrid/polygons
             vecgrid.vectorize(): 100%|██████| 16/16 [00:45<00:00]
