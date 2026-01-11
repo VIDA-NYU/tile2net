@@ -145,9 +145,7 @@ class Polygons(
 
         return result
 
-    locals().update(
-        __get__=_get,
-    )
+    locals().update(__get__=_get)
 
     @property
     def ingrid(self) -> InGrid:

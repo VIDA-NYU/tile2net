@@ -183,9 +183,7 @@ class Remote(
             raise ValueError(msg) from e
         return result
 
-    locals().update(
-        __get__=_get,
-    )
+    locals().update(__get__=_get)
 
     """
     Catalog of all remotes available in the package.

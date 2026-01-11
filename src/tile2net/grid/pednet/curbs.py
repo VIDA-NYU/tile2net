@@ -49,9 +49,7 @@ class Curbs(
         result.instance = instance
         return result
 
-    locals().update(
-        __get__=_get,
-    )
+    locals().update(__get__=_get)
 
     instance: PedNet = None
     __name__ = 'curbs'

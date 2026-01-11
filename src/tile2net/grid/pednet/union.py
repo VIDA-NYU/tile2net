@@ -69,9 +69,7 @@ class Union(
         result.instance = instance
         return result
 
-    locals().update(
-        __get__=_get,
-    )
+    locals().update(__get__=_get)
 
     def explore(
             self,

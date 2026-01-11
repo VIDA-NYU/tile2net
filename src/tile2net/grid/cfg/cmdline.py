@@ -96,9 +96,7 @@ class property(
         msg = f'No default value for {out._trace!r} in {cfg!r}'
         raise AttributeError(msg)
 
-    locals().update(
-        __get__=_get,
-    )
+    locals().update(__get__=_get)
 
     def __set__(
             self,

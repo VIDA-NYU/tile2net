@@ -122,9 +122,7 @@ class SegGrid(
 
         return result
 
-    locals().update(
-        __get__=_get,
-    )
+    locals().update(__get__=_get)
 
     @cached_property
     def length(self) -> int:

@@ -140,9 +140,7 @@ class Polygons(
         result.vecgrid = instance
         return result
 
-    locals().update(
-        __get__=_get,
-    )
+    locals().update(__get__=_get)
 
     @property
     def sidewalk(self) -> Self:

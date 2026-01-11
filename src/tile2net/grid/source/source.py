@@ -56,9 +56,7 @@ class Source(
             raise ValueError(msg) from e
         return result
 
-    locals().update(
-        __get__=_get,
-    )
+    locals().update(__get__=_get)
 
     def __set_name__(self, owner, name):
         self.__name__ = name

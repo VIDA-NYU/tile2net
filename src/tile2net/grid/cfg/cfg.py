@@ -1197,9 +1197,7 @@ class Cfg(
         assert result is not None
         return result
 
-    locals().update(
-        __get__=_get,
-    )
+    locals().update(__get__=_get)
 
     def __init__(self, dict=None, /, **kwargs):
         if callable(dict):

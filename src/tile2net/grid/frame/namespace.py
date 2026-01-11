@@ -52,9 +52,7 @@ class namespace(
     def __set_name__(self, owner, name):
         self.__name__ = name
 
-    locals().update(
-        __get__=_get,
-    )
+    locals().update(__get__=_get)
 
     def __delete__(
             self,
