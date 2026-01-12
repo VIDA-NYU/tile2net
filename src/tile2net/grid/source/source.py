@@ -19,9 +19,9 @@ class Source(
     ABC
 ):
     @cached_property
+    @abstractmethod
     def extension(self):
         """File extension for the imagery in the source."""
-        raise NotImplementedError
 
     @cached_property
     @abstractmethod
