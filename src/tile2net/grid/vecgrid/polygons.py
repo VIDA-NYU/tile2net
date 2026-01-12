@@ -4,6 +4,7 @@ from concurrent.futures import (
     ThreadPoolExecutor,
 )
 from typing import *
+from typing import overload
 
 import geopandas as gpd
 import pandas as pd
@@ -28,14 +29,30 @@ class Polygons(
     Polygons for each vec-tile, feature, and region.
 
     Handles lazy-loading of concatenated polygon geometries from vecgrid tiles:
-        >>> Polygons._get
+        >>> Polygons.__get__
 
     See usage:
         >>> VecGrid.polygons
     """
     vecgrid: VecGrid = None
 
-    def _get(
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T],
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner,
+    ) -> T:
+        ...
+
+    def __get__(
             self: Polygons,
             instance: VecGrid,
             owner: type[VecGrid]
@@ -139,8 +156,6 @@ class Polygons(
 
         result.vecgrid = instance
         return result
-
-    locals().update(__get__=_get)
 
     @property
     def sidewalk(self) -> Self:

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import *
 
 import copy
 import dataclasses
@@ -56,7 +57,23 @@ class Dir:
     instance: InGrid | Dir = None
     grid: InGrid = None
 
-    def _get(
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T],
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner,
+    ) -> T:
+        ...
+
+    def __get__(
             self: Dir,
             instance: InGrid | Dir,
             owner
@@ -108,9 +125,6 @@ class Dir:
         result.grid = self.grid
         return result
 
-    locals().update(
-        __get__=_get
-    )
     __wrapped__ = None
 
     def __set_name__(self, owner, name):
@@ -444,6 +458,7 @@ class Dir:
                 except OSError:
                     # race or permission issue, ignore
                     pass
+
     def clear(
             self,
             *keeps: str,

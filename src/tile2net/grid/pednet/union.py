@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import *
-from typing import Self
+from typing import Self, overload
 
 import geopandas as gpd
 import shapely
@@ -27,7 +27,23 @@ class Union(
     instance: PedNet = None
     __name__ = 'union'
 
-    def _get(
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T],
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner,
+    ) -> T:
+        ...
+
+    def __get__(
             self,
             instance: PedNet,
             owner: type[PedNet]
@@ -41,7 +57,7 @@ class Union(
             result: Self = cache[key]
             if instance is not result.instance:
                 del cache[key]
-                return self._get(instance, owner)
+                return self.__get__(instance, owner)
         else:
             loc = ~instance.feature.isin(cfg.polygon.borders)
             msg = f'Computing the geometric union of all {loc.sum()} pedestrian features.'
@@ -68,8 +84,6 @@ class Union(
 
         result.instance = instance
         return result
-
-    locals().update(__get__=_get)
 
     def explore(
             self,

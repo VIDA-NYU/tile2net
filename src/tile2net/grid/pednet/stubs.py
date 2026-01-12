@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import heapq
 import logging
-from typing import Self
+from typing import Self, overload
 
 import pandas as pd
 from tqdm.auto import tqdm
@@ -25,8 +25,24 @@ class Stubs(
 ):
     instance: Lines = None
     __name__ = 'stubs'
-    
-    def _get(
+
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T],
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner,
+    ) -> T:
+        ...
+
+    def __get__(
             self,
             instance: Lines,
             owner: type[PedNet]
@@ -45,7 +61,7 @@ class Stubs(
 
             if result.instance is not instance:
                 del cache[key]
-                return  self._get(instance, owner)
+                return  self.__get__(instance, owner)
         else:
             lines = instance
             edges = lines.edges
@@ -204,8 +220,6 @@ class Stubs(
 
         result.instance = instance
         return result
-        
-    locals().update(__get__=_get)
 
     def explore(
             self,

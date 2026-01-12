@@ -27,7 +27,7 @@ class Remote(
     Source,
     ABC
 ):
-    """Base class for remote tile sources (HTTP/HTTPS URLs)."""
+    """Base class for remote tile sources"""
 
     @Catalog
     def catalog(self):

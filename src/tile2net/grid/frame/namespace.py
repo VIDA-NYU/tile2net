@@ -4,6 +4,7 @@ import copy
 from functools import *
 from types import TracebackType
 from typing import *
+from typing import overload
 
 from tile2net.grid.util import returns_or_assigns
 from .wrapper import Wrapper
@@ -21,7 +22,23 @@ class namespace(
     __name__ = None
     instance: object
 
-    def _get(
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T],
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner,
+    ) -> T:
+        ...
+
+    def __get__(
             self,
             instance: TGrid,
             owner
@@ -51,8 +68,6 @@ class namespace(
 
     def __set_name__(self, owner, name):
         self.__name__ = name
-
-    locals().update(__get__=_get)
 
     def __delete__(
             self,

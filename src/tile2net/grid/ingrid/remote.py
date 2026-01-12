@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 from abc import ABC
 from functools import cached_property
 from typing import *
-from typing import Iterator, Optional, Iterable, TypeVar
+from typing import Iterator, Optional, Iterable, TypeVar, overload
 from urllib.parse import urlencode
 from weakref import WeakKeyDictionary
 
@@ -106,7 +106,25 @@ class cls_attr(
 ):
     __wrapped__: Callable = None
 
-    def _get(
+    cache = WeakKeyDictionary()
+
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T],
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner,
+    ) -> T:
+        ...
+
+    def __get__(
             self: cls_attr,
             instance,
             owner: Remote | type[Remote]
@@ -126,12 +144,6 @@ class cls_attr(
             func = func.fget
         self.func = func
         functools.update_wrapper(self, func)
-
-    cache = WeakKeyDictionary()
-    locals().update(
-        __get__=_get,
-        __init__=__init__,
-    )
 
     if False:
         def __new__(cls, func: Callable[..., T]) -> T:
@@ -165,7 +177,23 @@ class Remote(
     catalog: dict[str, type[Remote]] = {}
     outdated: bool = False
 
-    def _get(
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T],
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner,
+    ) -> T:
+        ...
+
+    def __get__(
             self: Remote,
             instance: InGrid,
             owner: type[InGrid],
@@ -182,8 +210,6 @@ class Remote(
             )
             raise ValueError(msg) from e
         return result
-
-    locals().update(__get__=_get)
 
     """
     Catalog of all remotes available in the package.

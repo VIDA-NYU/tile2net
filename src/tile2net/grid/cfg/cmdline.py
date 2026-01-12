@@ -6,6 +6,7 @@ import functools
 import types
 from functools import *
 from typing import *
+from typing import overload
 
 from .nested import Nested
 
@@ -63,7 +64,23 @@ class property(
     group = None
     group_order = None
 
-    def _get(
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T],
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner,
+    ) -> T:
+        ...
+
+    def __get__(
             self: property,
             instance: Nested,
             owner: type[Nested]
@@ -95,8 +112,6 @@ class property(
 
         msg = f'No default value for {out._trace!r} in {cfg!r}'
         raise AttributeError(msg)
-
-    locals().update(__get__=_get)
 
     def __set__(
             self,

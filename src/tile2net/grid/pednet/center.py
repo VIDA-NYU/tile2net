@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import *
-from typing import Self
+from typing import Self, overload
 
 import geopandas as gpd
 import numpy as np
@@ -31,7 +31,23 @@ class Center(
     instance: PedNet = None
     __name__ = 'center'
 
-    def _get(
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T],
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner,
+    ) -> T:
+        ...
+
+    def __get__(
             self,
             instance: PedNet,
             owner: type[PedNet]
@@ -99,8 +115,6 @@ class Center(
 
         result.instance = instance
         return result
-
-    locals().update(__get__=_get)
 
 
     @cached_property

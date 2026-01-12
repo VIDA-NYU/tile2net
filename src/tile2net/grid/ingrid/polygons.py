@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
+from typing import overload
 
 import io
 import os
@@ -34,14 +35,30 @@ class Polygons(
     Polygons for each feature and region, dissolved across tiles.
 
     Handles lazy-loading of concatenated polygons from vecgrid tiles:
-        >>> Polygons._get
+        >>> Polygons.__get__
 
     See usage:
         >>> InGrid.polygons
     """
     __name__ = 'polygons'
 
-    def _get(
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T],
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner,
+    ) -> T:
+        ...
+
+    def __get__(
             self: Polygons,
             instance: InGrid,
             owner: type[InGrid]
@@ -144,8 +161,6 @@ class Polygons(
         result.instance = instance
 
         return result
-
-    locals().update(__get__=_get)
 
     @property
     def ingrid(self) -> InGrid:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-from typing import Self
+from typing import Self, overload
 
 import geopandas as gpd
 import pandas as pd
@@ -26,7 +26,7 @@ class Network(
     Network for each vec-tile, feature, and region.
 
     Handles lazy-loading of concatenated line geometries from vecgrid tiles:
-        >>> Network._get
+        >>> Network.__get__
 
     See usage:
         >>> VecGrid.network
@@ -34,7 +34,23 @@ class Network(
     __name__ = 'network'
     vecgrid: VecGrid = None
 
-    def _get(
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T],
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner,
+    ) -> T:
+        ...
+
+    def __get__(
             self,
             instance: VecGrid,
             owner: type[VecGrid]
@@ -127,8 +143,6 @@ class Network(
 
         result.vecgrid = instance
         return result
-
-    locals().update(__get__=_get)
 
     @property
     def sidewalk(self) -> Self:

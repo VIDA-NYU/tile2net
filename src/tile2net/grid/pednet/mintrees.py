@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import heapq
 import logging
-from typing import Self
+from typing import Self, overload
 
 import numpy as np
 import pandas as pd
@@ -26,8 +26,24 @@ class Mintrees(
 ):
     instance: Lines = None
     __name__ = 'mintrees'
-    
-    def _get(
+
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T],
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner,
+    ) -> T:
+        ...
+
+    def __get__(
             self,
             instance: Lines,
             owner: type[PedNet]
@@ -41,7 +57,7 @@ class Mintrees(
             result = cache[key]
             if result.instance is not instance:
                 del cache[key]
-                return  self._get(instance, owner)
+                return  self.__get__(instance, owner)
         else:
             stubs = instance.stubs
             edges = stubs.edges
@@ -164,8 +180,6 @@ class Mintrees(
 
         result.instance = instance
         return result
-        
-    locals().update(__get__=_get)
 
 
     def explore(

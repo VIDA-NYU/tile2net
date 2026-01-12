@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import *
+from typing import overload
 
 import numpy as np
 import pandas as pd
@@ -62,7 +63,25 @@ class Edges(
     def stop_inode(self):
         ...
 
-    def _get(
+    __name__ = 'edges'
+
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T],
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner,
+    ) -> T:
+        ...
+
+    def __get__(
             self,
             instance: Lines,
             owner
@@ -82,7 +101,7 @@ class Edges(
 
             if result.instance is not instance:
                 del cache[key]
-                return  self._get(instance, owner)
+                return  self.__get__(instance, owner)
         else:
             msg = f'Generating {owner.__name__}.{key}'
             logger.debug(msg)
@@ -126,10 +145,6 @@ class Edges(
         result.instance = instance
 
         return result
-
-    locals().update(__get__=_get)
-    __name__ = 'edges'
-
 
     @property
     def lines(self) -> Lines:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from typing import overload
 
 import geopandas as gpd
 
@@ -14,17 +15,31 @@ class Feature(
     namespace
 ):
     # todo: go back and investigate what the purpose of this module was and if it's still necessary
+    grid: VecGrid
 
-    def _get(
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T],
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner,
+    ) -> T:
+        ...
+
+    def __get__(
             self: Feature,
             instance: VecGrid,
             owner
     ) -> Feature:
         self.grid = instance
         return copy.copy(self)
-
-    locals().update(__get__=_get)
-    grid: VecGrid
 
     def _ensure_network_column(self, key: str):
         if key not in self.grid:

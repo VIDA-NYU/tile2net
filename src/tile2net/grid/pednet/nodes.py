@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Self
+from typing import Self, overload
 
 import geopandas as gpd
 import numpy as np
@@ -49,7 +49,25 @@ class Nodes(
         )
         return result
 
-    def _get(
+    __name__ = 'nodes'
+
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T],
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner,
+    ) -> T:
+        ...
+
+    def __get__(
             self,
             instance: Lines,
             owner
@@ -68,7 +86,7 @@ class Nodes(
             #     result = result.loc[loc]
             if result.instance is not instance:
                 del cache[key]
-                return self._get(instance, owner)
+                return self.__get__(instance, owner)
         elif (
                 'start_inode' in instance.columns
                 and 'stop_inode' in instance.columns
@@ -144,9 +162,6 @@ class Nodes(
         result.instance = instance
 
         return result
-
-    locals().update(__get__=_get)
-    __name__ = 'nodes'
 
     @property
     def lines(self) -> Lines:

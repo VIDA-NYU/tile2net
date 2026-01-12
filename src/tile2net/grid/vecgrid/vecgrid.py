@@ -10,6 +10,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, wait, FI
 from functools import cached_property
 from pathlib import Path
 from typing import *
+from typing import overload
 
 import PIL.Image
 import geopandas as gpd
@@ -85,11 +86,27 @@ class VecGrid(Grid):
         >>> InGrid.vecgrid
 
     Handles lazy-loading of VecGrid from InGrid:
-        >>> VecGrid._get
+        >>> VecGrid.__get__
     """
     __name__ = 'vecgrid'
 
-    def _get(
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T],
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner,
+    ) -> T:
+        ...
+
+    def __get__(
             self,
             instance: InGrid,
             owner: type[Grid],
@@ -151,8 +168,6 @@ class VecGrid(Grid):
         result.instance = instance
 
         return result
-
-    locals().update(__get__=_get)
 
     @File
     def file(self):

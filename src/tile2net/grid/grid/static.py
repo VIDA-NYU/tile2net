@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 from functools import *
 from pathlib import Path
+from typing import overload
 
 import gdown
 from PIL import Image
@@ -15,15 +16,29 @@ if False:
 class Static:
     grid: Grid
 
-    def _get(
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T],
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner,
+    ) -> T:
+        ...
+
+    def __get__(
             self: Static,
             instance: Grid,
             owner: type[Grid]
     ) -> Static:
         self.grid = instance
         return copy.copy(self)
-
-    locals().update(__get__=_get)
 
     @cached_property
     def black(self):

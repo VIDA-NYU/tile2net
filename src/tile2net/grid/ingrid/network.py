@@ -5,6 +5,7 @@ import os
 from functools import *
 from math import ceil
 from pathlib import Path
+from typing import overload
 
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -33,14 +34,30 @@ class Network(
     Network for each feature and region, dissolved across tiles.
 
     Handles lazy-loading of concatenated network from vecgrid tiles:
-        >>> Network._get
+        >>> Network.__get__
 
     See usage:
         >>> InGrid.network
     """
     __name__ = 'network'
 
-    def _get(
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T],
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner,
+    ) -> T:
+        ...
+
+    def __get__(
             self: Network,
             instance: InGrid,
             owner: type[InGrid]
@@ -201,8 +218,6 @@ class Network(
                     logger.info(msg)
         result.instance = instance
         return result
-
-    locals().update(__get__=_get)
 
     @property
     def ingrid(self) -> InGrid:
