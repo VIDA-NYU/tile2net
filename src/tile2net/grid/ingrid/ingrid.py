@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import hashlib
 import os
 import os.path
 import shutil
 import sys
 import tempfile
-import threading
 from functools import *
 from pathlib import Path
 from typing import *
@@ -44,18 +42,6 @@ if False:
     from .broadcast import Broadcast
     from . import construct
 
-# thread-local store
-tls = threading.local()
-
-
-
-def file_md5(path: Path, chunk_size: int = 8192) -> str:
-    h = hashlib.md5()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(chunk_size), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
 
 class InGrid(
     Grid
@@ -70,10 +56,6 @@ class InGrid(
                              lonmin        latmax        lonmax        latmin
         xtile  ytile
         317280 387840 -7.911538e+06  5.214840e+06 -7.911500e+06  5.214802e+06
-
-    Handles downloading of input tiles:
-        >>> InGrid.download
-
     """
 
     @File
