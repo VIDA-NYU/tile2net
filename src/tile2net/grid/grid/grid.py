@@ -3,15 +3,18 @@ from __future__ import annotations
 import hashlib
 import math
 import os
+import tempfile
 import threading
 from functools import *
 from typing import *
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pyproj
 import shapely
 import tqdm
+from PIL import ImageColor, Image
 from geopandas import GeoDataFrame
 from pandas import MultiIndex, Series, Index
 
@@ -1214,3 +1217,149 @@ class Grid(
         ymax = int(self.ytile.max()) + 1
 
         return xmin, ymin, xmax, ymax
+
+    def preview(
+            self,
+            maxdim: int = 2048,
+            divider: Optional[str] = 'red',
+            show: bool = True,
+            files: Optional[pd.Series] = None,
+    ) -> Image.Image:
+        """
+        Generate a mosaic preview of all tiles in the grid.
+
+        Args:
+            maxdim: Maximum dimension for the output image
+            divider: Color name for tile divider lines
+            show: Display the preview automatically
+            files: Optional custom file paths to preview
+
+        Returns:
+            PIL Image containing the tile mosaic
+        """
+        # todo: divider isn't showing up
+
+        # grid geometry
+        dim = self.dimension
+        R: pd.Series = self.r
+        C: pd.Series = self.c
+
+        # total rows/cols
+        n_rows = int(R.max()) + 1
+        n_cols = int(C.max()) + 1
+
+        # compute full-res canvas size assuming 1px divider lines between tiles
+        # (the dataset you're using below is already aware of 'divider' as background)
+        w = n_cols * dim + n_cols
+        h = n_rows * dim + n_rows
+        m = max(w, h)
+
+        # downscale factor to respect maxdim
+        if m <= maxdim:
+            scale = 1.0
+        else:
+            scale = maxdim / m
+
+        # build a wrapper that knows how to place tiles with a divider-colorized background
+        if files is None:
+            files = self.file.static
+
+        wrapper = DataWrapper.from_tiles(
+            static=self.file.static,
+            index=self.index,
+            row=self.r,
+            col=self.c,
+            background=divider,
+            force=True,
+        )
+
+        # dataset/loader provide batches with x0, y0, arr already scaled
+        dataset = RescaleDataSet(wrapper, scale=scale, dim=dim)
+        loader = dataset.loader
+
+        # base color for the mosaic background
+        base_rgb = ImageColor.getrgb(divider or 'black')
+
+        # allocate mosaic as RGB uint8 and fill with base color
+        # shape uses scaled dimensions derived implicitly from dataset outputs;
+        # we allocate using the scaled canvas size to avoid incremental growth.
+        # Scale the nominal w,h computed above.
+
+        h = max(dataset.y1) + 1
+        w = max(dataset.x1) + 1
+        mosaic_np = np.empty((h, w, 3), dtype=np.uint8)
+        mosaic_np[...] = base_rgb
+
+        # paste tiles using numpy copy semantics
+        for batch in loader:
+            x0 = batch.x0
+            y0 = batch.y0
+            arr = batch.arr
+            x1 = batch.x1
+            y1 = batch.y1
+
+            # ensure uint8 RGB
+            if arr.dtype != np.uint8:
+                arr = arr.astype(np.uint8, copy=False)
+
+            if arr.ndim == 2:
+                # grayscale → RGB
+                arr = np.repeat(arr[:, :, None], 3, axis=2)
+            elif arr.ndim == 3 and arr.shape[2] == 4:
+                # drop alpha
+                arr = arr[:, :, :3]
+            elif arr.ndim != 3 or arr.shape[2] != 3:
+                raise ValueError(f'Unexpected tile shape: {arr.shape!r}')
+            h_tile, w_tile = arr.shape[0], arr.shape[1]
+
+            # bounds check (defensive; no-op if in-bounds)
+            if (
+                    y0 < 0
+                    or x0 < 0
+                    or y0 + h_tile > mosaic_np.shape[0]
+                    or x0 + w_tile > mosaic_np.shape[1]
+            ):
+                raise ValueError(
+                    f'Tile at ({x0},{y0}) with size ({w_tile},{h_tile}) '
+                    f'exceeds mosaic bounds ({mosaic_np.shape[1]},{mosaic_np.shape[0]}).'
+                )
+
+            # fast in-place write
+            np.copyto(mosaic_np[y0:y1, x0:x1, :], arr)
+
+        # convert to PIL for downstream consumers
+        mosaic_im = Image.fromarray(mosaic_np, mode='RGB')
+
+        # optional display (PyCharm SciView / matplotlib)
+        if show:
+            try:
+                # keep DPI moderate to avoid giant windows
+                dpi = 96
+                fig_w_in = max(1.0, mosaic_im.width / dpi)
+                fig_h_in = max(1.0, mosaic_im.height / dpi)
+
+                plt.figure(figsize=(fig_w_in, fig_h_in), dpi=dpi)
+                plt.imshow(mosaic_im)
+                plt.axis('off')
+                plt.tight_layout(pad=0)
+                plt.show()
+
+            except Exception:
+                # fallback to OS image viewer
+                tmp = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
+                try:
+                    mosaic_im.save(tmp.name)
+                finally:
+                    tmp.close()
+
+                try:
+                    with Image.open(tmp.name) as im:
+                        im.show()
+                finally:
+                    try:
+                        os.unlink(tmp.name)
+                    except OSError:
+                        pass
+
+        return mosaic_im
+
