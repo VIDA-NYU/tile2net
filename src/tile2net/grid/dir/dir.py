@@ -1,51 +1,28 @@
 from __future__ import annotations
-from typing import *
 
 import copy
-import dataclasses
-import functools
 import os
 import re
-import shutil
+from abc import abstractmethod
 from collections import deque
-from functools import cached_property
-from os import PathLike, fspath
+from functools import *
 from pathlib import Path
-from typing import Self
+from typing import *
 
 import pandas as pd
-from toolz import curried, curry as cur, pipe
 
-from tile2net.grid import util
-from tile2net.grid.cfg.logger import logger
-from tile2net.grid.grid.grid import Grid
-from tile2net.grid.util import returns_or_assigns
+from tile2net.grid.dir.exceptions import XYNotFoundError
+from tile2net.grid.frame.namespace import namespace
+from tile2net.grid.frame.weak import weak
 
-if False:
-    from tile2net.grid.ingrid.ingrid import InGrid
-
-
-class ExtensionNotFoundError(ValueError):
-    def __init__(
-            self,
-            path: str,
-    ):
-        super().__init__(f'No extension found in {path!r}')
+if TYPE_CHECKING:
+    from ..grid.grid import Grid
+    from ..ingrid.ingrid import InGrid
 
 
-class XYNotFoundError(ValueError):
-    def __init__(
-            self,
-            path: str,
-            missing: set[str] | list[str] | tuple[str, ...],
-    ):
-        missing_fmt = ', '.join(missing)
-        super().__init__(
-            f'indir failed to parse {path!r}; missing required characters: {missing_fmt}'
-        )
-
-
-class Dir:
+class Dir(
+    namespace
+):
     """
     Class responsible for managing directory-related operations and attributes.
 
@@ -54,8 +31,41 @@ class Dir:
     It is designed to handle complex directory structures and offer utilities
     to represent or manipulate paths effectively.
     """
-    instance: InGrid | Dir = None
-    grid: InGrid = None
+
+    @cached_property
+    @abstractmethod
+    def format(self) -> str:
+        ...
+
+    @cached_property
+    @abstractmethod
+    def root(self) -> str:
+        ...
+
+    @cached_property
+    @abstractmethod
+    def original(self):
+        ...
+
+    @cached_property
+    @abstractmethod
+    def extension(self) -> str:
+        ...
+
+    @cached_property
+    @abstractmethod
+    def suffix(self) -> str:
+        ...
+
+    @cached_property
+    @abstractmethod
+    def dir(self) -> str:
+        ...
+
+    @weak.property
+    @abstractmethod
+    def ingrid(self) -> InGrid:
+        ...
 
     @overload
     def __get__[T](
@@ -74,192 +84,82 @@ class Dir:
         ...
 
     def __get__(
-            self: Dir,
-            instance: Grid | Dir,
+            self,
+            instance: Dir,
             owner
-    ) -> Dir:
-        from ..ingrid import InGrid
-        self = copy.copy(self)
-        self.instance = instance
-        if isinstance(instance, InGrid):
-            self.grid = instance
-        elif isinstance(instance, Dir):
-            self.grid = instance.grid
-        elif instance is None:
-            self.grid = None
+    ) -> Self:
+        if instance is None:
+            out = self
+        elif not isinstance(instance, Dir):
+            raise TypeError(instance)
         else:
-            raise TypeError(f'instance must be Grid or Dir, not {type(instance).__name__}')
-
-        try:
-            result = self.grid.__dict__[self._trace]
-        except KeyError as e:
-            if self.__wrapped__:
-                result = self.__wrapped__(self.instance)
-            else:
-                try:
-                    path = self.instance.dir
-                except (KeyError, AttributeError) as e:
-                    msg = (
-                        f'{self.__name__!r} is not set. '
-                        f'See `Grid.with_indir()` to actually set an '
-                        f'input directory. See `Grid.with_source()` to download '
-                        f'grid from a source into an input directory.'
-                    )
-                    raise AttributeError(msg) from e
+            cache = instance.__dict__
+            name = self.__name__
+            if name not in cache:
+                if self.__wrapped__:
+                    value = self.__wrapped__(instance)
                 else:
-                    if isinstance(self.instance, Dir):
+                    value = self.from_parent(instance, name, self.extension)
+                self.__set__(instance, value=value)
+            out = cache[name]
+        return out
 
-                        format = os.path.join(
-                            self.instance.dir,
-                            self.__name__,
-                            self.instance.suffix.rsplit('.')[0] + '.png'
-                        )
-
-                    else:
-                        raise NotImplementedError
-
-                    result = self.__class__.from_format(format)
-
-        result.__name__ = self.__name__
-        result.instance = self.instance
-        result.grid = self.grid
-        return result
-
-    def __set__(
-            self,
-            instance: Grid,
-            value,
-    ):
-        self.instance = instance
-
-        from ..ingrid import InGrid
-        self = copy.copy(self)
-        self.instance = instance
-        if isinstance(instance, InGrid):
-            self.grid = instance
-        elif isinstance(instance, Dir):
-            self.grid = instance.grid
-        elif instance is None:
-            self.grid = None
-        else:
-            raise TypeError(f'instance must be Grid or Dir, not {type(instance).__name__}')
-
+    def __set__(self, instance: Dir, value) -> Self:
         if isinstance(value, str):
-            value = self.__class__.from_format(value)
-        elif isinstance(value, Dir):
-            value = copy.copy(self)
-        else:
-            raise TypeError(f'Cannot assign {type(value).__name__} to {self._trace}')
+            value = self.from_format(value)
+        if not isinstance(value, Dir):
+            raise TypeError(value)
+        instance.__dict__[self.__name__] = copy.copy(value)
 
-        self.grid.__dict__[self._trace] = value
-
-    def __delete__(
-            self,
-            instance,
-    ):
-        self.instance = instance
+    def __delete__(self, instance):
         try:
-            del self.grid.__dict__[self._trace]
+            del instance.__dict__[self.__name__]
         except KeyError:
             ...
-
-    __wrapped__ = None
-
-    def __set_name__(self, owner, name):
-        self.__name__ = name
-
-    characters = {
-        c: i
-        for i, c in enumerate('xyz')
-    }
-
-    @property
-    def format(self) -> str | None:
-        try:
-            return self.__dict__['format']
-        except KeyError:
-            raise AttributeError('Indir.format is not set.')
-
-    @format.setter
-    def format(self, value: str | None):
-        self.__dict__['format'] = value
-
-    @property
-    def root(self) -> str | None:
-        # todo: why did I implement this?
-        try:
-            return self.__dict__['root']
-        except KeyError:
-            raise AttributeError('Indir.root is not set.')
-
-    @root.setter
-    def root(self, value: str | None):
-        self.__dict__['root'] = value
-
-    @property
-    def original(self) -> str | None:
-        try:
-            return self.__dict__['original']
-        except KeyError:
-            raise AttributeError('Indir.original is not set.')
-
-    @original.setter
-    def original(self, value: str | Path | PathLike | None):
-        if isinstance(value, (Path, PathLike)):
-            value = fspath(value)
-        self.__dict__['original'] = os.path.normpath(value) if value is not None else value
-
-    @property
-    def extension(self) -> str | None:
-        try:
-            return self.__dict__['extension']
-        except KeyError:
-            raise AttributeError('Indir.extension is not set.')
-
-    @extension.setter
-    def extension(self, value: str | None):
-        self.__dict__['extension'] = value
-
-    @property
-    def suffix(self) -> str:
-        try:
-            return self.__dict__['suffix']
-        except KeyError:
-            raise AttributeError('Indir.suffix is not set.')
-
-    @property
-    def hash(self):
-        return self.grid.hash
-
-    @suffix.setter
-    def suffix(self, value: str | None):
-        self.__dict__['suffix'] = value
 
     def __bool__(self):
         return self.format is not None
 
+    def __repr__(self):
+        attrs = []
+        for attr in ['format', 'extension', 'dir', 'original', 'suffix']:
+            try:
+                value = getattr(self, attr)
+                if value is not None:
+                    attrs.append(f'    {attr}={value!r}')
+            except AttributeError:
+                continue
+        return f'{self.__class__.__name__}(\n' + ',\n'.join(attrs) + '\n)'
+
     @classmethod
-    def from_dir(cls, dir: str) -> Self:
-        indir = cls()
-        dir = os.path.normpath(dir)
-        indir.original = dir
-        indir.root = dir
-        indir.dir = dir
-        indir.format = None
-        indir.extension = None
-        indir.suffix = ''
-        return indir
+    def from_parent(
+            cls,
+            parent: Dir,
+            name: str,
+            extension: str = None,
+    ) -> Self:
+        if not extension:
+            extension = parent.extension
+        suffix = (
+                parent.suffix
+                .rsplit('.')
+                [0]
+                + f'.{extension}'
+        )
+        item = os.path.join(parent.dir, name, suffix)
+        out = cls.from_format(item)
+        return out
 
     @classmethod
     def from_format(
             cls,
-            format: str,
+            item: str,
             force_xy: bool = True,
     ) -> Self:
-        # todo: clean this up. This should be more clear. Don't use curried
+        # todo: clean this up. This should be more clear.
 
         value = (
-            Path(format)
+            Path(item)
             .expanduser()
             .resolve()
             .__str__()
@@ -267,14 +167,17 @@ class Dir:
         indir = cls()
         indir.original = value
 
-        CHARACTERS: dict[str, str] = pipe(
-            re.split(r'[/_. \-\\]', value),
-            curried.filter(lambda c: len(c) == 1),
-            curried.map(str.casefold),
-            set,
-            cur(set.__contains__),
-            curried.keyfilter(d=indir.characters),
-        )
+        keys_found = {
+            token.casefold()
+            for token in re.split(r'[/_. \-\\]', value)
+            if len(token) == 1
+        }
+
+        CHARACTERS = {
+            k: v
+            for k, v in indir.characters.items()
+            if k in keys_found
+        }
         characters = CHARACTERS.copy()
 
         # string, ext = value.rsplit('.', 1)
@@ -284,11 +187,11 @@ class Dir:
 
         if dot_idx == -1:
             # no dot after last separator
-            # return value, ''
-            string, ext = value, ''
+            string = value
+            ext = ''
         else:
-            # return value[:dot_idx], value[dot_idx + 1:]
-            string, ext = value[:dot_idx], value[dot_idx + 1:]
+            string = value[:dot_idx]
+            ext = value[dot_idx + 1:]
         if ext:
             ext = '.' + ext
         match = indir._match(string, characters)
@@ -308,12 +211,12 @@ class Dir:
             indir.extension = value.rsplit('.', 1)[1]
         except IndexError:
             ...
-            # raise ExtensionNotFoundError(value)
-            # raise ValueError(f'No extension found in {value!r}')
 
-        failed = [c for c in 'xy' if c not in CHARACTERS]
-        # if failed:
-        #     raise XYNotFoundError(value, failed)
+        failed = [
+            c
+            for c in 'xy'
+            if c not in CHARACTERS
+        ]
         if force_xy and failed:
             raise XYNotFoundError(value, failed)
 
@@ -339,81 +242,6 @@ class Dir:
         result = self.__class__.from_format(format)
         return result
 
-    def __set__(self, instance: 'Grid', value: str | PathLike):
-        if value is None:
-            raise NotImplementedError
-        # if isinstance(value, Path):
-        #     value = str(value)
-        # value = os.path.normpath(value)
-        value = (
-            Path(value)
-            .expanduser()
-            .resolve()
-            .__str__()
-        )
-
-        dir = self.from_format(value)
-
-        dir.__name__ = self.__name__
-        instance.__dict__[self._trace] = dir
-
-        dir.instance = instance
-        try:
-            if isinstance(instance, Grid):
-                dir.grid = instance
-            else:
-                dir.grid = instance.grid
-        except AttributeError:
-            dir.grid = None
-
-    @cached_property
-    def dir(self) -> str:
-        ...
-
-    @staticmethod
-    def _match(string: str, characters: dict[str, str]):
-        c = '|'.join(characters)
-        pattern = rf"^(.*)({c})(.*)$"
-        match = re.match(pattern, string)
-        return match.groups()
-
-    def __repr__(self):
-        attrs = []
-        for attr in ['format', 'extension', 'dir', 'original', 'suffix']:
-            try:
-                value = getattr(self, attr)
-                if value is not None:
-                    attrs.append(f'    {attr}={value!r}')
-            except AttributeError:
-                continue
-        return f'{self.__class__.__name__}(\n' + ',\n'.join(attrs) + '\n)'
-
-    def __init__(self, func=None):
-        if returns_or_assigns(func):
-            functools.update_wrapper(self, func)
-
-    @classmethod
-    def is_valid(cls, indir: str):
-        try:
-            TestIndir(indir)
-        except ValueError:
-            return False
-        else:
-            return True
-
-    @cached_property
-    def _trace(self):
-        if (
-                self.instance is None
-                or isinstance(self.instance, Grid)
-        ):
-            return self.__name__
-        elif isinstance(self.instance, Dir):
-            return f'{self.instance._trace}.{self.__name__}'
-        else:
-            msg = f'Cannot determine trace for {self.__name__}'
-            raise ValueError(msg)
-
     def files(
             self,
             grid: Grid,
@@ -436,147 +264,3 @@ class Dir:
             p.mkdir(parents=True, exist_ok=True)
         result = pd.Series(data, index=grid.index, dtype='str')
         return result
-
-    def cleanup(
-            self,
-            polygons: bool = True,
-            lines: bool = True,
-            static: bool = True,
-            grayscale: bool = True
-    ):
-        instance = self.grid
-
-        if polygons:
-            msg = (
-                f'Cleaning up the polygons for each tile from '
-                f'\n\t{instance.ingrid.outdir.vecgrid.polygons.dir}'
-            )
-            logger.info(msg)
-            util.cleanup(instance.vecgrid.file.polygons)
-
-        if lines:
-            msg = (
-                f'Cleaning up the lines for each tile from '
-                f'\n\t'
-                f'{instance.ingrid.outdir.vecgrid.lines.dir}'
-            )
-            logger.info(msg)
-            util.cleanup(instance.vecgrid.file.lines)
-
-        if static:
-            msg = (
-                f'Cleaning up previously downloaded imagery '
-                f'from {instance.ingrid.indir.dir} and '
-                f'{instance.ingrid.outdir.seggrid.static.dir}'
-            )
-            logger.info(msg)
-            util.cleanup(instance.ingrid.file.static)
-            util.cleanup(instance.seggrid.file.static)
-
-        if grayscale:
-            msg = (
-                f'Cleaning up segmentation masks '
-                f'from \n\t{instance.outdir.seggrid.pred.dir} and '
-                f'\n\t{instance.outdir.vecgrid.pred.dir}'
-            )
-            logger.info(msg)
-            util.cleanup(instance.seggrid.file.pred)
-            util.cleanup(instance.vecgrid.file.grayscale)
-
-        root = Path(self.dir)
-
-        # walk bottom-up so children are removed before parents
-        for dirpath, dirnames, filenames in os.walk(root, topdown=False):
-            p = Path(dirpath)
-
-            # if no files here and all subdirs already gone, remove
-            if not filenames and not any(Path(dirpath).iterdir()):
-                try:
-                    p.rmdir()
-                except OSError:
-                    # race or permission issue, ignore
-                    pass
-
-    def clear(
-            self,
-            *keeps: str,
-    ) -> None:
-        base = Path(self.dir)
-        if not base.is_dir():
-            raise NotADirectoryError(f"{base!s} is not a directory")
-
-        for entry in base.iterdir():
-            if entry.name in keeps:
-                continue
-
-            if entry.is_dir():
-                shutil.rmtree(entry)
-            else:
-                entry.unlink()
-
-
-class TestIndir:
-    indir = Dir()
-
-    def __init__(self, indir: str | PathLike):
-        self.__dict__ = {}
-        self.zoom = 20
-        self.extension = '.png'
-        self.indir = indir
-
-
-if __name__ == '__main__':
-    class TestIndir:
-        indir = Dir()
-
-        def __init__(self, indir: str | PathLike):
-            self.__dict__ = {}
-            self.zoom = 20
-            self.extension = '.png'
-            self.indir = indir
-
-
-    @dataclasses.dataclass
-    class Tile:
-        xtile: int
-        ytile: int
-        zoom: int
-
-
-    grid = [
-        Tile(1, 2, 3),
-        Tile(4, 5, 6),
-        Tile(7, 8, 9),
-    ]
-    test = TestIndir('input/dir.png')
-    test = TestIndir('input/dir/x/y/z.png')
-    test = TestIndir('input/dir/x_y_z.png')
-    test = TestIndir('input/dir/y/x/z.png')
-    test = TestIndir('input/dir/x/y.png')
-
-    try:
-        test = TestIndir('input/dir/x.png')
-    except ValueError:
-        pass
-    else:
-        raise AssertionError
-    try:
-        test = TestIndir('input/dir/x.png')
-    except ValueError as e:
-        print(e)
-    else:
-        raise AssertionError
-    try:
-        test = TestIndir('input/dir/xy.png')
-    except ValueError as e:
-        print(e)
-    else:
-        raise AssertionError
-    try:
-        test = TestIndir('input/dir/x_y_z')
-    except ValueError as e:
-        print(e)
-    else:
-        raise AssertionError
-
-    test = TestIndir('input/dir/arst_x_y_z.png')

@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import os.path
 
-from .dir import Dir
+from ._dir import Dir
 from .ingrid import InGrid
 from .seggrid import SegGrid
 from .vecgrid import VecGrid

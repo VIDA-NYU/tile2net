@@ -15,14 +15,14 @@ class Polygons(
 
     @property
     def parquet(self) -> str:
-        name = self.grid.name
+        name = self.ingrid.name
         filename = os.path.join(self.dir, 'parquet', f'{name}.parquet')
         Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
         return filename
 
     @property
     def preview(self) -> str:
-        name = self.grid.name
+        name = self.ingrid.name
         filename = os.path.join(self.dir, 'preview', f'{name}.png')
         Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
         return filename
@@ -34,14 +34,14 @@ class Network(
 
     @property
     def parquet(self) -> str:
-        name = self.grid.name
+        name = self.ingrid.name
         filename = os.path.join(self.dir, 'parquet', f'{name}.parquet')
         Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
         return filename
 
     @property
     def preview(self) -> str:
-        name = self.grid.name
+        name = self.ingrid.name
         filename = os.path.join(self.dir, 'preview', f'{name}.png')
         Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
         return filename
@@ -53,16 +53,17 @@ class SourceDir(
 
     @NameDir
     def namedir(self):
-        grid = self.grid
+        grid = self.ingrid
         name = grid.cfg.name
         if name is None:
-            name = grid.location
-        format = os.path.join(
-            self.dir,
-            name,
-            self.suffix
-        )
-        result = NameDir.from_format(format)
+            name = grid
+        # format = os.path.join(
+        #     self.dir,
+        #     name,
+        #     self.suffix
+        # )
+        # result = NameDir.from_format(format)
+        result = NameDir.from_format(self, name=name)
         return result
 
     @Network
@@ -75,10 +76,4 @@ class SourceDir(
 
     @InGrid
     def ingrid(self):
-        format = os.path.join(
-            self.dir,
-            'ingrid',
-            self.suffix
-        )
-        result = InGrid.from_format(format)
-        return result
+        return InGrid.from_parent( self, 'ingrid', )

@@ -1259,10 +1259,6 @@ class Cfg(
     def curb(self):
         """Namespace for arguments pertaining to curb vectorization."""
 
-    @Indir
-    def indir(self):
-        """Namespace for arguments pertaining to input directory of imagery tiles."""
-
     @Line
     def line(self):
         """Namespace for arguments pertaining to line vectorization."""
@@ -1350,6 +1346,7 @@ class Cfg(
         """Save vectorized network, aligned with the source imagery, to the output directory."""
         return True
 
+    @cmdline.property
     def label2id(self) -> dict[str, int]:
         """
         Mapping from label names to IDs
@@ -1416,11 +1413,27 @@ class Cfg(
         Using a relative path such as './cambridge' will create a
         directory in the current working directory.
         """
-        return './outdir/z/x_y'
+        return './outdir'
 
-    outdir.add_options(
-        short='-o',
-    )
+    outdir.add_options( short='-o')
+
+    @basic(1.5)
+    @cmdline.property
+    def format(self) -> str:
+        """
+        Format of saving tile images within the output directory,
+        where x, y, and z (optional) indicate how the output files
+        should be organized. This arg is ignored if you include a
+        format in the outdir, e.g. `./outdir/z/x_y`
+
+        If you pass a local source e.g. `--source ./tiles/z/x/y.png`,
+        you may want to align the output files with the format of the imagery
+        you work with. You would pass: `--format z/x/y`
+        """
+        return 'z/x_y'
+
+    outdir.add_options(short='-f')
+
 
     @cmdline.property
     def dump_percent(self) -> int:

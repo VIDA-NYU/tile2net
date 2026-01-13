@@ -8,4 +8,4 @@ class InGrid(
 ):
     @property
     def static(self):
-        return self.grid.indir
+        return self.ingrid.indir

@@ -1,4 +1,4 @@
 # from .batchiterator import BatchIterator
-from .dir import Dir
+from ._dir import Dir
 from .indir import  Indir
-from .outdir import Outdir
+from ._outdir import Outdir

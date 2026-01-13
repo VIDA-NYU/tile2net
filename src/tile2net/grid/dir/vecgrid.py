@@ -47,7 +47,7 @@ class VecGrid(
 
     @Network
     def curbs(self):
-        format = os.path.join(
+        format = os.path.joingg(
             self.dir,
             'curbs',
             self.suffix,
@@ -55,3 +55,9 @@ class VecGrid(
         format = format + '.parquet'
         result = Network.from_format(format)
         return result
+
+
+class VecGrid(Grid):
+    @Dir
+    def polygons(self):
+        return Dir.from_parent(self, 'polygons', 'parquet')

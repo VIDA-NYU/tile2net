@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+from tile2net.grid.frame.weak import weak
+from abc import *
+import copy
 import os
 import os.path
+from typing import *
 
-from .dir import Dir
-from .sourcedir import SourceDir
+from tile2net.grid.dir.dir import Dir
+from tile2net.grid.dir.exceptions import XYNotFoundError
+from tile2net.grid.dir.sourcedir import SourceDir
 
-if False:
-    import tile2net.grid.ingrid
+if TYPE_CHECKING:
     from .seggrid import SegGrid
     from .vecgrid import VecGrid
+    from tile2net.grid.ingrid.ingrid import InGrid
 
 
 class Probability(
@@ -65,7 +70,71 @@ class BestImages(
 class Outdir(
     Dir
 ):
-    grid: tile2net.grid.ingrid.InGrid
+    @weak.property
+    @abstractmethod
+    def ingrid(self) -> InGrid:
+        ...
+
+
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T],
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner,
+    ) -> T:
+        ...
+
+    def __get__(
+            self,
+            instance: InGrid,
+            owner: type[InGrid],
+    ):
+        if instance is None:
+            out = self
+        elif not isinstance(instance, InGrid):
+            raise TypeError(instance)
+        else:
+            cache = instance.__dict__
+            name = self.__name__
+            if name not in cache:
+                self.__set__(instance, instance.cfg.outdir)
+            out = cache[name]
+
+        out.grid = instance
+        return out
+
+    def __set__(
+            self,
+            instance: InGrid,
+            value: str | Dir,
+    ):
+        if isinstance(value, str):
+            try:
+                value = self.from_format(value)
+            except XYNotFoundError:
+                item = os.path.join(value, instance.cfg.format)
+                value = self.from_format(item)
+        if not isinstance(value, Dir):
+            raise TypeError(value)
+        instance.__dict__[self.__name__] = copy.copy(value)
+
+    def __delete__(
+            self,
+            instance: InGrid,
+    ):
+        """"""
+        try:
+            del instance.__dict__[self.__name__]
+        except KeyError:
+            ...
 
     @SourceDir
     def sourcedir(self):
@@ -73,7 +142,7 @@ class Outdir(
         Handles lazy-loading of sourcedir:
         >>> SourceDir._get
         """
-        grid = self.grid
+        grid = self.ingrid
         name = None
         try:
             name = grid.remote.name

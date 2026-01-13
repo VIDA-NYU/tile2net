@@ -1,7 +1,5 @@
 from __future__ import annotations
-import shapely
 
-import copy
 import hashlib
 import os
 import os.path
@@ -17,7 +15,6 @@ from pathlib import Path
 from typing import *
 
 import certifi
-import geopandas as gpd
 import imageio.v3 as iio
 import matplotlib.pyplot as plt
 import numpy as np
@@ -29,30 +26,27 @@ from tqdm import tqdm
 from tqdm.auto import tqdm
 from urllib3.util.retry import Retry
 
+from tile2net.grid import util
+from tile2net.grid.cfg import cfg
+from tile2net.grid.cfg.cfg import Cfg
 from tile2net.grid.cfg.logger import logger
-from tile2net.grid.dir.indir import Indir
 from tile2net.grid.dir.outdir import Outdir
+from tile2net.grid.dir.tempdir import TempDir
+from tile2net.grid.grid.grid import Grid
+from tile2net.grid.grid.static import Static
 from tile2net.grid.ingrid import delayed
+from tile2net.grid.ingrid.file import File
 from tile2net.grid.ingrid.network import Network
 from tile2net.grid.ingrid.polygons import Polygons
 from tile2net.grid.ingrid.segtile import SegTile
 from tile2net.grid.ingrid.vectile import VecTile
-from tile2net.grid.cfg import cfg
-from tile2net.grid.cfg.cfg import Cfg
-from tile2net.grid.dir.dir import Dir, ExtensionNotFoundError, XYNotFoundError
-from tile2net.grid.dir.tempdir import TempDir
-from tile2net.grid.grid.grid import Grid
-from tile2net.grid.grid.static import Static
 from tile2net.grid.loaders.datawrapper import DataWrapper
 from tile2net.grid.loaders.rescale import RescaleDataSet
 from tile2net.grid.sampler.benchmark import Benchmark
 from tile2net.grid.seggrid.seggrid import SegGrid
-from tile2net.grid.vecgrid.vecgrid import VecGrid
-from tile2net.grid import util
-from tile2net.grid.util import recursion_block, assert_perfect_overlap
-from tile2net.grid.ingrid.file import File
 from tile2net.grid.source.source import Source
-from tile2net.grid.source.remote import Remote
+from tile2net.grid.util import recursion_block, assert_perfect_overlap
+from tile2net.grid.vecgrid.vecgrid import VecGrid
 
 if False:
     from .filled import Filled
@@ -267,25 +261,25 @@ class InGrid(
             >>> ingrid.Static.snapshot
         """
 
-    @Indir
-    def indir(self):
-        """
-        Input Directory: location at which input imagery are stored and read from.
-        If using a remote source, images will be downloaded to this directory.
-
-
-        # Sets the input directory:
-        >>> InGrid.set_indir
-        """
-        raise ValueError('No input directory specified. ')
-        ingrid = self.ingrid.outdir.ingrid
-        format = os.path.join(
-            ingrid.dir,
-            'static',
-            f'z/x_y'
-        )
-        result = Indir.from_format(format)
-        return result
+    # @Indir
+    # def indir(self):
+    #     """
+    #     Input Directory: location at which input imagery are stored and read from.
+    #     If using a remote source, images will be downloaded to this directory.
+    #
+    #
+    #     # Sets the input directory:
+    #     >>> InGrid.set_indir
+    #     """
+    #     raise ValueError('No input directory specified. ')
+    #     ingrid = self.ingrid.outdir.ingrid
+    #     format = os.path.join(
+    #         ingrid.dir,
+    #         'static',
+    #         f'z/x_y'
+    #     )
+    #     result = Indir.from_format(format)
+    #     return result
 
     @Outdir
     def outdir(self):
@@ -755,6 +749,56 @@ class InGrid(
         result.source = source
         return result
 
+    # def set_outdir(
+    #         self,
+    #         outdir: Union[str, Path] = None,
+    # ) -> Self:
+    #     """
+    #     Assign an output directory for processed results.
+    #
+    #     Args:
+    #         outdir: Output directory path
+    #
+    #     Returns:
+    #         InGrid with output directory configured
+    #
+    #     Example:
+    #     >>> ingrid: InGrid
+    #     >>> ingrid: InGrid = ingrid.set_outdir('/path/to/output')
+    #     """
+    #     result: Grid = self.copy()
+    #
+    #     if not outdir:
+    #         outdir = cfg.outdir
+    #
+    #     if not outdir:
+    #         raise ValueError(f'No output directory specified. ')
+    #
+    #     dir = outdir
+    #     try:
+    #         result.outdir = dir
+    #     except XYNotFoundError as e:
+    #         _dir = f'{outdir}/z/x_y'
+    #         msg = (
+    #             f'XYZ format not implicated in given outdir format: '
+    #             f'{dir}. Defaulting to {_dir}'
+    #         )
+    #         logger.info(msg)
+    #         dir = _dir
+    #
+    #     try:
+    #         result.outdir = dir
+    #     except ExtensionNotFoundError:
+    #         dir = f'{dir}.png'
+    #
+    #     result.outdir = dir
+    #     # noinspection PyUnresolvedReferences
+    #     msg = f'Setting output directory to \n\t{result.outdir.original} '
+    #     logger.info(msg)
+    #
+    #     return result
+
+
     def set_outdir(
             self,
             outdir: Union[str, Path] = None,
@@ -772,36 +816,8 @@ class InGrid(
         >>> ingrid: InGrid
         >>> ingrid: InGrid = ingrid.set_outdir('/path/to/output')
         """
-        result: Grid = self.copy()
-
-        if not outdir:
-            outdir = cfg.outdir
-
-        if not outdir:
-            raise ValueError(f'No output directory specified. ')
-
-        dir = outdir
-        try:
-            result.outdir = dir
-        except XYNotFoundError as e:
-            _dir = f'{outdir}/z/x_y'
-            msg = (
-                f'XYZ format not implicated in given outdir format: '
-                f'{dir}. Defaulting to {_dir}'
-            )
-            logger.info(msg)
-            dir = _dir
-
-        try:
-            result.outdir = dir
-        except ExtensionNotFoundError:
-            dir = f'{dir}.png'
-
-        result.outdir = dir
-        # noinspection PyUnresolvedReferences
-        msg = f'Setting output directory to \n\t{result.outdir.original} '
-        logger.info(msg)
-
+        result = self.copy()
+        result.outdir = outdir
         return result
 
     def set_segmentation(
