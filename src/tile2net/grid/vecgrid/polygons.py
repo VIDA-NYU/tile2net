@@ -36,27 +36,12 @@ class Polygons(
     """
     vecgrid: VecGrid = None
 
-    @overload
-    def __get__[T](
-            self,
-            instance,
-            owner: type[T],
-    ) -> T:
-        ...
-
-    @overload
-    def __get__[T](
-            self,
-            instance: T,
-            owner,
-    ) -> T:
-        ...
 
     def __get__(
             self: Polygons,
             instance: VecGrid,
             owner: type[VecGrid]
-    ) -> Polygons:
+    ) -> Self:
         """
         Lazy-load factory method for accessing polygons for each vec-tile, feature, and region.
 

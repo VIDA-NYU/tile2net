@@ -108,21 +108,7 @@ class cls_attr(
 
     cache = WeakKeyDictionary()
 
-    @overload
-    def __get__[T](
-            self,
-            instance,
-            owner: type[T],
-    ) -> T:
-        ...
 
-    @overload
-    def __get__[T](
-            self,
-            instance: T,
-            owner,
-    ) -> T:
-        ...
 
     def __get__(
             self: cls_attr,
@@ -177,21 +163,7 @@ class Remote(
     catalog: dict[str, type[Remote]] = {}
     outdated: bool = False
 
-    @overload
-    def __get__[T](
-            self,
-            instance,
-            owner: type[T],
-    ) -> T:
-        ...
 
-    @overload
-    def __get__[T](
-            self,
-            instance: T,
-            owner,
-    ) -> T:
-        ...
 
     def __get__(
             self: Remote,

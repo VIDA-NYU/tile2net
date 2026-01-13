@@ -17,21 +17,7 @@ class Feature(
     # todo: go back and investigate what the purpose of this module was and if it's still necessary
     grid: VecGrid
 
-    @overload
-    def __get__[T](
-            self,
-            instance,
-            owner: type[T],
-    ) -> T:
-        ...
 
-    @overload
-    def __get__[T](
-            self,
-            instance: T,
-            owner,
-    ) -> T:
-        ...
 
     def __get__(
             self: Feature,

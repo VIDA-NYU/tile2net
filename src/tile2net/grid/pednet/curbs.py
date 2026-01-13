@@ -19,22 +19,6 @@ class Curbs(
     instance: PedNet = None
     __name__ = 'curbs'
 
-    @overload
-    def __get__[T](
-            self,
-            instance,
-            owner: type[T],
-    ) -> T:
-        ...
-
-    @overload
-    def __get__[T](
-            self,
-            instance: T,
-            owner,
-    ) -> T:
-        ...
-
     def __get__(
             self,
             instance: PedNet,

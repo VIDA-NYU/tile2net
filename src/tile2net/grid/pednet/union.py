@@ -27,28 +27,14 @@ class Union(
     instance: PedNet = None
     __name__ = 'union'
 
-    @overload
-    def __get__[T](
-            self,
-            instance,
-            owner: type[T],
-    ) -> T:
-        ...
 
-    @overload
-    def __get__[T](
-            self,
-            instance: T,
-            owner,
-    ) -> T:
-        ...
 
     def __get__(
             self,
             instance: PedNet,
             owner: type[PedNet]
     ) -> Union:
-        self: Self = namespace._get(self, instance, owner)
+        self: Self = namespace.__get__(self, instance, owner)
         cache = instance.frame.__dict__
         key = self.__name__
         if instance is None:

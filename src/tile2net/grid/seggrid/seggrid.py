@@ -84,7 +84,7 @@ class SegGrid(
             xtile ytile
             79320 96960 -7.911538e+06  5.214840e+06 -7.911385e+06  5.214687e+06
         """
-        self = namespace._get(self, instance, owner)
+        self = namespace.__get__(self, instance, owner)
         if instance is None:
             return copy.copy(self)
         cache = instance.frame.__dict__

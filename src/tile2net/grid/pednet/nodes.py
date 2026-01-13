@@ -51,28 +51,12 @@ class Nodes(
 
     __name__ = 'nodes'
 
-    @overload
-    def __get__[T](
-            self,
-            instance,
-            owner: type[T],
-    ) -> T:
-        ...
-
-    @overload
-    def __get__[T](
-            self,
-            instance: T,
-            owner,
-    ) -> T:
-        ...
-
     def __get__(
             self,
             instance: Lines,
             owner
-    ) -> Nodes:
-        self: Self = namespace._get(self, instance, owner)
+    ) -> Self:
+        self: Self = namespace.__get__(self, instance, owner)
         # cache = instance.frame.__dict__
         cache = instance.__dict__
         key = self.__name__

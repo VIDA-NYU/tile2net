@@ -31,27 +31,11 @@ class Center(
     instance: PedNet = None
     __name__ = 'center'
 
-    @overload
-    def __get__[T](
-            self,
-            instance,
-            owner: type[T],
-    ) -> T:
-        ...
-
-    @overload
-    def __get__[T](
-            self,
-            instance: T,
-            owner,
-    ) -> T:
-        ...
-
     def __get__(
             self,
             instance: PedNet,
             owner: type[PedNet]
-    ) -> Center:
+    ) -> Self:
         self: Self = FrameWrapper._get(self, instance, owner)
         cache = instance.__dict__
         key = self.__name__

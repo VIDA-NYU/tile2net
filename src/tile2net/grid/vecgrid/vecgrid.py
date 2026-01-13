@@ -90,27 +90,13 @@ class VecGrid(Grid):
     """
     __name__ = 'vecgrid'
 
-    @overload
-    def __get__[T](
-            self,
-            instance,
-            owner: type[T],
-    ) -> T:
-        ...
 
-    @overload
-    def __get__[T](
-            self,
-            instance: T,
-            owner,
-    ) -> T:
-        ...
 
     def __get__(
             self,
             instance: InGrid,
             owner: type[Grid],
-    ) -> VecGrid:
+    ) -> Self:
         """
         Lazy-load factory method for accessing VecGrid from InGrid
 

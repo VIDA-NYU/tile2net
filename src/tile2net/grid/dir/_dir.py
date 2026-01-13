@@ -56,21 +56,7 @@ class Dir:
     instance: InGrid | Dir = None
     grid: InGrid = None
 
-    @overload
-    def __get__[T](
-            self,
-            instance,
-            owner: type[T],
-    ) -> T:
-        ...
 
-    @overload
-    def __get__[T](
-            self,
-            instance: T,
-            owner,
-    ) -> T:
-        ...
 
     def __get__(
             self: Dir,

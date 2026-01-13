@@ -16,33 +16,16 @@ TGrid = TypeVar('TGrid', covariant=True)
 
 
 class namespace(
-    Generic[TGrid]
 ):
     __wrapped__ = None
     __name__ = None
     instance: object
 
-    @overload
-    def __get__[T](
-            self,
-            instance,
-            owner: type[T],
-    ) -> T:
-        ...
-
-    @overload
-    def __get__[T](
-            self,
-            instance: T,
-            owner,
-    ) -> T:
-        ...
-
     def __get__(
             self,
-            instance: TGrid,
+            instance,
             owner
-    ):
+    ) -> Self:
         self.instance = instance
         if instance is None:
             self.wrapper = None

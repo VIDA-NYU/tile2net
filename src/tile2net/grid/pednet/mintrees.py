@@ -27,28 +27,12 @@ class Mintrees(
     instance: Lines = None
     __name__ = 'mintrees'
 
-    @overload
-    def __get__[T](
-            self,
-            instance,
-            owner: type[T],
-    ) -> T:
-        ...
-
-    @overload
-    def __get__[T](
-            self,
-            instance: T,
-            owner,
-    ) -> T:
-        ...
-
     def __get__(
             self,
             instance: Lines,
             owner: type[PedNet]
-    ) -> Mintrees:
-        self: Self = namespace._get(self, instance, owner)
+    ) -> Self:
+        self: Self = namespace.__get__(self, instance, owner)
         cache = instance.__dict__
         key = self.__name__
         if instance is None:
@@ -57,7 +41,7 @@ class Mintrees(
             result = cache[key]
             if result.instance is not instance:
                 del cache[key]
-                return  self.__get__(instance, owner)
+                return self.__get__(instance, owner)
         else:
             stubs = instance.stubs
             edges = stubs.edges
@@ -98,7 +82,6 @@ class Mintrees(
                 index=stubs.nodes.inode,
                 dtype=bool
             )
-
 
             nodes = stubs.nodes
 
@@ -154,7 +137,6 @@ class Mintrees(
                                 break
                         # break
 
-
                     node = icoord2node[ilast]
                     for ifirst in node:
                         item = icoord2cost[ifirst] + cost, ifirst
@@ -180,7 +162,6 @@ class Mintrees(
 
         result.instance = instance
         return result
-
 
     def explore(
             self,
