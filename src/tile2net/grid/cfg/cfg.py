@@ -1,4 +1,5 @@
 from __future__ import absolute_import, annotations, division, print_function, unicode_literals
+from abc import abstractmethod
 from functools import cached_property
 
 import argparse
@@ -1060,7 +1061,7 @@ class Polygon(cmdline.Namespace):
             crosswalk=2,
         )
 
-    @cmdline.property
+
     def borders(self) -> list[str]:
         """
         Feature which are included not as pedestrian networks
@@ -1120,6 +1121,7 @@ class Indir(
     path.add_options(short='-i')
 
     @cmdline.property
+    @abstractmethod
     def name(self) -> Optional[str]:
         ...
 

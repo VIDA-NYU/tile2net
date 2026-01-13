@@ -25,7 +25,7 @@ class ArcGis(
         raise AttributeError()
 
     @cached_property
-    def format(self) -> str:
+    def template(self) -> str:
         """URL template for ArcGIS tile requests."""
         return f"{self.server}/tile/{{z}}/{{y}}/{{x}}"
 

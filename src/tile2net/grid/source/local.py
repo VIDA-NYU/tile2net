@@ -41,26 +41,26 @@ class Local(Source):
     def extension(self) -> str:
         """File extension without the leading dot (e.g., 'png', 'jpg')."""
 
-    @property
-    def files(self) -> pd.Series:
-        grid = self.grid
-        if grid is None:
-            raise ValueError("Local source is not attached to a grid.")
-
-        suffix = (
-            self.format
-            .removeprefix(self.root)
-            .lstrip(os.sep)
-        )
-        fmt = os.path.join(self.root, suffix)
-        zoom = grid.zoom
-
-        data = [
-            fmt.format(z=zoom, y=tile.ytile, x=tile.xtile)
-            for tile in grid.tiles
-        ]
-
-        return pd.Series(data, index=grid.index, dtype='str')
+    # @property
+    # def files(self) -> pd.Series:
+    #     grid = self.grid
+    #     if grid is None:
+    #         raise ValueError("Local source is not attached to a grid.")
+    #
+    #     suffix = (
+    #         self.format
+    #         .removeprefix(self.root)
+    #         .lstrip(os.sep)
+    #     )
+    #     fmt = os.path.join(self.root, suffix)
+    #     zoom = grid.zoom
+    #
+    #     data = [
+    #         fmt.format(z=zoom, y=tile.ytile, x=tile.xtile)
+    #         for tile in grid.tiles
+    #     ]
+    #
+    #     return pd.Series(data, index=grid.index, dtype='str')
 
     @classmethod
     def from_str(cls, value: str) -> Self:

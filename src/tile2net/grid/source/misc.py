@@ -28,7 +28,7 @@ class AlamedaCounty(Remote):
         )
 
     @cached_property
-    def format(self) -> str:
+    def template(self) -> str:
         return self.server + '/{z}/{x}/{y}.png'
 
     @cached_property
@@ -48,7 +48,7 @@ class AlamedaCounty(Remote):
 
     @cached_property
     def original(self) -> str:
-        return self.format
+        return self.template
 
     @cached_property
     def coverage(self) -> GeoSeries:
@@ -81,7 +81,7 @@ class SanFranciscoBase(Remote, ABC):
         return False
 
     @cached_property
-    def format(self) -> str:
+    def template(self) -> str:
         return f"{self.server}/{{z}}/{{x}}/{{y}}.png"
 
     @cached_property
@@ -100,7 +100,7 @@ class SanFranciscoBase(Remote, ABC):
 
     @cached_property
     def original(self) -> str:
-        return self.format
+        return self.template
 
     @cached_property
     def coverage(self) -> GeoSeries:

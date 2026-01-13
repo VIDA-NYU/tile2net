@@ -1,6 +1,23 @@
-
 from __future__ import annotations
+from urllib3.util.retry import Retry
+import requests
+import certifi
+from requests.adapters import HTTPAdapter
 
+import requests
+from tile2net.grid.util import recursion_block
+import os
+import os.path
+import shutil
+import tempfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+import imageio.v3 as iio
+from tqdm import tqdm
+
+import pyarrow as pa
+
+import threading
 import warnings
 from abc import ABC, abstractmethod
 from functools import cached_property
@@ -21,6 +38,8 @@ from tile2net.grid.source.exceptions import (
 from tile2net.grid.source.prototype import Prototype
 from tile2net.grid.source.source import Source
 from tile2net.logger import logger
+
+tls = threading.local()
 
 
 class Remote(
@@ -51,7 +70,6 @@ class Remote(
     def prototype(self):
         """
         Prototype instance for each class.
-        Retruns
         >>> Prototype.__get__
         """
 
@@ -80,7 +98,7 @@ class Remote(
 
     @cached_property
     @abstractmethod
-    def format(self) -> str:
+    def template(self) -> str:
         """URL template with {x}, {y}, {z} placeholders for tile coordinates."""
 
     @cached_property
@@ -138,25 +156,253 @@ class Remote(
         return 19
 
     @property
-    def urls(self) -> pd.Series:
+    def url(self) -> pd.Series:
         """Generate URLs for all tiles in the attached grid."""
-        grid = self.grid
-        if grid is None:
-            raise ValueError("Remote source is not attached to a grid.")
+        grid = self.ingrid
+        key = f'{self.__name__}.url'
+        if key not in grid:
+            template = self.template
+            it = zip(grid.xtile.values, grid.ytile.values)
+            obj = (
+                template.format(z=grid.zoom, y=ytile, x=xtile)
+                for xtile, ytile in it
+            )
+            arr = pa.array(obj, type=pa.string(), size=len(grid))
+            grid[key] = pd.Series(arr.to_pandas(), index=grid.index, dtype='string')
 
-        template = self.format
-        zoom = grid.zoom
+        return grid[key]
 
-        data = [
-            template.format(z=zoom, y=tile.ytile, x=tile.xtile)
-            for tile in grid.tiles
-        ]
-        return pd.Series(data, index=grid.index, dtype='str')
+    @url.setter
+    def url(self, value: pd.Series):
+        """Set the URLs for all tiles in the attached grid."""
+        grid = self.ingrid
+        key = f'{self.__name__}.url'
+        grid[key] = value
 
-    @property
-    def files(self) -> pd.Series:
-        """Alias for urls - remote sources provide URLs instead of file paths."""
-        return self.urls
+    @url.deleter
+    def url(self):
+        """Delete the URLs for all tiles in the attached grid."""
+        grid = self.ingrid
+        key = f'{self.__name__}.url'
+        try:
+            del grid[key]
+        except KeyError:
+            ...
+
+    def download(
+            self,
+            retry: bool = True,
+            force: bool = False,
+            max_workers: int = 64,
+            one: bool = False
+    ):
+        """
+        Download tiles from this remote source to the input directory.
+
+        Args:
+            retry:
+                Retry failed downloads once
+            force:
+                Re-download existing files
+            max_workers:
+                Maximum concurrent download threads
+            one:
+                Download only one file for testing
+        """
+        ingrid = self.ingrid
+        paths = ingrid.file.static
+        urls = self.url
+
+        if paths.empty or urls.empty:
+            return ingrid
+        if len(paths) != len(urls):
+            raise ValueError("paths and urls must be equal length")
+
+        for p in {Path(p).parent for p in paths}:
+            p.mkdir(parents=True, exist_ok=True)
+
+        exists = (
+            paths
+            .map(os.path.exists)
+            .to_numpy(bool)
+        )
+
+        if (
+                exists.all()
+                and not force
+        ):
+            msg = (
+                f'All {len(paths):,} '
+                f'{ingrid.__class__.__qualname__}.{ingrid.file.static.name} '
+                f'on disk at {ingrid.indir.dir}. '
+            )
+            logger.info(msg)
+            return ingrid
+
+        if not force:
+            paths = paths[~exists]
+            urls = urls[~exists]
+
+        mapping = dict(zip(paths.array, urls.array))
+        if not mapping:
+            return ingrid
+
+        msg = (
+            f'Downloading {len(mapping):,} '
+            f'{ingrid.__class__.__qualname__}.{ingrid.file.static.name} '
+            f'from {self.name} to \\n\\t{ingrid.indir.dir} '
+        )
+        logger.info(msg)
+
+        pool_size = min(max_workers, len(mapping))
+        not_found: list[Path] = []
+        failed: list[Path] = []
+        success = False
+
+        def _fetch_write(
+                path: Path,
+                url: str,
+        ) -> None:
+            try:
+                with tls.session.get(url, stream=True, timeout=(3, 30)) as resp:
+                    status = resp.status_code
+                    if status == 404:
+                        not_found.append(path)
+                        return
+                    if status == 403:
+                        not_found.append(path)
+                        return
+                    if status != 200:
+                        failed.append(path)
+                        return
+
+                    fd, tmp_path = tempfile.mkstemp(
+                        dir=path.parent,
+                        suffix=".part",
+                    )
+                    os.close(fd)
+                    tmp = Path(tmp_path)
+
+                    try:
+                        with tmp.open("wb") as fh:
+                            for chunk in resp.iter_content(1 << 15):
+                                if not chunk:
+                                    continue
+                                fh.write(chunk)
+
+                        try:
+                            iio.imread(tmp)
+                        except ValueError:
+                            tmp.unlink(missing_ok=True)
+                            failed.append(path)
+                            return
+
+                        shutil.move(tmp, path)
+
+                    except Exception:
+                        tmp.unlink(missing_ok=True)
+                        failed.append(path)
+                        return
+
+            except Exception:
+                failed.append(path)
+                return
+
+        with ThreadPoolExecutor(
+                max_workers=pool_size,
+                initializer=self._init_net_worker,
+        ) as pool:
+
+            futures = {
+                pool.submit(_fetch_write, Path(p), u)
+                for p, u in mapping.items()
+            }
+
+            for fut in tqdm(
+                    as_completed(futures),
+                    total=len(futures),
+                    desc="Downloading",
+                    unit=f" {ingrid.__class__.__name__}.{paths.name}",
+                    mininterval=10,
+            ):
+                fut.result()
+
+                if one:
+                    success = True
+                    for f in futures:
+                        f.cancel()
+                    break
+
+        if one and success:
+            logger.info("Downloaded one file successfully (one=True).")
+            return ingrid
+
+        if len(not_found) + len(failed) == len(ingrid.file.static):
+            msg = f'All {len(not_found) + len(failed):,} grid failed to download.'
+            raise FileNotFoundError(msg)
+
+        if not_found:
+            black = ingrid.static.black
+            logger.warning("%d tile(s) returned 404/403 – linking placeholder.", len(not_found))
+            for p in not_found:
+                try:
+                    os.symlink(black, p)
+                except (OSError, NotImplementedError):
+                    shutil.copy2(black, p)
+
+        if failed:
+            if retry:
+                logger.error("%d tile(s) failed; retrying once.", len(failed))
+                return self.download(
+                    retry=False,
+                    force=False,
+                    max_workers=max_workers,
+                )
+            raise FileNotFoundError(f"{len(failed):,} files failed.")
+
+        msg = (
+            f"All requested {ingrid.__class__.__name__}.{paths.name} "
+            f"on disk at \\n\\t{ingrid.indir.dir} "
+        )
+        logger.info(msg)
+
+    def _make_session(
+            self,
+            *,
+            pool: int,
+            retry: Retry,
+    ) -> requests.Session:
+        """
+        One reusable Session with a bounded socket-pool.
+        `pool_block=True` ⇒ if all connections are busy the thread *waits*
+        instead of opening a new source port (prevents TIME_WAIT storms).
+        """
+        s = requests.Session()
+        adapter = HTTPAdapter(
+            pool_connections=pool,
+            pool_maxsize=pool,
+            pool_block=True,
+            max_retries=retry,
+        )
+        s.mount("https://", adapter)
+        s.mount("http://", adapter)
+        s.headers.update({"User-Agent": "grid"})
+        s.verify = certifi.where()
+        return s
+
+    def _init_net_worker(self) -> None:
+        """
+        Run once per thread → attach one Session to thread-local storage.
+        Only a GET Session is needed now that the HEAD phase is gone.
+        """
+
+        retry_get = Retry(
+            total=3,
+            backoff_factor=0.4,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods=["GET"],
+        )
+        tls.session = self._make_session(pool=8, retry=retry_get)
 
     @classmethod
     def from_location(
@@ -182,9 +428,12 @@ class Remote(
         # Get all coverage geometries
         matches: GeoSeries = cls.coverage
 
-        # Convert item to geocode
         if isinstance(item, (GeoSeries, GeoDataFrame)):
-            infer = item.geometry.iat[0].centroid
+            infer = (
+                item.geometry
+                .iat[0]
+                .centroid
+            )
         else:
             infer = item
 
@@ -357,7 +606,6 @@ class Remote(
         """
         Parse a string into a Remote instance by delegating to specialized methods.
         """
-        # Try registered name first
         try:
             return cls.from_name(value)
         except SourceParseError:
@@ -503,21 +751,21 @@ if __name__ == '__main__':
     url1 = 'https://tiles.example.com/{z}/{x}/{y}.png'
     remote1 = Remote.from_inferred(url1)
     assert isinstance(remote1, Remote)
-    assert remote1.format == url1
+    assert remote1.template == url1
     assert remote1.scheme == 'https'
     assert remote1.netloc == 'tiles.example.com'
     assert remote1.extension == 'png'
-    print(f"  ✓ '{url1}' -> Remote(format={remote1.format})")
+    print(f"  ✓ '{url1}' -> Remote(format={remote1.template})")
 
     url2 = 'https://example.com/tiles/{z}/{x}/{y}.jpg'
     remote2 = Remote.from_inferred(url2)
-    assert remote2.format == url2
+    assert remote2.template == url2
     assert remote2.extension == 'jpg'
     print(f"  ✓ '{url2}' -> Remote(extension={remote2.extension})")
 
     url3 = 'https://server.com/path/{{z}}/{{x}}/{{y}}.png'
     remote3 = Remote.from_inferred(url3)
-    assert remote3.format == url3
+    assert remote3.template == url3
     print(f"  ✓ URL with {{{{placeholders}}}} -> Remote")
     # test that invalid names/locations raise errors
     print("\n6. Testing error cases:")
@@ -542,5 +790,3 @@ if __name__ == '__main__':
     print("\n" + "=" * 80)
     print("All Remote.from_inferred() tests passed! ✓")
     print("=" * 80)
-
-

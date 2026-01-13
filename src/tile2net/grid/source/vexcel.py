@@ -135,7 +135,7 @@ class VexCel(
         return result
 
     @cached_property
-    def format(self) -> str:
+    def template(self) -> str:
         """Encoding the WMTS URL template for the tiles."""
         query = {
             'layer': self.layer,
@@ -162,7 +162,7 @@ class VexCel(
     @cached_property
     def original(self) -> str:
         """Original URL template for the WMTS tiles."""
-        return self.format
+        return self.template
 
 
 class Maine(VexCel):

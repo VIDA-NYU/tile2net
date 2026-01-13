@@ -310,12 +310,6 @@ class InGrid(
         >>> ingrid = ingrid.set_source(...)
         """
 
-    @delayed.Pickle
-    def pickle(self) -> _pickle.Pickle:
-        """
-        Module which offers pre-constructed `InGrid` instances. This can save time during testing.
-        """
-
     @delayed.Construct
     def construct(self) -> construct.Construct:
         """
@@ -372,7 +366,7 @@ class InGrid(
             self,
             retry: bool = True,
             force: bool = False,
-            max_workers: int = 64,  # ⇣ lower default ⇣ avoids port-exhaustion
+            max_workers: int = 64,
             one: bool = False
     ) -> Self:
         """
@@ -391,205 +385,12 @@ class InGrid(
         Returns:
             Self with downloaded files available at InGrid.file.static
         """
-
-        paths = self.file.static
-        urls = self.remote.urls
-        if paths.empty or urls.empty:
-            return self
-        if len(paths) != len(urls):
-            raise ValueError("paths and urls must be equal length")
-
-        # ── ensure directories exist
-        for p in {Path(p).parent for p in paths}:
-            p.mkdir(parents=True, exist_ok=True)
-
-        exists = paths.map(os.path.exists).to_numpy(bool)
-        if exists.all() and not force:
-            msg = (
-                f'All {len(paths):,} '
-                f'{self.__class__.__qualname__}.{self.file.static.name} '
-                f'on disk at {self.indir.dir}. '
-            )
-            logger.info(msg)
-            return self
-
-        if not force:
-            paths = paths[~exists]
-            urls = urls[~exists]
-
-        mapping = dict(zip(paths.array, urls.array))
-        if not mapping:
-            return self
-
-        msg = (
-            f'Downloading {len(mapping):,} '
-            f'{self.__class__.__qualname__}.{self.file.static.name} '
-            f'from {self.remote.name} to \n\t{self.indir.dir} '
+        return self.source.download(
+            retry=retry,
+            force=force,
+            max_workers=max_workers,
+            one=one,
         )
-        logger.info(msg)
-
-        pool_size = min(max_workers, len(mapping))
-        not_found: list[Path] = []
-        failed: list[Path] = []
-        success = False
-
-        def _fetch_write(
-                path: Path,
-                url: str,
-        ) -> None:
-            # use Response as a context manager so the socket/FD is always released
-            try:
-                with tls.session.get(url, stream=True, timeout=(3, 30)) as resp:
-                    status = resp.status_code
-                    if status == 404:
-                        # not found: nothing to write
-                        not_found.append(path)
-                        return
-                    if status == 403:
-                        # forbidden: treat like not found → link placeholder later
-                        not_found.append(path)
-                        return
-                    if status != 200:
-                        # other error: mark as failed
-                        failed.append(path)
-                        return
-
-                    # atomic write into a sibling temp file
-                    fd, tmp_path = tempfile.mkstemp(
-                        dir=path.parent,
-                        suffix=".part",
-                    )
-                    os.close(fd)
-                    tmp = Path(tmp_path)
-
-                    try:
-                        # stream body to disk
-                        with tmp.open("wb") as fh:
-                            for chunk in resp.iter_content(1 << 15):
-                                if not chunk:
-                                    continue
-                                fh.write(chunk)
-
-                        # quick sanity check
-                        try:
-                            iio.imread(tmp)
-                        except ValueError:
-                            tmp.unlink(missing_ok=True)
-                            failed.append(path)
-                            return
-
-                        # promote temp into place
-                        shutil.move(tmp, path)
-
-                    except Exception:
-                        # any unexpected error during write → remove temp
-                        tmp.unlink(missing_ok=True)
-                        failed.append(path)
-                        return
-
-            except Exception:
-                # network/requests‑level failure before we could write
-                failed.append(path)
-                return
-
-        # ── threaded execution
-        with ThreadPoolExecutor(
-                max_workers=pool_size,
-                initializer=self._init_net_worker,  # one Session per thread
-        ) as pool:
-
-            # submit *all* jobs up front (cheap) …
-            futures = {
-                pool.submit(_fetch_write, Path(p), u)
-                for p, u in mapping.items()
-            }
-
-            # … and drive a single tqdm on completion
-            for fut in tqdm(
-                    as_completed(futures),
-                    total=len(futures),
-                    desc="Downloading",
-                    unit=f" {self.__class__.__name__}.{paths.name}",
-                    mininterval=10,
-            ):
-                fut.result()
-
-                if one:
-                    success = True
-                    for f in futures:
-                        f.cancel()
-                    break
-
-        if one and success:
-            logger.info("Downloaded one file successfully (one=True).")
-            return self
-
-        if len(not_found) + len(failed) == len(self.file.static):
-            msg = f'All {len(not_found) + len(failed):,} grid failed to download.'
-            raise FileNotFoundError(msg)
-
-        if not_found:
-            black = self.static.black
-            logger.warning("%d tile(s) returned 404/403 – linking placeholder.", len(not_found))
-            for p in not_found:
-                try:
-                    os.symlink(black, p)
-                except (OSError, NotImplementedError):
-                    shutil.copy2(black, p)
-
-        if failed:
-            if retry:
-                logger.error("%d tile(s) failed; retrying once.", len(failed))
-                return self.download(
-                    retry=False,
-                    force=False,
-                    max_workers=max_workers,
-                )
-            raise FileNotFoundError(f"{len(failed):,} files failed.")
-
-        msg = (
-            f"All requested {self.__class__.__name__}.{paths.name} "
-            f"on disk at \n\t{self.indir.dir} "
-        )
-        logger.info(msg)
-        return self
-
-    def _make_session(
-            self,
-            *,
-            pool: int,
-            retry: Retry,
-    ) -> requests.Session:
-        """
-        One reusable Session with a bounded socket-pool.
-        `pool_block=True` ⇒ if all connections are busy the thread *waits*
-        instead of opening a new source port (prevents TIME_WAIT storms).
-        """
-        s = requests.Session()
-        adapter = HTTPAdapter(
-            pool_connections=pool,
-            pool_maxsize=pool,
-            pool_block=True,  # ← back-pressure, not more sockets
-            max_retries=retry,
-        )
-        s.mount("https://", adapter)
-        s.mount("http://", adapter)
-        s.headers.update({"User-Agent": "grid"})
-        s.verify = certifi.where()
-        return s
-
-    def _init_net_worker(self) -> None:
-        """
-        Run once per thread → attach one Session to thread-local storage.
-        Only a GET Session is needed now that the HEAD phase is gone.
-        """
-        retry_get = Retry(
-            total=3,
-            backoff_factor=0.4,
-            status_forcelist=[500, 502, 503, 504],
-            allowed_methods=["GET"],
-        )
-        tls.session = self._make_session(pool=8, retry=retry_get)
 
     @delayed.Filled
     def filled(self) -> Filled:

@@ -1,6 +1,8 @@
 from __future__ import annotations
+from typing import *
 
 import copy
+from tile2net.grid.frame.weak import weak
 from abc import abstractmethod, ABC
 from functools import cached_property
 from typing import *
@@ -39,12 +41,17 @@ class Source(
     def dimension(self):
         """Default dimension of the remote grid, e.g. 256 pixels."""
 
+    @weak.property
+    @abstractmethod
+    def ingrid(self) -> InGrid:
+        """The InGrid instance this source is attached to."""
+
     @property
     def files(self):
         raise NotImplementedError
 
     def __get__(
-            self: Source,
+            self,
             instance: InGrid,
             owner: type[InGrid],
     ) -> Source:
@@ -63,7 +70,9 @@ class Source(
             logger.info(msg)
             self.__set__(instance, source)
 
-        return cache[key]
+        out: Self = cache[key]
+        out.ingrid = instance
+        return out
 
     def __set_name__(self, owner, name):
         self.__name__ = name
