@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import copy
 from abc import abstractmethod, ABC
 from functools import cached_property
 from typing import *
 
-from shapely import box
+import geopandas as gpd
+import shapely
 
+from tile2net.grid.grid.grid import Grid
 from tile2net.logger import logger
 
 if not TYPE_CHECKING:
@@ -46,19 +49,20 @@ class Source(
             owner: type[InGrid],
     ) -> Source:
         """Return the remote object for the grid instance."""
+        if instance is None:
+            return self
         key = self.__name__
         cache = instance.__dict__
         if key not in cache:
-            msg = (
-                f'Source has not been set. Defaulting to a remote source that '
-                f'best fits the the provided location.'
-            )
+            source = instance.cfg.source
+            msg = 'Source has not been set. '
+            if not source:
+                msg += 'Defaulting to a remote source that best fits the the provided location.'
+            else:
+                msg += f'Setting source from cfg: {source!r}'
             logger.info(msg)
-            bounds = instance.geometry.total_bounds
-            item = box(*bounds).centroid
-            from .remote import Remote
-            out = Remote.from_location(item)
-            cache[key] = out
+            self.__set__(instance, source)
+
         return cache[key]
 
     def __set_name__(self, owner, name):
@@ -67,10 +71,12 @@ class Source(
     def __set__(
             self,
             instance: InGrid,
-            value: Union[Source, str],
+            value: Union[Source, str, None],
     ):
+        if value is None:
+            value = self.from_grid(instance)
         if isinstance(value, Source):
-            ...
+            value = copy.copy(value)
         elif isinstance(value, str):
             value = self.from_inferred(value)
         else:
@@ -86,6 +92,17 @@ class Source(
             del instance.__dict__[self.__name__]
         except KeyError:
             ...
+
+    @classmethod
+    def from_grid(cls, value: Grid) -> Self:
+        from .remote import Remote
+        bbox_geom = shapely.geometry.box(*value.frame.total_bounds)
+        out = (
+            gpd.GeoSeries([bbox_geom], crs=value.frame.crs)
+            .to_crs(4326)
+            .pipe(Remote.from_inferred)
+        )
+        return out
 
     @classmethod
     def from_inferred(cls, value) -> Self:
@@ -105,3 +122,10 @@ class Source(
 
         msg = f'Cannot infer source from value: {value!r}'
         raise ValueError(msg)
+
+    def __init__(
+            self,
+            *args,
+            **kwargs,
+    ):
+        """Empty init just to allow use as a decorator."""

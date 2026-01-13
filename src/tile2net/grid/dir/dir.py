@@ -75,7 +75,7 @@ class Dir:
 
     def __get__(
             self: Dir,
-            instance: InGrid | Dir,
+            instance: Grid | Dir,
             owner
     ) -> Dir:
         from ..ingrid import InGrid
@@ -124,6 +124,44 @@ class Dir:
         result.instance = self.instance
         result.grid = self.grid
         return result
+
+    def __set__(
+            self,
+            instance: Grid,
+            value,
+    ):
+        self.instance = instance
+
+        from ..ingrid import InGrid
+        self = copy.copy(self)
+        self.instance = instance
+        if isinstance(instance, InGrid):
+            self.grid = instance
+        elif isinstance(instance, Dir):
+            self.grid = instance.grid
+        elif instance is None:
+            self.grid = None
+        else:
+            raise TypeError(f'instance must be Grid or Dir, not {type(instance).__name__}')
+
+        if isinstance(value, str):
+            value = self.__class__.from_format(value)
+        elif isinstance(value, Dir):
+            value = copy.copy(self)
+        else:
+            raise TypeError(f'Cannot assign {type(value).__name__} to {self._trace}')
+
+        self.grid.__dict__[self._trace] = value
+
+    def __delete__(
+            self,
+            instance,
+    ):
+        self.instance = instance
+        try:
+            del self.grid.__dict__[self._trace]
+        except KeyError:
+            ...
 
     __wrapped__ = None
 
