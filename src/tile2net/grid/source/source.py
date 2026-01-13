@@ -46,11 +46,11 @@ class Source(
     def ingrid(self) -> InGrid:
         """The InGrid instance this source is attached to."""
 
-    def __get__(
+    def _get(
             self,
             instance: InGrid,
             owner: type[InGrid],
-    ) -> Source:
+    ) -> Self:
         """Return the remote object for the grid instance."""
         if instance is None:
             return self
@@ -69,6 +69,8 @@ class Source(
         out: Self = cache[key]
         out.ingrid = instance
         return out
+
+    locals().update(__get__=_get)
 
     def __set_name__(self, owner, name):
         self.__name__ = name

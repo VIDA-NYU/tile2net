@@ -37,7 +37,7 @@ class Coverage(
             __file__, '..', '..', 'resources', 'coverage.feather'
         ).resolve()
 
-    def __get__(
+    def _get(
             self,
             instance: None,
             owner: type[Remote]
@@ -107,6 +107,8 @@ class Coverage(
             self.manifest = coverage.geometry
 
         return self.manifest
+
+    locals().update(__get__=_get)
 
     def __set_name__(self, owner, name):
         self.__name__ = name

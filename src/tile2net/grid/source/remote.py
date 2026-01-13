@@ -63,7 +63,7 @@ class Remote(
         """
         Spatial coverage GeoSeries for all registered remotes.
         Can be called to find the best matching remote for a location.
-        >>> Coverage.__get__
+        >>> Coverage._get
         """
 
     @Prototype
