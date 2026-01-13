@@ -46,10 +46,6 @@ class Source(
     def ingrid(self) -> InGrid:
         """The InGrid instance this source is attached to."""
 
-    @property
-    def files(self):
-        raise NotImplementedError
-
     def __get__(
             self,
             instance: InGrid,

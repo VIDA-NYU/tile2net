@@ -1,4 +1,5 @@
 from __future__ import annotations
+import pyarrow as pa
 
 import copy
 import os
@@ -218,7 +219,6 @@ class Dir(
             self,
             suffix: str = '/z/x_y'
     ):
-
         format = os.path.join(
             self.dir,
             suffix,
@@ -236,14 +236,14 @@ class Dir(
             .removeprefix(self.dir)
             .lstrip(os.sep)
         )
-        format = os.path.join(self.dir, dirname, suffix)
+        template = os.path.join(self.dir, dirname, suffix)
         zoom = grid.zoom
-        it = zip(grid.ytile, grid.xtile)
-        data = [
-            format.format(z=zoom, y=ytile, x=xtile)
-            for ytile, xtile in it
-        ]
-        # ensure parent directories exist
+        it = zip(grid.xtile.values, grid.ytile.values)
+        obj = (
+            template.format(z=zoom, y=ytile, x=xtile)
+            for xtile, ytile in it
+        )
+        data = pa.array(obj, type=pa.string(), size=len(grid))
         for p in {Path(p).parent for p in data}:
             p.mkdir(parents=True, exist_ok=True)
         result = pd.Series(data, index=grid.index, dtype='str')
