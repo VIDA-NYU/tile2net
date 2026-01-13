@@ -3,28 +3,19 @@ from __future__ import annotations
 import hashlib
 import os
 import os.path
-import pickle
 import shutil
 import sys
 import tempfile
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
 from functools import *
 from pathlib import Path
 from typing import *
 
-import certifi
 import imageio.v3 as iio
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import requests
 from PIL import ImageColor, Image
-from requests.adapters import HTTPAdapter
-from tqdm import tqdm
-from tqdm.auto import tqdm
-from urllib3.util.retry import Retry
 
 from tile2net.grid import util
 from tile2net.grid.cfg import cfg
@@ -51,24 +42,11 @@ from tile2net.grid.vecgrid.vecgrid import VecGrid
 if False:
     from .filled import Filled
     from .broadcast import Broadcast
-    from . import _pickle, construct
+    from . import construct
 
 # thread-local store
 tls = threading.local()
 
-
-@dataclass
-class Pickle:
-    path: Path
-
-    @cached_property
-    def md5(self) -> str:
-        h = hashlib.md5()
-        with open(self.path, "rb") as f:
-            for chunk in iter(lambda: f.read(8192), b""):
-                h.update(chunk)
-        result = f'md5:{h.hexdigest()}'
-        return result
 
 
 def file_md5(path: Path, chunk_size: int = 8192) -> str:
@@ -873,8 +851,6 @@ class InGrid(
             rows.append(('Polygon preview', _p(self.outdir.polygons.preview)))
         if self.cfg.line.preview:
             rows.append(('Network preview', _p(self.outdir.network.preview)))
-        if self.cfg.segmentation.to_pkl:
-            rows.append(('seg-tiles (zoom and scale in attrs)', _p(self.outdir.seggrid.pickle)))
 
         # compute formatting
         label_w = max(len(k) for k, _ in rows)
@@ -1298,75 +1274,6 @@ class InGrid(
         raise NotImplementedError
         ...
 
-    def to_pickle(
-            self,
-            path: Union[str, Path, None] = None
-    ) -> Pickle:
-        """
-        Save InGrid instance to a pickle file for later reuse.
-
-        Args:
-            path: File path, directory path, or None for system temp directory
-
-        Returns:
-            Pickle object with path and MD5 hash
-
-        Example:
-            >>> ingrid: InGrid
-            >>> pkl: Pickle = ingrid.to_pickle('/path/to/save.pkl')
-        """
-
-        cfg_hash = self.cfg.hash()
-        filename = f'{self.location}.{cfg_hash}.pkl'
-
-        if path is None:
-            path = Path(tempfile.gettempdir()) / filename
-        else:
-            p = Path(path)
-            path = p
-            if not p.suffix:
-                path = p / filename
-
-        msg = f'Saving InGrid to pickle at \n\t{path}'
-        logger.info(msg)
-
-        path.parent.mkdir(parents=True, exist_ok=True)
-        cfg = self.cfg.flatten()
-        indir: Self = self.copy()
-        indir.cfg = cfg
-
-        with open(path, 'wb') as f:
-            pickle.dump(indir, f)
-
-        result = Pickle(path)
-        return result
-
-    @classmethod
-    def from_pickle(
-            cls,
-            file: Union[
-                str,
-                Path,
-            ]
-    ) -> Self:
-        """
-        Load InGrid instance from a pickle file.
-
-        Args:
-            file: Path to pickle file
-
-        Returns:
-            InGrid instance
-
-        Example:
-            >>> ingrid: InGrid = InGrid.from_pickle('/path/to/save.pkl')
-        """
-        path = Path(file)
-        logger.info(f'Loading InGrid from \n\t{path}')
-        with open(path, 'rb') as f:
-            # load the entire object using pickle
-            instance = pickle.load(f)
-        return instance
 
     @classmethod
     def from_basic(
