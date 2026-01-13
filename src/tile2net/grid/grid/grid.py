@@ -26,6 +26,7 @@ from .. import frame, util
 from ..cfg import cfg, Cfg
 from ..frame.framewrapper import FrameWrapper
 from ..loaders.datawrapper import DataWrapper
+from ..loaders.rescale import RescaleDataSet
 from ..loaders.stitch import StitchDataSet
 from ..sampler.benchmark import Benchmark
 
@@ -1260,10 +1261,6 @@ class Grid(
         else:
             scale = maxdim / m
 
-        # build a wrapper that knows how to place tiles with a divider-colorized background
-        if files is None:
-            files = self.file.static
-
         wrapper = DataWrapper.from_tiles(
             static=self.file.static,
             index=self.index,
@@ -1310,7 +1307,8 @@ class Grid(
                 arr = arr[:, :, :3]
             elif arr.ndim != 3 or arr.shape[2] != 3:
                 raise ValueError(f'Unexpected tile shape: {arr.shape!r}')
-            h_tile, w_tile = arr.shape[0], arr.shape[1]
+            h_tile = arr.shape[0]
+            w_tile = arr.shape[1]
 
             # bounds check (defensive; no-op if in-bounds)
             if (

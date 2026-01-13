@@ -24,6 +24,10 @@ from .. import frame
 class File(
     namespace
 ):
+    @frame.column
+    def static(self):
+        ...
+
     @property
     def grid(self) -> Grid:
         return self.instance
@@ -605,3 +609,4 @@ class File(
             raise
 
         return output_file
+
