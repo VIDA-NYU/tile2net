@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import *
 
 import io
 import os
@@ -42,11 +43,11 @@ class Network(
     __name__ = 'network'
 
 
-    def __get__(
-            self: Network,
+    def _get(
+            self,
             instance: InGrid,
             owner: type[InGrid]
-    ) -> Network:
+    ) -> Self:
         """
         Lazy-load factory method for accessing network for each feature, dissolved across tiles.
 
@@ -203,6 +204,8 @@ class Network(
                     logger.info(msg)
         result.instance = instance
         return result
+
+    locals().update(__get__=_get)
 
     @property
     def ingrid(self) -> InGrid:

@@ -26,7 +26,7 @@ class File(
     @frame.column
     def static(self):
         # todo: we need to use either
-        grid = self.grid
+        grid = self.grid.static
         files = grid.indir.files(grid)
         if (
                 not self

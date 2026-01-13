@@ -50,7 +50,7 @@ class cached(metaclass=metaclass):
         def __set_name__(self, owner, name):
             self.__name__ = name
 
-        def __get__(
+        def _get(
                 self,
                 instance,
                 owner
@@ -59,11 +59,13 @@ class cached(metaclass=metaclass):
             setattr(owner, self.__name__, result)
             return result
 
+        locals().update(__get__=_get)
+
 
 class _Default(UserDict):
     data: dict[type[Cfg], Cfg]
 
-    def __get__(
+    def _get(
             self,
             instance,
             owner: type[Cfg]
@@ -72,6 +74,8 @@ class _Default(UserDict):
         if owner not in cache:
             cache[owner] = owner.from_defaults()
         return cache[owner]
+
+    locals().update(__get__=_get)
 
 
 class Group:

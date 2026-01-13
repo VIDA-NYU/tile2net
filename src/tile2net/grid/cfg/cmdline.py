@@ -65,11 +65,11 @@ class property(
     group_order = None
 
 
-    def __get__(
-            self: property,
+    def _get(
+            self,
             instance: Nested,
             owner: type[Nested]
-    ):
+    ) -> Self:
         out = super(property, self)._get(instance, owner)
         cfg = out._cfg
 
@@ -98,12 +98,14 @@ class property(
         msg = f'No default value for {out._trace!r} in {cfg!r}'
         raise AttributeError(msg)
 
+    locals().update(__get__=_get)
+
     def __set__(
             self,
             instance: Nested,
             value,
     ):
-        out = self.__get__(instance, type(instance))
+        out = self._get(instance, type(instance))
         cfg = out._cfg
         cfg[out._trace] = value
 
@@ -111,7 +113,7 @@ class property(
             self,
             instance: Nested,
     ):
-        out = self.__get__(instance, type(instance))
+        out = self._get(instance, type(instance))
         cfg = out._cfg
         if out._trace in cfg:
             del cfg[out._trace]

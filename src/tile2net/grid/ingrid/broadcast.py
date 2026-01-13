@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+from typing import Self
 
 from . import segtile
 from .. import frame
@@ -79,10 +80,10 @@ class Broadcast(
     instance: InGrid
 
     def _get(
-            self: Broadcast,
+            self,
             instance: InGrid,
             owner,
-    ) -> Broadcast:
+    ) -> Self:
         if instance is None:
             result = self
             result.instance = instance
@@ -129,9 +130,7 @@ class Broadcast(
         result.instance = instance
         return result
 
-    locals().update(
-        __get__=_get
-    )
+    locals().update( __get__=_get )
 
     @property
     def seggrid(self) -> SegGrid:

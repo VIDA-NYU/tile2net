@@ -6,10 +6,10 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import *
+from typing import Self
 
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.loaders.sample import SampleDataWrapper
-from tile2net.grid.seggrid.minibatch import MiniBatch
 from ..util import recursion_block
 
 if False:
@@ -114,10 +114,10 @@ class Broadcast(
     instance: SegGrid
 
     def _get(
-            self: Broadcast,
+            self,
             instance: SegGrid,
             owner,
-    ) -> Broadcast:
+    ) -> Self:
         """
         Lazy-load factory method for accessing Broadcast from SegGrid
 
@@ -176,9 +176,7 @@ class Broadcast(
         result.instance = instance
         return result
 
-    locals().update(
-        __get__=_get
-    )
+    locals().update(__get__=_get)
 
     @property
     def seggrid(self) -> SegGrid:

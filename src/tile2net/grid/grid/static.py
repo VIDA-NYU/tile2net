@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Self
 
 import copy
 from functools import *
@@ -17,13 +18,16 @@ class Static:
     grid: Grid
 
 
-    def __get__(
-            self: Static,
+    def _get(
+            self,
             instance: Grid,
             owner: type[Grid]
-    ) -> Static:
-        self.grid = instance
-        return copy.copy(self)
+    ) -> Self:
+        out = copy.copy(self)
+        out.grid = instance
+        return out
+
+    locals().update(__get__=_get)
 
     @cached_property
     def black(self):

@@ -16,7 +16,7 @@ class _Nested(UserDict[str, 'Nested']):
         dict[str, Nested]
     ]
 
-    def __get__(
+    def _get(
             self,
             instance,
             owner: type[Nested]
@@ -45,6 +45,8 @@ class _Nested(UserDict[str, 'Nested']):
                     assert isinstance(name, str)
             return instance.__dict__[self.__name__]
 
+    locals().update(__get__=_get)
+
     def __set_name__(self, owner, name):
         self.__name__ = name
 
@@ -70,10 +72,10 @@ class Nested:
     _owner2instance: dict[Type[Nested], Nested]
 
     def _get(
-            self: Nested,
+            self,
             instance: Nested,
             owner: Type[Nested],
-    ):
+    ) -> Self:
         if instance is None:
             # from owner
             if owner in self._owner2instance:
@@ -103,9 +105,7 @@ class Nested:
 
         return out
 
-    locals().update(
-        __get__=_get
-    )
+    locals().update(__get__=_get)
 
     @cached_property
     def _cfg(self) -> Optional[Cfg]:

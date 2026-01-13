@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 from abc import ABC
 from functools import cached_property
 from typing import *
-from typing import Iterator, Optional, Iterable, TypeVar, overload
+from typing import Iterator, Optional, Iterable, TypeVar, overload, Self
 from urllib.parse import urlencode
 from weakref import WeakKeyDictionary
 
@@ -42,7 +42,7 @@ class Coverage:
             __file__, '..', '..', 'resources', 'coverage.feather'
         ).resolve()
 
-    def __get__(
+    def _get(
             self,
             instance,
             owner: type[Remote]
@@ -90,6 +90,8 @@ class Coverage:
         setattr(owner, self.__name__, coverage)
         return coverage
 
+    locals().update(__get__=_get)
+
     def __set_name__(self, owner, name):
         self.__name__ = name
 
@@ -110,8 +112,8 @@ class cls_attr(
 
 
 
-    def __get__(
-            self: cls_attr,
+    def _get(
+            self,
             instance,
             owner: Remote | type[Remote]
     ) -> T:
@@ -119,8 +121,10 @@ class cls_attr(
         type.__setattr__(owner, self.name, result)
         return result
 
+    locals().update(__get__=_get)
+
     def __init__(
-            self: cls_attr,
+            self,
             func: Callable[..., T],
     ):
         # if not isinstance(func, property):
@@ -165,11 +169,11 @@ class Remote(
 
 
 
-    def __get__(
-            self: Remote,
+    def _get(
+            self,
             instance: InGrid,
             owner: type[InGrid],
-    ) -> Remote:
+    ) -> Self:
         """Return the remote object for the grid instance."""
         try:
             result = instance.__dict__[self.__name__]
@@ -182,6 +186,8 @@ class Remote(
             )
             raise ValueError(msg) from e
         return result
+
+    locals().update(__get__=_get)
 
     """
     Catalog of all remotes available in the package.

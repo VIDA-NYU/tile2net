@@ -1,7 +1,9 @@
 from __future__ import annotations
-from ..grid import filled
+
+from typing import Self
 
 from .ingrid import InGrid
+from ..grid import filled
 
 if False:
     from ..seggrid.seggrid import SegGrid
@@ -24,10 +26,10 @@ class Filled(
     instance: InGrid
 
     def _get(
-            self: Filled,
+            self,
             instance: InGrid,
             owner,
-    ) -> Filled:
+    ) -> Self:
         """
         Lazy-load factory method for accessing Filled from InGrid
 
@@ -68,9 +70,7 @@ class Filled(
             instance.frame.__dict__[self.__name__] = result
         return result
 
-    locals().update(
-        __get__=_get
-    )
+    locals().update( __get__=_get )
 
     @property
     def seggrid(self) -> SegGrid:

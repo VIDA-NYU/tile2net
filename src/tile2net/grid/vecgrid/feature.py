@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import copy
-from typing import overload
+from typing import Self
 
 import geopandas as gpd
 
@@ -19,13 +19,15 @@ class Feature(
 
 
 
-    def __get__(
-            self: Feature,
+    def _get(
+            self,
             instance: VecGrid,
             owner
-    ) -> Feature:
+    ) -> Self:
         self.grid = instance
         return copy.copy(self)
+
+    locals().update(__get__=_get)
 
     def _ensure_network_column(self, key: str):
         if key not in self.grid:
