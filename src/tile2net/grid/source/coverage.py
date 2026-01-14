@@ -37,11 +37,11 @@ class Coverage(
             __file__, '..', '..', 'resources', 'coverage.feather'
         ).resolve()
 
-    def _get(
+    def __get__(
             self,
             instance: None,
             owner: type[Remote]
-    ) -> GeoSeries:
+    ) -> Union[Self, GeoSeries]:
         """
         Returns a GeoSeries of all remote coverages, indexed by remote name.
         Caches the result to disk for faster subsequent access.
@@ -108,7 +108,7 @@ class Coverage(
 
         return self.manifest
 
-    locals().update(__get__=_get)
+    # locals().update(__get__=_get)
 
     def __set_name__(self, owner, name):
         self.__name__ = name

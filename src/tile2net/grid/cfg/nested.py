@@ -128,8 +128,13 @@ class Nested:
                 and not self.instance._trace
         ):
             out = self.__name__
-        elif isinstance(self.instance, Nested):
+        elif (
+            isinstance(self.instance, Nested)
+            and self.instance._trace
+        ):
             out = f'{self.instance._trace}.{self.__name__}'
+        elif isinstance(self.instance, Nested):
+            out = self.__name__
         else:
             msg = (
                 f'Cannot determine trace for {self.__name__} in '
@@ -230,3 +235,4 @@ class Nested:
         except AttributeError as e:
             msg = f'{self.__class__.__name__} has no attribute {key!r} (trace: {trace})'
             raise AttributeError(msg) from e
+
