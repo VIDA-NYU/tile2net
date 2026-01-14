@@ -1,8 +1,6 @@
 from __future__ import annotations
-from typing import *
 
 import copy
-from tile2net.grid.frame.weak import weak
 from abc import abstractmethod, ABC
 from functools import cached_property
 from typing import *
@@ -10,6 +8,7 @@ from typing import *
 import geopandas as gpd
 import shapely
 
+from tile2net.grid.frame.weak import weak
 from tile2net.grid.grid.grid import Grid
 from tile2net.logger import logger
 

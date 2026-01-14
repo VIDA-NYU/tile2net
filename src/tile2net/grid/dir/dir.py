@@ -226,14 +226,14 @@ class Dir(
         indir.suffix = os.path.relpath(indir.original, indir.dir)
         return indir
 
-    def with_template( self, template: str = None):
+    def with_template(self, template: str = None):
         if template is None:
             template = self.ingrid.cfg.template
-        format = os.path.join(
+        template = os.path.join(
             self.dir,
             template,
         )
-        result = self.__class__.from_template(format)
+        result = self.__class__.from_template(template)
         return result
 
     def files(
@@ -275,6 +275,7 @@ if __name__ == '__main__':
     import dataclasses
     from dataclasses import dataclass
 
+
     @dataclass
     class ConcreteDir(Dir):
         """Concrete implementation of Dir for testing."""
@@ -291,10 +292,12 @@ if __name__ == '__main__':
                 if field.name not in self.__dict__:
                     setattr(self, field.name, field.default)
 
+
     @dataclass
     class MockTile:
         xtile: int
         ytile: int
+
 
     @dataclass
     class MockGrid:
@@ -303,6 +306,7 @@ if __name__ == '__main__':
         index = [0, 1]
         xtile = pd.Series([10, 11], index=index)
         ytile = pd.Series([20, 21], index=index)
+
 
     print("Testing Dir class...")
     print("=" * 80)

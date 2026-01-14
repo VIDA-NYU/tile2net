@@ -1,31 +1,27 @@
 from __future__ import annotations
-from urllib3.util.retry import Retry
-import requests
-import certifi
-from requests.adapters import HTTPAdapter
 
-import requests
-from tile2net.grid.util import recursion_block
 import os
 import os.path
 import shutil
 import tempfile
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
-import imageio.v3 as iio
-from tqdm import tqdm
-
-import pyarrow as pa
-
 import threading
 import warnings
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import cached_property
+from pathlib import Path
 from typing import Union
 
+import certifi
+import imageio.v3 as iio
 import pandas as pd
+import pyarrow as pa
+import requests
 import shapely.geometry
 from geopandas import GeoDataFrame
+from requests.adapters import HTTPAdapter
+from tqdm import tqdm
+from urllib3.util.retry import Retry
 
 from tile2net.grid.geocode import GeoCode
 from tile2net.grid.source.catalog import Catalog
