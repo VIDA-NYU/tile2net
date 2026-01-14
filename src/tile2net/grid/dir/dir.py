@@ -35,7 +35,7 @@ class Dir(
 
     @cached_property
     @abstractmethod
-    def format(self) -> str:
+    def template(self) -> str:
         ...
 
     @cached_property
@@ -103,7 +103,7 @@ class Dir(
             ...
 
     def __bool__(self):
-        return self.format is not None
+        return self.template is not None
 
     def __repr__(self):
         attrs = []
@@ -210,7 +210,7 @@ class Dir(
         parts.extend([r[0], f'{{{r[1]}}}', r[2]])
         for r in list(result)[1:]:
             parts.extend([f'{{{r[1]}}}', r[2]])
-        indir.format = ''.join(parts) + (ext if ext else '')
+        indir.template = ''.join(parts) + (ext if ext else '')
         indir.dir = parts[0].rsplit('/', 1)[0]
         indir.suffix = os.path.relpath(indir.original, indir.dir)
         return indir
@@ -234,7 +234,7 @@ class Dir(
             dirname=''
     ) -> pd.Series:
         suffix = (
-            self.format
+            self.template
             .removeprefix(self.dir)
             .lstrip(os.sep)
         )
