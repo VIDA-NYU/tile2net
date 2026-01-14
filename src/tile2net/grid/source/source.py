@@ -19,9 +19,7 @@ from tile2net.grid.cfg.logger import logger
 from tile2net.grid.source.exceptions import SourceParseError
 
 
-class Source(
-    ABC
-):
+class Source:
     @cached_property
     @abstractmethod
     def extension(self):
