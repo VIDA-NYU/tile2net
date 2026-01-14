@@ -11,7 +11,7 @@ from geopandas import GeoDataFrame, GeoSeries
 
 from tile2net.logger import logger
 
-if not TYPE_CHECKING:
+if TYPE_CHECKING:
     from .remote import Remote
 
 

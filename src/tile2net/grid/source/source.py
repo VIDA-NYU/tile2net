@@ -12,7 +12,7 @@ from tile2net.grid.frame.weak import weak
 from tile2net.grid.grid.grid import Grid
 from tile2net.logger import logger
 
-if not TYPE_CHECKING:
+if TYPE_CHECKING:
     from ..ingrid import InGrid
 
 from tile2net.grid.cfg.logger import logger
