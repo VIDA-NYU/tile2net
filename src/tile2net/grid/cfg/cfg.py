@@ -1820,7 +1820,7 @@ class Cfg(
     @basic(1)
     @cmdline.property
     def source(self) -> Optional[str]:
-        ...
+        return
 
     source.add_options(short='-s')
 
@@ -2341,6 +2341,11 @@ class Cfg(
             result[k] = v
 
         return result
+
+    @property
+    def _trace(self):
+        return ''
+
 
 cfg = Cfg._default
 
