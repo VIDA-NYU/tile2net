@@ -22,6 +22,8 @@ from geopandas import GeoDataFrame
 from requests.adapters import HTTPAdapter
 from tqdm import tqdm
 from urllib3.util.retry import Retry
+import geopandas as gpd
+
 
 from tile2net.grid.geocode import GeoCode
 from tile2net.grid.source.catalog import Catalog
@@ -424,7 +426,7 @@ class Remote(
         # Get all coverage geometries
         matches: GeoSeries = cls.coverage
 
-        if isinstance(item, (GeoSeries, GeoDataFrame)):
+        if isinstance(item, (gpd.GeoDataFrame, gpd.GeoSeries)):
             infer = (
                 item.geometry
                 .iat[0]
