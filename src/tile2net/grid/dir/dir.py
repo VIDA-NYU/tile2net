@@ -226,10 +226,7 @@ class Dir(
         indir.suffix = os.path.relpath(indir.original, indir.dir)
         return indir
 
-    def with_template(
-            self,
-            template: str = None
-    ):
+    def with_template( self, template: str = None):
         if template is None:
             template = self.ingrid.cfg.template
         format = os.path.join(
@@ -261,6 +258,17 @@ class Dir(
             p.mkdir(parents=True, exist_ok=True)
         result = pd.Series(data, index=grid.index, dtype='str')
         return result
+
+    @classmethod
+    def _match(
+            cls,
+            string: str,
+            characters: dict[str, str]
+    ):
+        c = '|'.join(characters)
+        pattern = rf"^(.*)({c})(.*)$"
+        match = re.match(pattern, string)
+        return match.groups()
 
 
 if __name__ == '__main__':
