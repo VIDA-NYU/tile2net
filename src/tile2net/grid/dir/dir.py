@@ -93,7 +93,7 @@ class Dir(
 
     def __set__(self, instance: Dir, value) -> Self:
         if isinstance(value, str):
-            value = self.from_format(value)
+            value = self.from_template(value)
         if not isinstance(value, Dir):
             raise TypeError(value)
         instance.__dict__[self.__name__] = copy.copy(value)
@@ -134,11 +134,11 @@ class Dir(
                 + f'.{extension}'
         )
         item = os.path.join(parent.dir, name, suffix)
-        out = cls.from_format(item)
+        out = cls.from_template(item)
         return out
 
     @classmethod
-    def from_format(
+    def from_template(
             cls,
             item: str,
             force_xy: bool = True,
@@ -227,7 +227,7 @@ class Dir(
             self.dir,
             template,
         )
-        result = self.__class__.from_format(format)
+        result = self.__class__.from_template(format)
         return result
 
     def files(

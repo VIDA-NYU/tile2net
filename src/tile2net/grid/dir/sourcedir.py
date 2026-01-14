@@ -63,7 +63,7 @@ class SourceDir(
         #     self.suffix
         # )
         # result = NameDir.from_format(format)
-        result = NameDir.from_format(self, name=name)
+        result = NameDir.from_template(self, name=name)
         return result
 
     @Network

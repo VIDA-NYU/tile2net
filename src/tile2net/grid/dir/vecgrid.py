@@ -31,7 +31,7 @@ class VecGrid(
             self.suffix,
         )
         format = format + '.parquet'
-        result = Polygons.from_format(format)
+        result = Polygons.from_template(format)
         return result
 
     @Network
@@ -42,7 +42,7 @@ class VecGrid(
             self.suffix,
         )
         format = format + '.parquet'
-        result = Network.from_format(format)
+        result = Network.from_template(format)
         return result
 
     @Network
@@ -53,7 +53,7 @@ class VecGrid(
             self.suffix,
         )
         format = format + '.parquet'
-        result = Network.from_format(format)
+        result = Network.from_template(format)
         return result
 
 

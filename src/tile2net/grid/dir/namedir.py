@@ -19,7 +19,7 @@ class NameDir(
             'vecgrid',
             self.suffix
         )
-        result = VecGrid.from_format(format)
+        result = VecGrid.from_template(format)
         return result
 
     @SegGrid
@@ -29,7 +29,7 @@ class NameDir(
             'seggrid',
             self.suffix
         )
-        result = SegGrid.from_format(format)
+        result = SegGrid.from_template(format)
         return result
 
     @InGrid
@@ -39,5 +39,5 @@ class NameDir(
             'ingrid',
             self.suffix
         )
-        result = InGrid.from_format(format)
+        result = InGrid.from_template(format)
         return result

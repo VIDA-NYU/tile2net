@@ -64,7 +64,7 @@ class Local(
         Delegates to Dir.from_format() and converts exceptions.
         """
         try:
-            instance = cls.from_format(value, force_xy=True)
+            instance = cls.from_template(value, force_xy=True)
             return instance
         except XYNotFoundError as e:
             msg = f'Local path failed to parse {value!r}; missing required characters: {", ".join(e.missing)}'

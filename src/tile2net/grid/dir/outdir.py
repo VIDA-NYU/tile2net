@@ -97,10 +97,10 @@ class Outdir(
     ):
         if isinstance(value, str):
             try:
-                value = self.from_format(value)
+                value = self.from_template(value)
             except XYNotFoundError:
                 item = os.path.join(value, instance.cfg.template)
-                value = self.from_format(item)
+                value = self.from_template(item)
         if not isinstance(value, Dir):
             raise TypeError(value)
         instance.__dict__[self.__name__] = copy.copy(value)
@@ -144,7 +144,7 @@ class Outdir(
             name,
             self.suffix
         )
-        result = SourceDir.from_format(format)
+        result = SourceDir.from_template(format)
         return result
 
     @property

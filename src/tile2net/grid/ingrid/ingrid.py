@@ -288,7 +288,7 @@ class InGrid(
             'tile2net',
             self.indir.suffix
         )
-        result = TempDir.from_format(format)
+        result = TempDir.from_template(format)
         return result
 
     @SegTile
