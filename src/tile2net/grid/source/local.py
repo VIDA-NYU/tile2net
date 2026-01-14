@@ -15,16 +15,6 @@ class Local(
     Source,
     Dir
 ):
-
-    @cached_property
-    def characters(self) -> dict[str, int]:
-        """Mapping of coordinate characters to their indices."""
-        return dict(
-            x=0,
-            y=1,
-            z=2,
-        )
-
     @cached_property
     def dir(self) -> str:
         """Directory path, same as root for Local sources."""
