@@ -68,7 +68,7 @@ class Dir(
     def ingrid(self) -> InGrid:
         ...
 
-    def __get__(
+    def _get(
             self,
             instance: Dir,
             owner
@@ -88,6 +88,8 @@ class Dir(
                 self.__set__(instance, value=value)
             out = cache[name]
         return out
+
+    locals().update(__get__=_get)
 
     def __set__(self, instance: Dir, value) -> Self:
         if isinstance(value, str):

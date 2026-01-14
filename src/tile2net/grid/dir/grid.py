@@ -61,14 +61,7 @@ class Grid(
 
     @Dir
     def prob(self):
-        format = os.path.join(
-            self.dir,
-            'prob',
-            self.suffix + '.tif',
-        )
-        format = format
-        result = Dir.from_format(format)
-        return result
+        return Dir.from_parent(self, 'prob', extension='tif')
 
     @Dir
     def error(self):

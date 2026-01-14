@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from tile2net.grid.frame.weak import weak
-from abc import *
 import copy
 import os
 import os.path
 from typing import *
 
+from tile2net.grid.dir import namedir, sourcedir
 from tile2net.grid.dir.dir import Dir
 from tile2net.grid.dir.exceptions import XYNotFoundError
 from tile2net.grid.dir.sourcedir import SourceDir
@@ -70,14 +69,7 @@ class BestImages(
 class Outdir(
     Dir
 ):
-    @weak.property
-    @abstractmethod
-    def ingrid(self) -> InGrid:
-        ...
-
-
-
-    def __get__(
+    def _get(
             self,
             instance: InGrid,
             owner: type[InGrid],
@@ -95,6 +87,8 @@ class Outdir(
 
         out.grid = instance
         return out
+
+    locals().update(__get__=_get)
 
     def __set__(
             self,
@@ -121,6 +115,14 @@ class Outdir(
         except KeyError:
             ...
 
+    @property
+    def network(self) -> sourcedir.Network:
+        return self.sourcedir.network
+
+    @property
+    def polygons(self) -> sourcedir.Polygons:
+        return self.sourcedir.polygons
+
     @SourceDir
     def sourcedir(self):
         """
@@ -146,25 +148,17 @@ class Outdir(
         return result
 
     @property
-    def network(self):
-        return self.sourcedir.network
-
-    @property
-    def polygons(self):
-        return self.sourcedir.polygons
-
-    @property
-    def vecgrid(self) -> VecGrid:
+    def vecgrid(self) -> namedir.VecGrid:
         return self.sourcedir.namedir.vecgrid
 
     @property
-    def seggrid(self) -> SegGrid:
+    def seggrid(self) -> namedir.SegGrid:
         return self.sourcedir.namedir.seggrid
 
     @property
-    def namedir(self):
-        return self.sourcedir.namedir
+    def ingrid(self) -> namedir.InGrid:
+        return self.sourcedir.namedir.ingrid
 
     @property
-    def ingrid(self):
-        return self.sourcedir.namedir.ingrid
+    def namedir(self) -> namedir.NameDir:
+        return self.sourcedir.namedir

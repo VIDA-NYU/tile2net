@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import os
-from tile2net.grid.source import Local, Remote
 
 import pandas as pd
+
+from tile2net.grid.source import Local, Remote
 
 if False:
     from tile2net.grid.frame import column
@@ -26,15 +27,23 @@ class File(
 
     @frame.column
     def static(self):
-        # todo: we need to use either
-        grid = self.grid.static
-        files = grid.indir.files(grid)
+        grid = self.grid
+        source = grid.source
+        if isinstance(source, Remote):
+            files = grid.outdir.ingrid.files(grid)
+        elif isinstance(source, Local):
+            files = source.files(grid)
+        else:
+            raise TypeError(f"Unsupported source type: {type(source)}")
+        grid.file.static = files
+
         if (
-                not self
-                and not grid.download
+                isinstance(source, Remote)
+                and not self
+                and not source.download
                 and not files.map(os.path.exists).all()
         ):
-            grid.download()
+            source.download()
         return files
 
     @frame.column

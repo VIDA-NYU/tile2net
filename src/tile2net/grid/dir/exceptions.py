@@ -14,6 +14,8 @@ class XYNotFoundError(ValueError):
             path: str,
             missing: set[str] | list[str] | tuple[str, ...],
     ):
+        self.path = path
+        self.missing = missing
         missing_fmt = ', '.join(missing)
         super().__init__(
             f'indir failed to parse {path!r}; missing required characters: {missing_fmt}'
