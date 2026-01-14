@@ -215,13 +215,15 @@ class Dir(
         indir.suffix = os.path.relpath(indir.original, indir.dir)
         return indir
 
-    def with_suffix(
+    def with_template(
             self,
-            suffix: str = '/z/x_y'
+            template: str = None
     ):
+        if template is None:
+            template = self.ingrid.cfg.template
         format = os.path.join(
             self.dir,
-            suffix,
+            template,
         )
         result = self.__class__.from_format(format)
         return result

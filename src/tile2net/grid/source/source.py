@@ -120,12 +120,12 @@ class Source(
         try:
             return Local.from_inferred(value)
         except SourceParseError:
-            pass
+            ...
 
         try:
             return Remote.from_inferred(value)
         except SourceParseError:
-            pass
+            ...
 
         msg = f'Cannot infer source from value: {value!r}'
         raise ValueError(msg)

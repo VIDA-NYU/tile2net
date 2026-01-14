@@ -105,7 +105,7 @@ class Outdir(
             try:
                 value = self.from_format(value)
             except XYNotFoundError:
-                item = os.path.join(value, instance.cfg.format)
+                item = os.path.join(value, instance.cfg.template)
                 value = self.from_format(item)
         if not isinstance(value, Dir):
             raise TypeError(value)

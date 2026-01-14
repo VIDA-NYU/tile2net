@@ -63,6 +63,18 @@ class Local(Source):
     #     return pd.Series(data, index=grid.index, dtype='str')
 
     @classmethod
+    def from_inferred(cls, value) -> Self:
+        """
+        Infer a Local source from various input types.
+        Currently only supports string paths.
+        """
+        if isinstance(value, str):
+            return cls.from_str(value)
+
+        msg = f'Cannot infer Local source from type {type(value).__name__}: {value!r}'
+        raise InvalidLocalPath(msg)
+
+    @classmethod
     def from_str(cls, value: str) -> Self:
         instance = cls()
 

@@ -1425,16 +1425,16 @@ class Cfg(
 
     @basic(1.5)
     @cmdline.property
-    def format(self) -> str:
+    def template(self) -> str:
         """
-        Format of saving tile images within the output directory,
+        Template for saving tile images within the output directory,
         where x, y, and z (optional) indicate how the output files
         should be organized. This arg is ignored if you include a
-        format in the outdir, e.g. `./outdir/z/x_y`
+        template in the outdir, e.g. `./outdir/z/x_y`
 
         If you pass a local source e.g. `--source ./tiles/z/x/y.png`,
-        you may want to align the output files with the format of the imagery
-        you work with. You would pass: `--format z/x/y`
+        you may want to align the output files with the structure of the imagery
+        you work with. You would pass: `--template z/x/y`
         """
         return 'z/x_y'
 
