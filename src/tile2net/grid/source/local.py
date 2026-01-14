@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import os
-from abc import abstractmethod
 from functools import cached_property
 from typing import Self
+
+import PIL.Image as Image
+import pandas as pd
 
 from tile2net.grid.dir.dir import Dir
 from tile2net.grid.dir.exceptions import XYNotFoundError
@@ -20,15 +22,17 @@ class Local(
         """Directory path, same as root for Local sources."""
         return self.root
 
-    zoom: int
-    """
-    Default XYZ zoom level for local tiles.
-    Can be overridden if zoom level is encoded in the path.
-    """
-
-    dimension: int
-    """Default dimension of tiles in pixels."""
-
+    @cached_property
+    def dimension(self) -> int:
+        """Default dimension of tiles in pixels."""
+        files: pd.Series = self.ingrid.file.static
+        for path in files:
+            try:
+                with Image.open(path) as img:
+                    return img.width
+            except (FileNotFoundError, OSError, ValueError):
+                continue
+        raise ValueError("No valid images found to determine dimension.")
 
     @classmethod
     def from_inferred(cls, value) -> Self:

@@ -61,7 +61,7 @@ class Remote(
         """
         Spatial coverage GeoSeries for all registered remotes.
         Can be called to find the best matching remote for a location.
-        >>> Coverage._get
+        >>> Coverage.__get__
         """
 
     @Prototype
@@ -71,19 +71,12 @@ class Remote(
         >>> Prototype.__get__
         """
 
-    @cached_property
-    def enabled(self):
-        """
-        Whether this remote source is enabled for use.
-        Set False to disable it from being constructed.
-        """
-        return True
+    enabled: bool = True
+    """Whether this remote source is enabled for use.
+    Set False to disable it from being constructed."""
 
     name: str
     """Short name of the remote source, e.g. `nyc`."""
-
-    ignore: str
-    """Original URL string as provided, before parsing."""
 
     original: str
     """Original URL string as provided, before parsing."""
@@ -103,13 +96,13 @@ class Remote(
     extension: str
     """File extension without the leading dot (e.g., 'png', 'jpg')."""
 
-    keyword: Union[str, tuple[str, ...]]
+    keyword: Union[str, tuple[str, ...]] = None
     """
     A keyword is a required match in the reverse geocode to resolve
     discrepancies.
     """
 
-    dropword: Union[str, tuple[str, ...]]
+    dropword: Union[str, tuple[str, ...]] = None
     """
     A dropword is the reverse of a keyword. If a reverse geocode
     contains this, the remote is not relevant.
@@ -118,18 +111,11 @@ class Remote(
     year: int
     """Year of the data"""
 
-    @cached_property
-    def dimension(self) -> int:
-        """Default dimension of the remote grid, e.g. 256 pixels."""
-        return 256
+    dimension: int = 256
+    """Default dimension of the remote grid, e.g. 256 pixels."""
 
-    @cached_property
-    def zoom(self) -> int:
-        """
-        Default XYZ zoom level for the remote.
-        Our model performs best with a zoom of at least 19.
-        """
-        return 19
+    zoom: int = 19
+    """Default XYZ zoom level for the remote."""
 
     @property
     def url(self) -> pd.Series:
@@ -613,12 +599,12 @@ class Remote(
             msg = f'No Remote source registered with name: {name!r}'
             raise InvalidRemoteName(msg)
 
-    def __init_subclass__(cls, **kwargs):
+    def __init_subclass__(cls: type[Remote], **kwargs):
         super().__init_subclass__()
         prototype = cls.prototype
         if (
                 ABC not in cls.__bases__
-                and prototype.enabled
+                and prototype
         ):
             cls.catalog[prototype.name] = prototype
 
@@ -626,6 +612,7 @@ class Remote(
 if __name__ == '__main__':
     from tile2net.grid.source.arcgis import *
     from tile2net.grid.source.misc import *
+    from tile2net.grid.source.vexcel import *
 
     print("Testing Remote.from_inferred()...")
     print("=" * 80)

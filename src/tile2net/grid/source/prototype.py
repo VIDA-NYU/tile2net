@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import UserDict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, overload
 
 if TYPE_CHECKING:
     from .remote import Remote
@@ -23,7 +23,23 @@ class Prototype(
             dict = None
         super().__init__(dict, **kwargs)
 
-    def _get(
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T]
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner
+    ) -> T:
+        ...
+
+    def __get__(
             self,
             instance,
             owner
@@ -32,5 +48,3 @@ class Prototype(
         if owner not in self:
             self[owner] = owner()
         return self[owner]
-
-    locals().update(__get__=_get)

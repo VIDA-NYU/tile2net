@@ -71,7 +71,7 @@ class Coverage(
             # instantiate from catalog
             coverages: list[GeoSeries] = []
             for remote in owner.catalog.values():
-                if remote.ignore:
+                if not remote.enabled:
                     continue
 
                 try:

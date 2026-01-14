@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 import os
 import os.path
 import shutil
@@ -30,6 +31,7 @@ from tile2net.grid.seggrid.seggrid import SegGrid
 from tile2net.grid.source.source import Source
 from tile2net.grid.util import recursion_block, assert_perfect_overlap
 from tile2net.grid.vecgrid.vecgrid import VecGrid
+from tile2net.grid.source.remote import Remote
 
 if False:
     from .filled import Filled
@@ -283,13 +285,13 @@ class InGrid(
                 original='/tmp/tile2net/ma/ingrid/static/z/x_y',
             )
         """
-        format = os.path.join(
+        template = os.path.join(
             tempfile.gettempdir(),
             'tile2net',
             self.indir.suffix
         )
-        result = TempDir.from_template(format)
-        return result
+        out = TempDir.from_template(template)
+        return out
 
     @SegTile
     def segtile(self):
@@ -315,14 +317,13 @@ class InGrid(
             317280  387840    9915
         """
 
-    @recursion_block
     def download(
             self,
             retry: bool = True,
             force: bool = False,
             max_workers: int = 64,
             one: bool = False
-    ) -> Self:
+    ) :
         """
         Download tiles from the configured source to the input directory.
 
@@ -339,12 +340,15 @@ class InGrid(
         Returns:
             Self with downloaded files available at InGrid.file.static
         """
-        return self.source.download(
-            retry=retry,
-            force=force,
-            max_workers=max_workers,
-            one=one,
-        )
+        if isinstance(self.source, Remote):
+            self.source.download(
+                retry=retry,
+                force=force,
+                max_workers=max_workers,
+                one=one,
+            )
+        else:
+            raise TypeError('InGrid.source must be set to a Remote to download tiles. ')
 
     @delayed.Filled
     def filled(self) -> Filled:
