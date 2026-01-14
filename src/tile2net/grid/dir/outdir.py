@@ -74,16 +74,17 @@ class Outdir(
             instance: InGrid,
             owner: type[InGrid],
     ):
+        from tile2net.grid.ingrid import InGrid
         if instance is None:
             out = self
-        elif not isinstance(instance, InGrid):
-            raise TypeError(instance)
-        else:
+        elif isinstance(instance, InGrid):
             cache = instance.__dict__
             name = self.__name__
             if name not in cache:
                 self.__set__(instance, instance.cfg.outdir)
             out = cache[name]
+        else:
+            raise TypeError(instance)
 
         out.grid = instance
         return out

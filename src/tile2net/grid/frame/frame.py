@@ -55,9 +55,7 @@ class Column(
         result = frame[key]
         return result
 
-    locals().update(
-        __get__=_get
-    )
+    locals().update(__get__=_get)
 
     if False:
         def __get__(self, instance, owner) -> Union[
@@ -125,7 +123,6 @@ class Index(Column):
     #     except KeyError:
     #         return super().__get__(instance, owner)
     ...
-
 
 
 class Property(
@@ -223,6 +220,7 @@ class Property(
         frame = wrapper.frame
         key = self.key
         del frame.__dict__[key]
+
 
 def column(
         *args, **kwargs
