@@ -1121,13 +1121,13 @@ class Indir(
 
         If not specified, the tiles will be downloaded from a remote source.
         """
+        return
 
     path.add_options(short='-i')
 
     @cmdline.property
-    @abstractmethod
     def name(self) -> Optional[str]:
-        ...
+        return
 
 
 class Cfg(

@@ -20,19 +20,14 @@ class Local(
         """Directory path, same as root for Local sources."""
         return self.root
 
-    @cached_property
-    @abstractmethod
-    def zoom(self) -> int:
-        """
-        Default XYZ zoom level for local tiles.
-        Can be overridden if zoom level is encoded in the path.
-        """
+    zoom: int
+    """
+    Default XYZ zoom level for local tiles.
+    Can be overridden if zoom level is encoded in the path.
+    """
 
-    @cached_property
-    @abstractmethod
-    def dimension(self) -> int:
-        """Default dimension of tiles in pixels."""
-        # todo: we had a method to automatically infer this from file size?
+    dimension: int
+    """Default dimension of tiles in pixels."""
 
 
     @classmethod

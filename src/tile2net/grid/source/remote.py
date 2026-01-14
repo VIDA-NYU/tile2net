@@ -79,66 +79,44 @@ class Remote(
         """
         return True
 
-    @cached_property
-    @abstractmethod
-    def name(self) -> str:
-        """Short name of the remote source, e.g. `nyc`.'"""
+    name: str
+    """Short name of the remote source, e.g. `nyc`."""
 
-    @cached_property
-    @abstractmethod
-    def ignore(self) -> str:
-        """Original URL string as provided, before parsing."""
+    ignore: str
+    """Original URL string as provided, before parsing."""
 
-    @cached_property
-    @abstractmethod
-    def original(self) -> str:
-        """Original URL string as provided, before parsing."""
+    original: str
+    """Original URL string as provided, before parsing."""
 
-    @cached_property
-    @abstractmethod
-    def template(self) -> str:
-        """URL template with {x}, {y}, {z} placeholders for tile coordinates."""
+    template: str
+    """URL template with {x}, {y}, {z} placeholders for tile coordinates."""
 
-    @cached_property
-    @abstractmethod
-    def scheme(self) -> str:
-        """URL scheme (http or https)."""
+    scheme: str
+    """URL scheme (http or https)."""
 
-    @cached_property
-    @abstractmethod
-    def netloc(self) -> str:
-        """Network location (domain) of the remote source."""
+    netloc: str
+    """Network location (domain) of the remote source."""
 
-    @cached_property
-    @abstractmethod
-    def path(self) -> str:
-        """URL path component."""
+    path: str
+    """URL path component."""
 
-    @cached_property
-    @abstractmethod
-    def extension(self) -> str:
-        """File extension without the leading dot (e.g., 'png', 'jpg')."""
+    extension: str
+    """File extension without the leading dot (e.g., 'png', 'jpg')."""
 
-    @cached_property
-    @abstractmethod
-    def keyword(self) -> Union[str, tuple[str, ...]]:
-        """
-        A keyword is a required match in the reverse geocode to resolve
-        discrepancies.
-        """
+    keyword: Union[str, tuple[str, ...]]
+    """
+    A keyword is a required match in the reverse geocode to resolve
+    discrepancies.
+    """
 
-    @cached_property
-    @abstractmethod
-    def dropword(self) -> Union[str, tuple[str, ...]]:
-        """
-        A dropword is the reverse of a keyword. If a reverse geocode
-        contains this, the remote is not relevant.
-        """
+    dropword: Union[str, tuple[str, ...]]
+    """
+    A dropword is the reverse of a keyword. If a reverse geocode
+    contains this, the remote is not relevant.
+    """
 
-    @cached_property
-    @abstractmethod
-    def year(self) -> int:
-        """Year of the data"""
+    year: int
+    """Year of the data"""
 
     @cached_property
     def dimension(self) -> int:

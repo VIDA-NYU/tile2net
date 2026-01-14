@@ -33,49 +33,35 @@ class Dir(
     to represent or manipulate paths effectively.
     """
 
-    @cached_property
-    @abstractmethod
-    def template(self) -> str:
-        ...
+    template: str
+    """Directory template."""
 
-    @cached_property
-    @abstractmethod
-    def root(self) -> str:
-        ...
+    root: str
+    """Root directory path."""
 
-    @cached_property
-    @abstractmethod
-    def original(self):
-        ...
+    original: str
+    """Original path specification."""
 
-    @cached_property
-    @abstractmethod
-    def extension(self) -> str:
-        return ''
+    extension: str
+    """File extension."""
 
-    @cached_property
-    @abstractmethod
-    def suffix(self) -> str:
-        ...
+    suffix: str
+    """Path suffix."""
 
-    @cached_property
-    @abstractmethod
-    def dir(self) -> str:
-        ...
+    dir: str
+    """Directory path."""
 
     @weak.property
-    @abstractmethod
-    def ingrid(self) -> InGrid:
-        ...
+    def ingrid(self) -> Optional[InGrid]:
+        """The InGrid instance this directory is attached to."""
+        return
 
-    @cached_property
-    def characters(self) -> dict[str, int]:
-        """Mapping of coordinate characters to their indices."""
-        return dict(
-            x=0,
-            y=1,
-            z=2,
-        )
+    """Mapping of coordinate characters to their indices."""
+    characters = dict(
+        x=0,
+        y=1,
+        z=2,
+    )
 
     def _get(
             self,

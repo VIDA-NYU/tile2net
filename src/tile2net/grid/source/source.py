@@ -20,28 +20,21 @@ from tile2net.grid.source.exceptions import SourceParseError
 
 
 class Source:
-    @cached_property
-    @abstractmethod
-    def extension(self):
-        """File extension for the imagery in the source."""
+    extension: str
+    """File extension for the imagery in the source."""
 
-    @cached_property
-    @abstractmethod
-    def zoom(self):
-        """
-        XYZ zoom level for the source.
-        Our model performs best with a zoom of at least 19.
-        """
+    zoom: int
+    """XYZ zoom level for the source.
+    Our model performs best with a zoom of at least 19.
+    """
 
-    @cached_property
-    @abstractmethod
-    def dimension(self):
-        """Default dimension of the remote grid, e.g. 256 pixels."""
+    dimension: int
+    """Default dimension of the remote grid, e.g. 256 pixels."""
 
     @weak.property
-    @abstractmethod
-    def ingrid(self) -> InGrid:
+    def ingrid(self) -> Optional[InGrid]:
         """The InGrid instance this source is attached to."""
+        return None
 
     def _get(
             self,
