@@ -216,7 +216,7 @@ class Remote(
         msg = (
             f'Downloading {len(mapping):,} '
             f'{grid.__class__.__qualname__}.{grid.file.static.name} '
-            f'from {self.name} to \\n\\t{grid.outdir.static.dir} '
+            f'from {self.name} to \n\t{grid.outdir.static.dir} '
         )
         logger.info(msg)
 

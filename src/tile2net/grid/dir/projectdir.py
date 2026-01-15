@@ -2,20 +2,15 @@ from __future__ import annotations
 
 import os
 import os.path
-
-import os
 import os.path
 from pathlib import Path
 
-from .dir import Dir
-from .grid import Grid
-
-
+from .basegrid import BaseGrid
 from .dir import Dir
 from .grid import Grid
 from .seggrid import SegGrid
 from .vecgrid import VecGrid
-from .basegrid import BaseGrid
+
 
 class Polygons(
     Dir
@@ -60,33 +55,15 @@ class ProjectDir(
 ):
     @VecGrid
     def vecgrid(self):
-        template = os.path.join(
-            self.dir,
-            'vecgrid',
-            self.suffix
-        )
-        result = VecGrid.from_template(template)
-        return result
+        return VecGrid.from_parent(self, 'vecgrid')
 
     @SegGrid
     def seggrid(self):
-        template = os.path.join(
-            self.dir,
-            'seggrid',
-            self.suffix
-        )
-        result = SegGrid.from_template(template)
-        return result
+        return SegGrid.from_parent(self, 'seggrid')
 
     @Grid
     def grid(self):
-        template = os.path.join(
-            self.dir,
-            'grid',
-            self.suffix
-        )
-        result = Grid.from_template(template)
-        return result
+        return Grid.from_parent(self, 'grid')
 
     @Network
     def network(self):
