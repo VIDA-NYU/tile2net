@@ -809,6 +809,12 @@ class BaseGrid(
     def __len__(self):
         return len(self.frame)
 
+    def __repr__(self):
+        result = f'{self.__class__.__qualname__}:\n'
+        result += f'{self.location=}\n\n'
+        result += self.frame.__repr__()
+        return result
+
     def pipe(self, *args, **kwargs):
         func = args[0] if args else kwargs.pop('func', None)
         if func is None:
