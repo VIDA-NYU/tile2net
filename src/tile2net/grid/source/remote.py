@@ -200,7 +200,7 @@ class Remote(
             msg = (
                 f'All {len(paths):,} '
                 f'{grid.__class__.__qualname__}.{grid.file.static.name} '
-                f'on disk at {grid.indir.dir}. '
+                f'on disk at {grid.outdir.static.dir}. '
             )
             logger.info(msg)
             return grid
@@ -216,9 +216,8 @@ class Remote(
         msg = (
             f'Downloading {len(mapping):,} '
             f'{grid.__class__.__qualname__}.{grid.file.static.name} '
-            f'from {self.name} to \\n\\t{grid.indir.dir} '
+            f'from {self.name} to \\n\\t{grid.outdir.static.dir} '
         )
-        grid.outdir.namedir
         logger.info(msg)
 
         pool_size = min(max_workers, len(mapping))

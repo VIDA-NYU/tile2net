@@ -30,7 +30,7 @@ class File(
         grid = self.basegrid
         source = grid.source
         if isinstance(source, Remote):
-            files = grid.outdir.grid.files(grid)
+            files = grid.outdir.static.files(grid)
         elif isinstance(source, Local):
             files = source.files(grid)
         else:
@@ -58,11 +58,12 @@ class File(
         """
 
         grid = self.basegrid
-        files = grid.outdir.grid.pred.files(grid)
+        files = grid.outdir.namedir.pred.files(grid)
         self.pred = files
+        loc = ~files.map(os.path.exists)
         if (
                 not self
-                and (loc := ~files.map(os.path.exists)).any()
+                and loc.any()
         ):
             grid = grid.loc[loc]
             grid._unstitch2file(
@@ -83,8 +84,7 @@ class File(
         # TODO: update
         """
         grid = self.basegrid
-        files = grid.outdir.grid.prob.files(grid)
-        self.prob = files
+        files = grid.outdir.namedir.prob.files(grid)
         loc = ~files.map(os.path.exists)
         if (
                 not self
@@ -104,7 +104,7 @@ class File(
 
     @frame.property
     def network(self):
-        file = self.basegrid.outdir.network.parquet
+        file = self.basegrid.outdir.namedir.network.parquet
         self.network = file
         if not self:
             _ = self.basegrid.network
@@ -112,7 +112,7 @@ class File(
 
     @frame.property
     def polygons(self):
-        file = self.basegrid.outdir.polygons.parquet
+        file = self.basegrid.outdir.namedir.polygons.parquet
         self.polygons = file
         if not self:
             _ = self.basegrid.polygons

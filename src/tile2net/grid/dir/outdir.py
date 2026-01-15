@@ -5,11 +5,10 @@ import os
 import os.path
 from typing import *
 
-from tile2net.grid.dir import namedir, sourcedir
+from tile2net.grid.dir import namedir
 from tile2net.grid.dir.dir import Dir
 from tile2net.grid.dir.exceptions import XYNotFoundError
-from tile2net.grid.dir.sourcedir import SourceDir
-from tile2net.grid.source.remote import Remote
+from tile2net.grid.dir.namedir import NameDir
 
 if TYPE_CHECKING:
     from .seggrid import SegGrid
@@ -117,42 +116,41 @@ class Outdir(
         except KeyError:
             ...
 
-    @property
-    def network(self) -> sourcedir.Network:
-        return self.sourcedir.network
+    @Dir
+    def static(self):
+        ...
 
     @property
-    def polygons(self) -> sourcedir.Polygons:
-        return self.sourcedir.polygons
+    def network(self) -> namedir.Network:
+        return self.namedir.network
 
-    @SourceDir
-    def sourcedir(self):
-        """Subdirectory named after the source. This si th eparent fo the project directory,
-        so that downloaded images may be reused across multiple projects. """
-        grid = self.basegrid
-        name = None
-        if isinstance(grid.source, Remote):
-            name = grid.source.name
-        if name is None:
-            name = grid.cfg.indir.name
-        if name is None:
-            name = grid.indir.dir.rsplit(os.sep, 1)[-1]
-        template = os.path.join(self.dir, name, self.suffix)
-        result = SourceDir.from_template(template)
-        return result
+    @property
+    def polygons(self) -> namedir.Polygons:
+        return self.namedir.polygons
 
     @property
     def vecgrid(self) -> namedir.VecGrid:
-        return self.sourcedir.namedir.vecgrid
+        return self.namedir.vecgrid
 
     @property
     def seggrid(self) -> namedir.SegGrid:
-        return self.sourcedir.namedir.seggrid
+        return self.namedir.seggrid
 
     @property
     def grid(self) -> namedir.Grid:
-        return self.sourcedir.namedir.grid
+        return self.namedir.grid
 
-    @property
-    def namedir(self) -> namedir.NameDir:
-        return self.sourcedir.namedir
+    @NameDir
+    def namedir(self):
+        """Subdirectory named after the particular directory.
+        Uses the passed name, location, or bounding box.
+        """
+        grid = self.basegrid
+        ymin, xmin, ymax, xmax = grid.lat_lon
+        name = (
+                grid.cfg.name
+                or grid.location
+                or f"{ymin:.2f},{xmin:.2f},{ymax:.2f},{xmax:.2f}"
+        )
+        result = NameDir.from_parent(self, name)
+        return result
