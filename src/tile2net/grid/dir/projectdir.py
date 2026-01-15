@@ -55,38 +55,37 @@ class Network(
         return filename
 
 
-class NameDir(
-    # Dir
+class ProjectDir(
     BaseGrid,
 ):
     @VecGrid
     def vecgrid(self):
-        format = os.path.join(
+        template = os.path.join(
             self.dir,
             'vecgrid',
             self.suffix
         )
-        result = VecGrid.from_template(format)
+        result = VecGrid.from_template(template)
         return result
 
     @SegGrid
     def seggrid(self):
-        format = os.path.join(
+        template = os.path.join(
             self.dir,
             'seggrid',
             self.suffix
         )
-        result = SegGrid.from_template(format)
+        result = SegGrid.from_template(template)
         return result
 
     @Grid
     def grid(self):
-        format = os.path.join(
+        template = os.path.join(
             self.dir,
             'grid',
             self.suffix
         )
-        result = Grid.from_template(format)
+        result = Grid.from_template(template)
         return result
 
     @Network

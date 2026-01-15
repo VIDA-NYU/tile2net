@@ -58,7 +58,7 @@ class File(
         """
 
         grid = self.basegrid
-        files = grid.outdir.namedir.pred.files(grid)
+        files = grid.outdir.project.pred.files(grid)
         self.pred = files
         loc = ~files.map(os.path.exists)
         if (
@@ -84,7 +84,7 @@ class File(
         # TODO: update
         """
         grid = self.basegrid
-        files = grid.outdir.namedir.prob.files(grid)
+        files = grid.outdir.project.prob.files(grid)
         loc = ~files.map(os.path.exists)
         if (
                 not self
@@ -104,7 +104,7 @@ class File(
 
     @frame.property
     def network(self):
-        file = self.basegrid.outdir.namedir.network.parquet
+        file = self.basegrid.outdir.project.network.parquet
         self.network = file
         if not self:
             _ = self.basegrid.network
@@ -112,7 +112,7 @@ class File(
 
     @frame.property
     def polygons(self):
-        file = self.basegrid.outdir.namedir.polygons.parquet
+        file = self.basegrid.outdir.project.polygons.parquet
         self.polygons = file
         if not self:
             _ = self.basegrid.polygons

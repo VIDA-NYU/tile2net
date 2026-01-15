@@ -5,10 +5,10 @@ import os
 import os.path
 from typing import *
 
-from tile2net.grid.dir import namedir
+from tile2net.grid.dir import projectdir
 from tile2net.grid.dir.dir import Dir
 from tile2net.grid.dir.exceptions import XYNotFoundError
-from tile2net.grid.dir.namedir import NameDir
+from tile2net.grid.dir.projectdir import ProjectDir
 
 if TYPE_CHECKING:
     from .seggrid import SegGrid
@@ -121,27 +121,27 @@ class Outdir(
         ...
 
     @property
-    def network(self) -> namedir.Network:
-        return self.namedir.network
+    def network(self) -> projectdir.Network:
+        return self.project.network
 
     @property
-    def polygons(self) -> namedir.Polygons:
-        return self.namedir.polygons
+    def polygons(self) -> projectdir.Polygons:
+        return self.project.polygons
 
     @property
-    def vecgrid(self) -> namedir.VecGrid:
-        return self.namedir.vecgrid
+    def vecgrid(self) -> projectdir.VecGrid:
+        return self.project.vecgrid
 
     @property
-    def seggrid(self) -> namedir.SegGrid:
-        return self.namedir.seggrid
+    def seggrid(self) -> projectdir.SegGrid:
+        return self.project.seggrid
 
     @property
-    def grid(self) -> namedir.Grid:
-        return self.namedir.grid
+    def grid(self) -> projectdir.Grid:
+        return self.project.grid
 
-    @NameDir
-    def namedir(self):
+    @ProjectDir
+    def project(self):
         """Subdirectory named after the particular directory.
         Uses the passed name, location, or bounding box.
         """
@@ -152,5 +152,5 @@ class Outdir(
                 or grid.location
                 or f"{ymin:.2f},{xmin:.2f},{ymax:.2f},{xmax:.2f}"
         )
-        result = NameDir.from_parent(self, name)
+        result = ProjectDir.from_parent(self, name)
         return result
