@@ -3,9 +3,9 @@ from __future__ import annotations
 from ..basegrid.basegrid import BaseGrid
 
 
-class InGrid(
+class Grid(
     BaseGrid,
 ):
     @property
     def static(self):
-        return self.ingrid.indir
+        return self.grid.indir

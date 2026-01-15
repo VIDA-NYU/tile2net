@@ -2,7 +2,7 @@ import os.path
 from dataclasses import dataclass
 from typing import *
 
-from tile2net.grid import InGrid
+from tile2net.grid import Grid
 from tile2net.grid.cfg.logger import logger
 
 
@@ -10,12 +10,12 @@ from tile2net.grid.cfg.logger import logger
 # if __name__ == '__main__':
 #     raise NotImplementedError
 #
-#     ingrid = InGrid.from_cfg()
-#     cfg = ingrid.cfg
+#     grid = Grid.from_cfg()
+#     cfg = grid.cfg
 #
 #     cfg.to_json()
 #
-#     _ = ingrid.seggrid.file.pred
+#     _ = grid.seggrid.file.pred
 #
 #     with cfg:
 #
@@ -26,51 +26,51 @@ from tile2net.grid.cfg.logger import logger
 #
 #         if cfg.line.concat:
 #             # concatenate network into single file and save
-#             network = ingrid.network
+#             network = grid.network
 #         if cfg.polygon.concat:
 #             # concatenate polygons into single file and save
-#             polygons = ingrid.polygons
+#             polygons = grid.polygons
 #
 #         # save a preview of the polygons to file
 #         if cfg.polygon.preview:
-#             dest = ingrid.outdir.polygons.preview
-#             _ = ingrid.polygons
+#             dest = grid.outdir.polygons.preview
+#             _ = grid.polygons
 #             msg = (
 #                 f'Saving preview of polygons to '
 #                 f'\n\t{dest}'
 #             )
 #             logger.info(msg)
 #             maxdim = cfg.polygon.preview
-#             img = ingrid.polygons.preview(maxdim=maxdim, show=False)
+#             img = grid.polygons.preview(maxdim=maxdim, show=False)
 #             img.save(dest)
 #
 #         # save a preview of the network to file
 #         if cfg.line.preview:
-#             dest = ingrid.outdir.network.preview
-#             _ = ingrid.network
+#             dest = grid.outdir.network.preview
+#             _ = grid.network
 #             msg = (
 #                 f'Saving preview of network to '
 #                 f'\n\t{dest}'
 #             )
 #             logger.info(msg)
 #             maxdim = cfg.line.preview
-#             img = ingrid.network.preview(maxdim=maxdim, show=False)
+#             img = grid.network.preview(maxdim=maxdim, show=False)
 #             img.save(dest)
 #
 #         if cfg.segmentation.to_pkl:
-#             ingrid.seggrid.to_pickle(ingrid.outdir.seggrid.pickle)
+#             grid.seggrid.to_pickle(grid.outdir.seggrid.pickle)
 #
 #         # delete empty directories for easier browsing
-#         ingrid.summary()
+#         grid.summary()
 #
 
 @dataclass
 class Process:
-    ingrid: InGrid
+    grid: Grid
 
     @property
     def cfg(self):
-        return self.ingrid.cfg
+        return self.grid.cfg
 
     def __enter__(self):
         self.before = self.existing
@@ -87,46 +87,46 @@ class Process:
 
     @property
     def arg2dir(self) -> dict[str, str]:
-        with self.ingrid.cfg, self:
-            ingrid = self.ingrid
-            seggrid = ingrid.seggrid
-            vecgrid = ingrid.vecgrid
+        with self.grid.cfg, self:
+            grid = self.grid
+            seggrid = grid.seggrid
+            vecgrid = grid.vecgrid
             cfg = self.cfg
-            outdir = ingrid.outdir
+            outdir = grid.outdir
 
             mapping: dict[str, str] = {}
             if cfg.static:
-                _ = ingrid.file.static
-                mapping['static'] = outdir.ingrid.static.dir
+                _ = grid.file.static
+                mapping['static'] = outdir.grid.static.dir
             if cfg.prob:
-                _ = ingrid.file.prob
-                mapping['prob'] = outdir.ingrid.prob.dir
+                _ = grid.file.prob
+                mapping['prob'] = outdir.grid.prob.dir
             if cfg.pred:
-                _ = ingrid.file.pred
-                mapping['pred'] = outdir.ingrid.pred.dir
+                _ = grid.file.pred
+                mapping['pred'] = outdir.grid.pred.dir
             if cfg.colorized:
-                _ = ingrid.file.colorized
-                mapping['colorized'] = outdir.ingrid.colorized.dir
+                _ = grid.file.colorized
+                mapping['colorized'] = outdir.grid.colorized.dir
             if cfg.intensity:
-                _ = ingrid.file.intensity
-                mapping['intensity'] = outdir.ingrid.intensity.dir
+                _ = grid.file.intensity
+                mapping['intensity'] = outdir.grid.intensity.dir
             if cfg.sidebyside:
-                _ = ingrid.file.sidebyside
-                mapping['sidebyside'] = outdir.ingrid.sidebyside.dir
+                _ = grid.file.sidebyside
+                mapping['sidebyside'] = outdir.grid.sidebyside.dir
             if cfg.overlay:
-                _ = ingrid.file.overlay
-                mapping['overlay'] = outdir.ingrid.overlay.dir
+                _ = grid.file.overlay
+                mapping['overlay'] = outdir.grid.overlay.dir
             if cfg.error:
-                _ = ingrid.file.error
-                mapping['error'] = outdir.ingrid.error.dir
+                _ = grid.file.error
+                mapping['error'] = outdir.grid.error.dir
             if cfg.soft:
-                _ = ingrid.file.soft
-                mapping['soft'] = outdir.ingrid.soft.dir
+                _ = grid.file.soft
+                mapping['soft'] = outdir.grid.soft.dir
             if cfg.network:
-                _ = ingrid.file.network
+                _ = grid.file.network
                 mapping['network'] = outdir.vecgrid.network.dir
             if cfg.polygons:
-                _ = ingrid.file.polygons
+                _ = grid.file.polygons
                 mapping['polygons'] = outdir.vecgrid.polygons.dir
             if cfg.line.preview:
                 mapping['line.preview'] = outdir.network.preview
@@ -199,43 +199,43 @@ class Process:
 
     @property
     def existing(self) -> set[str]:
-        ingrid = self.ingrid
-        seggrid = ingrid.seggrid
-        vecgrid = ingrid.vecgrid
+        grid = self.grid
+        seggrid = grid.seggrid
+        vecgrid = grid.vecgrid
         cfg = self.cfg
 
         paths = []
 
         def func():
 
-            with ingrid.file, seggrid.file, vecgrid.file:
+            with grid.file, seggrid.file, vecgrid.file:
 
                 if not cfg.static:
-                    paths.append(ingrid.file.static)
+                    paths.append(grid.file.static)
                 if not cfg.prob:
-                    paths.append(ingrid.file.prob)
+                    paths.append(grid.file.prob)
                 if not cfg.pred:
-                    paths.append(ingrid.file.pred)
+                    paths.append(grid.file.pred)
                 if not cfg.colorized:
-                    paths.append(ingrid.file.colorized)
+                    paths.append(grid.file.colorized)
                 if not cfg.intensity:
-                    paths.append(ingrid.file.intensity)
+                    paths.append(grid.file.intensity)
                 if not cfg.sidebyside:
-                    paths.append(ingrid.file.sidebyside)
+                    paths.append(grid.file.sidebyside)
                 if not cfg.overlay:
-                    paths.append(ingrid.file.overlay)
+                    paths.append(grid.file.overlay)
                 # if not cfg.error:
-                #     paths.append(ingrid.file.error)
+                #     paths.append(grid.file.error)
                 if not cfg.soft:
-                    paths.append(ingrid.file.soft)
+                    paths.append(grid.file.soft)
                 if not cfg.network:
                     paths.append(vecgrid.file.network)
                 if not cfg.polygons:
                     paths.append(vecgrid.file.polygons)
                 if not cfg.line.preview:
-                    paths.append(ingrid.outdir.network.preview)
+                    paths.append(grid.outdir.network.preview)
                 if not cfg.polygon.preview:
-                    paths.append(ingrid.outdir.polygons.preview)
+                    paths.append(grid.outdir.polygons.preview)
                 if cfg.download.only:
                     return
 
@@ -300,8 +300,8 @@ class Process:
 
 
 if __name__ == '__main__':
-    ingrid = InGrid.from_cfg()
-    process = Process(ingrid)
+    grid = Grid.from_cfg()
+    process = Process(grid)
     result = process.arg2dir
 
     if result:

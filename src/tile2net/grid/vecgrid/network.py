@@ -15,7 +15,7 @@ from ..frame.framewrapper import FrameWrapper
 
 if False:
     from .vecgrid import VecGrid
-    from ..ingrid import InGrid
+    from ..grid import Grid
     import folium
 
 
@@ -52,8 +52,8 @@ class Network(
             Network instance with MultiNetworktring geometries per tile and feature
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.vecgrid.network
+            >>> grid: Grid
+            >>> grid.vecgrid.network
             Network:
             feature                                              crosswalk
             xtile ytile

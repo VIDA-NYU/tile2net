@@ -33,7 +33,7 @@ from ..sampler.benchmark import Benchmark
 if False:
     import folium
     from ..seggrid.seggrid import SegGrid
-    from ..ingrid.ingrid import InGrid
+    from ..grid.grid import Grid
     from ..vecgrid.vecgrid import VecGrid
 
 
@@ -47,8 +47,8 @@ class BaseGrid(
         Maximum longitude of the tile.
         
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.lonmax
+            >>> grid: Grid
+            >>> grid.lonmax
             xtile   ytile
             317280  387840   -7.911500e+06
         """
@@ -59,8 +59,8 @@ class BaseGrid(
         Minimum longitude of the tile.
         
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.lonmin
+            >>> grid: Grid
+            >>> grid.lonmin
             xtile   ytile
             317280  387840   -7.911538e+06
         """
@@ -71,8 +71,8 @@ class BaseGrid(
         Maximum latitude of the tile.
         
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.latmax
+            >>> grid: Grid
+            >>> grid.latmax
             xtile   ytile
             317280  387840    5.214840e+06
         """
@@ -83,8 +83,8 @@ class BaseGrid(
         Minimum latitude of the tile.
         
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.latmin
+            >>> grid: Grid
+            >>> grid.latmin
             xtile   ytile
             317280  387840    5.214802e+06
         """
@@ -95,8 +95,8 @@ class BaseGrid(
         X tile coordinate of the tile.
         
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.xtile
+            >>> grid: Grid
+            >>> grid.xtile
             Index([317280, 317280, 317280, 317280, 317280, 317280, 317280, 317280, 317280,
         """
 
@@ -106,8 +106,8 @@ class BaseGrid(
         Y tile coordinate of the tile.
         
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.ytile
+            >>> grid: Grid
+            >>> grid.ytile
             Index([387840, 387841, 387842, 387843, 387844, 387845, 387846, 387847, 387848,
         """
 
@@ -117,8 +117,8 @@ class BaseGrid(
         Simple sequential integer idnetifier for each tile in the grid.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.itile
+            >>> grid: Grid
+            >>> grid.itile
         xtile   ytile
         317280  387840       0
                           ...
@@ -173,15 +173,15 @@ class BaseGrid(
         """
         Pixel dimension of each tile
 
-        Computed as ingrid.dimension * self.length. For example, if InGrid tiles
+        Computed as grid.dimension * self.length. For example, if Grid tiles
         are 256x256 pixels and length is 4, tiles are 1024x1024 pixels.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.dimension
+            >>> grid: Grid
+            >>> grid.seggrid.dimension
             1024
         """
-        result = self.ingrid.dimension * self.length
+        result = self.grid.dimension * self.length
         return result
 
     @property
@@ -192,14 +192,14 @@ class BaseGrid(
     @cached_property
     def length(self) -> int:
         """
-        Number of InGrid tiles that comprise one dimension of this tile
+        Number of Grid tiles that comprise one dimension of this tile
 
-        Computed as 2^(ingrid.scale - self.scale). For example, if InGrid uses zoom 20
-        and this grid uses zoom 18, each tile is 2^2 = 4 InGrid tiles wide.
+        Computed as 2^(grid.scale - self.scale). For example, if Grid uses zoom 20
+        and this grid uses zoom 18, each tile is 2^2 = 4 Grid tiles wide.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.length
+            >>> grid: Grid
+            >>> grid.seggrid.length
             4
         """
         raise ValueError('Not yet set')
@@ -239,24 +239,24 @@ class BaseGrid(
         Example:
             >>> self.file.Static
             xtile   ytile
-            317280  387840    /home/<user>/tile2net/ma/ingrid/static/20/31...
-                    387841    /home/<user>/tile2net/ma/ingrid/static/20/31...
+            317280  387840    /home/<user>/tile2net/ma/grid/static/20/31...
+                    387841    /home/<user>/tile2net/ma/grid/static/20/31...
         """
 
     @property
-    def ingrid(self) -> InGrid:
-        """Reference to the InGrid instance"""
+    def grid(self) -> Grid:
+        """Reference to the Grid instance"""
         return self.instance
 
     @property
     def seggrid(self) -> SegGrid:
         """Reference to the SegGrid instance"""
-        return self.ingrid.seggrid
+        return self.grid.seggrid
 
     @property
     def vecgrid(self) -> VecGrid:
         """Reference to the VecGrid instance"""
-        return self.ingrid.vecgrid
+        return self.grid.vecgrid
 
     @classmethod
     def from_location(
@@ -766,17 +766,17 @@ class BaseGrid(
 
 
         # Sets the input directory:
-        >>> InGrid.set_indir
+        >>> Grid.set_indir
         """
-        return self.ingrid.indir
+        return self.grid.indir
 
     @property
     def outdir(self):
         """
         Output in which the results, such as annotated images and geometry, will be stored:
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.outdir
+            >>> grid: Grid
+            >>> grid.outdir
             Outdir(
                 format='/home/<user>/tile2net/{z}/{x}_{y}',
                 dir='/home/<user>/tile2net',
@@ -785,11 +785,11 @@ class BaseGrid(
             )
 
         Setting the output directory:
-        >>> ingrid: InGrid
-        >>> ingrid = ingrid.set_outdir('/path/to/output')
+        >>> grid: Grid
+        >>> grid = grid.set_outdir('/path/to/output')
         """
 
-        return self.ingrid.outdir
+        return self.grid.outdir
 
     @property
     def tempdir(self):
@@ -797,14 +797,14 @@ class BaseGrid(
         Temporary directory for intermediate processing files.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.tempdir
+            >>> grid: Grid
+            >>> grid.tempdir
             Tempdir(
-                dir='/tmp/tile2net/ma/ingrid/static'
-                original='/tmp/tile2net/ma/ingrid/static/z/x_y',
+                dir='/tmp/tile2net/ma/grid/static'
+                original='/tmp/tile2net/ma/grid/static/z/x_y',
             )
         """
-        return self.ingrid.tempdir
+        return self.grid.tempdir
 
     def __len__(self):
         return len(self.frame)
@@ -935,7 +935,7 @@ class BaseGrid(
             raise ValueError(msg)
 
         _scale = scale
-        scale = max(scale, self.ingrid.min_scale)
+        scale = max(scale, self.grid.min_scale)
 
         return scale
 
@@ -1022,7 +1022,7 @@ class BaseGrid(
                 mininterval=10,
             )
 
-            with self.ingrid.cfg, bar, self.sampler:
+            with self.grid.cfg, bar, self.sampler:
                 for minibatch in loader:
                     bar.update(len(minibatch))
 
@@ -1105,7 +1105,7 @@ class BaseGrid(
                 mininterval=10,
             )
 
-            with self.ingrid.cfg, bar, self.sampler:
+            with self.grid.cfg, bar, self.sampler:
                 for minibatch in loader:
                     bar.update(len(minibatch))
 

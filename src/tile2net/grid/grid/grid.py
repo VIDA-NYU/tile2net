@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 import os
 import os.path
 import shutil
@@ -13,25 +12,25 @@ from typing import *
 import imageio.v3 as iio
 
 from tile2net.grid import util
+from tile2net.grid.basegrid.basegrid import BaseGrid
+from tile2net.grid.basegrid.static import Static
 from tile2net.grid.cfg import cfg
 from tile2net.grid.cfg.cfg import Cfg
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.dir.outdir import Outdir
 from tile2net.grid.dir.tempdir import TempDir
-from tile2net.grid.basegrid.basegrid import BaseGrid
-from tile2net.grid.basegrid.static import Static
-from tile2net.grid.ingrid import delayed
-from tile2net.grid.ingrid.file import File
-from tile2net.grid.ingrid.network import Network
-from tile2net.grid.ingrid.polygons import Polygons
-from tile2net.grid.ingrid.segtile import SegTile
-from tile2net.grid.ingrid.vectile import VecTile
+from tile2net.grid.grid import delayed
+from tile2net.grid.grid.file import File
+from tile2net.grid.grid.network import Network
+from tile2net.grid.grid.polygons import Polygons
+from tile2net.grid.grid.segtile import SegTile
+from tile2net.grid.grid.vectile import VecTile
 from tile2net.grid.sampler.benchmark import Benchmark
 from tile2net.grid.seggrid.seggrid import SegGrid
-from tile2net.grid.source.source import Source
-from tile2net.grid.util import recursion_block, assert_perfect_overlap
-from tile2net.grid.vecgrid.vecgrid import VecGrid
 from tile2net.grid.source.remote import Remote
+from tile2net.grid.source.source import Source
+from tile2net.grid.util import assert_perfect_overlap
+from tile2net.grid.vecgrid.vecgrid import VecGrid
 
 if False:
     from .filled import Filled
@@ -39,16 +38,16 @@ if False:
     from . import construct
 
 
-class InGrid(
+class Grid(
     BaseGrid
 ):
     """
-    "Input Grid" (InGrid), comprised of "input tiles" (in-tiles).
+    "Input Grid" (Grid), comprised of "input tiles" (in-tiles).
     Each tile is an image from the source.
 
     Example construction:
-        >>> ingrid = InGrid.from_location('Boston Common, MA')
-        InGrid:
+        >>> grid = Grid.from_location('Boston Common, MA')
+        Grid:
                              lonmin        latmax        lonmax        latmin
         xtile  ytile
         317280 387840 -7.911538e+06  5.214840e+06 -7.911500e+06  5.214802e+06
@@ -60,10 +59,10 @@ class InGrid(
         Namespace container for files aligned with the tiles of a Grid.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.file.Static
+            >>> grid: Grid
+            >>> grid.file.Static
             xtile   ytile
-            317280  387840    /home/<user>/tile2net/ma/ingrid/static/20/31...
+            317280  387840    /home/<user>/tile2net/ma/grid/static/20/31...
         """
 
     @VecGrid
@@ -71,11 +70,11 @@ class InGrid(
         """
         Wraps vectorization operations with a grid data structure
 
-        After performing InGrid.set_vectorization(), InGrid.vecgrid is
+        After performing Grid.set_vectorization(), Grid.vecgrid is
         available for performing vectorization on the stitched tiles.
 
         Example:
-            >>> InGrid.vecgrid
+            >>> Grid.vecgrid
             VecGrid:
                        lonmin        latmax        lonmax        latmin  \
             xtile ytile
@@ -84,7 +83,7 @@ class InGrid(
             xtile ytile
             9915  12120  POLYGON ((-7910315.183 5214839.818, -7910315.1...
 
-        Handles lazy-loading of InGrid.VecGrid:
+        Handles lazy-loading of Grid.VecGrid:
             >>> VecGrid._get
 
         Handles vectorization process from stitched seg-tiles:
@@ -96,11 +95,11 @@ class InGrid(
         """
         Wraps segmentation prediction operations with a grid data structure
 
-        After performing InGrid.set_segmentation(), InGrid.seggrid is
+        After performing Grid.set_segmentation(), Grid.seggrid is
         available for performing segmentation on the stitched tiles.
 
         Example:
-            >>> InGrid.seggrid
+            >>> Grid.seggrid
             SegGrid:
                            lonmin        latmax        lonmax        latmin  \
             xtile ytile
@@ -110,7 +109,7 @@ class InGrid(
             79320 96960  POLYGON ((-7911385.302 5214839.818, -7911385.3...
             [64 rows x 5 columns]
 
-        Handles lazy-loading of InGrid.SegGrid:
+        Handles lazy-loading of Grid.SegGrid:
         >>> SegGrid._get
 
         Handles prediction of seg-tiles from stitched input tiles:
@@ -123,8 +122,8 @@ class InGrid(
         Tile dimension in pixels; inferred from input files.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.dimension
+            >>> grid: Grid
+            >>> grid.dimension
             256
         """
         try:
@@ -152,8 +151,8 @@ class InGrid(
         Grid name; inferred from config, location, or input directory.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.name
+            >>> grid: Grid
+            >>> grid.name
             'Boston Common, MA'
         """
         name = (
@@ -170,8 +169,8 @@ class InGrid(
         Tile shape as (height, width) in pixels.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.shape
+            >>> grid: Grid
+            >>> grid.shape
             (256, 256)
         """
         return self.dimension, self.dimension
@@ -182,8 +181,8 @@ class InGrid(
         Networks from all features (e.g. sidewalks, crosswalks) from all tiles dissolved.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.network
+            >>> grid: Grid
+            >>> grid.network
             Lines:
                                                     geometry
             feature
@@ -197,8 +196,8 @@ class InGrid(
         continuous polygon geometries.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.polygons
+            >>> grid: Grid
+            >>> grid.polygons
             Polygons:
                                                     geometry
             feature
@@ -211,10 +210,10 @@ class InGrid(
         Namespace for static assets (e.g., placeholder images, weights).
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.Static.black
-            >>> ingrid.Static.hrnet_checkpoint
-            >>> ingrid.Static.snapshot
+            >>> grid: Grid
+            >>> grid.Static.black
+            >>> grid.Static.hrnet_checkpoint
+            >>> grid.Static.snapshot
         """
 
     # @Indir
@@ -225,12 +224,12 @@ class InGrid(
     #
     #
     #     # Sets the input directory:
-    #     >>> InGrid.set_indir
+    #     >>> Grid.set_indir
     #     """
     #     raise ValueError('No input directory specified. ')
-    #     ingrid = self.ingrid.outdir.ingrid
+    #     grid = self.grid.outdir.grid
     #     format = os.path.join(
-    #         ingrid.dir,
+    #         grid.dir,
     #         'static',
     #         f'z/x_y'
     #     )
@@ -242,7 +241,7 @@ class InGrid(
         """
         Output in which the results, such as annotated images and geometry, will be stored:
         
-        >>> ingrid: InGrid
+        >>> grid: Grid
         >>> Outdir(
         >>>     format='/home/<user>/tile2net/{z}/{x}_{y}',
         >>>     dir='/home/<user>/tile2net',
@@ -251,8 +250,8 @@ class InGrid(
         >>> )
 
         Setting the output directory:
-        >>> ingrid: InGrid
-        >>> ingrid = ingrid.set_outdir('/path/to/output')
+        >>> grid: Grid
+        >>> grid = grid.set_outdir('/path/to/output')
         """
 
     @Source
@@ -262,14 +261,14 @@ class InGrid(
         See `Grid.set_remote()` to actually set a source.
 
         Automatically sets the source:
-        >>> ingrid: InGrid
-        >>> ingrid = ingrid.set_source(...)
+        >>> grid: Grid
+        >>> grid = grid.set_source(...)
         """
 
     @delayed.Construct
     def construct(self) -> construct.Construct:
         """
-        Module which offers pre-constructed `InGrid` instances.
+        Module which offers pre-constructed `Grid` instances.
         """
 
     @TempDir
@@ -278,11 +277,11 @@ class InGrid(
         Temporary directory for intermediate processing files.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.tempdir
+            >>> grid: Grid
+            >>> grid.tempdir
             Tempdir(
-                dir='/tmp/tile2net/ma/ingrid/static'
-                original='/tmp/tile2net/ma/ingrid/static/z/x_y',
+                dir='/tmp/tile2net/ma/grid/static'
+                original='/tmp/tile2net/ma/grid/static/z/x_y',
             )
         """
         template = os.path.join(
@@ -299,8 +298,8 @@ class InGrid(
         Namespace for seg-tile properties aligned with in-tiles.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.segtile.xtile
+            >>> grid: Grid
+            >>> grid.segtile.xtile
             xtile   ytile
             317280  387840    79320
         """
@@ -311,8 +310,8 @@ class InGrid(
         Namespace for vec-tile properties aligned with in-tiles.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.vectile.xtile
+            >>> grid: Grid
+            >>> grid.vectile.xtile
             xtile   ytile
             317280  387840    9915
         """
@@ -323,7 +322,7 @@ class InGrid(
             force: bool = False,
             max_workers: int = 64,
             one: bool = False
-    ) :
+    ):
         """
         Download tiles from the configured source to the input directory.
 
@@ -338,7 +337,7 @@ class InGrid(
                 Download only one file for testing
 
         Returns:
-            Self with downloaded files available at InGrid.file.static
+            Self with downloaded files available at Grid.file.static
         """
         if isinstance(self.source, Remote):
             self.source.download(
@@ -348,26 +347,26 @@ class InGrid(
                 one=one,
             )
         else:
-            raise TypeError('InGrid.source must be set to a Remote to download tiles. ')
+            raise TypeError('Grid.source must be set to a Remote to download tiles. ')
 
     @delayed.Filled
     def filled(self) -> Filled:
         """
-        "Fills" the InGrid with extra tiles implicated by the VecGrid to avoid missing tiles.
-        For example, if the InGrid is 1x1, but the VecGrid tiles are supposed to be 2 in-tiles wide,
-        this will fill in the missing tiles so there are 2x2 total tiles in the InGrid.
+        "Fills" the Grid with extra tiles implicated by the VecGrid to avoid missing tiles.
+        For example, if the Grid is 1x1, but the VecGrid tiles are supposed to be 2 in-tiles wide,
+        this will fill in the missing tiles so there are 2x2 total tiles in the Grid.
         """
 
     @delayed.Broadcast
     def broadcast(self) -> Broadcast:
         """
         While a seg-tile is comprised of in-tiles, an in-tile may belong to multiple seg-tiles due to
-        overlaps. The base InGrid dataframe has one row per unique in-tile. The Broadcast extension
+        overlaps. The base Grid dataframe has one row per unique in-tile. The Broadcast extension
         overcomes this limitation by possibly having multiple rows per in-tile.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.broadcast
+            >>> grid: Grid
+            >>> grid.broadcast
 
                         frame.sort_index()
             Out[17]:
@@ -390,10 +389,10 @@ class InGrid(
     #         outdir: Optional output directory path
     #
     #     Returns:
-    #         InGrid with remote and directories configured
+    #         Grid with remote and directories configured
     #
     #     Example:
-    #         >>> ingrid: InGrid = InGrid.from_location('Boston Common, MA').set_source('ma')
+    #         >>> grid: Grid = Grid.from_location('Boston Common, MA').set_source('ma')
     #     """
     #     if source is None:
     #         source = self.cfg.remote
@@ -460,9 +459,9 @@ class InGrid(
     #
     #     result = result.set_outdir(outdir)
     #
-    #     ingrid = result.outdir.ingrid
+    #     grid = result.outdir.grid
     #     format = os.path.join(
-    #         ingrid.dir,
+    #         grid.dir,
     #         'static',
     #         f'z/x_y'
     #     )
@@ -479,10 +478,10 @@ class InGrid(
             outdir: Optional output directory path
 
         Returns:
-            InGrid with remote and directories configured
+            Grid with remote and directories configured
 
         Example:
-            >>> ingrid: InGrid = InGrid.from_location('Boston Common, MA').set_source('ma')
+            >>> grid: Grid = Grid.from_location('Boston Common, MA').set_source('ma')
 
         See:
             >>> Source.__set__
@@ -498,10 +497,10 @@ class InGrid(
             name: Optional grid name
 
         Returns:
-            InGrid with input directory configured
+            Grid with input directory configured
 
         Example:
-            >>> ingrid: InGrid = ingrid.set_indir('/path/to/tiles/20/x_y.png')
+            >>> grid: Grid = grid.set_indir('/path/to/tiles/20/x_y.png')
         """
 
         result = self.copy()
@@ -519,11 +518,11 @@ class InGrid(
     #         outdir: Output directory path
     #
     #     Returns:
-    #         InGrid with output directory configured
+    #         Grid with output directory configured
     #
     #     Example:
-    #     >>> ingrid: InGrid
-    #     >>> ingrid: InGrid = ingrid.set_outdir('/path/to/output')
+    #     >>> grid: Grid
+    #     >>> grid: Grid = grid.set_outdir('/path/to/output')
     #     """
     #     result: BaseGrid = self.copy()
     #
@@ -557,7 +556,6 @@ class InGrid(
     #
     #     return result
 
-
     def set_outdir(
             self,
             outdir: Union[str, Path] = None,
@@ -569,11 +567,11 @@ class InGrid(
             outdir: Output directory path
 
         Returns:
-            InGrid with output directory configured
+            Grid with output directory configured
 
         Example:
-        >>> ingrid: InGrid
-        >>> ingrid: InGrid = ingrid.set_outdir('/path/to/output')
+        >>> grid: Grid
+        >>> grid: Grid = grid.set_outdir('/path/to/output')
         """
         result = self.copy()
         result.outdir = outdir
@@ -591,7 +589,7 @@ class InGrid(
             pad=None,
     ) -> Self:
         """
-        Configure segmentation grid dimensions and create InGrid.seggrid.
+        Configure segmentation grid dimensions and create Grid.seggrid.
 
         Args:
             dimension: Pixel dimension of each seg-tile
@@ -602,10 +600,10 @@ class InGrid(
             pad: Padding pixels for seg-tiles
 
         Returns:
-            InGrid with InGrid.seggrid configured
+            Grid with Grid.seggrid configured
 
         Example:
-            >>> ingrid: InGrid = ingrid.set_segmentation(dimension=1024, pad=64)
+            >>> grid: Grid = grid.set_segmentation(dimension=1024, pad=64)
         """
         from ..seggrid import SegGrid
         # todo: if all are None, determine dimension using VRAM
@@ -644,41 +642,41 @@ class InGrid(
         if fill is None:
             fill = self.cfg.segmentation.fill
 
-        msg = 'Filling InGrid to align with SegGrid'
+        msg = 'Filling Grid to align with SegGrid'
         logger.debug(msg)
-        ingrid = (
+        grid = (
             self
             .to_scale(scale, fill=fill)
             .to_scale(self.scale, fill=fill)
         )
-        seggrid = SegGrid.from_rescale(ingrid, scale, fill)
-        ingrid.seggrid = seggrid
-        seggrid = ingrid.seggrid
+        seggrid = SegGrid.from_rescale(grid, scale, fill)
+        grid.seggrid = seggrid
+        seggrid = grid.seggrid
         if pad is not None:
             seggrid.pad = pad
 
         assert (
-            ingrid.filled.segtile.index
+            grid.filled.segtile.index
             .isin(seggrid.filled.index)
             .all()
         )
         assert (
             seggrid.filled.index
-            .isin(ingrid.filled.segtile.index)
+            .isin(grid.filled.segtile.index)
             .all()
         )
 
         assert seggrid.scale == scale
-        assert len(seggrid) <= len(ingrid)
-        assert len(self) <= len(ingrid)
+        assert len(seggrid) <= len(grid)
+        assert len(self) <= len(grid)
 
         area = 4 ** (self.scale - scale)
-        assert len(ingrid) == len(seggrid) * area
-        assert_perfect_overlap(seggrid, ingrid)
+        assert len(grid) == len(seggrid) * area
+        assert_perfect_overlap(seggrid, grid)
 
-        assert seggrid.index.difference(ingrid.segtile.index).empty
+        assert seggrid.index.difference(grid.segtile.index).empty
 
-        return ingrid
+        return grid
 
     def set_vectorization(
             self,
@@ -691,7 +689,7 @@ class InGrid(
             pad: int = None,
     ) -> Self:
         """
-        Configure vectorization grid dimensions and create InGrid.vecgrid.
+        Configure vectorization grid dimensions and create Grid.vecgrid.
 
         Args:
             dimension: Pixel dimension of each vec-tile including padding
@@ -701,10 +699,10 @@ class InGrid(
             pad: Padding pixels for vec-tiles
 
         Returns:
-            InGrid with InGrid.vecgrid configured
+            Grid with Grid.vecgrid configured
 
         Example:
-            >>> ingrid: InGrid = ingrid.set_vectorization(length=5, pad=128)
+            >>> grid: Grid = grid.set_vectorization(length=5, pad=128)
         """
 
         if dimension or length or scale:
@@ -751,15 +749,15 @@ class InGrid(
 
         scale = self.seggrid._to_scale(dimension, length, scale)
 
-        msg = 'Filling InGrid to align with VecGrid'
+        msg = 'Filling Grid to align with VecGrid'
         logger.debug(msg)
-        ingrid = (
+        grid = (
             self
             .to_scale(scale, fill=fill)
             .to_scale(self.scale, fill=fill)
         )
 
-        assert ingrid.scale == self.ingrid.scale
+        assert grid.scale == self.grid.scale
         msg = 'Filling SegGrid to align with VecGrid'
         logger.debug(msg)
         seggrid = (
@@ -768,26 +766,26 @@ class InGrid(
             .to_scale(self.seggrid.scale, fill=fill)
         )
 
-        ingrid.seggrid = seggrid
+        grid.seggrid = seggrid
 
-        assert ingrid.filled.segtile.index.isin(seggrid.filled.index).all()
-        assert seggrid.filled.index.isin(ingrid.filled.segtile.index).all()
+        assert grid.filled.segtile.index.isin(seggrid.filled.index).all()
+        assert seggrid.filled.index.isin(grid.filled.segtile.index).all()
         assert seggrid.scale == self.seggrid.scale
-        vecgrid = VecGrid.from_rescale(ingrid, scale, fill=fill)
+        vecgrid = VecGrid.from_rescale(grid, scale, fill=fill)
 
         if pad is not None:
             vecgrid.pad = pad
 
-        ingrid.vecgrid = vecgrid
-        seggrid = ingrid.seggrid
-        vecgrid = ingrid.vecgrid
+        grid.vecgrid = vecgrid
+        seggrid = grid.seggrid
+        vecgrid = grid.vecgrid
 
-        assert len(self) <= len(ingrid)
-        assert len(vecgrid) <= len(seggrid) <= len(ingrid)
+        assert len(self) <= len(grid)
+        assert len(vecgrid) <= len(seggrid) <= len(grid)
         area = 4 ** (self.scale - scale)
-        assert len(ingrid) == len(vecgrid) * area
+        assert len(grid) == len(vecgrid) * area
 
-        return ingrid
+        return grid
 
     def summary(self) -> None:
         """
@@ -820,7 +818,7 @@ class InGrid(
         if outdir:
             rows.append(('Output directory', outdir))
 
-        rows.append(('Input imagery', _p(self.outdir.ingrid.Static.dir)))
+        rows.append(('Input imagery', _p(self.outdir.grid.Static.dir)))
         if self.cfg.segmentation.colorized:
             rows.append(('Segmentation (colorized)', _p(self.outdir.seggrid.colorized.dir)))
         if self.cfg.polygon.concat:
@@ -998,7 +996,7 @@ class InGrid(
         if polygons:
             msg = (
                 f'Cleaning up the polygons for each tile from '
-                f'\n\t{self.ingrid.outdir.vecgrid.polygons.dir}'
+                f'\n\t{self.grid.outdir.vecgrid.polygons.dir}'
             )
             logger.info(msg)
             util.cleanup(self.vecgrid.file.polygons)
@@ -1007,7 +1005,7 @@ class InGrid(
             msg = (
                 f'Cleaning up the lines for each tile from '
                 f'\n\t'
-                f'{self.ingrid.outdir.vecgrid.network.dir}'
+                f'{self.grid.outdir.vecgrid.network.dir}'
             )
             logger.info(msg)
             util.cleanup(self.vecgrid.file.network)
@@ -1015,11 +1013,11 @@ class InGrid(
         if static:
             msg = (
                 f'Cleaning up previously downloaded imagery '
-                f'from {self.ingrid.indir.dir} and '
-                f'{self.ingrid.outdir.seggrid.Static.dir}'
+                f'from {self.grid.indir.dir} and '
+                f'{self.grid.outdir.seggrid.Static.dir}'
             )
             logger.info(msg)
-            util.cleanup(self.ingrid.file.Static)
+            util.cleanup(self.grid.file.Static)
             util.cleanup(self.seggrid.file.Static)
 
         if grayscale:
@@ -1063,44 +1061,44 @@ class InGrid(
             cfg: Cfg = None
     ) -> Self:
         """
-        Construct InGrid from a configuration object or JSON file.
+        Construct Grid from a configuration object or JSON file.
 
         Args:
             cfg: Configuration object, path to JSON config, or None for CLI args
 
         Returns:
-            Fully configured InGrid instance
+            Fully configured Grid instance
 
         Example:
-            >>> ingrid: InGrid = InGrid.from_cfg('config.json')
+            >>> grid: Grid = Grid.from_cfg('config.json')
         """
         if isinstance(cfg, (str, Path)):
             cfg = Cfg.from_json(cfg)
         if cfg is None:
             cfg = Cfg.from_parser()
         with cfg:
-            ingrid = InGrid.from_location(
+            grid = Grid.from_location(
                 location=cfg.location,
                 zoom=cfg.zoom
             )
-            ingrid.cfg = cfg
+            grid.cfg = cfg
 
             if cfg.indir.path:
                 # use input imagery
-                ingrid = ingrid.set_indir()
+                grid = grid.set_indir()
             else:
                 # set a source if specified or infer from location
-                ingrid = ingrid.set_source()
+                grid = grid.set_source()
 
             if cfg.outdir:
-                ingrid = ingrid.set_outdir()
+                grid = grid.set_outdir()
 
             # configure segmentation using cfg parameters
-            ingrid = ingrid.set_segmentation()
+            grid = grid.set_segmentation()
             # configure vectorization using cfg parameters
-            ingrid = ingrid.set_vectorization()
+            grid = grid.set_vectorization()
 
-        return ingrid
+        return grid
 
     def to_cfg(
             self,
@@ -1108,7 +1106,6 @@ class InGrid(
     ):
         raise NotImplementedError
         ...
-
 
     @classmethod
     def from_basic(
@@ -1119,7 +1116,7 @@ class InGrid(
             length=None
     ) -> Self:
         """
-        Construct InGrid with basic configuration in one step.
+        Construct Grid with basic configuration in one step.
 
         Args:
             outdir: Output directory path
@@ -1128,14 +1125,14 @@ class InGrid(
             length: vec-tile length
 
         Returns:
-            Fully configured InGrid instance
+            Fully configured Grid instance
 
         Example:
-            >>> ingrid: InGrid = InGrid.from_basic(location='Boston, MA', pad=64)
+            >>> grid: Grid = Grid.from_basic(location='Boston, MA', pad=64)
         """
 
-        ingrid = (
-            InGrid
+        grid = (
+            Grid
             .from_location(location)
             .set_source(
                 outdir=outdir,
@@ -1147,12 +1144,11 @@ class InGrid(
                 length=length,
             )
         )
-        return ingrid
+        return grid
 
     @property
-    def ingrid(self) -> InGrid:
-        """Quick access for the InGrid of a project."""
+    def grid(self) -> Grid:
+        """Quick access for the Grid of a project."""
         return self
 
-    __name__ = 'ingrid'
-
+    __name__ = 'grid'

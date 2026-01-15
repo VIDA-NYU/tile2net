@@ -32,7 +32,7 @@ class Stubs(
             instance: Lines,
             owner: type[PedNet]
     ) -> Self:
-        self: Self = namespace.__get__(self, instance, owner)
+        self: Self = namespace._get(self, instance, owner)
         cache = instance.__dict__
         key = self.__name__
         if instance is None:

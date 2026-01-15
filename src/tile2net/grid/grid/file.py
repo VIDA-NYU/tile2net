@@ -8,29 +8,29 @@ from tile2net.grid.source import Local, Remote
 
 if False:
     from tile2net.grid.frame import column
-    from tile2net.grid.ingrid import InGrid
+    from tile2net.grid.grid import Grid
     from tile2net.grid.frame import column
-    from tile2net.grid.ingrid import InGrid
+    from tile2net.grid.grid import Grid
 
 from .. import frame
-from tile2net.basegrid.basegrid import file
+from tile2net.grid.basegrid import file
 
 if False:
-    from .ingrid import InGrid
+    from .grid import Grid
 
 
 class File(
     file.File
 ):
-    instance: InGrid
-    basegrid: InGrid
+    instance: Grid
+    basegrid: Grid
 
     @frame.column
     def static(self):
         grid = self.basegrid
         source = grid.source
         if isinstance(source, Remote):
-            files = grid.outdir.ingrid.files(grid)
+            files = grid.outdir.grid.files(grid)
         elif isinstance(source, Local):
             files = source.files(grid)
         else:
@@ -57,19 +57,19 @@ class File(
         # TODO: update
         """
 
-        ingrid = self.basegrid
-        files = ingrid.outdir.ingrid.pred.files(ingrid)
+        grid = self.basegrid
+        files = grid.outdir.grid.pred.files(grid)
         self.pred = files
         if (
                 not self
                 and (loc := ~files.map(os.path.exists)).any()
         ):
-            ingrid = ingrid.loc[loc]
-            ingrid._unstitch2file(
-                tiles=ingrid.file.pred,
-                mosaics=ingrid.segtile.pred,
-                row=ingrid.segtile.row,
-                col=ingrid.segtile.col,
+            grid = grid.loc[loc]
+            grid._unstitch2file(
+                tiles=grid.file.pred,
+                mosaics=grid.segtile.pred,
+                row=grid.segtile.row,
+                col=grid.segtile.col,
             )
             loc = ~files.map(os.path.exists)
             msg = f"Files not unstiched: {files[loc]}"
@@ -82,20 +82,20 @@ class File(
         File-paths to color-coded segmentation masks for visualization.
         # TODO: update
         """
-        ingrid = self.basegrid
-        files = ingrid.outdir.ingrid.prob.files(ingrid)
+        grid = self.basegrid
+        files = grid.outdir.grid.prob.files(grid)
         self.prob = files
         loc = ~files.map(os.path.exists)
         if (
                 not self
                 and loc.any()
         ):
-            ingrid = ingrid.loc[loc]
-            ingrid._unstitch2file(
-                tiles=ingrid.file.prob,
-                mosaics=ingrid.segtile.prob,
-                row=ingrid.segtile.row,
-                col=ingrid.segtile.col,
+            grid = grid.loc[loc]
+            grid._unstitch2file(
+                tiles=grid.file.prob,
+                mosaics=grid.segtile.prob,
+                row=grid.segtile.row,
+                col=grid.segtile.col,
             )
             loc = ~files.map(os.path.exists)
             msg = f"Files not unstiched: {files[loc]}"

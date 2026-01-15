@@ -69,7 +69,7 @@ class Filled(
             instance: SegGrid,
             owner,
     ) -> Optional[Self]:
-        self = namespace.__get__(self, instance, owner)
+        self = namespace._get(self, instance, owner)
         cache = instance.frame.__dict__
         key = self.__name__
         if instance is None:

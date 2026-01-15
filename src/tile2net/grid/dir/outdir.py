@@ -13,7 +13,7 @@ from tile2net.grid.dir.sourcedir import SourceDir
 if TYPE_CHECKING:
     from .seggrid import SegGrid
     from .vecgrid import VecGrid
-    from tile2net.grid.ingrid.ingrid import InGrid
+    from tile2net.grid.grid.grid import Grid
 
 
 class Probability(
@@ -71,13 +71,13 @@ class Outdir(
 ):
     def _get(
             self,
-            instance: InGrid,
-            owner: type[InGrid],
+            instance: Grid,
+            owner: type[Grid],
     ):
-        from tile2net.grid.ingrid import InGrid
+        from tile2net.grid.grid import Grid
         if instance is None:
             out = self
-        elif isinstance(instance, InGrid):
+        elif isinstance(instance, Grid):
             cache = instance.__dict__
             name = self.__name__
             if name not in cache:
@@ -93,7 +93,7 @@ class Outdir(
 
     def __set__(
             self,
-            instance: InGrid,
+            instance: Grid,
             value: str | Dir,
     ):
         if isinstance(value, str):
@@ -108,7 +108,7 @@ class Outdir(
 
     def __delete__(
             self,
-            instance: InGrid,
+            instance: Grid,
     ):
         """"""
         try:
@@ -130,7 +130,7 @@ class Outdir(
         Handles lazy-loading of sourcedir:
         >>> SourceDir._get
         """
-        grid = self.ingrid
+        grid = self.grid
         name = None
         try:
             name = grid.source.name
@@ -157,8 +157,8 @@ class Outdir(
         return self.sourcedir.namedir.seggrid
 
     @property
-    def ingrid(self) -> namedir.InGrid:
-        return self.sourcedir.namedir.ingrid
+    def grid(self) -> namedir.Grid:
+        return self.sourcedir.namedir.grid
 
     @property
     def namedir(self) -> namedir.NameDir:

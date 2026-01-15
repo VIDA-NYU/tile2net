@@ -41,7 +41,7 @@ from ..sampler.benchmark import Benchmark
 from ...grid.util import recursion_block
 
 if False:
-    from ..ingrid import InGrid
+    from ..grid import Grid
     from ..seggrid import SegGrid
 
 
@@ -69,8 +69,8 @@ class VecGrid(BaseGrid):
     network generation.
 
     Example:
-        >>> ingrid: InGrid
-        >>> ingrid.vecgrid
+        >>> grid: Grid
+        >>> grid.vecgrid
         VecGrid:
                        lonmin        latmax        lonmax        latmin
         xtile ytile
@@ -82,9 +82,9 @@ class VecGrid(BaseGrid):
     - Padding tiles to reduce edge artifacts during vectorization
 
     See usage:
-        >>> InGrid.vecgrid
+        >>> Grid.vecgrid
 
-    Handles lazy-loading of VecGrid from InGrid:
+    Handles lazy-loading of VecGrid from Grid:
         >>> VecGrid.__get__
     """
     __name__ = 'vecgrid'
@@ -93,22 +93,22 @@ class VecGrid(BaseGrid):
 
     def __get__(
             self,
-            instance: InGrid,
+            instance: Grid,
             owner: type[BaseGrid],
     ) -> Self:
         """
-        Lazy-load factory method for accessing VecGrid from InGrid
+        Lazy-load factory method for accessing VecGrid from Grid
 
         Automatically initializes VecGrid using configuration parameters if not already set.
-        Uses cached value if available, otherwise calls InGrid.set_vectorization() with
+        Uses cached value if available, otherwise calls Grid.set_vectorization() with
         parameters from cfg.vectorization (scale, length, or dimension).
 
         Returns:
             VecGrid instance configured for vectorization operations
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.vecgrid
+            >>> grid: Grid
+            >>> grid.vecgrid
             VecGrid:
                        lonmin        latmax        lonmax        latmin
             xtile ytile
@@ -487,21 +487,21 @@ class VecGrid(BaseGrid):
 
         Returns:
             None. See output file paths:
-            >>> ingrid: InGrid
-            >>> ingrid.vecgrid.file.polygons
-            >>> ingrid.vecgrid.file.network
+            >>> grid: Grid
+            >>> grid.vecgrid.file.polygons
+            >>> grid.vecgrid.file.network
 
         Example:
-            >>> ingrid: InGrid = InGrid.from_location('Boston Common, MA')
-            >>> ingrid = ingrid.set_source().set_segmentation().set_vectorization()
-            >>> ingrid.vecgrid.vectorize()
+            >>> grid: Grid = Grid.from_location('Boston Common, MA')
+            >>> grid = grid.set_source().set_segmentation().set_vectorization()
+            >>> grid.vecgrid.vectorize()
             Vectorizing to /home/<user>/tile2net/ma/vecgrid/polygons
             vecgrid.vectorize(): 100%|██████| 16/16 [00:45<00:00]
             Finished vectorizing 16 vectorizing tiles.
         """
 
         dest = (
-            self.ingrid.outdir.vecgrid.polygons.dir
+            self.grid.outdir.vecgrid.polygons.dir
             .rpartition(os.sep)
             [0]
         )
@@ -553,7 +553,7 @@ class VecGrid(BaseGrid):
             mininterval=10,
         )
 
-        with self.ingrid.cfg, bar, self.benchmark :
+        with self.grid.cfg, bar, self.benchmark :
             for minibatch in loader:
                 bar.update(len(minibatch))
 
@@ -579,8 +579,8 @@ class VecGrid(BaseGrid):
             PIL Image containing the tile mosaic
 
         Example:
-            >>> ingrid: InGrid
-            >>> img = ingrid.vecgrid.view(maxdim=4096, divider='red')
+            >>> grid: Grid
+            >>> img = grid.vecgrid.view(maxdim=4096, divider='red')
             >>> img.show()
         """
 
@@ -707,8 +707,8 @@ class VecGrid(BaseGrid):
             Corners object with xmin, ymin, xmax, ymax for each padded tile
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.vecgrid.padding
+            >>> grid: Grid
+            >>> grid.vecgrid.padding
             Corners with expanded bounds for padding
         """
         result = (
@@ -730,8 +730,8 @@ class VecGrid(BaseGrid):
             Series of Affine objects, one per tile
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.vecgrid.affine_params
+            >>> grid: Grid
+            >>> grid.vecgrid.affine_params
             xtile  ytile
             9915   12120    Affine(0.298..., 0.0, -7911538.18..., ...)
         """
@@ -781,8 +781,8 @@ class VecGrid(BaseGrid):
         organized by tile coordinates.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.vecgrid.network
+            >>> grid: Grid
+            >>> grid.vecgrid.network
             Lines:
             feature                                              crosswalk
             xtile ytile
@@ -801,8 +801,8 @@ class VecGrid(BaseGrid):
         organized by tile coordinates.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.vecgrid.polygons
+            >>> grid: Grid
+            >>> grid.vecgrid.polygons
             Polygons:
             feature                                              crosswalk
             xtile ytile
@@ -824,8 +824,8 @@ class VecGrid(BaseGrid):
         each VecGrid tile is 2^2 = 4 SegGrid tiles wide.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.vecgrid.length
+            >>> grid: Grid
+            >>> grid.vecgrid.length
             4
         """
         result = 2 ** (self.seggrid.scale - self.scale)
@@ -848,24 +848,24 @@ class VecGrid(BaseGrid):
         vec-tiles are 4096x4096 pixels.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.vecgrid.dimension
+            >>> grid: Grid
+            >>> grid.vecgrid.dimension
             4096
         """
         return self.seggrid.dimension * self.length
 
     @property
-    def ingrid(self) -> InGrid:
+    def grid(self) -> Grid:
         """
-        Reference to the parent InGrid instance.
+        Reference to the parent Grid instance.
 
         Returns:
-            InGrid instance that this VecGrid belongs to
+            Grid instance that this VecGrid belongs to
 
         Example:
-            >>> ingrid: InGrid
-            >>> vecgrid = ingrid.vecgrid
-            >>> vecgrid.ingrid is ingrid
+            >>> grid: Grid
+            >>> vecgrid = grid.vecgrid
+            >>> vecgrid.grid is grid
             True
         """
         return self.instance

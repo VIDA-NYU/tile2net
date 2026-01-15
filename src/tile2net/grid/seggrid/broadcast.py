@@ -13,7 +13,7 @@ from tile2net.grid.loaders.sample import SampleDataWrapper
 from ..util import recursion_block
 
 if False:
-    from ..ingrid import InGrid
+    from ..grid import Grid
 import pandas as pd
 
 import numpy as np
@@ -26,7 +26,7 @@ from ..sampler.benchmark import Benchmark
 if False:
     from .seggrid import SegGrid
     from ..vecgrid.vecgrid import VecGrid
-    from ..ingrid.ingrid import InGrid
+    from ..grid.grid import Grid
 
 
 class VecTile(
@@ -68,10 +68,10 @@ class VecTile(
 
     @frame.column
     def grayscale(self) -> pd.Series:
-        """seggrid.file broadcasted to ingrid"""
-        ingrid = self.ingrid
+        """seggrid.file broadcasted to grid"""
+        grid = self.grid
         result = (
-            ingrid.seggrid.broadcast.file.pred
+            grid.seggrid.broadcast.file.pred
             .loc[self.index]
             .values
         )
@@ -109,7 +109,7 @@ class Broadcast(
     >>> Broadcast._get
 
     See usage:
-    >>> InGrid.broadcast
+    >>> Grid.broadcast
     """
     instance: SegGrid
 
@@ -129,8 +129,8 @@ class Broadcast(
             Broadcast instance with expanded index including padding tiles
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.broadcast
+            >>> grid: Grid
+            >>> grid.seggrid.broadcast
             Broadcast with multiple rows per in-tile where overlaps occur
         """
         if instance is None:
@@ -191,8 +191,8 @@ class Broadcast(
         ...
 
     @property
-    def ingrid(self) -> InGrid:
-        return self.instance.ingrid
+    def grid(self) -> Grid:
+        return self.instance.grid
 
     @property
     def filled(self):
@@ -227,9 +227,9 @@ class Broadcast(
 
         Returns:
             None. See output file paths:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.file.pred
-            >>> ingrid.seggrid.file.prob
+            >>> grid: Grid
+            >>> grid.seggrid.file.pred
+            >>> grid.seggrid.file.prob
 
         Raises:
             RuntimeError: If subprocess fails or model weights checksum is invalid
@@ -237,8 +237,8 @@ class Broadcast(
             NotImplementedError: If probs is None
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.predict(probs=False)
+            >>> grid: Grid
+            >>> grid.seggrid.predict(probs=False)
             Downloading weights for segmentation...
             Predicting seg-tiles: 100%|██████| 64/64 [02:15<00:00]
             Finished predicting 64 seg-tiles.
@@ -247,19 +247,19 @@ class Broadcast(
             return
         if probs is None:
             raise NotImplementedError("probs parameter must be explicitly set to True or False")
-        ingrid = self.ingrid.broadcast
-        force = ~ingrid.segtile.pred.map(os.path.exists)
+        grid = self.grid.broadcast
+        force = ~grid.segtile.pred.map(os.path.exists)
         if probs:
-            force |= ~ingrid.segtile.prob.map(os.path.exists)
+            force |= ~grid.segtile.prob.map(os.path.exists)
         force |= self.cfg.force
 
         wrapper: SampleDataWrapper = SampleDataWrapper.from_tiles(
-            static=ingrid.file.static,
-            mask=[None] * len(ingrid),
-            index=ingrid.segtile.index,
+            static=grid.file.static,
+            mask=[None] * len(grid),
+            index=grid.segtile.index,
             background=0,
-            row=ingrid.segtile.row,
-            col=ingrid.segtile.col,
+            row=grid.segtile.row,
+            col=grid.segtile.col,
             force=force,
         )
 
@@ -268,7 +268,7 @@ class Broadcast(
             logger.info(msg)
             return
 
-        clip = self.ingrid.dimension * self.cfg.segmentation.pad
+        clip = self.grid.dimension * self.cfg.segmentation.pad
         with (
             tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as cfg_file,
             tempfile.NamedTemporaryFile(mode='w', suffix='.parquet', delete=False) as wrapper_file,
@@ -277,7 +277,7 @@ class Broadcast(
             wrapper_path = wrapper_file.name
 
         assert (
-            self.ingrid.file.static
+            self.grid.file.static
             .map(os.path.exists)
             .all()
         )

@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import os.path
 
-from ..basegrid.basegrid import BaseGrid
+from .basegrid import BaseGrid
 from .dir import Dir
 
 
@@ -57,7 +57,7 @@ class VecGrid(
         return result
 
 
-class VecGrid(Grid):
+class VecGrid(BaseGrid):
     @Dir
     def polygons(self):
         return Dir.from_parent(self, 'polygons', 'parquet')

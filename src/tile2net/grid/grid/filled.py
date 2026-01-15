@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Self
 
-from .ingrid import InGrid
+from .grid import Grid
 from ..basegrid import filled
 
 if False:
@@ -11,43 +11,43 @@ if False:
 
 class Filled(
     filled.Filled,
-    InGrid,
+    Grid,
 ):
     """
-    InGrid extension that fills in missing tiles to align with SegGrid boundaries.
+    Grid extension that fills in missing tiles to align with SegGrid boundaries.
 
     Ensures complete coverage by adding tiles implicated by SegGrid padding.
-    For example, if SegGrid requires 2x2 in-tiles but InGrid is 1x1, this fills
+    For example, if SegGrid requires 2x2 in-tiles but Grid is 1x1, this fills
     the missing 3 tiles.
 
     Handles lazy-loading of filled grid with padding:
     >>> Filled._get
     """
-    instance: InGrid
+    instance: Grid
 
     def _get(
             self,
-            instance: InGrid,
+            instance: Grid,
             owner,
     ) -> Self:
         """
-        Lazy-load factory method for accessing Filled from InGrid
+        Lazy-load factory method for accessing Filled from Grid
 
         Automatically expands the grid to include all tiles needed for proper
         segmentation with padding. Rescales to seggrid scale, adds padding,
-        then rescales back to original ingrid scale.
+        then rescales back to original grid scale.
 
         Returns:
             Filled instance with complete tile coverage for segmentation
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.filled
-            Filled InGrid with additional boundary tiles
+            >>> grid: Grid
+            >>> grid.filled
+            Filled Grid with additional boundary tiles
         """
         if instance is None:
             return self
-        # instance = instance.ingrid
+        # instance = instance.grid
         # self.instance = instance
         cache = instance.frame.__dict__
         key = self.__name__
@@ -81,5 +81,5 @@ class Filled(
         return self.instance.filled
 
     @property
-    def ingrid(self) -> InGrid:
-        return self.instance.ingrid
+    def grid(self) -> Grid:
+        return self.instance.grid

@@ -56,7 +56,7 @@ class Nodes(
             instance: Lines,
             owner
     ) -> Self:
-        self: Self = namespace.__get__(self, instance, owner)
+        self: Self = namespace._get(self, instance, owner)
         # cache = instance.frame.__dict__
         cache = instance.__dict__
         key = self.__name__

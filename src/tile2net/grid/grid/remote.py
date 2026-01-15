@@ -28,7 +28,7 @@ from tile2net.logger import logger
 from tile2net.grid.geocode import GeoCode
 
 if False:
-    from .ingrid import InGrid
+    from .grid import Grid
 
 
 class RemoteNotFound(Exception):
@@ -163,7 +163,7 @@ T = TypeVar('T')
 class Remote(
     ABC,
 ):
-    basegrid: InGrid
+    basegrid: Grid
     catalog: dict[str, type[Remote]] = {}
     outdated: bool = False
 
@@ -171,18 +171,18 @@ class Remote(
 
     def _get(
             self,
-            instance: InGrid,
-            owner: type[InGrid],
+            instance: Grid,
+            owner: type[Grid],
     ) -> Self:
         """Return the remote object for the grid instance."""
         try:
             result = instance.__dict__[self.__name__]
             result.basegrid = instance
-            result.InGrid = owner
+            result.Grid = owner
         except KeyError as e:
             msg = (
                 f'Remote has not yet been set. To set the remote, you '
-                f'must call `InGrid.with_remote()`.'
+                f'must call `Grid.with_remote()`.'
             )
             raise ValueError(msg) from e
         return result
@@ -252,7 +252,7 @@ class Remote(
 
     def __set__(
             self,
-            instance: InGrid,
+            instance: Grid,
             value,
     ):
         """Set the remote object for the grid instance."""
@@ -263,7 +263,7 @@ class Remote(
 
     def __delete__(
             self,
-            instance: InGrid,
+            instance: Grid,
     ):
         """Delete the remote object for the grid instance."""
         if hasattr(instance, '_remote'):
@@ -514,7 +514,7 @@ class ArcGis(
 #         '&imageSR=102100&bboxSR=102100&size=512%2C512'
 #     )
 #
-#     def __getitem__(self, item: InGrid) -> pd.Series[str]:
+#     def __getitem__(self, item: Grid) -> pd.Series[str]:
 #         bounds = item.bounds
 #         it = zip(bounds.minx, bounds.miny, bounds.maxx, bounds.maxy)
 #         template = self.template

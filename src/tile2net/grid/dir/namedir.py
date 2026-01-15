@@ -4,7 +4,7 @@ import os
 import os.path
 
 from .dir import Dir
-from .ingrid import InGrid
+from .grid import Grid
 from .seggrid import SegGrid
 from .vecgrid import VecGrid
 
@@ -32,12 +32,12 @@ class NameDir(
         result = SegGrid.from_template(format)
         return result
 
-    @InGrid
-    def ingrid(self):
+    @Grid
+    def grid(self):
         format = os.path.join(
             self.dir,
-            'ingrid',
+            'grid',
             self.suffix
         )
-        result = InGrid.from_template(format)
+        result = Grid.from_template(format)
         return result

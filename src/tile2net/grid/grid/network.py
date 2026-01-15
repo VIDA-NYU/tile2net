@@ -24,7 +24,7 @@ from ..explore import explore
 from ..frame.framewrapper import FrameWrapper
 
 if False:
-    from .ingrid import InGrid
+    from .grid import Grid
     import folium
 
 
@@ -38,15 +38,15 @@ class Network(
         >>> Network.__get__
 
     See usage:
-        >>> InGrid.network
+        >>> Grid.network
     """
     __name__ = 'network'
 
 
     def _get(
             self,
-            instance: InGrid,
-            owner: type[InGrid]
+            instance: Grid,
+            owner: type[Grid]
     ) -> Self:
         """
         Lazy-load factory method for accessing network for each feature, dissolved across tiles.
@@ -60,8 +60,8 @@ class Network(
             Network instance with dissolved features from all vecgrid tiles
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.network
+            >>> grid: Grid
+            >>> grid.network
             Network:
                                                         geometry
             feature
@@ -208,8 +208,8 @@ class Network(
     locals().update(__get__=_get)
 
     @property
-    def ingrid(self) -> InGrid:
-        """Reference to the InGrid instance"""
+    def grid(self) -> Grid:
+        """Reference to the Grid instance"""
         return self.instance
 
     @property
@@ -223,25 +223,25 @@ class Network(
         File at which the network are cached
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.network.file
+            >>> grid: Grid
+            >>> grid.network.file
             '/home/<user>/tile2net/ma/network/parquet/Boston Common, MA.parquet'
         """
-        return self.ingrid.file.network
-        # return self.ingrid.outdir.network.parquet
+        return self.grid.file.network
+        # return self.grid.outdir.network.parquet
 
 
     def unlink(self):
         """Delete the network file."""
         file = self.file
         msg = (
-            f'Uncaching {self.ingrid.__name__}.{self.__name__} and '
+            f'Uncaching {self.grid.__name__}.{self.__name__} and '
             f'deleting file:\n\t{file}'
         )
         logger.info(msg)
         if os.path.exists(file):
             os.remove(file)
-        del self.ingrid
+        del self.grid
 
     def preview(
             self,
@@ -255,8 +255,8 @@ class Network(
     ) -> Image.Image:
 
         # use the grid's own imagery preview as a basemap
-        ingrid = self.ingrid
-        mosaic: Image.Image = ingrid.preview(
+        grid = self.grid
+        mosaic: Image.Image = grid.preview(
             maxdim=maxdim,
             divider=divider,
             show=show
@@ -264,7 +264,7 @@ class Network(
         frame = self.frame.to_crs(4326)
 
         # geometry bounds & scale to determine output pixel size
-        minx, miny, maxx, maxy = ingrid.frame.geometry.to_crs(4326).total_bounds
+        minx, miny, maxx, maxy = grid.frame.geometry.to_crs(4326).total_bounds
         span_x = max(maxx - minx, 1e-12)
         span_y = max(maxy - miny, 1e-12)
         scale = maxdim / max(span_x, span_y)
@@ -318,7 +318,7 @@ class Network(
         )
 
         # per-feature line colors and stroke width
-        label2color = ingrid.cfg.label2color
+        label2color = grid.cfg.label2color
         line_w = kwargs.get('width', max(1, long_side // 1400))
 
 

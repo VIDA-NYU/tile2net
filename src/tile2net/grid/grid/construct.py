@@ -1,7 +1,7 @@
 from ..frame.namespace import namespace
 import pooch
 
-from .ingrid import InGrid
+from .grid import Grid
 
 
 class VRAM24(
@@ -13,9 +13,9 @@ class VRAM24(
             location='Boston Common',
             pad=2,
             length=8,
-    ) -> InGrid:
+    ) -> Grid:
         """Small park in downtown Boston."""
-        return InGrid.from_basic(
+        return Grid.from_basic(
             outdir=outdir,
             location=location,
             pad=pad,
@@ -28,9 +28,9 @@ class VRAM24(
             location="40.7053, -74.0111, 40.7119, -73.9900",
             pad=2,
             length=8,
-    ) -> InGrid:
+    ) -> Grid:
         """Medium sized area in downtown Manhattan."""
-        return InGrid.from_basic(
+        return Grid.from_basic(
             outdir=outdir,
             location=location,
             pad=pad,
@@ -43,9 +43,9 @@ class VRAM24(
             location="37.7872, -122.4017, 37.7939, -122.3873",
             pad=1,
             length=8,
-    ) -> InGrid:
+    ) -> Grid:
         """Downtown San Francisco (Frisco) area."""
-        return InGrid.from_basic(
+        return Grid.from_basic(
             outdir=outdir,
             location=location,
             pad=pad,
@@ -58,9 +58,9 @@ class VRAM24(
             location="37.8684, -122.2658, 37.8809, -122.2441",
             pad=2,
             length=8,
-    ) -> InGrid:
+    ) -> Grid:
         """Downtown Berkeley area near the university."""
-        return InGrid.from_basic(
+        return Grid.from_basic(
             outdir=outdir,
             location=location,
             pad=pad,
@@ -73,9 +73,9 @@ class VRAM24(
             location="44.3112, -69.7708, 44.3185, -69.7505",
             pad=2,
             length=8,
-    ) -> InGrid:
+    ) -> Grid:
         """Downtown Augusta, Maine area."""
-        return InGrid.from_basic(
+        return Grid.from_basic(
             outdir=outdir,
             location=location,
             pad=pad,
@@ -88,9 +88,9 @@ class VRAM24(
             location="35.7526, -86.9171, 35.7664, -86.8819",
             pad=2,
             length=8,
-    ) -> InGrid:
+    ) -> Grid:
         """Spring Hill, Tennessee area."""
-        return InGrid.from_basic(
+        return Grid.from_basic(
             outdir=outdir,
             location=location,
             pad=pad,
@@ -108,8 +108,8 @@ class VRAM8(
             location='Boston Common',
             pad=1,
             length=8,
-    ) -> InGrid:
-        return InGrid.from_basic(
+    ) -> Grid:
+        return Grid.from_basic(
             outdir=outdir,
             location=location,
             pad=pad,

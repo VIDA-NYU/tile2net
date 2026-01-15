@@ -34,7 +34,7 @@ class Union(
             instance: PedNet,
             owner: type[PedNet]
     ) -> Union:
-        self: Self = namespace.__get__(self, instance, owner)
+        self: Self = namespace._get(self, instance, owner)
         cache = instance.frame.__dict__
         key = self.__name__
         if instance is None:

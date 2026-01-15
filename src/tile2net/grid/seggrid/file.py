@@ -47,24 +47,24 @@ class File(
         Stitches input files when seggrid.file is accessed
         """
         grid = self.basegrid
-        files = grid.ingrid.outdir.seggrid.static.files(grid)
+        files = grid.grid.outdir.seggrid.static.files(grid)
         self.static = files
         if (
             not self
             and not files.map(os.path.exists).all()
         ):
-            ingrid = grid.ingrid
+            grid = grid.grid
             assert (
-                ingrid.file.static
+                grid.file.static
                 .map(os.path.exists)
                 .all()
             )
-            mosaics = ingrid.segtile.static
-            ingrid._stitch2file(
-                tiles=ingrid.file.static,
+            mosaics = grid.segtile.static
+            grid._stitch2file(
+                tiles=grid.file.static,
                 mosaics=mosaics,
-                row=ingrid.segtile.row,
-                col=ingrid.segtile.col,
+                row=grid.segtile.row,
+                col=grid.segtile.col,
             )
             msg = f"Files not stitched: {files[~files.map(os.path.exists)]}"
             assert files.map(os.path.exists).all(), msg
@@ -80,8 +80,8 @@ class File(
         to a semantic class.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.file.pred
+            >>> grid: Grid
+            >>> grid.seggrid.file.pred
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
@@ -106,8 +106,8 @@ class File(
         File-paths to color-coded segmentation masks for visualization.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.file.prob
+            >>> grid: Grid
+            >>> grid.seggrid.file.prob
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """

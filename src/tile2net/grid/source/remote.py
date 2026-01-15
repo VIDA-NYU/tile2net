@@ -120,7 +120,7 @@ class Remote(
     @property
     def url(self) -> pd.Series:
         """Generate URLs for all tiles in the attached grid."""
-        grid = self.ingrid
+        grid = self.grid
         key = f'{self.__name__}.url'
         if key not in grid:
             template = self.template
@@ -137,14 +137,14 @@ class Remote(
     @url.setter
     def url(self, value: pd.Series):
         """Set the URLs for all tiles in the attached grid."""
-        grid = self.ingrid
+        grid = self.grid
         key = f'{self.__name__}.url'
         grid[key] = value
 
     @url.deleter
     def url(self):
         """Delete the URLs for all tiles in the attached grid."""
-        grid = self.ingrid
+        grid = self.grid
         key = f'{self.__name__}.url'
         try:
             del grid[key]
@@ -171,12 +171,12 @@ class Remote(
             one:
                 Download only one file for testing
         """
-        ingrid = self.ingrid
-        paths = ingrid.file.static
+        grid = self.grid
+        paths = grid.file.static
         urls = self.url
 
         if paths.empty or urls.empty:
-            return ingrid
+            return grid
         if len(paths) != len(urls):
             raise ValueError("paths and urls must be equal length")
 
@@ -195,11 +195,11 @@ class Remote(
         ):
             msg = (
                 f'All {len(paths):,} '
-                f'{ingrid.__class__.__qualname__}.{ingrid.file.static.name} '
-                f'on disk at {ingrid.indir.dir}. '
+                f'{grid.__class__.__qualname__}.{grid.file.static.name} '
+                f'on disk at {grid.indir.dir}. '
             )
             logger.info(msg)
-            return ingrid
+            return grid
 
         if not force:
             paths = paths[~exists]
@@ -207,12 +207,12 @@ class Remote(
 
         mapping = dict(zip(paths.array, urls.array))
         if not mapping:
-            return ingrid
+            return grid
 
         msg = (
             f'Downloading {len(mapping):,} '
-            f'{ingrid.__class__.__qualname__}.{ingrid.file.static.name} '
-            f'from {self.name} to \\n\\t{ingrid.indir.dir} '
+            f'{grid.__class__.__qualname__}.{grid.file.static.name} '
+            f'from {self.name} to \\n\\t{grid.indir.dir} '
         )
         logger.info(msg)
 
@@ -284,7 +284,7 @@ class Remote(
                     as_completed(futures),
                     total=len(futures),
                     desc="Downloading",
-                    unit=f" {ingrid.__class__.__name__}.{paths.name}",
+                    unit=f" {grid.__class__.__name__}.{paths.name}",
                     mininterval=10,
             ):
                 fut.result()
@@ -297,14 +297,14 @@ class Remote(
 
         if one and success:
             logger.info("Downloaded one file successfully (one=True).")
-            return ingrid
+            return grid
 
-        if len(not_found) + len(failed) == len(ingrid.file.static):
+        if len(not_found) + len(failed) == len(grid.file.static):
             msg = f'All {len(not_found) + len(failed):,} grid failed to download.'
             raise FileNotFoundError(msg)
 
         if not_found:
-            black = ingrid.static.black
+            black = grid.static.black
             logger.warning("%d tile(s) returned 404/403 – linking placeholder.", len(not_found))
             for p in not_found:
                 try:
@@ -323,8 +323,8 @@ class Remote(
             raise FileNotFoundError(f"{len(failed):,} files failed.")
 
         msg = (
-            f"All requested {ingrid.__class__.__name__}.{paths.name} "
-            f"on disk at \\n\\t{ingrid.indir.dir} "
+            f"All requested {grid.__class__.__name__}.{paths.name} "
+            f"on disk at \\n\\t{grid.indir.dir} "
         )
         logger.info(msg)
 

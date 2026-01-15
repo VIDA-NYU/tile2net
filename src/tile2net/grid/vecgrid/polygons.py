@@ -17,7 +17,7 @@ from ..frame.framewrapper import FrameWrapper
 
 if False:
     from .vecgrid import VecGrid
-    from ..ingrid import InGrid
+    from ..grid import Grid
     import folium
 
 
@@ -51,8 +51,8 @@ class Polygons(
             Polygons instance with MultiPolygon geometries per tile and feature
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.vecgrid.polygons
+            >>> grid: Grid
+            >>> grid.vecgrid.polygons
             Polygons:
             feature                                              crosswalk
             xtile ytile

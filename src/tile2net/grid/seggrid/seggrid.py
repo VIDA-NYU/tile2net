@@ -19,7 +19,7 @@ if False:
     from ..dir import Outdir
     from .filled import Filled
     from .broadcast import Broadcast
-    from ..ingrid import InGrid
+    from ..grid import Grid
 
 
 class SegGrid(
@@ -27,16 +27,16 @@ class SegGrid(
 ):
     """
     "Segmentation Grid" (SegGrid), comprised of "Segmentation Tiles" (seg-tiles).
-    Each seg-tile is a larger tile composed of multiple InGrid tiles, used for
+    Each seg-tile is a larger tile composed of multiple Grid tiles, used for
     semantic segmentation prediction of street infrastructure.
 
-    SegGrid tiles are typically larger than InGrid tiles (e.g., 1024x1024 pixels 
+    SegGrid tiles are typically larger than Grid tiles (e.g., 1024x1024 pixels 
     vs 256x256 pixels) to provide sufficient context for accurate neural network 
     predictions. Each seg-tile covers an area equivalent to multiple in-tiles.
 
     Example:
-        >>> ingrid: InGrid
-        >>> ingrid.seggrid
+        >>> grid: Grid
+        >>> grid.seggrid
         SegGrid:
                        lonmin        latmax        lonmax        latmin
         xtile ytile
@@ -48,32 +48,32 @@ class SegGrid(
     - Running model inference for semantic segmentation
     - Padding tiles to provide more context during prediction
 
-    Handles lazy-loading of SegGrid from InGrid:
+    Handles lazy-loading of SegGrid from Grid:
         >>> SegGrid._get
 
     See usage:
-        >>> InGrid.seggrid
+        >>> Grid.seggrid
     """
     __name__ = 'seggrid'
 
     def _get(
             self,
-            instance: InGrid,
-            owner: type[InGrid],
+            instance: Grid,
+            owner: type[Grid],
     ) -> SegGrid:
         """
-        Lazy-load factory method for accessing SegGrid from InGrid.
+        Lazy-load factory method for accessing SegGrid from Grid.
 
         Automatically initializes SegGrid using configuration parameters if not already set.
-        Uses cached value if available, otherwise calls InGrid.set_segmentation() with
+        Uses cached value if available, otherwise calls Grid.set_segmentation() with
         parameters from cfg.segmentation (scale, length, or dimension).
 
         Returns:
             SegGrid instance configured for segmentation operations
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid
+            >>> grid: Grid
+            >>> grid.seggrid
             SegGrid:
                            lonmin        latmax        lonmax        latmin
             xtile ytile
@@ -89,7 +89,7 @@ class SegGrid(
 
         else:
             msg = (
-                f'ingrid.{self.__name__} has not been set. You may '
+                f'grid.{self.__name__} has not been set. You may '
                 f'customize the segmentation functionality by using '
                 f'`Ingrid.set_segmentation`'
             )
@@ -120,18 +120,18 @@ class SegGrid(
     @cached_property
     def length(self) -> int:
         """
-        Number of InGrid tiles that comprise one dimension of a segmentation tile
+        Number of Grid tiles that comprise one dimension of a segmentation tile
 
-        For example, if InGrid uses zoom 20 and SegGrid uses zoom 18, each SegGrid
-        tile is 2^2 = 4 InGrid tiles wide.
+        For example, if Grid uses zoom 20 and SegGrid uses zoom 18, each SegGrid
+        tile is 2^2 = 4 Grid tiles wide.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.length
+            >>> grid: Grid
+            >>> grid.seggrid.length
             4
         """
-        ingrid = self.basegrid.ingrid
-        result = 2 ** (ingrid.scale - self.scale)
+        grid = self.basegrid.grid
+        result = 2 ** (grid.scale - self.scale)
         return result
 
     @cached_property
@@ -139,17 +139,17 @@ class SegGrid(
         """
         Pixel dimension of each segmentation tile
 
-        For example, if InGrid tile are 256x256 pixels and length is 4,
+        For example, if Grid tile are 256x256 pixels and length is 4,
         segmentation tiles are 1024x1024 pixels.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.dimension
+            >>> grid: Grid
+            >>> grid.seggrid.dimension
             1024
         """
         seggrid = self.basegrid
-        ingrid = seggrid.ingrid
-        result = ingrid.dimension * self.length
+        grid = seggrid.grid
+        result = grid.dimension * self.length
         return result
 
     @property
@@ -158,24 +158,24 @@ class SegGrid(
         return self.instance
 
     @property
-    def ingrid(self) -> InGrid:
-        """Reference to the parent InGrid instance."""
+    def grid(self) -> Grid:
+        """Reference to the parent Grid instance."""
         return self.basegrid
 
     @property
     def outdir(self) -> Outdir:
         """Reference to the output directory."""
-        return self.ingrid.outdir
+        return self.grid.outdir
 
     @property
     def cfg(self):
         """Reference to the configuration object."""
-        return self.ingrid.cfg
+        return self.grid.cfg
 
     @property
     def static(self):
         """Reference to static assets."""
-        return self.ingrid.static
+        return self.grid.static
 
     @VecTile
     def vectile(self):
@@ -183,16 +183,16 @@ class SegGrid(
         Namespace for vec-tiles aligned with seg-tiles.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.xtile
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.xtile
             xtile  ytile
             79320  96960    9915
 
-            >>> ingrid.seggrid.vectile.ytile
+            >>> grid.seggrid.vectile.ytile
             xtile  ytile
             79320  96960    12120
 
-            >>> ingrid.seggrid.vectile.dimension
+            >>> grid.seggrid.vectile.dimension
             8192
         """
 
@@ -202,8 +202,8 @@ class SegGrid(
         Namespace container for files aligned with the tiles of a Grid.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.file.Colorized
+            >>> grid: Grid
+            >>> grid.seggrid.file.Colorized
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
@@ -231,10 +231,10 @@ class SegGrid(
         would otherwise cause issues during vectorization.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid
+            >>> grid: Grid
+            >>> grid.seggrid
             64
-            >>> ingrid.seggrid.filled
+            >>> grid.seggrid.filled
             72
         """
 
@@ -249,8 +249,8 @@ class SegGrid(
         membership gets its own row, enabling proper alignment for batch processing.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.broadcast
+            >>> grid: Grid
+            >>> grid.seggrid.broadcast
                            segtile.xtile  segtile.ytile  segtile.r  segtile.c
             xtile  ytile
             317275 387839          79319          96959          4          0
@@ -266,9 +266,9 @@ class SegGrid(
         neural network inference. Padding is configurable via cfg.segmentation.pad.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.padded.Static
-            >>> ingrid.seggrid.padded.length
+            >>> grid: Grid
+            >>> grid.seggrid.padded.Static
+            >>> grid.seggrid.padded.length
         """
 
     def postprocess(self):

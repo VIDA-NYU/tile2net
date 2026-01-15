@@ -13,7 +13,7 @@ from tile2net.grid.basegrid.basegrid import BaseGrid
 from tile2net.logger import logger
 
 if TYPE_CHECKING:
-    from ..ingrid import InGrid
+    from ..grid import Grid
 
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.source.exceptions import SourceParseError
@@ -32,14 +32,14 @@ class Source:
     """Default dimension of the remote grid, e.g. 256 pixels."""
 
     @weak.property
-    def ingrid(self) -> Optional[InGrid]:
-        """The InGrid instance this source is attached to."""
+    def grid(self) -> Optional[Grid]:
+        """The Grid instance this source is attached to."""
         return None
 
     def _get(
             self,
-            instance: InGrid,
-            owner: type[InGrid],
+            instance: Grid,
+            owner: type[Grid],
     ) -> Self:
         """Return the remote object for the grid instance."""
         if instance is None:
@@ -57,7 +57,7 @@ class Source:
             self.__set__(instance, source)
 
         out: Self = cache[key]
-        out.ingrid = instance
+        out.grid = instance
         return out
 
     locals().update(__get__=_get)
@@ -67,7 +67,7 @@ class Source:
 
     def __set__(
             self,
-            instance: InGrid,
+            instance: Grid,
             value: Union[Source, str, None],
     ):
         if value is None:
@@ -84,7 +84,7 @@ class Source:
             raise TypeError(msg)
         instance.__dict__[self.__name__] = value
 
-    def __delete__(self, instance: InGrid):
+    def __delete__(self, instance: Grid):
         try:
             del instance.__dict__[self.__name__]
         except KeyError:

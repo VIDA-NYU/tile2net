@@ -16,7 +16,7 @@ from ..cfg import cfg
 if False:
     from tile2net.grid.frame import column
     from tile2net.grid.basegrid.basegrid import BaseGrid
-    from tile2net.grid.ingrid import InGrid
+    from tile2net.grid.grid import Grid
 
 from .. import frame
 
@@ -41,8 +41,8 @@ class File(
         to a semantic class.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.file.pred
+            >>> grid: Grid
+            >>> grid.seggrid.file.pred
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
@@ -56,8 +56,8 @@ class File(
         File-paths to color-coded segmentation masks for visualization.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.file.prob
+            >>> grid: Grid
+            >>> grid.seggrid.file.prob
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
@@ -73,8 +73,8 @@ class File(
         Lazily generated from prob and pred files already saved to disk.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.file.Colorized
+            >>> grid: Grid
+            >>> grid.seggrid.file.Colorized
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
@@ -125,15 +125,15 @@ class File(
             pd.Series: File paths to intensity representations for each seg-tile
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.file.intensity
+            >>> grid: Grid
+            >>> grid.seggrid.file.intensity
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
         grid = self.basegrid
         name = grid.__name__
         FILES = (
-            getattr(grid.ingrid.outdir, name)
+            getattr(grid.grid.outdir, name)
             .intensity.files(grid)
         )
         if self:
@@ -178,8 +178,8 @@ class File(
             pd.Series: File paths to side-by-side composites for each seg-tile
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.file.sidebyside
+            >>> grid: Grid
+            >>> grid.seggrid.file.sidebyside
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
@@ -231,15 +231,15 @@ class File(
             pd.Series: File paths to overlay images for each seg-tile
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.file.overlay
+            >>> grid: Grid
+            >>> grid.seggrid.file.overlay
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
         grid = self.basegrid
         name = grid.__name__
         FILES = (
-            getattr(grid.ingrid.outdir, name)
+            getattr(grid.grid.outdir, name)
             .overlay.files(grid)
         )
         if self:
@@ -279,8 +279,8 @@ class File(
         Lazily generated from prob and pred files already saved to disk.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.file.error
+            >>> grid: Grid
+            >>> grid.seggrid.file.error
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
@@ -288,7 +288,7 @@ class File(
         grid = self.basegrid
         name = grid.__name__
         FILES = (
-            getattr(grid.ingrid.outdir, name)
+            getattr(grid.grid.outdir, name)
             .error.files(grid)
         )
         self.error = FILES
@@ -330,7 +330,7 @@ class File(
         grid = self.basegrid
         name = grid.__name__
         FILES = (
-            getattr(grid.ingrid.outdir, name)
+            getattr(grid.grid.outdir, name)
             .soft.files(grid)
         )
         if self:

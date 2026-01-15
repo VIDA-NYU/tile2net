@@ -10,7 +10,7 @@ from ..basegrid import file
 
 if False:
     from .vecgrid import VecGrid
-    from ..ingrid import InGrid
+    from ..grid import Grid
 
 
 class File(
@@ -121,13 +121,13 @@ class File(
             pd.Series: File paths to line geometry parquet files for each vec-tile
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.vecgrid.file.network
+            >>> grid: Grid
+            >>> grid.vecgrid.file.network
             xtile  ytile
             9915   12120    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
         vecgrid = self.basegrid
-        files = vecgrid.ingrid.outdir.vecgrid.network.files(vecgrid)
+        files = vecgrid.grid.outdir.vecgrid.network.files(vecgrid)
         self.lines = files
         if (
                 not self
@@ -150,13 +150,13 @@ class File(
             pd.Series: File paths to polygon geometry parquet files for each vec-tile
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.vecgrid.file.polygons
+            >>> grid: Grid
+            >>> grid.vecgrid.file.polygons
             xtile  ytile
             9915   12120    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
         vecgrid = self.basegrid
-        files = vecgrid.ingrid.outdir.vecgrid.polygons.files(vecgrid)
+        files = vecgrid.grid.outdir.vecgrid.polygons.files(vecgrid)
         self.polygons = files
         if (
                 not self
@@ -171,7 +171,7 @@ class File(
     def curbs(self) -> pd.Series:
         # todo: needs documentation
         vecgrid = self.basegrid
-        files = vecgrid.ingrid.outdir.vecgrid.curbs.files(vecgrid)
+        files = vecgrid.grid.outdir.vecgrid.curbs.files(vecgrid)
         self.curbs = files
         if (
                 not self

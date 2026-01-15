@@ -6,7 +6,7 @@ from tile2net.grid.frame.namespace import namespace
 from .. import frame
 
 if False:
-    from .ingrid import InGrid
+    from .grid import Grid
 
 
 class SegTile(
@@ -16,29 +16,29 @@ class SegTile(
     Namespace for accessing seg-tile attributes aligned with in-tiles.
 
     See usage:
-        >>> InGrid.segtile
+        >>> Grid.segtile
     """
-    ingrid: InGrid
+    grid: Grid
 
     @property
-    def ingrid(self) -> InGrid:
-        """Reference to the InGrid instance."""
+    def grid(self) -> Grid:
+        """Reference to the Grid instance."""
         return self.instance
 
     @property
-    def basegrid(self) -> InGrid:
-        """Reference to the parent InGrid instance."""
-        return self.ingrid
+    def basegrid(self) -> Grid:
+        """Reference to the parent Grid instance."""
+        return self.grid
 
     @property
     def length(self):
-        """Number of InGrid tiles in one dimension of the seg-tile."""
-        return self.ingrid.seggrid.length
+        """Number of Grid tiles in one dimension of the seg-tile."""
+        return self.grid.seggrid.length
 
     @property
     def dimension(self):
         """Pixel dimension of each seg-tile."""
-        return self.ingrid.dimension * self.length
+        return self.grid.dimension * self.length
 
     @property
     def shape(self) -> tuple[int, int]:
@@ -67,11 +67,11 @@ class SegTile(
 
     @frame.column
     def xtile(self):
-        """X tile coordinate of the SegGrid tile associated with the InGrid tile."""
-        ingrid = self.ingrid
+        """X tile coordinate of the SegGrid tile associated with the Grid tile."""
+        grid = self.grid
 
-        seggrid = ingrid.seggrid.filled
-        result: pd.Index = ingrid.xtile.__floordiv__(ingrid.segtile.length)
+        seggrid = grid.seggrid.filled
+        result: pd.Index = grid.xtile.__floordiv__(grid.segtile.length)
 
         msg = 'All segtile.xtile must be in seggrid.xtile!'
         assert result.isin(seggrid.xtile).all(), msg
@@ -79,11 +79,11 @@ class SegTile(
 
     @frame.column
     def ytile(self):
-        """Y tile coordinate of the SegGrid tile associated with the InGrid tile."""
-        ingrid = self.ingrid
+        """Y tile coordinate of the SegGrid tile associated with the Grid tile."""
+        grid = self.grid
 
-        seggrid = ingrid.seggrid.filled
-        result: pd.Index = ingrid.ytile.__floordiv__(ingrid.segtile.length)
+        seggrid = grid.seggrid.filled
+        result: pd.Index = grid.ytile.__floordiv__(grid.segtile.length)
 
         msg = 'All segtile.ytile must be in seggrid.ytile!'
         assert result.isin(seggrid.ytile).all(), msg
@@ -92,35 +92,35 @@ class SegTile(
     @frame.column
     def row(self) -> pd.Series:
         """Row index within the seg-tile (0 to length-1)."""
-        ingrid = self.ingrid
+        grid = self.grid
         result = (
-            ingrid.ytile
-            .to_series(index=ingrid.index)
-            .floordiv(ingrid.segtile.length)
-            .mul(ingrid.segtile.length)
-            .rsub(ingrid.ytile.values)
+            grid.ytile
+            .to_series(index=grid.index)
+            .floordiv(grid.segtile.length)
+            .mul(grid.segtile.length)
+            .rsub(grid.ytile.values)
         )
         return result
 
     @frame.column
     def col(self) -> pd.Series:
         """Column index within the seg-tile (0 to length-1)."""
-        ingrid = self.ingrid
+        grid = self.grid
         result = (
-            ingrid.xtile
-            .to_series(index=ingrid.index)
-            .floordiv(ingrid.segtile.length)
-            .mul(ingrid.segtile.length)
-            .rsub(ingrid.xtile.values)
+            grid.xtile
+            .to_series(index=grid.index)
+            .floordiv(grid.segtile.length)
+            .mul(grid.segtile.length)
+            .rsub(grid.xtile.values)
         )
         return result
 
     @frame.column
     def static(self) -> pd.Series:
         """Path to input file for this seg-tile."""
-        ingrid = self.ingrid
+        grid = self.grid
         result = (
-            ingrid.seggrid.filled.file.static
+            grid.seggrid.filled.file.static
             .loc[self.index]
             .values
         )
@@ -129,8 +129,8 @@ class SegTile(
     @frame.column
     def pred(self) -> pd.Series:
         """Path to grayscale segmentation file for this tile."""
-        ingrid = self.ingrid
-        seggrid = ingrid.seggrid.broadcast
+        grid = self.grid
+        seggrid = grid.seggrid.broadcast
         result = (
             seggrid.file.pred
             .loc[~seggrid.index.duplicated()]
@@ -142,8 +142,8 @@ class SegTile(
     @frame.column
     def prob(self) -> pd.Series:
         """Path to probability segmentation file for this tile."""
-        ingrid = self.ingrid
-        seggrid = ingrid.seggrid.broadcast
+        grid = self.grid
+        seggrid = grid.seggrid.broadcast
         result = (
             seggrid.file.prob
             .loc[~seggrid.index.duplicated()]

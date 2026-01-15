@@ -16,7 +16,7 @@ from tile2net.grid.frame.weak import weak
 
 if TYPE_CHECKING:
     from ..basegrid.basegrid import BaseGrid
-    from ..ingrid.ingrid import InGrid
+    from ..grid.grid import Grid
 
 
 class Dir(
@@ -50,8 +50,8 @@ class Dir(
     """Directory path."""
 
     @weak.property
-    def ingrid(self) -> Optional[InGrid]:
-        """The InGrid instance this directory is attached to."""
+    def grid(self) -> Optional[Grid]:
+        """The Grid instance this directory is attached to."""
         return
 
     """Mapping of coordinate characters to their indices."""
@@ -212,7 +212,7 @@ class Dir(
 
     def with_template(self, template: str = None):
         if template is None:
-            template = self.ingrid.cfg.template
+            template = self.grid.cfg.template
         template = os.path.join(
             self.dir,
             template,

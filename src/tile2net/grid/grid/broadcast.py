@@ -5,12 +5,12 @@ from typing import Self
 
 from . import segtile
 from .. import frame
-from .ingrid import InGrid
+from .grid import Grid
 
 if False:
-    from .ingrid import InGrid
+    from .grid import Grid
     from ..seggrid.seggrid import SegGrid
-    from ..ingrid.ingrid import InGrid
+    from ..grid.grid import Grid
 
 
 class SegTile(
@@ -48,12 +48,12 @@ class SegTile(
 
     @property
     def length(self) -> int:
-        return self.ingrid.seggrid.padded.length
+        return self.grid.seggrid.padded.length
 
     @frame.column
     def static(self):
         result = (
-            self.basegrid.ingrid.seggrid.padded.static
+            self.basegrid.grid.seggrid.padded.static
             .loc[self.index]
             .values
         )
@@ -61,13 +61,13 @@ class SegTile(
 
 
 class Broadcast(
-    InGrid
+    Grid
 ):
     """
-    InGrid extension with broadcasting to handle overlapping seg-tiles.
+    Grid extension with broadcasting to handle overlapping seg-tiles.
 
     While a seg-tile consists of in-tiles, an in-tile may belong to multiple
-    overlapping seg-tiles due to padding. Broadcast extends the base InGrid
+    overlapping seg-tiles due to padding. Broadcast extends the base Grid
     to allow multiple rows per in-tile, pairing each with its corresponding
     seg-tiles.
 
@@ -77,18 +77,18 @@ class Broadcast(
     See usage:
         >>> SegGrid.broadcast
     """
-    instance: InGrid
+    instance: Grid
 
     def _get(
             self,
-            instance: InGrid,
+            instance: Grid,
             owner,
     ) -> Self:
         if instance is None:
             result = self
             result.instance = instance
             return result
-        instance = instance.ingrid
+        instance = instance.grid
         self.instance = instance
         cache = instance.frame.__dict__
         key = self.__name__
@@ -98,11 +98,11 @@ class Broadcast(
         else:
             # we have to broadcast to the seggrid broacast, not just seggrid
             seggrid = instance.seggrid.broadcast
-            ingrid = instance.ingrid.filled
-            pad = ingrid.segtile.pad
+            grid = instance.grid.filled
+            pad = grid.segtile.pad
             corners = (
                 seggrid
-                .to_corners(ingrid.scale)
+                .to_corners(grid.scale)
                 .to_padding(pad)
             )
             segtile = corners.index.repeat(corners.area)
@@ -121,7 +121,7 @@ class Broadcast(
 
             instance.frame.__dict__[self.__name__] = result
 
-            d = ingrid.scale - seggrid.scale
+            d = grid.scale - seggrid.scale
             # expected = 2 ** (2 * d) + 4 * 2 ** d + 4
             # expected = 2 ** (2 * d * pad) + 4 * 2 ** (d * pad) + 4
             # assert len(result) == expected * len(seggrid)
@@ -141,8 +141,8 @@ class Broadcast(
         ...
 
     @property
-    def ingrid(self) -> InGrid:
-        return self.instance.ingrid
+    def grid(self) -> Grid:
+        return self.instance.grid
 
     @property
     def filled(self):

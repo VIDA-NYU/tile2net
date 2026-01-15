@@ -8,7 +8,7 @@ from .. import frame
 if False:
     from .seggrid import SegGrid
     from ..vecgrid.vecgrid import VecGrid
-    from ..ingrid.ingrid import InGrid
+    from ..grid.grid import Grid
 
 
 class VecTile(
@@ -18,7 +18,7 @@ class VecTile(
     Namespace for accessing vec-tile attributes aligned with seg-tiles.
 
     See usage:
-        >>> InGrid.vectile
+        >>> Grid.vectile
     """
 
     @property
@@ -37,9 +37,9 @@ class VecTile(
         return self.seggrid.vecgrid
 
     @property
-    def ingrid(self) -> InGrid:
-        """Reference to the InGrid instance"""
-        return self.seggrid.ingrid
+    def grid(self) -> Grid:
+        """Reference to the Grid instance"""
+        return self.seggrid.grid
 
     @property
     def length(self) -> int:
@@ -56,8 +56,8 @@ class VecTile(
         Pixel dimension of each vec-tile (width and height are equal).
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.dimension
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.dimension
             8192
         """
         return self.length * self.seggrid.dimension
@@ -68,8 +68,8 @@ class VecTile(
         Shape of each vec-tile as (height, width).
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.shape
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.shape
             (8192, 8192)
         """
         return self.dimension, self.dimension,
@@ -80,8 +80,8 @@ class VecTile(
         X coordinate of vec-tile in vecgrid space.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.xtile
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.xtile
             xtile  ytile
             79320  96960    9915
         """
@@ -100,8 +100,8 @@ class VecTile(
         Y coordinate of vec-tile in vecgrid space.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.ytile
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.ytile
             xtile  ytile
             79320  96960    12120
         """
@@ -121,8 +121,8 @@ class VecTile(
         Integer identifier for each vec-tile.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.itile
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.itile
             xtile  ytile
             79320  96960    0
         """
@@ -135,7 +135,7 @@ class VecTile(
 
     @frame.column
     def grayscale(self):
-        """seggrid.file broadcasted to ingrid"""
+        """seggrid.file broadcasted to grid"""
         vecgrid = self.vecgrid
         result = (
             vecgrid.file.grayscale
@@ -146,7 +146,7 @@ class VecTile(
 
     @frame.column
     def static(self):
-        """seggrid.file broadcasted to ingrid"""
+        """seggrid.file broadcasted to grid"""
         vecgrid = self.vecgrid
         result = (
             vecgrid.file.static
@@ -157,7 +157,7 @@ class VecTile(
 
     @frame.column
     def pred(self):
-        """seggrid.file broadcasted to ingrid"""
+        """seggrid.file broadcasted to grid"""
         vecgrid = self.vecgrid
         result = (
             vecgrid.file.pred
@@ -168,7 +168,7 @@ class VecTile(
 
     @frame.column
     def prob(self):
-        """seggrid.file broadcasted to ingrid"""
+        """seggrid.file broadcasted to grid"""
         vecgrid = self.vecgrid
         result = (
             vecgrid.file.prob
@@ -179,7 +179,7 @@ class VecTile(
 
     @frame.column
     def colorized(self):
-        """seggrid.file broadcasted to ingrid"""
+        """seggrid.file broadcasted to grid"""
         vecgrid = self.vecgrid
         result = (
             vecgrid.file.colorized
@@ -194,8 +194,8 @@ class VecTile(
         MultiIndex of (xtile, ytile) for vec-tiles.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.index
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.index
             MultiIndex([(9915, 12120),
                         (9915, 12120)],
                        names=['vectile.xtile', 'vectile.ytile'])
@@ -212,8 +212,8 @@ class VecTile(
         Row index within the vec-tile (0 to length-1).
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.row
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.row
             xtile  ytile
             79320  96960    0
                    96961    1
@@ -241,8 +241,8 @@ class VecTile(
         Column index within the vec-tile (0 to length-1).
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.col
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.col
             xtile  ytile
             79320  96960    0
                    96961    0
@@ -265,8 +265,8 @@ class VecTile(
         Path to polygon parquet file for this vec-tile.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.polygon
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.polygon
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
@@ -283,8 +283,8 @@ class VecTile(
         Path to network line parquet file for this vec-tile.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.line
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.line
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
@@ -301,8 +301,8 @@ class VecTile(
         Affine transformation parameters for georeferencing each vec-tile.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.affine
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.affine
             xtile  ytile
             79320  96960    Affine(1.341104507446289e-06, 0.0, -71.0719299316406...
         """
@@ -321,8 +321,8 @@ class VecTile(
         Western boundary of vec-tile in projected coordinates (EPSG:3857).
         
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.lonmin
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.lonmin
             xtile  ytile
             79320  96960    -71.0719299316406
         """
@@ -339,8 +339,8 @@ class VecTile(
         Southern boundary of vec-tile in projected coordinates (EPSG:3857).
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.latmin
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.latmin
             xtile  ytile
             79320  96960    5.213617e+06
         """
@@ -357,8 +357,8 @@ class VecTile(
         Eastern boundary of vec-tile in projected coordinates (EPSG:3857).
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.lonmax
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.lonmax
             xtile  ytile
             79320  96960   -7.910315e+06
         """
@@ -375,8 +375,8 @@ class VecTile(
         Northern boundary of vec-tile in projected coordinates (EPSG:3857).
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.latmax
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.latmax
             xtile  ytile
             79320  96960    5.214840e+06
         """
@@ -394,8 +394,8 @@ class VecTile(
         Path to polygon parquet file for this vec-tile.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.polygon_file
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.polygon_file
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
@@ -412,8 +412,8 @@ class VecTile(
         Path to network line parquet file for this vec-tile.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.line_file
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.line_file
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
@@ -430,8 +430,8 @@ class VecTile(
         Padding pixels applied to vec-tiles during vectorization.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.pad
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.pad
             1
         """
         return self.basegrid.cfg.vectorization.pad

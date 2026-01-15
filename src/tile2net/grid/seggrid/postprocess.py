@@ -26,7 +26,7 @@ class PostProcess(
     def pred(self) -> pd.Series:
         """Segmentation masks, where each pixel is a class id"""
         grid = self.basegrid
-        files = grid.ingrid.outdir.seggrid.postprocess.pred.files(grid)
+        files = grid.grid.outdir.seggrid.postprocess.pred.files(grid)
         self.pred = files
         if (
             grid.postprocess
@@ -34,7 +34,7 @@ class PostProcess(
         ):
             assert (
                 grid.filled.index
-                .difference(grid.ingrid.broadcast.segtile.index)
+                .difference(grid.grid.broadcast.segtile.index)
                 .empty
             )
             grid.file.pred = files
@@ -45,7 +45,7 @@ class PostProcess(
     @frame.column
     def prob(self) -> pd.Series:
         grid = self.basegrid
-        files = grid.ingrid.outdir.seggrid.postprocess.prob.files(grid)
+        files = grid.grid.outdir.seggrid.postprocess.prob.files(grid)
         self.probability = files
         if (
             grid.postprocess
@@ -53,7 +53,7 @@ class PostProcess(
         ):
             assert (
                 grid.filled.index
-                .difference(grid.ingrid.broadcast.segtile.index)
+                .difference(grid.grid.broadcast.segtile.index)
                 .empty
             )
             grid.file.probability = files
@@ -64,7 +64,7 @@ class PostProcess(
     @frame.column
     def error(self) -> pd.Series:
         grid = self.basegrid
-        files = grid.ingrid.outdir.seggrid.postprocess.error.files(grid)
+        files = grid.grid.outdir.seggrid.postprocess.error.files(grid)
         self.error = files
         if (
             grid.postprocess
@@ -72,7 +72,7 @@ class PostProcess(
         ):
             assert (
                 grid.filled.index
-                .difference(grid.ingrid.broadcast.segtile.index)
+                .difference(grid.grid.broadcast.segtile.index)
                 .empty
             )
             grid.file.error = files
@@ -83,7 +83,7 @@ class PostProcess(
     @frame.column
     def colorized(self) -> pd.Series:
         grid = self.basegrid
-        files = grid.ingrid.outdir.seggrid.postprocess.colorized.files(grid)
+        files = grid.grid.outdir.seggrid.postprocess.colorized.files(grid)
         self.colorized = files
         if (
             grid.postprocess
@@ -91,7 +91,7 @@ class PostProcess(
         ):
             assert (
                 grid.filled.index
-                .difference(grid.ingrid.broadcast.segtile.index)
+                .difference(grid.grid.broadcast.segtile.index)
                 .empty
             )
             grid.file.colorized = files
@@ -102,7 +102,7 @@ class PostProcess(
     @frame.column
     def intensity(self) -> pd.Series:
         grid = self.basegrid
-        files = grid.ingrid.outdir.seggrid.postprocess.intensity.files(grid)
+        files = grid.grid.outdir.seggrid.postprocess.intensity.files(grid)
         self.intensity = files
         if (
             grid.postprocess
@@ -110,7 +110,7 @@ class PostProcess(
         ):
             assert (
                 grid.filled.index
-                .difference(grid.ingrid.broadcast.segtile.index)
+                .difference(grid.grid.broadcast.segtile.index)
                 .empty
             )
             grid.file.intensity = files

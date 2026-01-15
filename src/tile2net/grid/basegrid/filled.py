@@ -10,8 +10,8 @@ class Filled(
 ):
 
     @property
-    def ingrid(self):
-        return self.instance.ingrid
+    def grid(self):
+        return self.instance.grid
 
     @property
     def seggrid(self):

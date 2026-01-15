@@ -24,7 +24,7 @@ class Padded(
     @property
     def length(self) -> int:
         """
-        Number of InGrid tiles that comprise one dimension of a seg-tile
+        Number of Grid tiles that comprise one dimension of a seg-tile
         after it has been padded a number of in-tiles.
         """
         result = self.instance.length
@@ -37,7 +37,7 @@ class Padded(
         Pixel dimension of each seg-tile after it has been
         padded a number of in-tiles.
         """
-        return self.instance.ingrid.dimension * self.length
+        return self.instance.grid.dimension * self.length
 
     @property
     def basegrid(self) -> SegGrid:
@@ -50,21 +50,21 @@ class Padded(
         Stitches input files when seggrid.file is accessed.
         """
         seggrid = self.basegrid
-        files = seggrid.ingrid.outdir.seggrid.padded.static.files(seggrid)
+        files = seggrid.grid.outdir.seggrid.padded.static.files(seggrid)
 
         self.static = files
         if not files.map(os.path.exists).all():
-            ingrid = seggrid.ingrid.broadcast
-            small_files = ingrid.file.static
-            big_files = ingrid.segtile.static
+            grid = seggrid.grid.broadcast
+            small_files = grid.file.static
+            big_files = grid.segtile.static
             assert (
-                ingrid.file.static
+                grid.file.static
                 .map(os.path.exists)
                 .all()
             )
-            ingrid._stitch2file(
-                row=ingrid.segtile.row,
-                col=ingrid.segtile.col,
+            grid._stitch2file(
+                row=grid.segtile.row,
+                col=grid.segtile.col,
                 tiles= small_files,
                 mosaics= big_files,
             )

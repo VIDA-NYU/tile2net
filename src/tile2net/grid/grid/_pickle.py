@@ -5,7 +5,7 @@ from tile2net.grid.frame.namespace import namespace
 from pathlib import Path
 import pooch
 
-from .ingrid import InGrid
+from .grid import Grid
 
 
 class VRAM24(
@@ -18,7 +18,7 @@ class VRAM24(
             pad=2,
             length=8,
             force=False,
-    ) -> InGrid:
+    ) -> Grid:
         path = Path(
             tempfile.gettempdir(),
             'tile2net',
@@ -29,7 +29,7 @@ class VRAM24(
                 not path.exists()
                 or force
         ):
-            result = InGrid.construct.vram24.from_boston_common(
+            result = Grid.construct.vram24.from_boston_common(
                 outdir=outdir,
                 location=location,
                 pad=pad,
@@ -37,14 +37,14 @@ class VRAM24(
             )
             result.to_pickle(path)
         else:
-            result = InGrid.from_pickle(path)
+            result = Grid.from_pickle(path)
         return result
 
 
-    def from_manhattan(self) -> InGrid:
+    def from_manhattan(self) -> Grid:
         ...
 
-    def from_portland(self) -> InGrid:
+    def from_portland(self) -> Grid:
         ...
 
     # def to_boston_common(
@@ -56,13 +56,13 @@ class VRAM24(
     #         path='../../tile2net-pickle/VRAM24/boston_common.pkl',
     # ):
     #     """Small park in downtown Boston."""
-    #     ingrid = InGrid.construct.vram24.from_boston_common(
+    #     grid = Grid.construct.vram24.from_boston_common(
     #         outdir=outdir,
     #         location=location,
     #         pad=pad,
     #         length=length,
     #     )
-    #     result = ingrid.to_pickle(path)
+    #     result = grid.to_pickle(path)
     #     print(result.path)
     #     print(result.md5)
     #     return result
@@ -75,13 +75,13 @@ class VRAM24(
             length=None,
     ):
         path = Path(path) / 'VRAM24'
-        ingrid = InGrid.construct.vram24.from_boston_common(
+        grid = Grid.construct.vram24.from_boston_common(
             outdir=outdir,
             pad=pad,
             length=length,
         )
         p = path / 'boston_common.pkl'
-        result = ingrid.to_pickle(p)
+        result = grid.to_pickle(p)
         print(result.path)
         print(result.md5)
 
@@ -108,7 +108,7 @@ class Pickle(
 if __name__ == '__main__':
     ...
 
-    # InGrid.pickle.vram24.to_dir(
+    # Grid.pickle.vram24.to_dir(
     #     '../../tile2net-pickle',
     # )
-    # InGrid
+    # Grid

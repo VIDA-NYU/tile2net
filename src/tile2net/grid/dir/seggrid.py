@@ -4,6 +4,6 @@ from ..basegrid.basegrid import BaseGrid
 
 
 class SegGrid(
-    Grid,
+    BaseGrid,
 ):
     ...

@@ -6,7 +6,7 @@ from tile2net.grid.frame.namespace import namespace
 from .. import frame
 
 if False:
-    from .ingrid import InGrid
+    from .grid import Grid
 
 
 class VecTile(
@@ -16,18 +16,18 @@ class VecTile(
     Namespace for accessing vec-tile attributes aligned with in-tiles.
 
     See usage:
-        >>> InGrid.vectile
+        >>> Grid.vectile
     """
 
     @property
-    def ingrid(self) -> InGrid:
-        """Reference to parent InGrid instance."""
+    def grid(self) -> Grid:
+        """Reference to parent Grid instance."""
         return self.instance
 
     @property
-    def basegrid(self) -> InGrid:
+    def basegrid(self) -> Grid:
         """Reference to parent Grid instance."""
-        return self.ingrid
+        return self.grid
 
     @frame.column
     def xtile(self) -> pd.Series:
@@ -35,16 +35,16 @@ class VecTile(
         X coordinate of vec-tile in vecgrid space.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.xtile
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.xtile
             xtile  ytile
             79320  96960    9915
         """
-        ingrid = self.ingrid
+        grid = self.grid
 
-        vecgrid = ingrid.vecgrid
-        length = 2 ** (ingrid.scale - vecgrid.scale)
-        result = ingrid.xtile // length
+        vecgrid = grid.vecgrid
+        length = 2 ** (grid.scale - vecgrid.scale)
+        result = grid.xtile // length
 
         msg = 'All segtile.xtile must be in seggrid.xtile!'
         assert result.isin(vecgrid.xtile).all(), msg
@@ -56,16 +56,16 @@ class VecTile(
         Y coordinate of vec-tile in vecgrid space.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.ytile
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.ytile
             xtile  ytile
             79320  96960    12120
         """
-        ingrid = self.ingrid
+        grid = self.grid
 
-        vecgrid = ingrid.vecgrid
-        length = 2 ** (ingrid.scale - vecgrid.scale)
-        result = ingrid.ytile // length
+        vecgrid = grid.vecgrid
+        length = 2 ** (grid.scale - vecgrid.scale)
+        result = grid.ytile // length
 
         msg = 'All segtile.ytile must be in seggrid.ytile!'
         assert result.isin(vecgrid.ytile).all(), msg
@@ -77,8 +77,8 @@ class VecTile(
         MultiIndex of (xtile, ytile) for vec-tiles.
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.index
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.index
             MultiIndex([(9915, 12120),
                         (9915, 12120),
                         ...
@@ -96,11 +96,11 @@ class VecTile(
         Pixel dimension of each vec-tile (width and height are equal).
 
         Example:
-            >>> ingrid: InGrid
-            >>> ingrid.seggrid.vectile.dimension
+            >>> grid: Grid
+            >>> grid.seggrid.vectile.dimension
             8192
         """
-        return self.ingrid.vecgrid.dimension
+        return self.grid.vecgrid.dimension
 
     @property
     def length(self):
@@ -109,4 +109,4 @@ class VecTile(
 
         For example, if length is 4, each vec-tile is composed of 4x4 = 16 seg-tiles.
         """
-        return self.ingrid.vecgrid.length
+        return self.grid.vecgrid.length
