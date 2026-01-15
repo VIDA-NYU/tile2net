@@ -759,18 +759,6 @@ class BaseGrid(
         return self.frame.index
 
     @property
-    def indir(self):
-        """
-        Input Directory: location at which input imagery are stored and read from.
-        If using a remote source, images will be downloaded to this directory.
-
-
-        # Sets the input directory:
-        >>> Grid.set_indir
-        """
-        return self.grid.indir
-
-    @property
     def outdir(self):
         """
         Output in which the results, such as annotated images and geometry, will be stored:
@@ -1126,13 +1114,17 @@ class BaseGrid(
             self,
             instance: BaseGrid,
     ):
-        del instance.frame.__dict__[self.__name__]
+        try:
+            del instance.frame.__dict__[self.__name__]
+        except KeyError:
+            ...
 
     def __set__(
             self,
             instance: BaseGrid,
             value,
     ):
+        # todo: maybe should be copy
         instance.frame.__dict__[self.__name__] = value
 
     @cached_property

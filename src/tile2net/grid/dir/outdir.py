@@ -9,6 +9,7 @@ from tile2net.grid.dir import namedir, sourcedir
 from tile2net.grid.dir.dir import Dir
 from tile2net.grid.dir.exceptions import XYNotFoundError
 from tile2net.grid.dir.sourcedir import SourceDir
+from tile2net.grid.source.remote import Remote
 
 if TYPE_CHECKING:
     from .seggrid import SegGrid
@@ -86,7 +87,7 @@ class Outdir(
         else:
             raise TypeError(instance)
 
-        out.grid = instance
+        out.basegrid = instance
         return out
 
     locals().update(__get__=_get)
@@ -126,26 +127,18 @@ class Outdir(
 
     @SourceDir
     def sourcedir(self):
-        """
-        Handles lazy-loading of sourcedir:
-        >>> SourceDir._get
-        """
-        grid = self.grid
+        """Subdirectory named after the source. This si th eparent fo the project directory,
+        so that downloaded images may be reused across multiple projects. """
+        grid = self.basegrid
         name = None
-        try:
+        if isinstance(grid.source, Remote):
             name = grid.source.name
-        except ValueError:
-            ...
         if name is None:
             name = grid.cfg.indir.name
         if name is None:
             name = grid.indir.dir.rsplit(os.sep, 1)[-1]
-        format = os.path.join(
-            self.dir,
-            name,
-            self.suffix
-        )
-        result = SourceDir.from_template(format)
+        template = os.path.join(self.dir, name, self.suffix)
+        result = SourceDir.from_template(template)
         return result
 
     @property

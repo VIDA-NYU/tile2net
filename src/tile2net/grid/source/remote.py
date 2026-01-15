@@ -117,12 +117,13 @@ class Remote(
     zoom: int = 19
     """Default XYZ zoom level for the remote."""
 
+
     @property
     def url(self) -> pd.Series:
         """Generate URLs for all tiles in the attached grid."""
         grid = self.grid
         key = f'{self.__name__}.url'
-        if key not in grid:
+        if key not in grid.columns:
             template = self.template
             it = zip(grid.xtile.values, grid.ytile.values)
             obj = (
@@ -130,7 +131,10 @@ class Remote(
                 for xtile, ytile in it
             )
             arr = pa.array(obj, type=pa.string(), size=len(grid))
-            grid[key] = pd.Series(arr.to_pandas(), index=grid.index, dtype='string')
+            mapper = {pa.string(): pd.ArrowDtype(pa.string())}.get
+            out = arr.to_pandas(types_mapper=mapper)
+            out.index = grid.index
+            grid[key] = out
 
         return grid[key]
 
@@ -214,6 +218,7 @@ class Remote(
             f'{grid.__class__.__qualname__}.{grid.file.static.name} '
             f'from {self.name} to \\n\\t{grid.indir.dir} '
         )
+        grid.outdir.namedir
         logger.info(msg)
 
         pool_size = min(max_workers, len(mapping))

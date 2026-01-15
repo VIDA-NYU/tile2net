@@ -216,26 +216,6 @@ class Grid(
             >>> grid.Static.snapshot
         """
 
-    # @Indir
-    # def indir(self):
-    #     """
-    #     Input Directory: location at which input imagery are stored and read from.
-    #     If using a remote source, images will be downloaded to this directory.
-    #
-    #
-    #     # Sets the input directory:
-    #     >>> Grid.set_indir
-    #     """
-    #     raise ValueError('No input directory specified. ')
-    #     grid = self.grid.outdir.grid
-    #     format = os.path.join(
-    #         grid.dir,
-    #         'static',
-    #         f'z/x_y'
-    #     )
-    #     result = Indir.from_format(format)
-    #     return result
-
     @Outdir
     def outdir(self):
         """
@@ -469,7 +449,10 @@ class Grid(
     #
     #     return result
 
-    def set_source(self, source: Union[Source, str, None], ) -> Self:
+    def set_source(
+            self,
+            source: Union[Source, str, None] = None,
+    ) -> Self:
         """
         Assign a tile remote for downloading imagery.
 
@@ -504,7 +487,12 @@ class Grid(
         """
 
         result = self.copy()
-        result.source = source
+        if source is None:
+            del result.source
+            _ = result.source
+        else:
+            result.source = source
+
         return result
 
     # def set_outdir(

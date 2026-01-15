@@ -15,14 +15,14 @@ class Polygons(
 
     @property
     def parquet(self) -> str:
-        name = self.grid.name
+        name = self.basegrid.name
         filename = os.path.join(self.dir, 'parquet', f'{name}.parquet')
         Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
         return filename
 
     @property
     def preview(self) -> str:
-        name = self.grid.name
+        name = self.basegrid.name
         filename = os.path.join(self.dir, 'preview', f'{name}.png')
         Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
         return filename
@@ -34,14 +34,14 @@ class Network(
 
     @property
     def parquet(self) -> str:
-        name = self.grid.name
+        name = self.basegrid.name
         filename = os.path.join(self.dir, 'parquet', f'{name}.parquet')
         Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
         return filename
 
     @property
     def preview(self) -> str:
-        name = self.grid.name
+        name = self.basegrid.name
         filename = os.path.join(self.dir, 'preview', f'{name}.png')
         Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
         return filename
@@ -53,17 +53,17 @@ class SourceDir(
 
     @NameDir
     def namedir(self):
-        grid = self.grid
-        name = grid.cfg.name
-        if name is None:
-            name = grid
-        # format = os.path.join(
-        #     self.dir,
-        #     name,
-        #     self.suffix
-        # )
-        # result = NameDir.from_format(format)
-        result = NameDir.from_template(self, name=name)
+        """Subdirectory named after the particular directory.
+        Uses the passed name, location, or bounding box.
+        """
+        grid = self.basegrid
+        ymin, xmin, ymax, xmax = grid.lat_lon
+        name = (
+            grid.cfg.name
+            or grid.location
+            or f"{ymin:.2f},{xmin:.2f},{ymax:.2f},{xmax:.2f}"
+        )
+        result = NameDir.from_parent(self, name)
         return result
 
     @Network
@@ -76,4 +76,4 @@ class SourceDir(
 
     @Grid
     def grid(self):
-        return Grid.from_parent(self, 'grid', )
+        return Grid.from_parent(self, 'grid')

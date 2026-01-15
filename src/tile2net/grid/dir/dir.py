@@ -1,9 +1,13 @@
 from __future__ import annotations
+import pyarrow as pa
+import pyarrow.compute as pc
+from pathlib import Path
 
 import copy
 import os
 import re
 from collections import deque
+from functools import cached_property
 from pathlib import Path
 from typing import *
 
@@ -40,7 +44,7 @@ class Dir(
     original: str
     """Original path specification."""
 
-    extension: str
+    extension: str = ''
     """File extension."""
 
     suffix: str
@@ -49,8 +53,9 @@ class Dir(
     dir: str
     """Directory path."""
 
-    @weak.property
-    def grid(self) -> Optional[Grid]:
+    # @weak.property
+    @cached_property
+    def basegrid(self) -> Optional[Grid]:
         """The Grid instance this directory is attached to."""
         return
 
@@ -68,9 +73,8 @@ class Dir(
     ) -> Self:
         if instance is None:
             out = self
-        elif not isinstance(instance, Dir):
-            raise TypeError(instance)
-        else:
+            out.basegrid = None
+        elif isinstance(instance, Dir):
             cache = instance.__dict__
             name = self.__name__
             if name not in cache:
@@ -80,6 +84,9 @@ class Dir(
                     value = self.from_parent(instance, name, self.extension)
                 self.__set__(instance, value=value)
             out = cache[name]
+            out.basegrid = instance.basegrid
+        else:
+            raise TypeError(instance)
         return out
 
     locals().update(__get__=_get)
@@ -124,8 +131,10 @@ class Dir(
                 parent.suffix
                 .rsplit('.')
                 [0]
-                + f'.{extension}'
+                + f''
         )
+        if extension:
+            suffix += f'.{extension.lstrip(".")}'
         item = os.path.join(parent.dir, name, suffix)
         out = cls.from_template(item)
         return out
@@ -205,26 +214,19 @@ class Dir(
         parts.extend([r[0], f'{{{r[1]}}}', r[2]])
         for r in list(result)[1:]:
             parts.extend([f'{{{r[1]}}}', r[2]])
-        indir.template = ''.join(parts) + (ext if ext else '')
+        indir.template = ''.join(parts)
+        if ext:
+            indir.template += ext
         indir.dir = parts[0].rsplit('/', 1)[0]
         indir.suffix = os.path.relpath(indir.original, indir.dir)
         return indir
-
-    def with_template(self, template: str = None):
-        if template is None:
-            template = self.grid.cfg.template
-        template = os.path.join(
-            self.dir,
-            template,
-        )
-        result = self.__class__.from_template(template)
-        return result
 
     def files(
             self,
             grid: BaseGrid,
             dirname=''
     ) -> pd.Series:
+        """Given the specifications of the grid, return a Series of filepaths for each tile."""
         suffix = (
             self.template
             .removeprefix(self.dir)
@@ -232,16 +234,28 @@ class Dir(
         )
         template = os.path.join(self.dir, dirname, suffix)
         zoom = grid.zoom
+
+        # most scalable series construction
         it = zip(grid.xtile.values, grid.ytile.values)
         obj = (
             template.format(z=zoom, y=ytile, x=xtile)
             for xtile, ytile in it
         )
         data = pa.array(obj, type=pa.string(), size=len(grid))
-        for p in {Path(p).parent for p in data}:
-            p.mkdir(parents=True, exist_ok=True)
-        result = pd.Series(data, index=grid.index, dtype='str')
-        return result
+        mapper = {pa.string(): pd.ArrowDtype(pa.string())}.get
+        out = data.to_pandas(types_mapper=mapper)
+        out.index = grid.index
+
+        # makedirs
+        unique_parents = (
+            out.str.rsplit(os.sep, n=1)
+            .list[0]
+            .unique()
+        )
+        for d in unique_parents:
+            os.makedirs(d, exist_ok=True)
+
+        return out
 
     @classmethod
     def _match(

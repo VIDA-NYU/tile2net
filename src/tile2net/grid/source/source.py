@@ -83,6 +83,7 @@ class Source:
             )
             raise TypeError(msg)
         instance.__dict__[self.__name__] = value
+        value.__name__ = self.__name__
 
     def __delete__(self, instance: Grid):
         try:
