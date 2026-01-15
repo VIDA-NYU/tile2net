@@ -9,7 +9,7 @@ import geopandas as gpd
 import shapely
 
 from tile2net.grid.frame.weak import weak
-from tile2net.grid.grid.grid import Grid
+from tile2net.grid.basegrid.basegrid import BaseGrid
 from tile2net.logger import logger
 
 if TYPE_CHECKING:
@@ -91,7 +91,7 @@ class Source:
             ...
 
     @classmethod
-    def from_grid(cls, value: Grid) -> Self:
+    def from_grid(cls, value: BaseGrid) -> Self:
         from .remote import Remote
         bbox_geom = shapely.geometry.box(*value.frame.total_bounds)
         out = (

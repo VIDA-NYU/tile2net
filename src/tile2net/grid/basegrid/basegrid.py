@@ -36,13 +36,8 @@ if False:
     from ..ingrid.ingrid import InGrid
     from ..vecgrid.vecgrid import VecGrid
 
-test = wraps(int)
 
-# thread-local store
-tls = threading.local()
-
-
-class Grid(
+class BaseGrid(
     FrameWrapper,
 ):
 
@@ -292,16 +287,16 @@ class Grid(
 
         Examples:
             Create a grid from an address. Zoom will default to that given by the Source:
-            >>> grid = Grid.from_location('Times Square, New York')
+            >>> grid = BaseGrid.from_location('Times Square, New York')
 
             Create a grid from coordinates (lat1, lon1, lat2, lon2):
-            >>> grid = Grid.from_location('42.3601,-71.0589,42.3551,-71.0539', zoom=20)
+            >>> grid = BaseGrid.from_location('42.3601,-71.0589,42.3551,-71.0539', zoom=20)
 
             Create a grid from tile coordinates (xtile1, ytile1, xtile2, ytile2):
-            >>> grid = Grid.from_location('317280,387840,317281,387841', zoom=20)
+            >>> grid = BaseGrid.from_location('317280,387840,317281,387841', zoom=20)
             
             Create a grid from a tuple of tile coordinates:
-            >>> grid = Grid.from_location((317280, 387840, 317312, 387872), zoom=20)
+            >>> grid = BaseGrid.from_location((317280, 387840, 317312, 387872), zoom=20)
         """
         # handle tuple/list input
         if isinstance(location, (tuple, list)):
@@ -662,7 +657,7 @@ class Grid(
     @classmethod
     def from_rescale(
             cls,
-            grid: Grid,
+            grid: BaseGrid,
             scale: int,
             fill: bool = True,
     ) -> Self:
@@ -747,7 +742,7 @@ class Grid(
         Namespace container for configuration options of a Grid.
 
         Example:
-            >>> grid: Grid
+            >>> grid: BaseGrid
             # access zoom level config
             >>> grid.cfg.zoom
             20
@@ -1123,13 +1118,13 @@ class Grid(
 
     def __delete__(
             self,
-            instance: Grid,
+            instance: BaseGrid,
     ):
         del instance.frame.__dict__[self.__name__]
 
     def __set__(
             self,
-            instance: Grid,
+            instance: BaseGrid,
             value,
     ):
         instance.frame.__dict__[self.__name__] = value

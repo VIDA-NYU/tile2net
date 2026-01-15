@@ -1,44 +1,41 @@
 from __future__ import annotations
-from typing import Self
 
 import copy
 from functools import *
 from pathlib import Path
-from typing import overload
+from typing import *
 
 import gdown
 from PIL import Image
 
-if False:
-    from tile2net.grid.grid.grid import Grid
-
+if TYPE_CHECKING:
+    from tile2net.grid.basegrid.basegrid import BaseGrid
 
 
 class Static:
-    grid: Grid
-
+    basegrid: BaseGrid
 
     def _get(
             self,
-            instance: Grid,
-            owner: type[Grid]
+            instance: BaseGrid,
+            owner: type[BaseGrid]
     ) -> Self:
         out = copy.copy(self)
-        out.grid = instance
+        out.basegrid = instance
         return out
 
     locals().update(__get__=_get)
 
     @cached_property
     def black(self):
-        dim = self.grid.dimension
+        dim = self.basegrid.dimension
         path = self.path.joinpath(str(dim), 'black.png')
         if not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
             Image.new('RGB', (dim, dim), (0, 0, 0)).save(path)
         return path
 
-    def __init__(self, *args, ):
+    def __init__(self, *args):
         ...
 
     """Static directory into which weights are saved."""
@@ -70,13 +67,3 @@ class Static:
         .absolute().__fspath__()
     )
 
-    # @cached_property
-    # def black(self) -> Path:
-    #     dim: int = self.grid.dimension
-    #     path: Path = self.path.joinpath(str(dim), 'black.png')
-    #
-    #     if not path.exists():
-    #         path.parent.mkdir(parents=True, exist_ok=True)
-    #         Image.new('RGB', (dim, dim), (0, 0, 0)).save(path)
-    #
-    #     return path

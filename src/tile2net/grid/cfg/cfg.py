@@ -18,13 +18,12 @@ from typing import *
 from typing import TypeVar, Callable
 
 import torch
-from toolz.curried import *
 
 from tile2net.grid.cfg import cmdline
 from tile2net.grid.cfg.colormap import ColorMap
 
 if False:
-    from ..grid import Grid
+    from ..basegrid.basegrid import BaseGrid
 
 T = TypeVar('T')
 
@@ -700,7 +699,7 @@ class Model(cmdline.Namespace):
         """
         Path to HRNet checkpoint
         """
-        from tile2net.grid.grid.static import Static
+        from tile2net.grid.basegrid.static import Static
         return Static.hrnet_checkpoint
 
     @cmdline.property
@@ -708,7 +707,7 @@ class Model(cmdline.Namespace):
         """
         Path to the model snapshot
         """
-        from tile2net.grid.grid.static import Static
+        from tile2net.grid.basegrid.static import Static
         return Static.snapshot
 
     @cmdline.property
@@ -1135,9 +1134,9 @@ class Cfg(
     cmdline.Namespace
 ):
     grid = None
-    grid: Grid
-    instance: Grid = None
-    owner: Type[Grid] = None
+    grid: BaseGrid
+    instance: BaseGrid = None
+    owner: Type[BaseGrid] = None
     __name__ = ''
     _active = True
 
@@ -1183,8 +1182,8 @@ class Cfg(
 
     def _get(
             self,
-            instance: Grid,
-            owner: type[Grid]
+            instance: BaseGrid,
+            owner: type[BaseGrid]
     ) -> Self:
         if instance is None:
             result = self

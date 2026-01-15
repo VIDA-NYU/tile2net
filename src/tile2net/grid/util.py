@@ -7,8 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 if False:
-    from ..grid.grid.grid import Grid
-    import folium
+    from .basegrid.basegrid import BaseGrid
 import pandas as pd
 
 import ast
@@ -32,8 +31,7 @@ from numpy import ndarray
 from tile2net.grid.cfg.logger import logger
 
 if False:
-    from ..grid.grid.grid import Grid
-    import folium
+    from .basegrid.basegrid import BaseGrid
 
 
 @singledispatch
@@ -425,7 +423,7 @@ class RecursionBlock:
     returns True if the function is currently being executed
     """
     __wrapped__: Callable[..., Any] = None
-    grid: Grid = None
+    basegrid: BaseGrid = None
     block: RecursionBlock = None
 
     def __init__(self, func: Callable[..., Any]):
@@ -433,7 +431,7 @@ class RecursionBlock:
 
     def __bool__(self):
         return (
-                self.grid.__dict__
+                self.basegrid.__dict__
                 .get(self.__name__)
                 is not None
         )
@@ -443,7 +441,7 @@ class RecursionBlock:
 
     def __get__(
             self,
-            instance: Grid,
+            instance: BaseGrid,
             owner
     ):
         if instance is None:
@@ -453,7 +451,7 @@ class RecursionBlock:
         else:
             result = copy.copy(self)
 
-        result.grid = instance
+        result.basegrid = instance
         return result
 
     def __call__(
@@ -464,17 +462,17 @@ class RecursionBlock:
         with self:
             return (
                 self.__wrapped__
-                .__get__(self.grid, self.__class__)
+                .__get__(self.basegrid, self.__class__)
                 (*args, **kwargs)
             )
 
     def __enter__(self):
-        self.grid.__dict__.setdefault(self.__name__, self)
+        self.basegrid.__dict__.setdefault(self.__name__, self)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.grid.__dict__.get(self.__name__) is self:
-            del self.grid.__dict__[self.__name__]
+        if self.basegrid.__dict__.get(self.__name__) is self:
+            del self.basegrid.__dict__[self.__name__]
         return False
 
     def __set__(
@@ -501,8 +499,8 @@ else:
 
 
 def assert_perfect_overlap(
-        a: Grid,
-        b: Grid,
+        a: BaseGrid,
+        b: BaseGrid,
 ):
     scale = min(a.scale, b.scale)
     needles = (

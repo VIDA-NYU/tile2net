@@ -10,7 +10,6 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, wait, FI
 from functools import cached_property
 from pathlib import Path
 from typing import *
-from typing import overload
 
 import PIL.Image
 import geopandas as gpd
@@ -27,14 +26,14 @@ from tqdm.auto import tqdm
 from tile2net.grid.cfg.logger import logger
 from .feature import Feature
 from .file import File
-from .network import Network
 from .mask2poly import Mask2Poly
+from .network import Network
 from .padded import Padded
 from .polygons import Polygons
 from .. import frame
+from ..basegrid.basegrid import BaseGrid
 from ..cfg.cfg import Cfg
-from ..grid.corners import Corners
-from ..grid.grid import Grid
+from ..basegrid.corners import Corners
 from ..loaders.dataset import DataSet
 from ..loaders.vec import VecDataSet, VecDataWrapper
 from ..pednet import PedNet
@@ -58,7 +57,7 @@ class VectorizeTask(NamedTuple):
     cfg: Cfg
 
 
-class VecGrid(Grid):
+class VecGrid(BaseGrid):
     """
     "Vectorization Grid" (VecGrid), comprised of "vectorization tiles" (vec-tiles).
     Each vec-tile is a large tile composed of one or more SegGrid tiles, used for
@@ -95,7 +94,7 @@ class VecGrid(Grid):
     def __get__(
             self,
             instance: InGrid,
-            owner: type[Grid],
+            owner: type[BaseGrid],
     ) -> Self:
         """
         Lazy-load factory method for accessing VecGrid from InGrid

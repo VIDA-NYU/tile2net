@@ -45,8 +45,6 @@ from tile2net.grid.cfg import cfg
 
 if False:
     from ...seggrid import SegGrid
-    from ...grid import Grid
-
 
 class LoaderBundle(NamedTuple):
     train_loader: Optional[DataLoader]

@@ -15,7 +15,7 @@ from ..cfg import cfg
 
 if False:
     from tile2net.grid.frame import column
-    from tile2net.grid.grid.grid import Grid
+    from tile2net.grid.basegrid.basegrid import BaseGrid
     from tile2net.grid.ingrid import InGrid
 
 from .. import frame
@@ -29,7 +29,7 @@ class File(
         ...
 
     @property
-    def grid(self) -> Grid:
+    def basegrid(self) -> BaseGrid:
         return self.instance
 
     @frame.column
@@ -50,7 +50,6 @@ class File(
         raise NotImplementedError(msg)
         # todo: tell user to look at specific grid.file.pred
 
-
     @frame.column
     def prob(self) -> pd.Series:
         """
@@ -66,7 +65,6 @@ class File(
         raise NotImplementedError(msg)
         # todo: tell user to look at specific grid.file.prob
 
-
     @frame.column
     def colorized(self) -> pd.Series:
         """
@@ -80,7 +78,7 @@ class File(
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
-        grid = self.grid
+        grid = self.basegrid
         name = grid.__name__
         FILES = (
             getattr(grid.outdir, name)
@@ -95,7 +93,7 @@ class File(
             probs = self.prob[loc]
             preds = self.pred[loc]
             files = FILES[loc]
-            max_workers = min(self.grid.cfg.compress_workers, len(files))
+            max_workers = min(self.basegrid.cfg.compress_workers, len(files))
             it = zip(probs, preds, files)
             with ThreadPoolExecutor(max_workers=max_workers) as threads:
                 futures: dict[Future, str] = {
@@ -132,7 +130,7 @@ class File(
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
-        grid = self.grid
+        grid = self.basegrid
         name = grid.__name__
         FILES = (
             getattr(grid.ingrid.outdir, name)
@@ -148,7 +146,7 @@ class File(
             probs = self.prob.loc[loc]
             preds = self.pred.loc[loc]
 
-            max_workers = min(len(files), self.grid.cfg.compress_workers)
+            max_workers = min(len(files), self.basegrid.cfg.compress_workers)
             with ThreadPoolExecutor(max_workers=max_workers) as threads:
                 it = zip(probs, preds, files)
                 futures: dict[Future, str] = {
@@ -185,7 +183,7 @@ class File(
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
-        grid = self.grid
+        grid = self.basegrid
         name = grid.__name__
         FILES = (
             getattr(grid.outdir, name)
@@ -201,7 +199,7 @@ class File(
             statics = self.static.loc[loc]
             colorized = self.colorized.loc[loc]
 
-            max_workers = min(len(files), self.grid.cfg.compress_workers)
+            max_workers = min(len(files), self.basegrid.cfg.compress_workers)
             with ThreadPoolExecutor(max_workers=max_workers) as threads:
                 it = zip(statics, colorized, files)
                 futures: dict[Future, str] = {
@@ -238,7 +236,7 @@ class File(
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
-        grid = self.grid
+        grid = self.basegrid
         name = grid.__name__
         FILES = (
             getattr(grid.ingrid.outdir, name)
@@ -254,7 +252,7 @@ class File(
             statics = self.static.loc[loc]
             colored = self.colored.loc[loc]
 
-            max_workers = min(len(files), self.grid.cfg.compress_workers)
+            max_workers = min(len(files), self.basegrid.cfg.compress_workers)
             with ThreadPoolExecutor(max_workers=max_workers) as threads:
                 it = zip(statics, colored, files)
                 futures: dict[Future, str] = {
@@ -287,7 +285,7 @@ class File(
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
         raise NotImplementedError('requires GT')
-        grid = self.grid
+        grid = self.basegrid
         name = grid.__name__
         FILES = (
             getattr(grid.ingrid.outdir, name)
@@ -301,7 +299,7 @@ class File(
             preds = self.pred[loc]
             files = files[loc]
 
-            max_workers = min(self.grid.cfg.compress_workers, len(files))
+            max_workers = min(self.basegrid.cfg.compress_workers, len(files))
             it = zip(probs, preds, files)
             with ThreadPoolExecutor(max_workers=max_workers) as threads:
                 ...
@@ -329,7 +327,7 @@ class File(
 
         # todo: examples
         """
-        grid = self.grid
+        grid = self.basegrid
         name = grid.__name__
         FILES = (
             getattr(grid.ingrid.outdir, name)
@@ -344,7 +342,7 @@ class File(
             files = FILES.loc[loc]
             probs = self.prob.loc[loc]
 
-            max_workers = min(len(files), self.grid.cfg.compress_workers)
+            max_workers = min(len(files), self.basegrid.cfg.compress_workers)
             with ThreadPoolExecutor(max_workers=max_workers) as threads:
                 futures: dict[Future, str] = {
                     threads.submit(self._compute_soft, prob, file): file
@@ -360,7 +358,6 @@ class File(
             )
 
         return FILES
-
 
     @classmethod
     def _compute_colorized(
@@ -609,4 +606,3 @@ class File(
             raise
 
         return output_file
-

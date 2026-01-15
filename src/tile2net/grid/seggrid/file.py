@@ -12,7 +12,7 @@ import torch
 
 from .postprocess import PostProcess
 from .. import frame
-from ..grid import file
+from ..basegrid import file
 from ...grid import util
 
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
@@ -32,7 +32,7 @@ def sha256sum(path):
 class File(
     file.File
 ):
-    grid: SegGrid
+    basegrid: SegGrid
 
     @PostProcess
     def postprocess(self) -> pd.Series:
@@ -46,7 +46,7 @@ class File(
         A file for each seg-tile: the stitched input grid.
         Stitches input files when seggrid.file is accessed
         """
-        grid = self.grid
+        grid = self.basegrid
         files = grid.ingrid.outdir.seggrid.static.files(grid)
         self.static = files
         if (
@@ -85,7 +85,7 @@ class File(
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
-        grid = self.grid.broadcast
+        grid = self.basegrid.broadcast
         files = grid.outdir.seggrid.pred.files(grid)
         loc = ~files.index.duplicated()
         files = files.loc[loc]
@@ -111,7 +111,7 @@ class File(
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
-        grid = self.grid.broadcast
+        grid = self.basegrid.broadcast
         files = grid.outdir.seggrid.prob.files(grid)
         loc = ~files.index.duplicated()
         files = files.loc[loc]

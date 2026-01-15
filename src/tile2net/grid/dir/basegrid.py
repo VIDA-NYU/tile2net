@@ -7,7 +7,7 @@ import os
 class Postprocess(
     Dir
 ):
-    grid: Grid
+    basegrid: BaseGrid
 
     @Dir
     def pred(self):
@@ -34,7 +34,7 @@ class Postprocess(
         ...
 
 
-class Grid(
+class BaseGrid(
     Dir,
 ):
     padded: Padded
@@ -81,11 +81,11 @@ class Grid(
 
 
 class Padded(
-    Grid
+    BaseGrid
 ):
     ...
 
 
 padded = Padded()
-Grid.padded = padded
-padded.__set_name__(Grid, 'padded')
+BaseGrid.padded = padded
+padded.__set_name__(BaseGrid, 'padded')

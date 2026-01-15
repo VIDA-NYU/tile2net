@@ -3,9 +3,7 @@ from __future__ import annotations
 import copy
 import os
 import re
-from abc import abstractmethod
 from collections import deque
-from functools import *
 from pathlib import Path
 from typing import *
 
@@ -17,7 +15,7 @@ from tile2net.grid.frame.namespace import namespace
 from tile2net.grid.frame.weak import weak
 
 if TYPE_CHECKING:
-    from ..grid.grid import Grid
+    from ..basegrid.basegrid import BaseGrid
     from ..ingrid.ingrid import InGrid
 
 
@@ -224,7 +222,7 @@ class Dir(
 
     def files(
             self,
-            grid: Grid,
+            grid: BaseGrid,
             dirname=''
     ) -> pd.Series:
         suffix = (

@@ -1,31 +1,23 @@
 from __future__ import annotations
-from torch.nn.parallel import DataParallel
-from contextlib import contextmanager
-from functools import singledispatchmethod, singledispatch
 
-import ctypes
-import time
-from dataclasses import dataclass, field
-from functools import cached_property
+from dataclasses import dataclass
+from functools import singledispatch, cached_property
 from typing import *
 from typing import Optional
 
 import cv2
 import numpy as np
-import pandas as pd
 import torch
+from torch.nn.parallel import DataParallel
 
 from tile2net.grid.cfg import cfg
-from tile2net.grid.cfg.logger import logger
-from tile2net.tileseg.utils.misc import fast_hist, fmt_scale
+from tile2net.tileseg.utils.misc import fast_hist
 from .submit import Submit
 
 # cv2.setNumThreads(1)
 
-if False:
+if TYPE_CHECKING:
     from .seggrid import SegGrid
-    from tile2net.grid import Grid
-    from tile2net.grid.ingrid import InGrid
 
 
 def to_numpy(obj: Any):

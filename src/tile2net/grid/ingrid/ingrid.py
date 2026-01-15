@@ -18,8 +18,8 @@ from tile2net.grid.cfg.cfg import Cfg
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.dir.outdir import Outdir
 from tile2net.grid.dir.tempdir import TempDir
-from tile2net.grid.grid.grid import Grid
-from tile2net.grid.grid.static import Static
+from tile2net.grid.basegrid.basegrid import BaseGrid
+from tile2net.grid.basegrid.static import Static
 from tile2net.grid.ingrid import delayed
 from tile2net.grid.ingrid.file import File
 from tile2net.grid.ingrid.network import Network
@@ -40,7 +40,7 @@ if False:
 
 
 class InGrid(
-    Grid
+    BaseGrid
 ):
     """
     "Input Grid" (InGrid), comprised of "input tiles" (in-tiles).
@@ -525,7 +525,7 @@ class InGrid(
     #     >>> ingrid: InGrid
     #     >>> ingrid: InGrid = ingrid.set_outdir('/path/to/output')
     #     """
-    #     result: Grid = self.copy()
+    #     result: BaseGrid = self.copy()
     #
     #     if not outdir:
     #         outdir = cfg.outdir

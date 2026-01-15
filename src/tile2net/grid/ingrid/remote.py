@@ -163,7 +163,7 @@ T = TypeVar('T')
 class Remote(
     ABC,
 ):
-    grid: InGrid
+    basegrid: InGrid
     catalog: dict[str, type[Remote]] = {}
     outdated: bool = False
 
@@ -177,7 +177,7 @@ class Remote(
         """Return the remote object for the grid instance."""
         try:
             result = instance.__dict__[self.__name__]
-            result.grid = instance
+            result.basegrid = instance
             result.InGrid = owner
         except KeyError as e:
             msg = (
@@ -282,7 +282,7 @@ class Remote(
     @property
     def urls(self) -> pd.Series:
         """Given some grid, return the URL for the images"""
-        grid = self.grid
+        grid = self.basegrid
         temp = self.template
         zoom = grid.zoom
         it = zip(grid.ytile, grid.xtile)

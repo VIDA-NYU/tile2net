@@ -5,7 +5,7 @@ import os
 import pandas as pd
 
 from tile2net.grid import frame
-from tile2net.grid.grid import file
+from tile2net.grid.basegrid import file
 
 if False:
     from tile2net.grid.seggrid import SegGrid
@@ -14,7 +14,7 @@ if False:
 class PostProcess(
     file.File
 ):
-    grid: SegGrid
+    basegrid: SegGrid
     """
     Namespace for work-in-progress postprocessing of segmentation results. 
     
@@ -25,7 +25,7 @@ class PostProcess(
     @frame.column
     def pred(self) -> pd.Series:
         """Segmentation masks, where each pixel is a class id"""
-        grid = self.grid
+        grid = self.basegrid
         files = grid.ingrid.outdir.seggrid.postprocess.pred.files(grid)
         self.pred = files
         if (
@@ -44,7 +44,7 @@ class PostProcess(
 
     @frame.column
     def prob(self) -> pd.Series:
-        grid = self.grid
+        grid = self.basegrid
         files = grid.ingrid.outdir.seggrid.postprocess.prob.files(grid)
         self.probability = files
         if (
@@ -63,7 +63,7 @@ class PostProcess(
 
     @frame.column
     def error(self) -> pd.Series:
-        grid = self.grid
+        grid = self.basegrid
         files = grid.ingrid.outdir.seggrid.postprocess.error.files(grid)
         self.error = files
         if (
@@ -82,7 +82,7 @@ class PostProcess(
 
     @frame.column
     def colorized(self) -> pd.Series:
-        grid = self.grid
+        grid = self.basegrid
         files = grid.ingrid.outdir.seggrid.postprocess.colorized.files(grid)
         self.colorized = files
         if (
@@ -101,7 +101,7 @@ class PostProcess(
 
     @frame.column
     def intensity(self) -> pd.Series:
-        grid = self.grid
+        grid = self.basegrid
         files = grid.ingrid.outdir.seggrid.postprocess.intensity.files(grid)
         self.intensity = files
         if (

@@ -26,7 +26,7 @@ class SegTile(
         return self.instance
 
     @property
-    def grid(self) -> InGrid:
+    def basegrid(self) -> InGrid:
         """Reference to the parent InGrid instance."""
         return self.ingrid
 
@@ -56,9 +56,9 @@ class SegTile(
     @frame.column
     def itile(self):
         """Integer identifier for each seg-tile."""
-        seggrid = self.grid.seggrid.broadcast
+        seggrid = self.basegrid.seggrid.broadcast
         result = (
-            self.grid.seggrid.broadcast.itile
+            self.basegrid.seggrid.broadcast.itile
             .loc[~seggrid.index.duplicated()]
             .loc[self.index]
             .values
@@ -155,12 +155,12 @@ class SegTile(
     @property
     def pad(self) -> int:
         """Number of in-tiles to pad each seg-tile by."""
-        return self.grid.cfg.segmentation.pad
+        return self.basegrid.cfg.segmentation.pad
 
     @pad.setter
     def pad(self, value: int) -> None:
-        self.grid.cfg.segmentation.pad = value
+        self.basegrid.cfg.segmentation.pad = value
 
     @pad.deleter
     def pad(self) -> None:
-        del self.grid.cfg.segmentation.pad
+        del self.basegrid.cfg.segmentation.pad

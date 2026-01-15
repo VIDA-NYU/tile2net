@@ -20,7 +20,7 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 import tile2net.tileseg.transforms.transforms as extended_transforms
 from tile2net.grid.cfg.cfg import Cfg
 from tile2net.grid.cfg.logger import logger
-from tile2net.grid.grid.static import Static
+from tile2net.grid.basegrid.static import Static
 from tile2net.grid.loaders.sample import SampleDataWrapper
 from tile2net.grid.loaders.sampler import DistributedSampler
 from tile2net.grid.loaders.val import ValDataSet, ValDataLoader

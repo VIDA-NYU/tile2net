@@ -13,7 +13,7 @@ if False:
     from tile2net.grid.ingrid import InGrid
 
 from .. import frame
-from tile2net.grid.grid import file
+from tile2net.basegrid.basegrid import file
 
 if False:
     from .ingrid import InGrid
@@ -23,11 +23,11 @@ class File(
     file.File
 ):
     instance: InGrid
-    grid: InGrid
+    basegrid: InGrid
 
     @frame.column
     def static(self):
-        grid = self.grid
+        grid = self.basegrid
         source = grid.source
         if isinstance(source, Remote):
             files = grid.outdir.ingrid.files(grid)
@@ -57,7 +57,7 @@ class File(
         # TODO: update
         """
 
-        ingrid = self.grid
+        ingrid = self.basegrid
         files = ingrid.outdir.ingrid.pred.files(ingrid)
         self.pred = files
         if (
@@ -82,7 +82,7 @@ class File(
         File-paths to color-coded segmentation masks for visualization.
         # TODO: update
         """
-        ingrid = self.grid
+        ingrid = self.basegrid
         files = ingrid.outdir.ingrid.prob.files(ingrid)
         self.prob = files
         loc = ~files.map(os.path.exists)
@@ -104,16 +104,16 @@ class File(
 
     @frame.property
     def network(self):
-        file = self.grid.outdir.network.parquet
+        file = self.basegrid.outdir.network.parquet
         self.network = file
         if not self:
-            _ = self.grid.network
+            _ = self.basegrid.network
         return file
 
     @frame.property
     def polygons(self):
-        file = self.grid.outdir.polygons.parquet
+        file = self.basegrid.outdir.polygons.parquet
         self.polygons = file
         if not self:
-            _ = self.grid.polygons
+            _ = self.basegrid.polygons
         return file

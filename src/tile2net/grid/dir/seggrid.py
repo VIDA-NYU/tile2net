@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .grid import Grid
+from ..basegrid.basegrid import BaseGrid
 
 
 class SegGrid(

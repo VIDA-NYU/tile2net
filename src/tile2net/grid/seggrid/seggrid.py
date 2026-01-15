@@ -1,24 +1,19 @@
 from __future__ import annotations
-from tile2net.grid.seggrid.minibatch import MiniBatch
 
 import copy
 import os
-import subprocess
-import sys
-import tempfile
 from functools import *
 from pathlib import Path
 from typing import *
 
+from tile2net.grid.basegrid.basegrid import BaseGrid
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.frame.namespace import namespace
-from tile2net.grid.grid.grid import Grid
-from tile2net.grid.loaders.sample import SampleDataWrapper
+from tile2net.grid.sampler.benchmark import Benchmark
 from tile2net.grid.seggrid import delayed
 from tile2net.grid.seggrid.file import File
 from tile2net.grid.seggrid.padded import Padded
 from tile2net.grid.seggrid.vectile import VecTile
-from tile2net.grid.sampler.benchmark import Benchmark
 
 if False:
     from ..dir import Outdir
@@ -28,7 +23,7 @@ if False:
 
 
 class SegGrid(
-    Grid,
+    BaseGrid,
 ):
     """
     "Segmentation Grid" (SegGrid), comprised of "Segmentation Tiles" (seg-tiles).
@@ -84,7 +79,7 @@ class SegGrid(
             xtile ytile
             79320 96960 -7.911538e+06  5.214840e+06 -7.911385e+06  5.214687e+06
         """
-        self = namespace.__get__(self, instance, owner)
+        self = namespace._get(self, instance, owner)
         if instance is None:
             return copy.copy(self)
         cache = instance.frame.__dict__
@@ -135,7 +130,7 @@ class SegGrid(
             >>> ingrid.seggrid.length
             4
         """
-        ingrid = self.grid.ingrid
+        ingrid = self.basegrid.ingrid
         result = 2 ** (ingrid.scale - self.scale)
         return result
 
@@ -152,20 +147,20 @@ class SegGrid(
             >>> ingrid.seggrid.dimension
             1024
         """
-        seggrid = self.grid
+        seggrid = self.basegrid
         ingrid = seggrid.ingrid
         result = ingrid.dimension * self.length
         return result
 
     @property
-    def grid(self):
+    def basegrid(self):
         """Reference to the parent instance."""
         return self.instance
 
     @property
     def ingrid(self) -> InGrid:
         """Reference to the parent InGrid instance."""
-        return self.grid
+        return self.basegrid
 
     @property
     def outdir(self) -> Outdir:

@@ -9,7 +9,7 @@ from tile2net.grid.util import returns_or_assigns
 from .wrapper import Wrapper
 
 if False:
-    from tile2net.grid.grid.grid import Grid
+    from tile2net.grid.basegrid.basegrid import BaseGrid
 
 TGrid = TypeVar('TGrid', covariant=True)
 
@@ -19,6 +19,22 @@ class namespace(
     __wrapped__ = None
     __name__ = None
     instance: object
+
+    @overload
+    def _get[T](
+            self: T,
+            instance,
+            owner
+    ) -> T:
+        ...
+
+    @overload
+    def _get[T](
+            self: T,
+            instance,
+            owner
+    ) -> T:
+        ...
 
     def _get(
             self,
@@ -55,13 +71,13 @@ class namespace(
 
     def __delete__(
             self,
-            instance: Grid,
+            instance: BaseGrid,
     ):
         del instance.__dict__[self.__name__]
 
     def __set__(
             self,
-            instance: Grid,
+            instance: BaseGrid,
             value: namespace,
     ):
         instance.__dict__[self.__name__] = value

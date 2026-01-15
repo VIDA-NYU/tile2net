@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Self
 
 from .ingrid import InGrid
-from ..grid import filled
+from ..basegrid import filled
 
 if False:
     from ..seggrid.seggrid import SegGrid

@@ -27,7 +27,7 @@ class VecTile(
         return self.instance
 
     @property
-    def grid(self) -> SegGrid:
+    def basegrid(self) -> SegGrid:
         """Reference to the parent SegGrid instance"""
         return self.seggrid
 
@@ -127,7 +127,7 @@ class VecTile(
             79320  96960    0
         """
         result = (
-            self.grid.vecgrid.itile
+            self.basegrid.vecgrid.itile
             .loc[self.index]
             .values
         )
@@ -224,7 +224,7 @@ class VecTile(
                    96966    6
         """
 
-        ytile = self.grid.ytile.to_series()
+        ytile = self.basegrid.ytile.to_series()
         result = (
             ytile
             .groupby(self.ytile.values)
@@ -248,7 +248,7 @@ class VecTile(
                    96961    0
             79327  96967    7
         """
-        xtile = self.grid.xtile.to_series()
+        xtile = self.basegrid.xtile.to_series()
         result = (
             xtile
             .groupby(self.xtile.values)
@@ -271,7 +271,7 @@ class VecTile(
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
         result = (
-            self.grid.vecgrid.file.polygons
+            self.basegrid.vecgrid.file.polygons
             .loc[self.index]
             .values
         )
@@ -289,7 +289,7 @@ class VecTile(
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
         result = (
-            self.grid.vecgrid.file.lines
+            self.basegrid.vecgrid.file.lines
             .loc[self.index]
             .values
         )
@@ -400,7 +400,7 @@ class VecTile(
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
         result = (
-            self.grid.vecgrid.file.polygons
+            self.basegrid.vecgrid.file.polygons
             .loc[self.index]
             .values
         )
@@ -418,7 +418,7 @@ class VecTile(
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
         result = (
-            self.grid.vecgrid.file.lines
+            self.basegrid.vecgrid.file.lines
             .loc[self.index]
             .values
         )
@@ -434,12 +434,12 @@ class VecTile(
             >>> ingrid.seggrid.vectile.pad
             1
         """
-        return self.grid.cfg.vectorization.pad
+        return self.basegrid.cfg.vectorization.pad
 
     @pad.setter
     def pad(self, value: int) -> None:
-        self.grid.cfg.vectorization.pad = value
+        self.basegrid.cfg.vectorization.pad = value
 
     @pad.deleter
     def pad(self) -> None:
-        del self.grid.cfg.vectorization.pad
+        del self.basegrid.cfg.vectorization.pad

@@ -6,7 +6,7 @@ import os.path
 import pandas as pd
 
 from .. import frame, util
-from ..grid import file
+from ..basegrid import file
 
 if False:
     from .vecgrid import VecGrid
@@ -16,7 +16,7 @@ if False:
 class File(
     file.File
 ):
-    grid: VecGrid
+    basegrid: VecGrid
 
     @frame.column
     def static(self) -> pd.Series:
@@ -24,7 +24,7 @@ class File(
         A file for each seg-tile: the stitched input grid.
         Stitches input files when seggrid.file is accessed
         """
-        grid = self.grid
+        grid = self.basegrid
         files = grid.outdir.vecgrid.static.files(grid)
         self.static = files
         if (
@@ -56,7 +56,7 @@ class File(
         to a semantic class.
 
         """
-        grid = self.grid
+        grid = self.basegrid
         files = grid.outdir.vecgrid.pred.files(grid)
         self.pred = files
         if (
@@ -85,7 +85,7 @@ class File(
         File-paths to color-coded segmentation masks for visualization.
         # TODO: update
         """
-        grid = self.grid
+        grid = self.basegrid
         files = grid.outdir.vecgrid.prob.files(grid)
         self.prob = files
         if (
@@ -126,7 +126,7 @@ class File(
             xtile  ytile
             9915   12120    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
-        vecgrid = self.grid
+        vecgrid = self.basegrid
         files = vecgrid.ingrid.outdir.vecgrid.network.files(vecgrid)
         self.lines = files
         if (
@@ -155,7 +155,7 @@ class File(
             xtile  ytile
             9915   12120    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
-        vecgrid = self.grid
+        vecgrid = self.basegrid
         files = vecgrid.ingrid.outdir.vecgrid.polygons.files(vecgrid)
         self.polygons = files
         if (
@@ -170,7 +170,7 @@ class File(
     @frame.column
     def curbs(self) -> pd.Series:
         # todo: needs documentation
-        vecgrid = self.grid
+        vecgrid = self.basegrid
         files = vecgrid.ingrid.outdir.vecgrid.curbs.files(vecgrid)
         self.curbs = files
         if (

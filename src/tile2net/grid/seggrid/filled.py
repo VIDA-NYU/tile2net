@@ -7,7 +7,7 @@ import pandas as pd
 
 from . import vectile
 from .seggrid import SegGrid
-from ..grid import filled
+from ..basegrid import filled
 from ..sampler.benchmark import Benchmark
 from ...grid.frame.namespace import namespace
 

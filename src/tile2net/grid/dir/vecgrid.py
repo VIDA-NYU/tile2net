@@ -3,8 +3,8 @@ from __future__ import annotations
 import os
 import os.path
 
+from ..basegrid.basegrid import BaseGrid
 from .dir import Dir
-from .grid import Grid
 
 
 class Polygons(
@@ -20,7 +20,7 @@ class Network(
 
 
 class VecGrid(
-    Grid
+    BaseGrid
 ):
 
     @Polygons

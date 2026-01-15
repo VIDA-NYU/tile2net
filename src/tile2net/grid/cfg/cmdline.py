@@ -1,18 +1,12 @@
 from __future__ import annotations
 
 import argparse
-import builtins
 import functools
 import types
 from functools import *
 from typing import *
-from typing import overload
 
 from .nested import Nested
-
-if False:
-    from .cfg import Cfg
-    from ..grid import Grid
 
 T = TypeVar(
     'T',
@@ -63,7 +57,6 @@ class property(
     """
     group = None
     group_order = None
-
 
     def _get(
             self,
@@ -227,13 +220,13 @@ class property(
             kw["nargs"] = self.nargs
         if self.default is not None:
             kw["default"] = self.default
-            
+
         # Suppress the ALL_CAPS metavar in help text
         # For store_true/store_false actions, no metavar is needed
         # For other actions, use empty string to hide it
         # if self.action not in ("store_true", "store_false"):
         #     kw["metavar"] = ""
-            
+
         return kw
 
     def __repr__(self):

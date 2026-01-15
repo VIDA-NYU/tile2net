@@ -7,7 +7,6 @@ from typing import *
 
 if False:
     from .cfg import Cfg
-    from ..grid import Grid
 
 
 class _Nested(UserDict[str, 'Nested']):

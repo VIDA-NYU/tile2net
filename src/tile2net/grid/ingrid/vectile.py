@@ -25,7 +25,7 @@ class VecTile(
         return self.instance
 
     @property
-    def grid(self) -> InGrid:
+    def basegrid(self) -> InGrid:
         """Reference to parent Grid instance."""
         return self.ingrid
 

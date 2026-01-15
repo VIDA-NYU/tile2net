@@ -30,20 +30,19 @@ POSSIBILITY OF SUCH DAMAGE.
 Generic dataloader base class
 """
 from __future__ import annotations
-import os
-import glob
-import numpy as np
-from typing import List, Tuple, Optional, Union, Any, Dict
 
+import glob
+import os
+from typing import List, Tuple, Optional, Any
+
+import numpy as np
 from PIL import Image
 from torch.utils import data
-from tile2net.tileseg.datasets import uniform
-from tile2net.tileseg.utils.misc import tensor_to_pil
+
 from tile2net.grid.cfg import cfg
 from tile2net.logger import logger
-
-if False:
-    from ...grid import Grid
+from tile2net.tileseg.datasets import uniform
+from tile2net.tileseg.utils.misc import tensor_to_pil
 
 
 class BaseLoader(data.Dataset):
