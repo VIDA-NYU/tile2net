@@ -84,7 +84,7 @@ class Dir(
                     value = self.from_parent(instance, name, self.extension)
                 self.__set__(instance, value=value)
             out = cache[name]
-            out.basegrid = instance.basegrid
+            out.obj = instance.basegrid
         else:
             raise TypeError(instance)
         return out

@@ -285,7 +285,7 @@ class File(
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
         raise NotImplementedError('requires GT')
-        grid = self.basegrid
+        grid = self.obj
         name = grid.__name__
         FILES = (
             getattr(grid.grid.outdir, name)
@@ -299,7 +299,7 @@ class File(
             preds = self.pred[loc]
             files = files[loc]
 
-            max_workers = min(self.basegrid.cfg.compress_workers, len(files))
+            max_workers = min(self.obj.cfg.compress_workers, len(files))
             it = zip(probs, preds, files)
             with ThreadPoolExecutor(max_workers=max_workers) as threads:
                 ...

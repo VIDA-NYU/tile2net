@@ -177,7 +177,7 @@ class Remote(
         """Return the remote object for the grid instance."""
         try:
             result = instance.__dict__[self.__name__]
-            result.basegrid = instance
+            result.obj = instance
             result.Grid = owner
         except KeyError as e:
             msg = (

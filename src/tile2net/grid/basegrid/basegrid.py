@@ -4,7 +4,6 @@ import hashlib
 import math
 import os
 import tempfile
-import threading
 from functools import *
 from typing import *
 
@@ -153,13 +152,10 @@ class BaseGrid(
 
         return result
 
-    @cached_property
-    def scale(self) -> int:
-        """
-        Tile scale; the XYZ scale of the grid.
-        Higher value means smaller area.
-        """
-        raise ValueError
+    scale: int
+    """Tile scale; the XYZ scale of the grid.
+    Higher value means smaller area.
+    """
 
     @cached_property
     def zoom(self) -> int:
@@ -361,10 +357,8 @@ class BaseGrid(
         result.location = location
         return result
 
-    @cached_property
-    def location(self) -> str:
-        """Location passed by the user when instantiating the Grid"""
-        raise ValueError
+    location: str = None
+    """Location passed by the user when instantiating the Grid"""
 
     @classmethod
     def from_bounds(
@@ -799,7 +793,16 @@ class BaseGrid(
 
     def __repr__(self):
         result = f'{self.__class__.__qualname__}:\n'
-        result += f'{self.location=}\n\n'
+        if self.location:
+            result += f'Location: {self.location}\n'
+        if self.lat_lon:
+            ymin, xmin, ymax, xmax = self.lat_lon
+            result += (
+                f'LatLon: '
+                f'({ymin:.4f}, {xmin:.4f}) to ({ymax:.4f}, {xmax:.4f})\n'
+            )
+        result += f'Scale: {self.scale}\n'
+        result += f'\n'
         result += self.frame.__repr__()
         return result
 
@@ -1353,4 +1356,3 @@ class BaseGrid(
                         pass
 
         return mosaic_im
-

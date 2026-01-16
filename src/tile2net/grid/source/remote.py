@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from tile2net.grid.util import recursion_block
 import os.path
 import shutil
 import tempfile
@@ -155,6 +156,7 @@ class Remote(
         except KeyError:
             ...
 
+    @recursion_block
     def download(
             self,
             retry: bool = True,
@@ -328,7 +330,7 @@ class Remote(
 
         msg = (
             f"All requested {grid.__class__.__name__}.{paths.name} "
-            f"on disk at \\n\\t{grid.indir.dir} "
+            f"on disk at \n\t{grid.outdir.static.dir} "
         )
         logger.info(msg)
 
