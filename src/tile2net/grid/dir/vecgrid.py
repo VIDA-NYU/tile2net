@@ -56,8 +56,6 @@ class VecGrid(
         result = Network.from_template(format)
         return result
 
-
-class VecGrid(BaseGrid):
     @Dir
     def polygons(self):
         return Dir.from_parent(self, 'polygons', 'parquet')

@@ -91,7 +91,7 @@ class VecGrid(BaseGrid):
 
 
 
-    def __get__(
+    def _get(
             self,
             instance: Grid,
             owner: type[BaseGrid],
@@ -153,6 +153,8 @@ class VecGrid(BaseGrid):
         result.instance = instance
 
         return result
+
+    locals().update(__get__=_get)
 
     @File
     def file(self):
