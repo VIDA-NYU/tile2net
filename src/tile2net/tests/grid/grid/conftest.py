@@ -6,122 +6,86 @@ from tile2net.grid.grid import Grid
 
 
 @pytest.fixture(scope="session")
-def grid_boston():
+def grid_boston_common():
     return Grid.from_location('Boston Common, MA', zoom=20)
 
 
 @pytest.fixture(scope="session")
-def grid_nyc():
-    return Grid.from_location('New York City', zoom=20)
+def grid_central_park_nyc():
+    return Grid.from_location('Central Park, New York', zoom=20)
 
 
 @pytest.fixture(scope="session")
-def grid_nyc_alias():
-    return Grid.from_location('City of New York', zoom=20)
+def grid_golden_gate_sf():
+    return Grid.from_location('Golden Gate Park, San Francisco', zoom=20)
 
 
 @pytest.fixture(scope="session")
-def grid_mass():
-    return Grid.from_location('Massachusetts', zoom=20)
+def grid_griffith_la():
+    return Grid.from_location('Griffith Park, Los Angeles', zoom=20)
 
 
 @pytest.fixture(scope="session")
-def grid_king_county():
-    return Grid.from_location('King County, Washington', zoom=20)
+def grid_discovery_seattle():
+    return Grid.from_location('Discovery Park, Seattle, Washington', zoom=20)
 
 
 @pytest.fixture(scope="session")
-def grid_king_alias():
-    return Grid.from_location('King County', zoom=20)
+def grid_deering_oaks_portland():
+    return Grid.from_location('Deering Oaks Park, Portland, Maine', zoom=20)
 
 
 @pytest.fixture(scope="session")
-def grid_la():
-    return Grid.from_location('Los Angeles', zoom=20)
+def grid_liberty_state_jc():
+    return Grid.from_location('Liberty State Park, Jersey City', zoom=20)
 
 
 @pytest.fixture(scope="session")
-def grid_nj():
-    return Grid.from_location('New Jersey', zoom=20)
+def grid_stevens_hoboken():
+    return Grid.from_location('Stevens Park, Hoboken, New Jersey', zoom=20)
 
 
 @pytest.fixture(scope="session")
-def grid_nj_portland():
-    return Grid.from_location('Portland, Maine', zoom=20)
-
-
-@pytest.fixture(scope="session")
-def grid_nj_brunswick():
-    return Grid.from_location('New Brunswick, New Jersey', zoom=20)
-
-
-@pytest.fixture(scope="session")
-def grid_nj_jc():
-    return Grid.from_location('Jersey City', zoom=20)
-
-
-@pytest.fixture(scope="session")
-def grid_nj_hoboken():
-    return Grid.from_location('Hoboken', zoom=20)
-
-
-@pytest.fixture(scope="session")
-def grid_spring_hill():
+def grid_spring_hill_tn():
     return Grid.from_location('Spring Hill, Tennessee', zoom=20)
 
 
 @pytest.fixture(scope="session")
-def grid_va():
-    return Grid.from_location('Virginia', zoom=20)
+def grid_capital_square_richmond():
+    return Grid.from_location('Capital Square, Richmond, Virginia', zoom=20)
 
 
 @pytest.fixture(scope="session")
-def grid_me():
-    return Grid.from_location('Maine', zoom=20)
+def grid_tilden_berkeley():
+    return Grid.from_location('Tilden Park, Berkeley, California', zoom=20)
 
 
 @pytest.fixture(scope="session")
-def grid_berkeley():
-    return Grid.from_location('Berkeley, California', zoom=20)
+def grid_central_park_fremont():
+    return Grid.from_location('Central Park, Fremont, California', zoom=20)
 
 
 @pytest.fixture(scope="session")
-def grid_fremont():
-    return Grid.from_location('Fremont, California', zoom=20)
-
-
-@pytest.fixture(scope="session")
-def grid_oakland():
-    return Grid.from_location('Oakland, California', zoom=20)
-
-
-@pytest.fixture(scope="session")
-def grid_sf():
-    return Grid.from_location('San Francisco, California', zoom=20)
+def grid_lake_merritt_oakland():
+    return Grid.from_location('Lake Merritt, Oakland, California', zoom=20)
 
 
 @pytest.fixture(
     scope="session",
     params=[
-        "grid_boston",
-        "grid_nyc",
-        "grid_nyc_alias",
-        "grid_mass",
-        "grid_king_county",
-        "grid_king_alias",
-        "grid_la",
-        "grid_nj",
-        "grid_nj_portland",
-        "grid_nj_brunswick",
-        "grid_nj_jc",
-        "grid_nj_hoboken",
-        "grid_spring_hill",
-        "grid_va",
-        "grid_me",
-        "grid_berkeley",
-        "grid_fremont",
-        "grid_oakland",
-        "grid_sf",
+        "grid_boston_common",
+        "grid_central_park_nyc",
+        "grid_golden_gate_sf",
+        "grid_griffith_la",
+        "grid_discovery_seattle",
+        "grid_deering_oaks_portland",
+        "grid_liberty_state_jc",
+        "grid_stevens_hoboken",
+        "grid_spring_hill_tn",
+        "grid_capital_square_richmond",
+        "grid_tilden_berkeley",
+        "grid_central_park_fremont",
+        "grid_lake_merritt_oakland",
     ],
 )
 def grid(request):
