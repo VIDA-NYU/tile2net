@@ -423,7 +423,7 @@ class RecursionBlock:
     returns True if the function is currently being executed
     """
     __wrapped__: Callable[..., Any] = None
-    basegrid: BaseGrid = None
+    obj: BaseGrid = None
     block: RecursionBlock = None
 
     def __init__(self, func: Callable[..., Any]):
@@ -431,7 +431,7 @@ class RecursionBlock:
 
     def __bool__(self):
         return (
-                self.basegrid.__dict__
+                self.obj.__dict__
                 .get(self.__name__)
                 is not None
         )
@@ -441,7 +441,7 @@ class RecursionBlock:
 
     def __get__(
             self,
-            instance: BaseGrid,
+            instance: object,
             owner
     ):
         if instance is None:
@@ -451,7 +451,7 @@ class RecursionBlock:
         else:
             result = copy.copy(self)
 
-        result.basegrid = instance
+        result.obj = instance
         return result
 
     def __call__(
@@ -462,17 +462,17 @@ class RecursionBlock:
         with self:
             return (
                 self.__wrapped__
-                .__get__(self.basegrid, self.__class__)
+                .__get__(self.obj, self.__class__)
                 (*args, **kwargs)
             )
 
     def __enter__(self):
-        self.basegrid.__dict__.setdefault(self.__name__, self)
+        self.obj.__dict__.setdefault(self.__name__, self)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.basegrid.__dict__.get(self.__name__) is self:
-            del self.basegrid.__dict__[self.__name__]
+        if self.obj.__dict__.get(self.__name__) is self:
+            del self.obj.__dict__[self.__name__]
         return False
 
     def __set__(
