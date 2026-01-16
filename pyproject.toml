@@ -53,8 +53,10 @@ include = ["tile2net*"]
 
 
 [tool.pytest.ini_options]
-testpaths = [ "src/tile2net/tests" ]
-python_files = ["test_local.py"]
+testpaths = ["src/tile2net/tests"]
+python_files = [
+    "test_*.py",
+]
 
 # allows for `python tile2net` without `-m`
 [project.scripts]
