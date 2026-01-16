@@ -355,6 +355,7 @@ class BaseGrid(
             zoom=zoom
         )
         result.location = location
+
         return result
 
     location: str = None

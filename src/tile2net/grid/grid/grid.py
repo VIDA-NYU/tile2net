@@ -1134,6 +1134,27 @@ class Grid(
         )
         return grid
 
+    @classmethod
+    def from_bounds(
+            cls,
+            latlon: Union[
+                str,
+                list[float],
+                list[int],
+                tuple[float, float, float, float],
+                tuple[int, int, int, int],
+            ],
+            zoom: int = None,
+    ) -> Self:
+        out = (
+            super()
+            .from_bounds(latlon, zoom)
+            .set_segmentation()
+            .set_vectorization()
+        )
+        return out
+
+
     @property
     def grid(self) -> Grid:
         """Quick access for the Grid of a project."""
