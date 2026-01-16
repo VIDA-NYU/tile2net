@@ -117,30 +117,55 @@ class Nested:
     ):
         ...
 
-    @cached_property
+    # @cached_property
+    # def _trace(self):
+    #     if (
+    #             self.instance is None
+    #             or not isinstance(self.instance, Nested)
+    #     ) or (
+    #             isinstance(self.instance, Nested)
+    #             and not self.instance._trace
+    #     ):
+    #         out = self.__name__
+    #     elif (
+    #         isinstance(self.instance, Nested)
+    #         and self.instance._trace
+    #     ):
+    #         out = f'{self.instance._trace}.{self.__name__}'
+    #     elif isinstance(self.instance, Nested):
+    #         out = self.__name__
+    #     else:
+    #         msg = (
+    #             f'Cannot determine trace for {self.__name__} in '
+    #             f'{self.owner} with {self.instance=}'
+    #         )
+    #         raise ValueError(msg)
+    #     return out
+
+    @property
     def _trace(self):
-        if (
-                self.instance is None
-                or not isinstance(self.instance, Nested)
-        ) or (
-                isinstance(self.instance, Nested)
-                and not self.instance._trace
-        ):
-            out = self.__name__
-        elif (
-            isinstance(self.instance, Nested)
-            and self.instance._trace
-        ):
-            out = f'{self.instance._trace}.{self.__name__}'
-        elif isinstance(self.instance, Nested):
-            out = self.__name__
+        # problem is, the object is already stored, instead of trace
+        from .cfg import Cfg
+        instance = self.instance
+        # name = self.__name__
+        name = f'{self.__name__}'
+        key = f'{self.__name__}.trace'
+        if isinstance(instance, Cfg):
+            out = name
+        elif isinstance(instance, Nested):
+            if key not in instance.__dict__:
+                instance.__dict__[key] = f'{instance._trace}.{name}'
+            out = instance.__dict__[key]
+        elif instance is None:
+            out = name
         else:
             msg = (
-                f'Cannot determine trace for {self.__name__} in '
-                f'{self.owner} with {self.instance=}'
+                f'Cannot determine trace for {name} in '
+                f'{self.owner} with {instance=}'
             )
             raise ValueError(msg)
         return out
+
 
     def __set_name__(
             self,

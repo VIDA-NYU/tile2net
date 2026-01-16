@@ -2072,7 +2072,10 @@ class Cfg(
                     raise TypeError(f"Unexpected type {type(value)} in _trace2property")
 
         cls._active = active
-        return MappingProxyType(dict(sorted(result.items())))
+        repr(result)
+        out = MappingProxyType(dict(sorted(result.items())))
+        return out
+
 
     def __call__(self, *args, **kwargs) -> Cfg:
         return self

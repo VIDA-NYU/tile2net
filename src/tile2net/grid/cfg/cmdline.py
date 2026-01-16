@@ -98,18 +98,18 @@ class property(
             instance: Nested,
             value,
     ):
-        out = self._get(instance, type(instance))
-        cfg = out._cfg
-        cfg[out._trace] = value
+        self.instance = instance
+        instance._cfg[self._trace] = value
 
     def __delete__(
             self,
             instance: Nested,
     ):
-        out = self._get(instance, type(instance))
-        cfg = out._cfg
-        if out._trace in cfg:
-            del cfg[out._trace]
+        self.instance = instance
+        try:
+            del instance._cfg[self._trace]
+        except KeyError:
+            pass
 
     def add_options(
             self,
