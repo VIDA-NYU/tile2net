@@ -880,7 +880,7 @@ class Vectorization(
         A length of 10, for example, means each vec-tile
         is 10 seg-tiles long.
         """
-        return 1
+        return 8
 
     length.add_options(short='-v')
 
@@ -1096,7 +1096,7 @@ class Validation(
         """
         Batch size per GPU for the validation run
         """
-        return 1
+        return 4
 
     batch_size.add_options(short='-b')
 
@@ -1414,11 +1414,11 @@ class Cfg(
     @cmdline.property
     def outdir(self) -> str:
         """
-        Path to the output directory; '~/tmp/tile2net' by default.
+        Path to the output directory; '~/tmp/tile2net_output' by default.
         Using a relative path such as './cambridge' will create a
         directory in the current working directory.
         """
-        return './outdir'
+        return './tile2net_output'
 
     outdir.add_options( short='-o')
 
