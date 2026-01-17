@@ -1,19 +1,19 @@
 from __future__ import annotations
 
+import contextlib
 import os
-from tile2net.grid.util import recursion_block
 import os.path
 import shutil
 import tempfile
 import threading
 import warnings
-from abc import ABC, abstractmethod
+from abc import ABC
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import cached_property
 from pathlib import Path
 from typing import Union
 
 import certifi
+import geopandas as gpd
 import imageio.v3 as iio
 import pandas as pd
 import pyarrow as pa
@@ -22,9 +22,6 @@ import shapely.geometry
 from geopandas import GeoDataFrame
 from requests.adapters import HTTPAdapter
 from tqdm import tqdm
-from urllib3.util.retry import Retry
-import geopandas as gpd
-
 
 from tile2net.grid.geocode import GeoCode
 from tile2net.grid.source.catalog import Catalog
@@ -36,7 +33,9 @@ from tile2net.grid.source.exceptions import (
 )
 from tile2net.grid.source.prototype import Prototype
 from tile2net.grid.source.source import Source
+from tile2net.grid.util import recursion_block
 from tile2net.logger import logger
+
 
 tls = threading.local()
 
@@ -118,7 +117,6 @@ class Remote(
     zoom: int = 19
     """Default XYZ zoom level for the remote."""
 
-
     @property
     def url(self) -> pd.Series:
         """Generate URLs for all tiles in the attached grid."""
@@ -156,16 +154,148 @@ class Remote(
         except KeyError:
             ...
 
+    def download_one(self) -> pd.Series:
+        """
+        Download a single tile for testing purposes.
+        Uses context manager to avoid caching the static column.
+        """
+        grid = self.grid
+        with grid.file._static_peek():
+            paths = grid.file.static
+            urls = self.url
+
+            if paths.empty or urls.empty:
+                return paths
+            if len(paths) != len(urls):
+                raise ValueError("paths and urls must be equal length")
+
+            for p in {Path(p).parent for p in paths}:
+                p.mkdir(parents=True, exist_ok=True)
+
+            exists = (
+                paths
+                .map(os.path.exists)
+                .to_numpy(bool)
+            )
+
+            if exists.any():
+                logger.info("One file already exists, skipping download.")
+                return paths
+
+            mapping = dict(zip(paths.array, urls.array))
+            if not mapping:
+                return paths
+
+            logger.info(
+                f'Downloading one {grid.__class__.__qualname__}.{grid.file.static.name} '
+                f'from {self.name}'
+            )
+
+            not_found: list[Path] = []
+            failed: list[Path] = []
+            succeeded: list[Path] = []
+
+            def _fetch_write(
+                    path: Path,
+                    url: str,
+            ) -> str:
+                """Returns 'success', 'not_found', or 'failed'"""
+                try:
+                    with tls.session.get(url, stream=True, timeout=(3, 30)) as resp:
+                        status = resp.status_code
+                        if status in (404, 403):
+                            not_found.append(path)
+                            return 'not_found'
+                        if status != 200:
+                            failed.append(path)
+                            return 'failed'
+
+                        fd, tmp_path = tempfile.mkstemp(
+                            dir=path.parent,
+                            suffix=".part",
+                        )
+                        os.close(fd)
+                        tmp = Path(tmp_path)
+
+                        try:
+                            with tmp.open("wb") as fh:
+                                for chunk in resp.iter_content(1 << 15):
+                                    if not chunk:
+                                        continue
+                                    fh.write(chunk)
+
+                            try:
+                                iio.imread(tmp)
+                            except ValueError:
+                                tmp.unlink(missing_ok=True)
+                                failed.append(path)
+                                return 'failed'
+
+                            shutil.move(tmp, path)
+                            succeeded.append(path)
+                            return 'success'
+
+                        except Exception:
+                            tmp.unlink(missing_ok=True)
+                            failed.append(path)
+                            return 'failed'
+
+                except Exception:
+                    failed.append(path)
+                    return 'failed'
+
+            pool_size = min(4, len(mapping))
+            with ThreadPoolExecutor(
+                    max_workers=pool_size,
+                    initializer=self._init_net_worker,
+            ) as pool:
+
+                futures = {
+                    pool.submit(_fetch_write, Path(p), u): Path(p)
+                    for p, u in mapping.items()
+                }
+
+                pbar = tqdm(
+                    total=len(futures),
+                    desc="Testing download",
+                    unit=" attempts",
+                    mininterval=1,
+                )
+
+                for fut in as_completed(futures):
+                    result = fut.result()
+                    pbar.set_postfix(
+                        success=len(succeeded),
+                        not_found=len(not_found),
+                        failed=len(failed),
+                        refresh=False,
+                    )
+                    pbar.update(1)
+
+                    if result == 'success':
+                        for f in futures:
+                            f.cancel()
+                        pbar.close()
+                        logger.info("Downloaded one file successfully.")
+                        return paths
+
+                pbar.close()
+
+            msg = (
+                f'Failed to download any file: '
+                f'{len(not_found)} not found, {len(failed)} failed'
+            )
+            raise FileNotFoundError(msg)
+
     @recursion_block
     def download(
             self,
             retry: bool = True,
             force: bool = False,
             max_workers: int = 64,
-            one: bool = False
     ):
         """
-        Download tiles from this remote source to the input directory.
+        Download all tiles from this remote source to the input directory.
 
         Args:
             retry:
@@ -174,15 +304,13 @@ class Remote(
                 Re-download existing files
             max_workers:
                 Maximum concurrent download threads
-            one:
-                Download only one file for testing
         """
         grid = self.grid
         paths = grid.file.static
         urls = self.url
 
         if paths.empty or urls.empty:
-            return grid
+            return paths
         if len(paths) != len(urls):
             raise ValueError("paths and urls must be equal length")
 
@@ -195,17 +323,14 @@ class Remote(
             .to_numpy(bool)
         )
 
-        if (
-                exists.all()
-                and not force
-        ):
+        if exists.all() and not force:
             msg = (
                 f'All {len(paths):,} '
                 f'{grid.__class__.__qualname__}.{grid.file.static.name} '
                 f'on disk at {grid.outdir.source.static.dir}. '
             )
             logger.info(msg)
-            return grid
+            return paths
 
         if not force:
             paths = paths[~exists]
@@ -213,7 +338,7 @@ class Remote(
 
         mapping = dict(zip(paths.array, urls.array))
         if not mapping:
-            return grid
+            return paths
 
         msg = (
             f'Downloading {len(mapping):,} '
@@ -225,24 +350,22 @@ class Remote(
         pool_size = min(max_workers, len(mapping))
         not_found: list[Path] = []
         failed: list[Path] = []
-        success = False
+        succeeded: list[Path] = []
 
         def _fetch_write(
                 path: Path,
                 url: str,
-        ) -> None:
+        ) -> str:
+            """Returns 'success', 'not_found', or 'failed'"""
             try:
                 with tls.session.get(url, stream=True, timeout=(3, 30)) as resp:
                     status = resp.status_code
-                    if status == 404:
+                    if status in (404, 403):
                         not_found.append(path)
-                        return
-                    if status == 403:
-                        not_found.append(path)
-                        return
+                        return 'not_found'
                     if status != 200:
                         failed.append(path)
-                        return
+                        return 'failed'
 
                     fd, tmp_path = tempfile.mkstemp(
                         dir=path.parent,
@@ -263,18 +386,20 @@ class Remote(
                         except ValueError:
                             tmp.unlink(missing_ok=True)
                             failed.append(path)
-                            return
+                            return 'failed'
 
                         shutil.move(tmp, path)
+                        succeeded.append(path)
+                        return 'success'
 
                     except Exception:
                         tmp.unlink(missing_ok=True)
                         failed.append(path)
-                        return
+                        return 'failed'
 
             except Exception:
                 failed.append(path)
-                return
+                return 'failed'
 
         with ThreadPoolExecutor(
                 max_workers=pool_size,
@@ -282,36 +407,45 @@ class Remote(
         ) as pool:
 
             futures = {
-                pool.submit(_fetch_write, Path(p), u)
+                pool.submit(_fetch_write, Path(p), u): Path(p)
                 for p, u in mapping.items()
             }
 
-            for fut in tqdm(
-                    as_completed(futures),
-                    total=len(futures),
-                    desc="Downloading",
-                    unit=f" {grid.__class__.__name__}.{paths.name}",
-                    mininterval=10,
-            ):
-                fut.result()
+            pbar = tqdm(
+                total=len(futures),
+                desc="Downloading",
+                unit=" tiles",
+                mininterval=10,
+            )
 
-                if one:
-                    success = True
-                    for f in futures:
-                        f.cancel()
-                    break
+            for fut in as_completed(futures):
+                result = fut.result()
+                pbar.set_postfix(
+                    success=len(succeeded),
+                    not_found=len(not_found),
+                    failed=len(failed),
+                    refresh=False,
+                )
+                pbar.update(1)
 
-        if one and success:
-            logger.info("Downloaded one file successfully (one=True).")
-            return grid
+            pbar.close()
 
-        if len(not_found) + len(failed) == len(grid.file.static):
-            msg = f'All {len(not_found) + len(failed):,} grid failed to download.'
+        total_downloaded = len(succeeded)
+        total_failed = len(failed) + len(not_found)
+
+        if total_downloaded == 0:
+            msg = (
+                f'All {total_failed:,} downloads failed: '
+                f'{len(not_found)} not found, {len(failed)} errors'
+            )
             raise FileNotFoundError(msg)
 
         if not_found:
             black = grid.static.black
-            logger.warning("%d tile(s) returned 404/403 – linking placeholder.", len(not_found))
+            logger.warning(
+                "%d tile(s) returned 404/403 – linking placeholder.",
+                len(not_found)
+            )
             for p in not_found:
                 try:
                     os.symlink(black, p)
@@ -329,16 +463,17 @@ class Remote(
             raise FileNotFoundError(f"{len(failed):,} files failed.")
 
         msg = (
-            f"All requested {grid.__class__.__name__}.{paths.name} "
-            f"on disk at \n\t{grid.outdir.static.dir} "
+            f"Downloaded {total_downloaded:,} tiles "
+            f"({len(not_found)} not found, {len(failed)} failed)"
         )
         logger.info(msg)
+        return grid.file.static
 
     def _make_session(
             self,
             *,
             pool: int,
-            retry: Retry,
+            retry: 'Retry',
     ) -> requests.Session:
         """
         One reusable Session with a bounded socket-pool.
@@ -363,7 +498,8 @@ class Remote(
         Run once per thread → attach one Session to thread-local storage.
         Only a GET Session is needed now that the HEAD phase is gone.
         """
-
+        # do not move to module level import
+        from urllib3.util import Retry
         retry_get = Retry(
             total=3,
             backoff_factor=0.4,

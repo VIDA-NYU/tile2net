@@ -30,10 +30,14 @@ class Column(
             owner: type
     ) -> Self | pd.Series:
         self = super()._get(instance, owner)
-        frame = self.wrapper.frame
         result = copy.copy(self)
-        if instance is None:
+        # if instance is None:
+        if (
+            instance is None
+            or self.wrapper is None
+        ):
             return result
+        frame = self.wrapper.frame
         key = self.key
         if key in frame:
             return frame[key]

@@ -126,23 +126,8 @@ class Grid(
             >>> grid.dimension
             256
         """
-        try:
-            sample = next(
-                p
-                for p in self.file.static
-                if Path(p).is_file()
-            )
-        except StopIteration:
-            self.download(one=True)
-            try:
-                sample = next(
-                    p
-                    for p in self.file.static
-                    if Path(p).is_file()
-                )
-            except StopIteration:
-                raise FileNotFoundError('No image files found to infer dimension.')
-        result = iio.imread(sample).shape[1]  # width
+        sample = self.file.sample
+        result = iio.imread(sample).shape[1]
         return result
 
     @cached_property
@@ -295,39 +280,6 @@ class Grid(
             xtile   ytile
             317280  387840    9915
         """
-
-    def download(
-            self,
-            retry: bool = True,
-            force: bool = False,
-            max_workers: int = 64,
-            one: bool = False
-    ):
-        """
-        Download tiles from the configured source to the input directory.
-
-        Args:
-            retry:
-                Retry failed downloads once
-            force:
-                Re-download existing files
-            max_workers:
-                Maximum concurrent download threads
-            one:
-                Download only one file for testing
-
-        Returns:
-            Self with downloaded files available at Grid.file.static
-        """
-        if isinstance(self.source, Remote):
-            self.source.download(
-                retry=retry,
-                force=force,
-                max_workers=max_workers,
-                one=one,
-            )
-        else:
-            raise TypeError('Grid.source must be set to a Remote to download tiles. ')
 
     @delayed.Filled
     def filled(self) -> Filled:

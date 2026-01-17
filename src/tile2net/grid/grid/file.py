@@ -1,4 +1,6 @@
 from __future__ import annotations
+from pathlib import Path
+import contextlib
 
 import os
 
@@ -27,6 +29,7 @@ class File(
 
     @frame.column
     def static(self):
+        """Static imagery from the source."""
         grid = self.basegrid
         source = grid.source
         if isinstance(source, Remote):
@@ -45,6 +48,34 @@ class File(
         ):
             source.download()
         return files
+
+    @contextlib.contextmanager
+    def _static_peek(self):
+        key = self.basegrid.__class__.file.static.key
+        grid = self.basegrid
+        delete = key not in grid.columns
+        with self:
+            yield
+        if delete:
+            del grid[key]
+
+    @frame.property
+    def sample(self) -> str:
+        """A sample filepath from static; a singular saved file instead of a whole Series"""
+        grid = self.basegrid
+        source = grid.source
+        if not isinstance(source, Remote):
+            raise TypeError(f"Unsupported source type: {type(source)}")
+        files = source.download_one()
+        try:
+            sample = next(
+                p
+                for p in files
+                if Path(p).is_file()
+            )
+        except StopIteration:
+            raise FileNotFoundError('No image files found to infer dimension.')
+        return sample
 
     @frame.column
     def pred(self) -> pd.Series:
