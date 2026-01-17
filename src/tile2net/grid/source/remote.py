@@ -202,7 +202,7 @@ class Remote(
             msg = (
                 f'All {len(paths):,} '
                 f'{grid.__class__.__qualname__}.{grid.file.static.name} '
-                f'on disk at {grid.outdir.static.dir}. '
+                f'on disk at {grid.outdir.source.static.dir}. '
             )
             logger.info(msg)
             return grid
@@ -218,7 +218,7 @@ class Remote(
         msg = (
             f'Downloading {len(mapping):,} '
             f'{grid.__class__.__qualname__}.{grid.file.static.name} '
-            f'from {self.name} to \n\t{grid.outdir.static.dir} '
+            f'from {self.name} to \n\t{grid.outdir.source.static.dir} '
         )
         logger.info(msg)
 

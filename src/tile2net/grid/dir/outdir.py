@@ -9,6 +9,8 @@ from tile2net.grid.dir import projectdir
 from tile2net.grid.dir.dir import Dir
 from tile2net.grid.dir.exceptions import XYNotFoundError
 from tile2net.grid.dir.projectdir import ProjectDir
+from tile2net.grid.dir.sourcedir import SourceDir
+from tile2net.grid.source.remote import Remote
 
 if TYPE_CHECKING:
     from .seggrid import SegGrid
@@ -154,3 +156,13 @@ class Outdir(
         )
         result = ProjectDir.from_parent(self, name)
         return result
+
+    @SourceDir
+    def source(self):
+        source = self.basegrid.source
+        if isinstance(source, Remote):
+            name = source.name
+            return SourceDir.from_parent(self, name)
+        else:
+            msg = 'Outdir.source is only available for Remote sources.'
+            raise TypeError(msg)

@@ -30,7 +30,7 @@ class File(
         grid = self.basegrid
         source = grid.source
         if isinstance(source, Remote):
-            files = grid.outdir.static.files(grid)
+            files = grid.outdir.source.static.files(grid)
         elif isinstance(source, Local):
             files = source.files(grid)
         else:
