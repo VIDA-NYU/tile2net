@@ -130,24 +130,8 @@ class VecGrid(BaseGrid):
                 f'`Intiles.set_vectorization`'
             )
             logger.info(msg)
-            cfg = instance.cfg
 
-            scale = cfg.vectorization.scale
-            length = cfg.vectorization.length
-            dimension = cfg.vectorization.dimension
-
-            if scale:
-                instance = instance.set_segmentation(scale=scale)
-            elif length:
-                instance = instance.set_segmentation(length=length)
-            elif dimension:
-                instance = instance.set_segmentation(dimension=dimension)
-
-            else:
-                raise ValueError(
-                    'You must set at least one of the following '
-                    'segmentation parameters: vectile.scale, vectile.length, or vectile.dimension.'
-                )
+            instance = instance.set_vectorization()
             result = instance.vecgrid
 
         result.instance = instance

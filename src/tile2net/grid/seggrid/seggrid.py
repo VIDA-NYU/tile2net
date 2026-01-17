@@ -94,23 +94,8 @@ class SegGrid(
                 f'`Ingrid.set_segmentation`'
             )
             logger.info(msg)
-            cfg = instance.cfg
 
-            scale = cfg.segmentation.scale
-            length = cfg.segmentation.length
-            dimension = cfg.segmentation.dimension
-
-            if scale:
-                instance = instance.set_segmentation(scale=scale)
-            elif length:
-                instance = instance.set_segmentation(length=length)
-            elif dimension:
-                instance = instance.set_segmentation(dimension=dimension)
-            else:
-                raise ValueError(
-                    'You must set at least one of the following '
-                    'segmentation parameters: segscale, segtile.length, or segdimension.'
-                )
+            instance = instance.set_segmentation()
             result = instance.seggrid
 
         result.instance = instance
