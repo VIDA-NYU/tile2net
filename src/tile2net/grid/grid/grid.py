@@ -9,7 +9,8 @@ from functools import *
 from pathlib import Path
 from typing import *
 
-import imageio.v3 as iio
+import numpy as np
+import pandas as pd
 
 from tile2net.grid import util
 from tile2net.grid.basegrid.basegrid import BaseGrid
@@ -27,8 +28,8 @@ from tile2net.grid.grid.segtile import SegTile
 from tile2net.grid.grid.vectile import VecTile
 from tile2net.grid.sampler.benchmark import Benchmark
 from tile2net.grid.seggrid.seggrid import SegGrid
-from tile2net.grid.source.remote import Remote
 from tile2net.grid.source.local import Local
+from tile2net.grid.source.remote import Remote
 from tile2net.grid.source.source import Source
 from tile2net.grid.util import assert_perfect_overlap
 from tile2net.grid.vecgrid.vecgrid import VecGrid
@@ -117,19 +118,17 @@ class Grid(
         >>> SegGrid._predict
         """
 
-    @cached_property
+    @property
     def dimension(self) -> int:
         """
-        Tile dimension in pixels; inferred from input files.
+        Tile dimension in pixels.
 
         Example:
             >>> grid: Grid
             >>> grid.dimension
             256
         """
-        sample = self.file.sample
-        result = iio.imread(sample).shape[1]
-        return result
+        return self.source.dimension
 
     @cached_property
     def name(self) -> str:
@@ -1038,6 +1037,16 @@ class Grid(
             >>> grid = BaseGrid.from_location((317280, 387840, 317312, 387872), zoom=20)
         """
 
+        if source is None:
+            source = Source.from_inferred(location)
+        else:
+            source = Source.from_inferred(source)
+        if (
+                zoom is None
+                and isinstance(source, Remote)
+        ):
+            zoom = source.zoom
+
         # handle tuple/list input
         if isinstance(location, (tuple, list)):
             if len(location) != 4:
@@ -1063,6 +1072,7 @@ class Grid(
                 latlon=latlon,
                 zoom=zoom
             )
+            result.source = source
             result.location = location
             return result
 
@@ -1077,7 +1087,7 @@ class Grid(
                 coords = [int(x) for x in coords]
             except ValueError:
                 # failed: must be floats or address
-                pass
+                ...
             else:
                 # success: all ints
                 if zoom is None:
@@ -1099,6 +1109,7 @@ class Grid(
             zoom=zoom
         )
         result.location = location
+        result.source = source
 
         return result
 
@@ -1154,7 +1165,6 @@ class Grid(
         raise NotImplementedError
         ...
 
-
     @classmethod
     def from_bounds(
             cls,
@@ -1174,7 +1184,6 @@ class Grid(
             .set_vectorization()
         )
         return out
-
 
     @property
     def grid(self) -> Grid:

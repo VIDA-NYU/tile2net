@@ -108,11 +108,12 @@ class Source:
         from .remote import Remote
         from .local import Local
 
+        if isinstance(value, Source):
+            return copy.copy(value)
         try:
             return Local.from_inferred(value)
         except SourceParseError:
             ...
-
         try:
             return Remote.from_inferred(value)
         except SourceParseError:

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from .dir import Dir
-import os
+from tile2net.grid.dir.dir import Dir
 
 
 class Postprocess(

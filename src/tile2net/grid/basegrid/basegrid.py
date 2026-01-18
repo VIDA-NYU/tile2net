@@ -17,23 +17,24 @@ from PIL import ImageColor, Image
 from geopandas import GeoDataFrame
 from pandas import MultiIndex, Series, Index
 
+from tile2net.grid import frame, util
+from tile2net.grid.basegrid.corners import Corners
+from tile2net.grid.basegrid.file import File
+from tile2net.grid.cfg import cfg, Cfg
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.explore import explore
-from .corners import Corners
-from .file import File
-from .. import frame, util
-from ..cfg import cfg, Cfg
-from ..frame.framewrapper import FrameWrapper
-from ..loaders.datawrapper import DataWrapper
-from ..loaders.rescale import RescaleDataSet
-from ..loaders.stitch import StitchDataSet
-from ..sampler.benchmark import Benchmark
+from tile2net.grid.frame.framewrapper import FrameWrapper
+from tile2net.grid.loaders.datawrapper import DataWrapper
+from tile2net.grid.loaders.rescale import RescaleDataSet
+from tile2net.grid.loaders.stitch import StitchDataSet
+from tile2net.grid.loaders.unstitch import UnstitchDataSet, UnstitchDataWrapper
+from tile2net.grid.sampler.benchmark import Benchmark
 
 if False:
     import folium
-    from ..seggrid.seggrid import SegGrid
-    from ..grid.grid import Grid
-    from ..vecgrid.vecgrid import VecGrid
+    from tile2net.grid.seggrid.seggrid import SegGrid
+    from tile2net.grid.grid import Grid
+    from tile2net.grid.vecgrid.vecgrid import VecGrid
 
 
 class BaseGrid(
@@ -952,7 +953,6 @@ class BaseGrid(
             **kwargs:
                 Additional arguments (unused, for API consistency).
         """
-        from ..loaders.unstitch import UnstitchDataSet, UnstitchDataWrapper
 
         # skip tiles that already exist unless force=True
         if not force:
