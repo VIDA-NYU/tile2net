@@ -504,7 +504,7 @@ class BaseGrid(
             result = self.copy()
             result.__dict__.update(scaled.__dict__)
 
-        elif self.scale > scale:
+        elif self.scale >= scale:
             # into larger grid
             frame: pd.DataFrame = (
                 self.index
@@ -534,7 +534,7 @@ class BaseGrid(
                 scale
             )
 
-            assert len(self) > len(scaled)
+            assert len(self) >= len(scaled)
             assert not scaled.index.duplicated().any()
 
             result = self.copy()
