@@ -1,19 +1,17 @@
 from __future__ import annotations
-import geopy
-from functools import cached_property
 
 import functools
 import os.path
-
+from functools import cached_property
 from pathlib import Path
 from typing import *
 
 import geopandas as gpd
+import geopy
 import osmnx
 import shapely
 from geopandas import GeoDataFrame, GeoSeries
-from geopy.geocoders import Nominatim
-from geopy.geocoders import Photon
+from geopy.geocoders import Nominatim, Photon
 
 from tile2net.logger import logger
 
@@ -115,7 +113,6 @@ class GeoCode:
         cls.cache[centroid] = result
         return result
 
-
     @classmethod
     def from_nwse(cls, bounds: list[float]) -> Self:
         bounds = tuple(map(cls._round, bounds))
@@ -205,11 +202,14 @@ class GeoCode:
         try:
             result = (
                 Nominatim(user_agent='tile2net')
-                .geocode(self.address, timeout=10)
+                .geocode(self.address, timeout=10, addressdetails=True)
             )
-            geocoder = 'nominatim'
         except Exception as e:
             logger.debug(f"Nominatim geocoding failed: {e}, trying Photon")
+        else:
+            geocoder = 'nominatim'
+            keywords = result.raw['address']
+            self.features = keywords
 
         if result is None:
             try:
@@ -217,15 +217,16 @@ class GeoCode:
                     Photon(user_agent='tile2net')
                     .geocode(self.address, timeout=10)
                 )
-                geocoder = 'photon'
             except Exception as e:
                 logger.error(f"Photon geocoding also failed: {e}")
                 raise ValueError(f"Could not geocode '{self.address}'") from e
+            else:
+                geocoder = 'photon'
+                keywords = result.raw['properties']
+                self.features = keywords
 
         if result is None:
             raise ValueError(f"Could not geocode '{self.address}'")
-
-        logger.info(f"Geocoded to\n\t{result.raw.get('display_name', result.address)}")
 
         if geocoder == 'nominatim':
             bbox = result.raw['boundingbox']
@@ -233,9 +234,31 @@ class GeoCode:
             s, n, w, e = (self._round(x) for x in it)
         else:
             extent = result.raw['properties']['extent']
-            # Photon extent format: [minlon, minlat, maxlon, maxlat]
             w, s, e, n = map(self._round, extent)
+
         return n, w, s, e
+
+    @cached_property
+    def features(self):
+        """
+        keywords
+            {'osm_type': 'W',
+             'osm_id': 427818536,
+             'osm_key': 'leisure',
+             'osm_value': 'park',
+             'type': 'other',
+             'countrycode': 'US',
+             'name': 'Central Park',
+             'country': 'United States',
+             'city': 'New York',
+             'district': 'New York County',
+             'state': 'NY',
+             'extent': [-73.9814075, 40.8003135, -73.9496061, 40.7647275]}
+        """
+        # todo: make this a proper cached_property instead of having nwse and address set it
+        _ = self.nwse
+        _ = self.address
+        return self.features
 
     @cached_property
     def wsen(self):
@@ -250,6 +273,7 @@ class GeoCode:
                 Nominatim(user_agent='tile2net')
                 .reverse(self.centroid, timeout=10)
             )
+            keywords = result.raw['address']
         except Exception as e:
             logger.debug(f"Nominatim reverse geocoding failed: {e}, trying Photon")
 
@@ -259,6 +283,7 @@ class GeoCode:
                     Photon(user_agent='tile2net')
                     .reverse(self.centroid, timeout=10)
                 )
+                keywords = result.raw['properties']
             except Exception as e:
                 logger.error(f"Photon reverse geocoding also failed: {e}")
                 raise ValueError(f"Could not reverse geocode '{self.centroid}'") from e
@@ -266,6 +291,7 @@ class GeoCode:
         if result is None:
             raise ValueError(f"Could not reverse geocode '{self.centroid}'")
 
+        self.features = keywords
         return result.address
 
     @cached_property
@@ -293,6 +319,7 @@ class GeoCode:
     @cached_property
     def geometry(self) -> GeoSeries:
         return osmnx.geocode_to_gdf(self.address)
+
 
 if __name__ == '__main__':
     # GeoCode.from_geometry('New York City')

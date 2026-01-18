@@ -171,7 +171,9 @@ class Maine(VexCel):
 
     name = 'maine'
     api_key = "vfa_JkRqdw7HHOis.37zZe0OHVVqPlIY91FsT9arC9uGrDalMqwMW1AX4OgcfsiwtQoxDLed9OEIxKy3Ys2lMCam9C2swLrUwNqX2KrlegBRev8MRDpkqHkbSEn0fP1aEqvoDBdePjAOO9h91.4256792737"
-    keyword = 'Maine'
+    keyword = dict(
+        state=('Maine', 'ME'),
+    )
 
     @cached_property
     def coverage(self) -> GeoSeries:

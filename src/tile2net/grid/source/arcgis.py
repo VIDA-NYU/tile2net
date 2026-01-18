@@ -88,7 +88,10 @@ class ArcGis(
 class NewYorkCity(ArcGis):
     server = 'https://tiles.arcgis.com/tiles/yG5s3afENB5iO9fj/arcgis/rest/services/NYC_Orthos_2024/MapServer'
     name = 'nyc'
-    keyword = 'New York City', 'City of New York'
+    keyword = dict(
+        state=('New York', 'NY'),
+        city=('New York', 'NYC'),
+    )
     year = 2024
     coverage = GeoSeries(
         wkt.loads("POLYGON ((-73.69048 40.4889, -73.69048 40.92834, -74.27615 40.92834, -74.27615 40.4889, -73.69048 40.4889))"),
@@ -99,7 +102,12 @@ class NewYorkCity(ArcGis):
 class NewYork(ArcGis):
     server = 'https://orthos.its.ny.gov/arcgis/rest/services/wms/2024/MapServer'
     name = 'ny'
-    keyword = 'New York'
+    keyword = dict(
+        state=('New York', 'NY'),
+    )
+    dropword = dict(
+        city='New York',
+    )
     year = 2024
     coverage = GeoSeries(
         wkt.loads("POLYGON ((-73.25509 40.48341, -73.25509 45.03931, -79.77922 45.03931, -79.77922 40.48341, -73.25509 40.48341))"),
@@ -110,7 +118,9 @@ class NewYork(ArcGis):
 class Massachusetts(ArcGis):
     server = 'https://tiles.arcgis.com/tiles/hGdibHYSPO59RG1h/arcgis/rest/services/orthos2021/MapServer'
     name = 'ma'
-    keyword = 'Massachusetts'
+    keyword = dict(
+        state=('Massachusetts', 'MA'),
+    )
     extension = 'jpg'
     year = 2021
     coverage = GeoSeries(
@@ -122,7 +132,10 @@ class Massachusetts(ArcGis):
 class KingCountyWashington(ArcGis):
     server = 'https://gismaps.kingcounty.gov/arcgis/rest/services/BaseMaps/KingCo_Aerial_2023/MapServer'
     name = 'king'
-    keyword = 'King County, Washington', 'King County'
+    keyword = dict(
+        state=('Washington', 'WA'),
+        county='King',
+    )
     year = 2023
     coverage = GeoSeries(
         wkt.loads("POLYGON ((-121.03559 47.04875, -121.03559 47.96618, -122.56958 47.96618, -122.56958 47.04875, -121.03559 47.04875))"),
@@ -133,7 +146,9 @@ class KingCountyWashington(ArcGis):
 class LosAngeles(ArcGis):
     server = 'https://cache.gis.lacounty.gov/cache/rest/services/LACounty_Cache/LACounty_Aerial_2014/MapServer'
     name = 'la'
-    keyword = 'Los Angeles'
+    keyword = dict(
+        county='Los Angeles',
+    )
     year = 2014
     coverage = GeoSeries(
         wkt.loads("POLYGON ((-117.63102 33.28853, -117.63102 34.83012, -118.95937 34.83012, -118.95937 33.28853, -117.63102 33.28853))"),
@@ -144,7 +159,9 @@ class LosAngeles(ArcGis):
 class NewJersey(ArcGis):
     server = 'https://maps.nj.gov/arcgis/rest/services/Basemap/Orthos_Natural_2020_NJ_WM/MapServer'
     name = 'nj'
-    keyword = 'New Jersey'
+    keyword = dict(
+        state=('New Jersey', 'NJ'),
+    )
     year = 2020
     coverage = GeoSeries(
         wkt.loads("POLYGON ((-73.85543 38.824, -73.85543 41.3866, -75.59981 41.3866, -75.59981 38.824, -73.85543 38.824))"),
@@ -155,7 +172,11 @@ class NewJersey(ArcGis):
 class SpringHillTN(ArcGis):
     server = 'https://tiles.arcgis.com/tiles/tF0XsRR9ptiKNVW2/arcgis/rest/services/Spring_Hill_Imagery_WGS84/MapServer'
     name = 'sh_tn'
-    keyword = 'Spring Hill, Tennessee', 'Spring Hill'
+    keyword = dict(
+        state=('Tennessee', 'TN'),
+        city='Spring Hill',
+        town='Spring Hill',
+    )
     year = 2020
     coverage = GeoSeries(
         wkt.loads("POLYGON ((-86.75604 35.58884, -86.75604 35.85806, -87.13095 35.85806, -87.13095 35.58884, -86.75604 35.58884))"),
@@ -167,7 +188,9 @@ class Virginia(ArcGis):
     """Data from https://vgin.vdem.virginia.gov/pages/orthoimagery"""
     server = "https://gismaps.vdem.virginia.gov/arcgis/rest/services/VBMP_Imagery/MostRecentImagery_WGS/MapServer/"
     name = "va"
-    keyword = "Virginia"
+    keyword = dict(
+        state=('Virginia', 'VA'),
+    )
     coverage = GeoSeries(
         shapely.geometry.box(-83.6753, 36.5407, -75.1664, 39.4660),
         crs='epsg:4326'
@@ -179,5 +202,7 @@ class MaineOrthoBase(ArcGis, ABC):
     Shared config for Maine GeoLibrary statewide imagery.
     (Everything else—coverage, zoom, template—comes from ArcGis.)
     """
-    keyword = "Maine"
+    keyword = dict(
+        state=('Maine', 'ME'),
+    )
     extension = "jpeg"

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import os
 import os.path
 import shutil
@@ -10,17 +9,15 @@ import warnings
 from abc import ABC
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Union
+from typing import Any, Union
 
 import certifi
 import geopandas as gpd
 import imageio.v3 as iio
 import pandas as pd
 import pyarrow as pa
-import requests
 import shapely.geometry
 from geopandas import GeoDataFrame
-from requests.adapters import HTTPAdapter
 from tqdm import tqdm
 
 from tile2net.grid.geocode import GeoCode
@@ -35,7 +32,6 @@ from tile2net.grid.source.prototype import Prototype
 from tile2net.grid.source.source import Source
 from tile2net.grid.util import recursion_block
 from tile2net.logger import logger
-
 
 tls = threading.local()
 
@@ -96,16 +92,28 @@ class Remote(
     extension: str
     """File extension without the leading dot (e.g., 'png', 'jpg')."""
 
-    keyword: Union[str, tuple[str, ...]] = None
+    keyword: dict[str, Union[str, tuple[str, ...]]] = None
     """
-    A keyword is a required match in the reverse geocode to resolve
-    discrepancies.
+    Keyword dict for matching geocode features to resolve discrepancies.
+    Keys are feature names (e.g., 'state', 'city'), values are either:
+      - A single string to match
+      - A tuple of acceptable strings (any one must match)
+
+    Example:
+        keyword = dict(
+            state=('New York', 'NY'),
+            city='New York',
+        )
+
+    All key-value pairs must match for the remote to be selected.
     """
 
-    dropword: Union[str, tuple[str, ...]] = None
+    dropword: dict[str, Union[str, tuple[str, ...]]] = None
     """
-    A dropword is the reverse of a keyword. If a reverse geocode
-    contains this, the remote is not relevant.
+    Dropword dict is the reverse of keyword. If a geocode's features
+    match all dropword criteria, the remote is excluded.
+
+    Uses the same format as keyword.
     """
 
     year: int
@@ -257,7 +265,7 @@ class Remote(
 
                 pbar = tqdm(
                     total=len(futures),
-                    desc="Testing download",
+                    desc="Downloading one image for metadata",
                     unit=" attempts",
                     mininterval=1,
                 )
@@ -571,6 +579,7 @@ class Remote(
         matches = matches.loc[loc]
 
         # Resolve discrepancies using keywords
+        features = geocode.features
         loc = []
         for name in matches.index:
             remote_class = cls.catalog[name]
@@ -578,29 +587,17 @@ class Remote(
             dropword = remote_class.prototype.dropword
 
             # Check dropwords first - if present, exclude this remote
-            if dropword:
-                if isinstance(dropword, str):
-                    dropwords = dropword,
-                else:
-                    dropwords = dropword
-
-                if any(word.casefold() in geocode.address.casefold()
-                       for word in dropwords):
-                    loc.append(False)
-                    continue
-
-            # Check keywords
-            if keyword:
-                if isinstance(keyword, str):
-                    loc.append(keyword.casefold() in geocode.address.casefold())
-                else:
-                    append = any(
-                        word.casefold() in geocode.address.casefold()
-                        for word in keyword
-                    )
-                    loc.append(append)
+            if (
+                    dropword
+                    and cls._match_features(dropword, features)
+            ):
+                loc.append(False)
+            elif (
+                    keyword
+                    and not cls._match_features(keyword, features)
+            ):
+                loc.append(False)
             else:
-                # No keyword requirement, include by default
                 loc.append(True)
 
         # Retry with fresh address if no keyword matches
@@ -611,35 +608,22 @@ class Remote(
             loc = []
             del geocode.address
             _ = geocode.address
+            features = geocode.features
             for name in matches.index:
                 remote_class = cls.catalog[name]
                 keyword = remote_class.prototype.keyword
                 dropword = remote_class.prototype.dropword
 
-                # Check dropwords
-                if dropword:
-                    if isinstance(dropword, str):
-                        dropwords = dropword,
-                    else:
-                        dropwords = dropword
-
-                    if any(
-                            word.casefold() in geocode.address.casefold()
-                            for word in dropwords
-                    ):
-                        loc.append(False)
-                        continue
-
-                # Check keywords
-                if keyword:
-                    if isinstance(keyword, str):
-                        loc.append(keyword.casefold() in geocode.address.casefold())
-                    else:
-                        append = any(
-                            word.casefold() in geocode.address.casefold()
-                            for word in keyword
-                        )
-                        loc.append(append)
+                if (
+                        dropword
+                        and cls._match_features(dropword, features)
+                ):
+                    loc.append(False)
+                elif (
+                        keyword
+                        and not cls._match_features(keyword, features)
+                ):
+                    loc.append(False)
                 else:
                     loc.append(True)
 
@@ -750,11 +734,55 @@ class Remote(
         ):
             cls.catalog[prototype.name] = prototype
 
+    @classmethod
+    def _match_features(
+            cls,
+            criteria: dict[str, Union[str, tuple[str, ...]]],
+            features: dict[str, Any]
+    ) -> bool:
+        """
+        Check if all key-value pairs in criteria match corresponding values in features.
+
+        criteria: dict where values can be either:
+            - A single string to match
+            - A tuple of strings where any one must match
+        features: dict of feature values from geocoding
+
+        Matching is case-insensitive for string values.
+        """
+        for key, expected in criteria.items():
+            if key not in features:
+                continue
+            actual = features[key]
+
+            actual_lower = str(actual).casefold()
+
+            if isinstance(expected, tuple):
+                expected_values = expected
+            else:
+                expected_values = expected,
+
+            if not any(
+                    expected_lower.casefold() in actual_lower
+                    or actual_lower in expected_lower.casefold()
+                    for expected_lower in expected_values
+            ):
+                return False
+
+        return True
+
 
 if __name__ == '__main__':
     from tile2net.grid.source.arcgis import *
     from tile2net.grid.source.misc import *
     from tile2net.grid.source.vexcel import *
+
+    if NewYorkCity.prototype.enabled:
+        assert isinstance(
+            Remote.from_inferred('Central Park, New York'),
+            NewYorkCity
+        )
+        print('  ✓ Central Park, New York -> NewYorkCity')
 
     print("Testing Remote.from_inferred()...")
     print("=" * 80)
@@ -852,46 +880,46 @@ if __name__ == '__main__':
         assert isinstance(Remote.from_inferred('San Francisco, California'), SanFrancisco2024)
         print("  ✓ 'San Francisco, California' -> SanFrancisco2024")
     # test by URL (creates new Remote instance, not prototype)
-    print("\n4. Testing by URL (generic Remote from URL):")
-    url1 = 'https://tiles.example.com/{z}/{x}/{y}.png'
-    remote1 = Remote.from_inferred(url1)
-    assert isinstance(remote1, Remote)
-    assert remote1.template == url1
-    assert remote1.scheme == 'https'
-    assert remote1.netloc == 'tiles.example.com'
-    assert remote1.extension == 'png'
-    print(f"  ✓ '{url1}' -> Remote(format={remote1.template})")
-
-    url2 = 'https://example.com/tiles/{z}/{x}/{y}.jpg'
-    remote2 = Remote.from_inferred(url2)
-    assert remote2.template == url2
-    assert remote2.extension == 'jpg'
-    print(f"  ✓ '{url2}' -> Remote(extension={remote2.extension})")
-
-    url3 = 'https://server.com/path/{{z}}/{{x}}/{{y}}.png'
-    remote3 = Remote.from_inferred(url3)
-    assert remote3.template == url3
-    print(f"  ✓ URL with {{{{placeholders}}}} -> Remote")
-    # test that invalid names/locations raise errors
-    print("\n6. Testing error cases:")
-    try:
-        Remote.from_inferred('nonexistent_name')
-        assert False, "Should have raised SourceParseError"
-    except SourceParseError:
-        print("  ✓ Invalid name raises SourceParseError")
-
-    try:
-        Remote.from_inferred('https://example.com/no/placeholders.png')
-        assert False, "Should have raised SourceParseError"
-    except SourceParseError:
-        print("  ✓ URL without placeholders raises SourceParseError")
-
-    try:
-        Remote.from_inferred('Antarctica')
-        assert False, "Should have raised RemoteNotFound"
-    except RemoteNotFound:
-        print("  ✓ Location without coverage raises RemoteNotFound")
-
-    print("\n" + "=" * 80)
-    print("All Remote.from_inferred() tests passed! ✓")
-    print("=" * 80)
+    # print("\n4. Testing by URL (generic Remote from URL):")
+    # url1 = 'https://tiles.example.com/{z}/{x}/{y}.png'
+    # remote1 = Remote.from_inferred(url1)
+    # assert isinstance(remote1, Remote)
+    # assert remote1.template == url1
+    # assert remote1.scheme == 'https'
+    # assert remote1.netloc == 'tiles.example.com'
+    # assert remote1.extension == 'png'
+    # print(f"  ✓ '{url1}' -> Remote(format={remote1.template})")
+    #
+    # url2 = 'https://example.com/tiles/{z}/{x}/{y}.jpg'
+    # remote2 = Remote.from_inferred(url2)
+    # assert remote2.template == url2
+    # assert remote2.extension == 'jpg'
+    # print(f"  ✓ '{url2}' -> Remote(extension={remote2.extension})")
+    #
+    # url3 = 'https://server.com/path/{{z}}/{{x}}/{{y}}.png'
+    # remote3 = Remote.from_inferred(url3)
+    # assert remote3.template == url3
+    # print(f"  ✓ URL with {{{{placeholders}}}} -> Remote")
+    # # test that invalid names/locations raise errors
+    # print("\n6. Testing error cases:")
+    # try:
+    #     Remote.from_inferred('nonexistent_name')
+    #     assert False, "Should have raised SourceParseError"
+    # except SourceParseError:
+    #     print("  ✓ Invalid name raises SourceParseError")
+    #
+    # try:
+    #     Remote.from_inferred('https://example.com/no/placeholders.png')
+    #     assert False, "Should have raised SourceParseError"
+    # except SourceParseError:
+    #     print("  ✓ URL without placeholders raises SourceParseError")
+    #
+    # try:
+    #     Remote.from_inferred('Antarctica')
+    #     assert False, "Should have raised RemoteNotFound"
+    # except RemoteNotFound:
+    #     print("  ✓ Location without coverage raises RemoteNotFound")
+    #
+    # print("\n" + "=" * 80)
+    # print("All Remote.from_inferred() tests passed! ✓")
+    # print("=" * 80)

@@ -28,6 +28,7 @@ from tile2net.grid.grid.vectile import VecTile
 from tile2net.grid.sampler.benchmark import Benchmark
 from tile2net.grid.seggrid.seggrid import SegGrid
 from tile2net.grid.source.remote import Remote
+from tile2net.grid.source.local import Local
 from tile2net.grid.source.source import Source
 from tile2net.grid.util import assert_perfect_overlap
 from tile2net.grid.vecgrid.vecgrid import VecGrid
@@ -220,7 +221,7 @@ class Grid(
         """
 
     @Source
-    def source(self):
+    def source(self) -> Union[Remote, Local]:
         """
         Returns the Source class, which wraps a tile server.
         See `Grid.set_remote()` to actually set a source.
@@ -1047,44 +1048,6 @@ class Grid(
         raise NotImplementedError
         ...
 
-    @classmethod
-    def from_basic(
-            cls,
-            outdir=None,
-            location=None,
-            pad=None,
-            length=None
-    ) -> Self:
-        """
-        Construct Grid with basic configuration in one step.
-
-        Args:
-            outdir: Output directory path
-            location: Location string (e.g., 'Boston Common, MA')
-            pad: Padding pixels for segmentation
-            length: vec-tile length
-
-        Returns:
-            Fully configured Grid instance
-
-        Example:
-            >>> grid: Grid = Grid.from_basic(location='Boston, MA', pad=64)
-        """
-
-        grid = (
-            Grid
-            .from_location(location)
-            .set_source(
-                outdir=outdir,
-            )
-            .set_segmentation(
-                pad=pad,
-            )
-            .set_vectorization(
-                length=length,
-            )
-        )
-        return grid
 
     @classmethod
     def from_bounds(

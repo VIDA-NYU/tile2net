@@ -15,7 +15,10 @@ class AlamedaCounty(Remote):
 
     name = 'al'
     extension = 'png'
-    keyword = 'Alameda County', 'California'
+    keyword = dict(
+        state=('California', 'CA'),
+        county='Alameda',
+    )
     year = 2023
     zoom = 20
 
@@ -71,7 +74,10 @@ class SanFranciscoBase(Remote, ABC):
     """
 
     extension = "png"
-    keyword = "San Francisco", "California"
+    keyword = dict(
+        state=('California', 'CA'),
+        city='San Francisco',
+    )
     zoom = 20
     dimension = 512  # tile size in px
 
