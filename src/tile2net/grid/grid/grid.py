@@ -997,6 +997,112 @@ class Grid(
         return result
 
     @classmethod
+    def from_location(
+            cls,
+            location: Union[str, tuple, list],
+            zoom: int = None,
+            source: str = None,
+    ) -> Self:
+        """
+        Instantiate a Grid from a geocoded location string or tile coordinates.
+
+        Args:
+            location: Location identifier. Can be:
+                - An address string (e.g., '1600 Pennsylvania Ave, Washington DC')
+                - A place name string (e.g., 'Central Park')
+                - A string of 4 floats: lat,lon,lat,lon bounding box
+                - A string of 4 integers: xtile,ytile,xtile,ytile bounds
+                - A tuple/list of 4 floats: (lat, lon, lat, lon)
+                - A tuple/list of 4 integers: (xtile, ytile, xtile, ytile)
+                - Otherwise, geocoded via Nominatim
+            zoom: Slippy-tile zoom level (scale) of Grid
+                - Higher value -> smaller tiles
+                - Typically from 14 (large area) to 20 (high detail)
+                - Required when location is 4 integers (xtile, ytile bounds)
+                - If not passed for lat/lon, defaults to zoom defined in cfg
+
+        Returns:
+            Grid instance covering the geocoded bounding box at the specified zoom level.
+
+        Examples:
+            Create a grid from an address. Zoom will default to that given by the Source:
+            >>> grid = BaseGrid.from_location('Times Square, New York')
+
+            Create a grid from coordinates (lat1, lon1, lat2, lon2):
+            >>> grid = BaseGrid.from_location('42.3601,-71.0589,42.3551,-71.0539', zoom=20)
+
+            Create a grid from tile coordinates (xtile1, ytile1, xtile2, ytile2):
+            >>> grid = BaseGrid.from_location('317280,387840,317281,387841', zoom=20)
+
+            Create a grid from a tuple of tile coordinates:
+            >>> grid = BaseGrid.from_location((317280, 387840, 317312, 387872), zoom=20)
+        """
+
+        # handle tuple/list input
+        if isinstance(location, (tuple, list)):
+            if len(location) != 4:
+                raise ValueError('tuple/list location must have exactly 4 elements')
+            result = cls.from_bounds(latlon=location, zoom=zoom)
+            result.location = str(location)
+            return result
+
+        if not location:
+            raise ValueError('location must be a non-empty string')
+
+        # parse location into coordinates
+        if ', ' in location:
+            split = ', '
+        elif ',' in location:
+            split = ','
+        elif ' ' in location:
+            split = ' '
+        else:
+            # not a coordinate string, geocode it
+            latlon = util.geocode(location)
+            result = cls.from_bounds(
+                latlon=latlon,
+                zoom=zoom
+            )
+            result.location = location
+            return result
+
+        # parse the coordinates
+        coords = [
+            x.strip()
+            for x in location.split(split)
+        ]
+        if len(coords) == 4:
+            # check if all are integers (xtile, ytile bounds)
+            try:
+                coords = [int(x) for x in coords]
+            except ValueError:
+                # failed: must be floats or address
+                pass
+            else:
+                # success: all ints
+                if zoom is None:
+                    raise ValueError('zoom must be specified when using xtile, ytile bounds')
+
+                xmin, ymin, xmax, ymax = coords
+                tx = np.arange(xmin, xmax)
+                ty = np.arange(ymin, ymax)
+                index = pd.MultiIndex.from_product([tx, ty])
+                tx = index.get_level_values(0)
+                ty = index.get_level_values(1)
+                result = cls.from_integers(tx, ty, scale=zoom)
+                result.location = location
+                return result
+
+        latlon = util.geocode(location)
+        result = cls.from_bounds(
+            latlon=latlon,
+            zoom=zoom
+        )
+        result.location = location
+
+        return result
+
+    @classmethod
     def from_cfg(
             cls,
             cfg: Cfg = None
