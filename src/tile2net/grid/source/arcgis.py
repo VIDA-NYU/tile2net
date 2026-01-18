@@ -1,4 +1,5 @@
 from __future__ import annotations
+import requests
 
 from abc import ABC
 from functools import cached_property
@@ -19,10 +20,44 @@ class ArcGis(
     Base class for ArcGIS tile servers.
     """
 
+    server: str
+    """Base URL for the ArcGIS MapServer."""
+
     @cached_property
-    def server(self) -> str:
-        """Base URL for the ArcGIS MapServer."""
-        raise AttributeError()
+    def response(self) -> dict:
+        params = {'f': 'json'}
+        response = requests.get(self.server, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        return data
+
+    @cached_property
+    def zooms(self) -> list[int]:
+        """
+        Fetches metadata from the ArcGIS REST API and extracts supported zoom levels.
+        """
+        return [
+            int(lod.get('level'))
+            for lod in self.response['tileInfo']['lods']
+        ]
+
+    @cached_property
+    def zoom(self):
+        if not self.zooms:
+            out = 20
+        else:
+            out = max(self.zooms)
+            out = min(out, 20)
+        return out
+
+    @cached_property
+    def dimension(self) -> int:
+        rows = self.response['tileInfo']['rows']
+        cols = self.response['tileInfo']['cols']
+        assert rows == cols, "Non-square tiles are not supported"
+        return rows
+
+    # zooms: list[int]
 
     @cached_property
     def template(self) -> str:
@@ -84,7 +119,6 @@ class ArcGis(
         return out
 
 
-
 class NewYorkCity(ArcGis):
     server = 'https://tiles.arcgis.com/tiles/yG5s3afENB5iO9fj/arcgis/rest/services/NYC_Orthos_2024/MapServer'
     name = 'nyc'
@@ -94,7 +128,8 @@ class NewYorkCity(ArcGis):
     )
     year = 2024
     coverage = GeoSeries(
-        wkt.loads("POLYGON ((-73.69048 40.4889, -73.69048 40.92834, -74.27615 40.92834, -74.27615 40.4889, -73.69048 40.4889))"),
+        wkt.loads(
+            "POLYGON ((-73.69048 40.4889, -73.69048 40.92834, -74.27615 40.92834, -74.27615 40.4889, -73.69048 40.4889))"),
         crs='epsg:4326'
     )
 
@@ -110,7 +145,8 @@ class NewYork(ArcGis):
     )
     year = 2024
     coverage = GeoSeries(
-        wkt.loads("POLYGON ((-73.25509 40.48341, -73.25509 45.03931, -79.77922 45.03931, -79.77922 40.48341, -73.25509 40.48341))"),
+        wkt.loads(
+            "POLYGON ((-73.25509 40.48341, -73.25509 45.03931, -79.77922 45.03931, -79.77922 40.48341, -73.25509 40.48341))"),
         crs='epsg:4326'
     )
 
@@ -124,7 +160,8 @@ class Massachusetts(ArcGis):
     extension = 'jpg'
     year = 2021
     coverage = GeoSeries(
-        wkt.loads("POLYGON ((-69.92466 41.2265, -69.92466 42.89199, -73.51979 42.89199, -73.51979 41.2265, -69.92466 41.2265))"),
+        wkt.loads(
+            "POLYGON ((-69.92466 41.2265, -69.92466 42.89199, -73.51979 42.89199, -73.51979 41.2265, -69.92466 41.2265))"),
         crs='epsg:4326'
     )
 
@@ -138,7 +175,8 @@ class KingCountyWashington(ArcGis):
     )
     year = 2023
     coverage = GeoSeries(
-        wkt.loads("POLYGON ((-121.03559 47.04875, -121.03559 47.96618, -122.56958 47.96618, -122.56958 47.04875, -121.03559 47.04875))"),
+        wkt.loads(
+            "POLYGON ((-121.03559 47.04875, -121.03559 47.96618, -122.56958 47.96618, -122.56958 47.04875, -121.03559 47.04875))"),
         crs='epsg:4326'
     )
 
@@ -151,7 +189,8 @@ class LosAngeles(ArcGis):
     )
     year = 2014
     coverage = GeoSeries(
-        wkt.loads("POLYGON ((-117.63102 33.28853, -117.63102 34.83012, -118.95937 34.83012, -118.95937 33.28853, -117.63102 33.28853))"),
+        wkt.loads(
+            "POLYGON ((-117.63102 33.28853, -117.63102 34.83012, -118.95937 34.83012, -118.95937 33.28853, -117.63102 33.28853))"),
         crs='epsg:4326'
     )
 
@@ -164,7 +203,8 @@ class NewJersey(ArcGis):
     )
     year = 2020
     coverage = GeoSeries(
-        wkt.loads("POLYGON ((-73.85543 38.824, -73.85543 41.3866, -75.59981 41.3866, -75.59981 38.824, -73.85543 38.824))"),
+        wkt.loads(
+            "POLYGON ((-73.85543 38.824, -73.85543 41.3866, -75.59981 41.3866, -75.59981 38.824, -73.85543 38.824))"),
         crs='epsg:4326'
     )
 
@@ -179,7 +219,8 @@ class SpringHillTN(ArcGis):
     )
     year = 2020
     coverage = GeoSeries(
-        wkt.loads("POLYGON ((-86.75604 35.58884, -86.75604 35.85806, -87.13095 35.85806, -87.13095 35.58884, -86.75604 35.58884))"),
+        wkt.loads(
+            "POLYGON ((-86.75604 35.58884, -86.75604 35.85806, -87.13095 35.85806, -87.13095 35.58884, -86.75604 35.58884))"),
         crs='epsg:4326'
     )
 
