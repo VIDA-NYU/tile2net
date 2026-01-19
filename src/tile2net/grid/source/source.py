@@ -55,7 +55,8 @@ class Source:
             self.__set__(instance, source)
 
         out: Self = cache[key]
-        out.grid = instance
+        if isinstance(out, Source):
+            out.grid = instance
         return out
 
     locals().update(__get__=_get)
@@ -74,6 +75,8 @@ class Source:
             value = copy.copy(value)
         elif isinstance(value, str):
             value = self.from_inferred(value)
+        elif value is False:
+            ...
         else:
             msg = (
                 f'Cannot set source with value of type {type(value)}. '
@@ -81,7 +84,8 @@ class Source:
             )
             raise TypeError(msg)
         instance.__dict__[self.__name__] = value
-        value.__name__ = self.__name__
+        if isinstance(value, Source):
+            value.__name__ = self.__name__
 
     def __delete__(self, instance: Grid):
         try:

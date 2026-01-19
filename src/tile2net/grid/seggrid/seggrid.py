@@ -82,6 +82,9 @@ class SegGrid(
         self = namespace._get(self, instance, owner)
         if instance is None:
             return copy.copy(self)
+        if not instance.source:
+            msg = f'Cannot generate {self.__name__} in sourceless mode.'
+            raise ValueError(msg)
         cache = instance.frame.__dict__
         key = self.__name__
         if key in cache:

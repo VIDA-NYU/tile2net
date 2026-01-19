@@ -1004,7 +1004,12 @@ class Grid(
                 list[int]
             ],
             zoom: int = None,
-            source: str | Source = None,
+            source: Union[
+                str,
+                Source,
+                None,
+                False
+            ] = None,
     ) -> Self:
         """
         Instantiate a Grid from a geocoded location string or tile coordinates.
@@ -1048,6 +1053,8 @@ class Grid(
         # resolve source and zoom
         if source is None:
             source = Source.from_inferred(geocode)
+        elif source is False:
+            ...
         else:
             source = Source.from_inferred(source)
         if (
@@ -1131,11 +1138,12 @@ class Grid(
     ) -> Self:
         out = super().from_bounds(bounds, zoom)
         out.source = source
-        out = (
-            out
-            .set_segmentation()
-            .set_vectorization()
-        )
+        if source:
+            out = (
+                out
+                .set_segmentation()
+                .set_vectorization()
+            )
         return out
 
     @property

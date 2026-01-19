@@ -17,6 +17,9 @@ class Local(
     Source,
     Dir
 ):
+    def __repr__(self) -> str:
+        return f"Local(format={self.template!r})"
+
     @cached_property
     def dir(self) -> str:
         """Directory path, same as root for Local sources."""

@@ -10,7 +10,7 @@ from abc import ABC
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Union
+from typing import Union
 
 import certifi
 import geopandas as gpd
@@ -50,6 +50,15 @@ class Remote(
     ABC
 ):
     """Base class for remote tile sources"""
+
+    server: str
+
+    def __repr__(self) -> str:
+        attributes = [
+            f"name={self.name!r}",
+            f"url={self.server!r}"
+        ]
+        return f"{self.__class__.__qualname__}(\n    " + ",\n    ".join(attributes) + "\n)"
 
     @Catalog
     def catalog(self):
@@ -745,10 +754,10 @@ class Remote(
         elif 'address' not in geocode.__dict__:
             raise RemoteNotFound(f"Could not geocode location: {geocode.passed}")
         # else:
-            # logger.warning(
-            #     f'No keyword matches found for {geocode.passed} using '
-            #     f'the geocoded address "{geocode.address}"',
-            # )
+        # logger.warning(
+        #     f'No keyword matches found for {geocode.passed} using '
+        #     f'the geocoded address "{geocode.address}"',
+        # )
 
         # If single match, return it
         if len(matches) == 1:

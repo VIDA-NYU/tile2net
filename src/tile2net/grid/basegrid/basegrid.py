@@ -690,16 +690,32 @@ class BaseGrid(
         return len(self.frame)
 
     def __repr__(self):
-        result = f'{self.__class__.__qualname__}:\n'
+        result = f'{self.__class__.__qualname__}:\n\n'
         if self.location:
-            result += f'Location: {self.location}\n'
+            result += (
+                f'Location: \n\t'
+                f'{self.location}\n'
+            )
         if self.lat_lon:
             ymin, xmin, ymax, xmax = self.lat_lon
             result += (
-                f'LatLon: '
-                f'({ymin:.4f}, {xmin:.4f}) to ({ymax:.4f}, {xmax:.4f})\n'
+                f'Lat/Lon Bounds: \n\t'
+                f'({ymin:.4f}, {xmin:.4f}, {ymax:.4f}, {xmax:.4f})\n'
             )
-        result += f'Scale: {self.scale}\n'
+        if self.xtile_ytile:
+            xmin, ymin, xmax, ymax = self.xtile_ytile
+            result += (
+                f'XTile/YTile Bounds: \n\t'
+                f'({xmin}, {ymin}, {xmax}, {ymax})\n'
+            )
+        result += (
+            f'Scale: \n\t'
+            f'{self.scale}\n'
+        )
+        result += (
+            f'Source: \n\t'
+            f'{self.grid.source}\n'
+        )
         result += f'\n'
         result += self.frame.__repr__()
         return result
@@ -721,7 +737,7 @@ class BaseGrid(
             m=None,
             dissolve: bool = False,
             **kwargs
-    ) -> folium.map:
+    ) -> folium.Map:
         import folium
         frame = self.frame
         if dissolve:

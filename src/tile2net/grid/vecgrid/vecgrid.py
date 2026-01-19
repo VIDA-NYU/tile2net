@@ -117,6 +117,9 @@ class VecGrid(BaseGrid):
         self.instance = instance
         if instance is None:
             return copy.copy(self)
+        if not instance.source:
+            msg = f'Cannot generate {self.__name__} in sourceless mode.'
+            raise ValueError(msg)
 
         cache = instance.frame.__dict__
         key = self.__name__
@@ -124,10 +127,12 @@ class VecGrid(BaseGrid):
             result = cache[key]
 
         else:
+            name = self.grid.__class__.__qualname__
             msg = (
-                f'intiles.{self.__name__} has not been set. You may '
+                f'{name}.{self.__name__} '
+                f'has not been set. You may '
                 f'customize the vectorization functionality by using '
-                f'`Intiles.set_vectorization`'
+                f'`{name}.set_vectorization`'
             )
             logger.info(msg)
 
