@@ -1,6 +1,4 @@
 from __future__ import absolute_import, annotations, division, print_function, unicode_literals
-from abc import abstractmethod
-from functools import cached_property
 
 import argparse
 import functools
@@ -12,6 +10,7 @@ import multiprocessing
 import os
 import re
 from collections import deque, UserDict
+from functools import cached_property
 from pathlib import Path
 from types import MappingProxyType
 from typing import *
@@ -64,7 +63,23 @@ class cached(metaclass=metaclass):
 class _Default(UserDict):
     data: dict[type[Cfg], Cfg]
 
-    def _get(
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T]
+    ) -> T:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner
+    ) -> T:
+        ...
+
+    def __get__(
             self,
             instance,
             owner: type[Cfg]
@@ -73,8 +88,6 @@ class _Default(UserDict):
         if owner not in cache:
             cache[owner] = owner.from_defaults()
         return cache[owner]
-
-    locals().update(__get__=_get)
 
 
 class Group:
@@ -569,8 +582,8 @@ class Model(cmdline.Namespace):
     @cached_property
     def mscale(self) -> bool:
         return (
-            'mscale' in self._cfg.arch
-            or 'attnscale' in self._cfg.arch
+                'mscale' in self._cfg.arch
+                or 'attnscale' in self._cfg.arch
         )
 
     @cmdline.property
@@ -975,6 +988,17 @@ class Vectorization(
         """Save vectorized network to file at the respective scale."""
         return False
 
+    @cmdline.property
+    def parallel_scaling(self) -> bool:
+        """
+        Dynamically adjust grid scale to maximize multi-core CPU utilization.
+
+        When enabled, scale the zoom level (scale) so the tile
+        count meets or exceeds the system's logical core count,
+        maximizing parallel CPU utilization.
+        """
+        return True
+
 
 class Loss(cmdline.Namespace):
 
@@ -1063,7 +1087,6 @@ class Polygon(cmdline.Namespace):
             sidewalk=1,
             crosswalk=2,
         )
-
 
     def borders(self) -> list[str]:
         """
@@ -1420,7 +1443,7 @@ class Cfg(
         """
         return './tile2net_output'
 
-    outdir.add_options( short='-o')
+    outdir.add_options(short='-o')
 
     @basic(1.5)
     @cmdline.property
@@ -1438,7 +1461,6 @@ class Cfg(
         return 'z/x_y'
 
     outdir.add_options(short='-f')
-
 
     @cmdline.property
     def dump_percent(self) -> int:
@@ -2075,7 +2097,6 @@ class Cfg(
         repr(result)
         out = MappingProxyType(dict(sorted(result.items())))
         return out
-
 
     def __call__(self, *args, **kwargs) -> Cfg:
         return self

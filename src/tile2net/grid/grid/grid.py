@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import os.path
 import shutil
@@ -710,6 +711,23 @@ class Grid(
         assert seggrid.filled.index.isin(grid.filled.segtile.index).all()
         assert seggrid.scale == self.seggrid.scale
         vecgrid = VecGrid.from_rescale(grid, scale, fill=fill)
+
+        if (
+                cfg.vectorization.parallel_scaling
+                and len(vecgrid) < os.cpu_count()
+        ):
+            logger.info(
+                f"Underutilized CPU in {VecGrid.__qualname__}: "
+                f"{len(vecgrid)} tiles < {os.cpu_count()} cores. "
+                f"Rescaling from scale={vecgrid.scale}."
+            )
+            rescale = os.cpu_count() / len(vecgrid)
+            rescale = math.log(rescale, 4)
+            rescale = math.ceil(rescale)
+            scale = min(scale + rescale, seggrid.seggrid.scale)
+            vecgrid = VecGrid.from_rescale(grid, scale, fill=fill)
+            msg = f"Optimized {VecGrid.__qualname__}: scale={scale} ({len(vecgrid)} tiles)."
+            logger.info(msg)
 
         if pad is not None:
             vecgrid.pad = pad

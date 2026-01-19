@@ -797,6 +797,7 @@ class BaseGrid(
             mosaic: int = None,
             scale: int = None,
     ) -> int:
+        """Unifies varying methods of defining tile scales to the slippy-zoom-based scale integer. """
 
         n = sum(
             arg is not None
@@ -809,7 +810,7 @@ class BaseGrid(
             )
             raise ValueError(msg)
 
-        """get scale from dimension, length, or mosaic"""
+        # get scale from dimension, length, or mosaic
         if dimension:
 
             if (
