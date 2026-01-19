@@ -1,9 +1,9 @@
 from __future__ import annotations
-import json
-import re
 
 import functools
+import json
 import os.path
+import re
 from functools import cached_property
 from pathlib import Path
 from typing import *
@@ -14,6 +14,7 @@ import osmnx
 import shapely
 from geopandas import GeoDataFrame, GeoSeries
 from geopy.geocoders import Nominatim, Photon
+
 from tile2net.grid import util
 from tile2net.logger import logger
 
@@ -155,21 +156,21 @@ class GeoCode:
     @classmethod
     def from_lonlat(
             cls,
-            bounds: Union[
+            lonlat: Union[
                 list[float],
                 tuple[int, ...]
             ]
     ) -> Self:
-        original_bounds = bounds
-        bounds = tuple(map(cls._round, bounds))
-        if bounds in cls.cache:
-            return cls.cache[bounds]
+        passed = lonlat
+        lonlat = tuple(map(cls._round, lonlat))
+        if lonlat in cls.cache:
+            return cls.cache[lonlat]
         result = cls()
-        result.passed = original_bounds
-        n, s = max(bounds[0], bounds[2]), min(bounds[0], bounds[2])
-        w, e = min(bounds[1], bounds[3]), max(bounds[1], bounds[3])
+        result.passed = passed
+        w, e = min(lonlat[0], lonlat[2]), max(lonlat[0], lonlat[2])
+        s, n = min(lonlat[1], lonlat[3]), max(lonlat[1], lonlat[3])
         result.nwse = n, w, s, e
-        cls.cache[bounds] = result
+        cls.cache[lonlat] = result
         return result
 
     @classmethod
@@ -237,14 +238,18 @@ class GeoCode:
         elif isinstance(frame, (GeoDataFrame, GeoSeries)):
             frame = GeoDataFrame(frame)
         else:
-            raise ValueError( f"Could not infer frame from '{frame}'")
+            raise ValueError(f"Could not infer frame from '{frame}'")
         result = cls()
         result.passed = original_frame
         result.geometry = frame
         return result
 
     @classmethod
-    def from_xtyle_ytlile(cls, xtile_ytile: tuple[int, int, int, int], zoom: int) -> Self:
+    def from_xtyle_ytlile(
+            cls,
+            xtile_ytile: tuple[int, ...],
+            zoom: int
+    ) -> Self:
         lonlat = (
             *util.xy2lonlat(*xtile_ytile[:2], zoom),
             *util.xy2lonlat(*xtile_ytile[2:], zoom)
@@ -347,16 +352,18 @@ class GeoCode:
                 keywords = result.raw['properties']
             except Exception as e:
                 logger.error(f"Photon reverse geocoding also failed: {e}")
-                raise ValueError(f"Could not reverse geocode '{self.centroid}'") from e
+                raise ValueError(f"Could not reverse geocode '{self.centroid=}'") from e
 
         if result is None:
-            raise ValueError(f"Could not reverse geocode '{self.centroid}'")
+            raise ValueError(f"Could not reverse geocode '{self.centroid=}'")
 
         self.features = keywords
-        return result.address
+        out = result.address
+        return out
 
     @cached_property
     def centroid(self) -> tuple[float, float]:
+        """Centroid as (lat, lon)"""
         bounds = self.nwse
         y = (bounds[0] + bounds[2]) / 2
         x = (bounds[1] + bounds[3]) / 2
