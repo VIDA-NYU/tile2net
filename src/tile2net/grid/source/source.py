@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 import copy
-from abc import abstractmethod, ABC
-from functools import cached_property
 from typing import *
 
 import geopandas as gpd
 import shapely
 
-from tile2net.grid.frame.weak import weak
 from tile2net.grid.basegrid.basegrid import BaseGrid
+from tile2net.grid.frame.weak import weak
 from tile2net.logger import logger
 
 if TYPE_CHECKING:

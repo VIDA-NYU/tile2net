@@ -9,9 +9,6 @@ from functools import *
 from pathlib import Path
 from typing import *
 
-import numpy as np
-import pandas as pd
-
 from tile2net.grid import util
 from tile2net.grid.basegrid.basegrid import BaseGrid
 from tile2net.grid.basegrid.static import Static
@@ -20,6 +17,7 @@ from tile2net.grid.cfg.cfg import Cfg
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.dir.outdir import Outdir
 from tile2net.grid.dir.tempdir import TempDir
+from tile2net.grid.geocode import GeoCode
 from tile2net.grid.grid import delayed
 from tile2net.grid.grid.file import File
 from tile2net.grid.grid.network import Network
@@ -998,9 +996,15 @@ class Grid(
     @classmethod
     def from_location(
             cls,
-            location: Union[str, tuple, list],
+            location: Union[
+                str,
+                tuple[float, ...],
+                list[float],
+                tuple[int, ...],
+                list[int]
+            ],
             zoom: int = None,
-            source: str = None,
+            source: str | Source = None,
     ) -> Self:
         """
         Instantiate a Grid from a geocoded location string or tile coordinates.
@@ -1019,6 +1023,8 @@ class Grid(
                 - Typically from 14 (large area) to 20 (high detail)
                 - Required when location is 4 integers (xtile, ytile bounds)
                 - If not passed for lat/lon, defaults to zoom defined in cfg
+            source: Tile Source instance or name/abbreviation.
+
 
         Returns:
             Grid instance covering the geocoded bounding box at the specified zoom level.
@@ -1037,8 +1043,11 @@ class Grid(
             >>> grid = BaseGrid.from_location((317280, 387840, 317312, 387872), zoom=20)
         """
 
+        geocode = GeoCode.from_inferred(location, zoom)
+
+        # resolve source and zoom
         if source is None:
-            source = Source.from_inferred(location)
+            source = Source.from_inferred(geocode)
         else:
             source = Source.from_inferred(source)
         if (
@@ -1047,71 +1056,11 @@ class Grid(
         ):
             zoom = source.zoom
 
-        # handle tuple/list input
-        if isinstance(location, (tuple, list)):
-            if len(location) != 4:
-                raise ValueError('tuple/list location must have exactly 4 elements')
-            result = cls.from_bounds(latlon=location, zoom=zoom)
-            result.location = str(location)
-            return result
+        geocode = GeoCode.from_inferred(location, zoom)
+        out = cls.from_bounds(geocode.nwse, zoom, source)
+        out.location = location
 
-        if not location:
-            raise ValueError('location must be a non-empty string')
-
-        # parse location into coordinates
-        if ', ' in location:
-            split = ', '
-        elif ',' in location:
-            split = ','
-        elif ' ' in location:
-            split = ' '
-        else:
-            # not a coordinate string, geocode it
-            latlon = util.geocode(location)
-            result = cls.from_bounds(
-                latlon=latlon,
-                zoom=zoom
-            )
-            result.source = source
-            result.location = location
-            return result
-
-        # parse the coordinates
-        coords = [
-            x.strip()
-            for x in location.split(split)
-        ]
-        if len(coords) == 4:
-            # check if all are integers (xtile, ytile bounds)
-            try:
-                coords = [int(x) for x in coords]
-            except ValueError:
-                # failed: must be floats or address
-                ...
-            else:
-                # success: all ints
-                if zoom is None:
-                    raise ValueError('zoom must be specified when using xtile, ytile bounds')
-
-                xmin, ymin, xmax, ymax = coords
-                tx = np.arange(xmin, xmax)
-                ty = np.arange(ymin, ymax)
-                index = pd.MultiIndex.from_product([tx, ty])
-                tx = index.get_level_values(0)
-                ty = index.get_level_values(1)
-                result = cls.from_integers(tx, ty, scale=zoom)
-                result.location = location
-                return result
-
-        latlon = util.geocode(location)
-        result = cls.from_bounds(
-            latlon=latlon,
-            zoom=zoom
-        )
-        result.location = location
-        result.source = source
-
-        return result
+        return out
 
     @classmethod
     def from_cfg(
@@ -1168,18 +1117,22 @@ class Grid(
     @classmethod
     def from_bounds(
             cls,
-            latlon: Union[
+            bounds: Union[
                 str,
                 list[float],
                 list[int],
                 tuple[float, float, float, float],
                 tuple[int, int, int, int],
+                tuple[float, ...],
+                tuple[int, ...],
             ],
             zoom: int = None,
+            source: str | Source = None,
     ) -> Self:
+        out = super().from_bounds(bounds, zoom)
+        out.source = source
         out = (
-            super()
-            .from_bounds(latlon, zoom)
+            out
             .set_segmentation()
             .set_vectorization()
         )

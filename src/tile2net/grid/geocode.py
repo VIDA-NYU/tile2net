@@ -1,4 +1,6 @@
 from __future__ import annotations
+import json
+import re
 
 import functools
 import os.path
@@ -12,7 +14,7 @@ import osmnx
 import shapely
 from geopandas import GeoDataFrame, GeoSeries
 from geopy.geocoders import Nominatim, Photon
-
+from tile2net.grid import util
 from tile2net.logger import logger
 
 
@@ -49,49 +51,84 @@ class cached:
 class GeoCode:
     cache: dict[object, GeoCode] = {}
     _round = staticmethod(functools.partial(round, ndigits=4))
+    passed: object
+    """Originally passed object to construct the class."""
+
+    @staticmethod
+    def _match(obj: str) -> tuple[str, str, str, str]:
+        """
+        Parses a string for exactly 4 numeric coordinates (integers or floats).
+        Handles formats like "1, 2, 3, 4", "(1.1, 2.2, 3.3, 4.4)", or "minx=1..."
+        """
+        pattern = r"[-+]?(?:\d*\.\d+|\d+)(?:[eE][-+]?\d+)?"
+        matches = re.findall(pattern, obj)
+
+        if len(matches) != 4:
+            raise ValueError(f"Expected 4 coordinates, found {len(matches)} in '{obj}'")
+
+        return matches[0], matches[1], matches[2], matches[3]
 
     @classmethod
-    def from_inferred(cls, obj: str | Any) -> Self:
-        if isinstance(obj, shapely.Polygon):
-            return cls.from_polygon(obj)
-        if isinstance(obj, shapely.geometry.Point):
-            return cls.from_point(obj)
+    def from_inferred(
+            cls,
+            obj: str | Any,
+            zoom: Optional[int] = None
+    ) -> Self:
+        original_obj = obj
+
         if isinstance(obj, str):
             try:
-                bounds = [
-                    float(num)
-                    for num in obj.split(',')
-                ]
-                match len(bounds):
-                    case 2:
-                        return cls.from_centroid(bounds)
-                    case 4:
-                        return cls.from_nwse(bounds)
-                    case _:
-                        raise ValueError(
-                            f"Could not infer geocode from '{obj}'"
-                        )
-            except (ValueError, AttributeError):
-                return cls.from_address(obj)
-        if isinstance(obj, (list, tuple)):
-            if len(obj) == 2:
-                return cls.from_centroid(obj)
-            elif len(obj) == 4:
-                return cls.from_nwse(obj)
-        raise ValueError(
-            f"Could not infer geocode from '{obj}'"
-        )
+                obj = cls._match(obj)
+            except ValueError:
+                out = cls.from_address(obj)
+                out.passed = original_obj
+                return out
+            else:
+                out = cls.from_inferred(obj)
+                out.passed = original_obj
+                return out
 
-        return result
+        if (
+                isinstance(obj, (list, tuple))
+                and len(obj) == 2
+        ):
+            out = cls.from_centroid(obj)
+            out.passed = original_obj
+            return out
+        if (
+                isinstance(obj, (list, tuple))
+        ):
+            try:
+                obj = list(map(int, obj))
+            except ValueError:
+                obj = list(map(float, obj))
+            else:
+                out = cls.from_xtyle_ytlile(obj, zoom)
+                out.passed = original_obj
+                return out
+            out = cls.from_lonlat(obj)
+            out.passed = original_obj
+            return out
+        if isinstance(obj, shapely.Polygon):
+            out = cls.from_polygon(obj)
+            out.passed = original_obj
+            return out
+        if isinstance(obj, shapely.geometry.Point):
+            out = cls.from_point(obj)
+            out.passed = original_obj
+            return out
+        raise ValueError(f'Could not infer geocode from {obj}')
 
     @classmethod
     def from_polygon(cls, polygon: shapely.Polygon) -> Self:
         if polygon.bounds in cls.cache:
             return cls.cache[polygon.bounds]
         result = cls()
+        result.passed = polygon
         result.polygon = polygon
         w, s, e, n = polygon.bounds
         result.nwse = n, w, s, e
+        cls.cache[polygon.bounds] = result
         return result
 
     @classmethod
@@ -99,6 +136,7 @@ class GeoCode:
         if address in cls.cache:
             return cls.cache[address]
         result = cls()
+        result.passed = address
         result.address = address
         cls.cache[address] = result
         return result
@@ -109,16 +147,25 @@ class GeoCode:
         if centroid in cls.cache:
             return cls.cache[centroid]
         result = cls()
+        result.passed = point
         result.centroid = centroid
         cls.cache[centroid] = result
         return result
 
     @classmethod
-    def from_nwse(cls, bounds: list[float]) -> Self:
+    def from_lonlat(
+            cls,
+            bounds: Union[
+                list[float],
+                tuple[int, ...]
+            ]
+    ) -> Self:
+        original_bounds = bounds
         bounds = tuple(map(cls._round, bounds))
         if bounds in cls.cache:
             return cls.cache[bounds]
         result = cls()
+        result.passed = original_bounds
         n, s = max(bounds[0], bounds[2]), min(bounds[0], bounds[2])
         w, e = min(bounds[1], bounds[3]), max(bounds[1], bounds[3])
         result.nwse = n, w, s, e
@@ -127,10 +174,12 @@ class GeoCode:
 
     @classmethod
     def from_centroid(cls, centroid: tuple[float, float] | list[float]) -> Self:
+        original_centroid = centroid
         centroid = tuple(centroid)
         if centroid in cls.cache:
             return cls.cache[centroid]
         result = cls()
+        result.passed = original_centroid
         result.centroid = centroid
         cls.cache[centroid] = result
         return result
@@ -140,7 +189,9 @@ class GeoCode:
             cls,
             geometry: str
     ) -> Self:
+        original_geometry = geometry
         result = cls()
+        result.passed = original_geometry
         if (
                 isinstance(geometry, (Path, str))
                 and '.' in geometry
@@ -167,11 +218,12 @@ class GeoCode:
     def from_osm(cls, query: str):
         geometry = osmnx.geocode_to_gdf(query)
         result = cls.from_frame(geometry)
+        result.passed = query
         return result
 
     @classmethod
     def from_frame(cls, frame: GeoDataFrame | str | Path) -> Self:
-        # if isinstance(frame, (str, Path)):
+        original_frame = frame
         if isinstance(frame, Path):
             frame = str(frame)
         if isinstance(frame, str):
@@ -185,11 +237,20 @@ class GeoCode:
         elif isinstance(frame, (GeoDataFrame, GeoSeries)):
             frame = GeoDataFrame(frame)
         else:
-            raise ValueError(
-                f"Could not infer frame from '{frame}'"
-            )
+            raise ValueError( f"Could not infer frame from '{frame}'")
         result = cls()
+        result.passed = original_frame
         result.geometry = frame
+        return result
+
+    @classmethod
+    def from_xtyle_ytlile(cls, xtile_ytile: tuple[int, int, int, int], zoom: int) -> Self:
+        lonlat = (
+            *util.xy2lonlat(*xtile_ytile[:2], zoom),
+            *util.xy2lonlat(*xtile_ytile[2:], zoom)
+        )
+        result = cls.from_lonlat(lonlat)
+        result.passed = xtile_ytile
         return result
 
     @cached_property
@@ -319,6 +380,14 @@ class GeoCode:
     @cached_property
     def geometry(self) -> GeoSeries:
         return osmnx.geocode_to_gdf(self.address)
+
+    def __repr__(self):
+        return json.dumps(
+            self.__dict__,
+            indent=4,
+            default=str,
+            sort_keys=True
+        )
 
 
 if __name__ == '__main__':

@@ -8,6 +8,7 @@ import threading
 import warnings
 from abc import ABC
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Union
 
@@ -34,6 +35,14 @@ from tile2net.grid.util import recursion_block
 from tile2net.logger import logger
 
 tls = threading.local()
+
+
+@dataclass
+class MatchResult:
+    """Result of matching a single feature key against criteria."""
+    needles: tuple[str, ...]
+    haystack: str
+    found: bool
 
 
 class Remote(
@@ -537,8 +546,6 @@ class Remote(
             BaseGeometry: Shapely geometry
             GeoSeries/GeoDataFrame: Geographic data
         """
-        # Get all coverage geometries
-        matches: GeoSeries = cls.coverage
 
         if isinstance(item, (gpd.GeoDataFrame, gpd.GeoSeries)):
             infer = (
@@ -556,6 +563,44 @@ class Remote(
             msg = f"Could not geocode location: {item} \n\t{exc}"
             raise InvalidLocation(msg) from exc
 
+        return cls.from_geocode(geocode)
+
+    @classmethod
+    def from_inferred(cls, item) -> Self:
+        """
+        Infer the appropriate Remote instance from various input types.
+
+        >>> Remote.from_inferred('https://example.com/{z}/{x}/{y}.png')
+        >>> Remote.from_inferred('nyc')
+        >>> Remote.from_inferred('New York City')
+        >>> Remote.from_inferred([...])  # bbox coordinates
+        """
+        if isinstance(item, GeoCode):
+            return cls.from_geocode(item)
+
+        if isinstance(item, str):
+            return cls.from_str(item)
+
+        return cls.from_location(item)
+
+    @classmethod
+    def from_geocode(cls, geocode: GeoCode) -> Self:
+        """
+        Creates a Remote instance by finding the best matching coverage for a given geocoded location.
+
+        This method searches through available remote coverages to find one that intersects with
+        the provided geocode's polygon. When multiple matches are found, it uses keyword matching
+        and intersection-over-union (IOU) calculations to determine the most appropriate remote.
+        If the initial geocode doesn't match any coverage, the method attempts to recompute the
+        address and retry the search.
+
+        Parameters
+        ----------
+        geocode : GeoCode
+            A geocoded location object containing polygon geometry, address information, and
+            geographic features used for matching against"""
+
+        matches: GeoSeries = cls.coverage
         # Find intersecting coverages
         loc = matches.intersects(geocode.polygon)
         if (
@@ -563,6 +608,7 @@ class Remote(
                 and 'address' in geocode.__dict__
         ):
             # User may have been lazy; recompute polygon
+            # e.g. user just passed "Springfield" instead of "Springfield, Illinois"
             del geocode.address
             _ = geocode.address
             del geocode.nwse
@@ -571,7 +617,7 @@ class Remote(
             loc = matches.intersects(geocode.polygon)
             if not loc.any():
                 msg = (
-                    f'No remote coverage found for location: "{item}" \n\t'
+                    f'No remote coverage found for location: "{geocode.passed}" \n\t'
                     f'Geocoded as: "{geocode.address}" \n\t'
                     f'Please be more specific.'
                 )
@@ -582,23 +628,50 @@ class Remote(
         features = geocode.features
         loc = []
         for name in matches.index:
-            remote_class = cls.catalog[name]
-            keyword = remote_class.prototype.keyword
-            dropword = remote_class.prototype.dropword
+            prototype = cls.catalog[name]
+            keyword = prototype.prototype.keyword
+            dropword = prototype.prototype.dropword
 
-            # Check dropwords first - if present, exclude this remote
-            if (
-                    dropword
-                    and cls._match_features(dropword, features)
-            ):
-                loc.append(False)
-            elif (
-                    keyword
-                    and not cls._match_features(keyword, features)
-            ):
-                loc.append(False)
-            else:
-                loc.append(True)
+            excluded = False
+
+            if dropword:
+                results = cls._match_features(dropword, features)
+                if any(result.found for result in results.values()):
+                    mismatches = [
+                        (
+                            f"{key}={result.haystack!r} matches dropword "
+                            f"{result.needles!r}; remote excluded."
+                        )
+                        for key, result in results.items()
+                        if result.found
+                    ]
+                    logger.info(
+                        f"Excluding remote '{name}' ({prototype.__class__.__name__}): "
+                        f"dropword matched on {', '.join(mismatches)}.\n\t"
+                        f"To force this Source, pass `source={prototype.name}`"
+                    )
+                    excluded = True
+
+            if keyword:
+                results = cls._match_features(keyword, features)
+                if any(not result.found for result in results.values()):
+                    mismatches = [
+                        (
+                            f"{key}: expected at least one of "
+                            f"{result.needles!r}, in {result.haystack!r}; "
+                            f"not found"
+                        )
+                        for key, result in results.items()
+                        if not result.found
+                    ]
+                    logger.info(
+                        f"Excluding remote '{name}' ({prototype.__class__.__name__}): "
+                        f"keyword mismatch on {', '.join(mismatches)}.\n\t"
+                        f"To force this Source, pass `source=\"{prototype.name}\"`"
+                    )
+                    excluded = True
+
+            loc.append(not excluded)
 
         # Retry with fresh address if no keyword matches
         if (
@@ -610,37 +683,81 @@ class Remote(
             _ = geocode.address
             features = geocode.features
             for name in matches.index:
-                remote_class = cls.catalog[name]
-                keyword = remote_class.prototype.keyword
-                dropword = remote_class.prototype.dropword
+                prototype = cls.catalog[name]
+                keyword = prototype.keyword
+                dropword = prototype.dropword
 
-                if (
-                        dropword
-                        and cls._match_features(dropword, features)
-                ):
-                    loc.append(False)
-                elif (
-                        keyword
-                        and not cls._match_features(keyword, features)
-                ):
-                    loc.append(False)
-                else:
-                    loc.append(True)
+                excluded = False
 
-        if any(loc):
-            matches = matches.loc[loc]
-        elif 'address' not in geocode.__dict__:
-            raise RemoteNotFound(f"Could not geocode location: {item}")
-        else:
-            logger.warning(
-                f'No keyword matches found for {item=} using '
-                f'{geocode.address=}; the result may be inaccurate',
+                if dropword:
+                    results = cls._match_features(dropword, features)
+                    if any(
+                            result.found
+                            for result in results.values()
+                    ):
+                        # mismatches = [
+                        #     (
+                        #         f"{key}={result.haystack!r} matches dropword "
+                        #         f"{result.needles!r}; remote excluded."
+                        #     )
+                        #     for key, result in results.items()
+                        #     if result.found
+                        # ]
+                        # msg = (
+                        #     f"Excluding remote '{name}' ({prototype.__class__.__name__}) (retry):"
+                        #     f" dropword matched on {', '.join(mismatches)}"
+                        # )
+                        # logger.debug(msg)
+                        excluded = True
+
+                if keyword:
+                    results = cls._match_features(keyword, features)
+                    if any(
+                            not result.found
+                            for result in results.values()
+                    ):
+                        # mismatches = [
+                        #     (
+                        #         f"{key}: expected at least one of "
+                        #         f"{result.needles!r}, in {result.haystack!r}; "
+                        #         f"not found."
+                        #     )
+                        #     for key, result in results.items()
+                        #     if not result.found
+                        # ]
+                        # msg = (
+                        #     f"Excluding remote '{name}' ({prototype.__class__.__name__}) (retry): "
+                        #     f"keyword mismatch on {', '.join(mismatches)}"
+                        # )
+                        # logger.debug(msg)
+                        excluded = True
+
+                loc.append(not excluded)
+
+        # if any(loc):
+        #     matches = matches.loc[loc]
+        matches = matches.loc[loc]
+        if matches.empty:
+            raise RemoteNotFound(
+                f'No remote coverage found for location: "{geocode.passed}" \n\t'
+                f'Geocoded as: "{geocode.address}" \n\t',
             )
+        elif 'address' not in geocode.__dict__:
+            raise RemoteNotFound(f"Could not geocode location: {geocode.passed}")
+        # else:
+            # logger.warning(
+            #     f'No keyword matches found for {geocode.passed} using '
+            #     f'the geocoded address "{geocode.address}"',
+            # )
 
         # If single match, return it
         if len(matches) == 1:
             name = matches.index[0]
-            return cls.catalog[name].prototype
+            prototype = cls.catalog[name].prototype
+            out = prototype.__class__()
+            msg = f'Matched remote "{prototype}" for location "{geocode.passed}"'
+            logger.info(msg)
+            return out
 
         # Multiple matches: choose by intersection-over-union
         with warnings.catch_warnings():
@@ -654,8 +771,8 @@ class Remote(
 
         item_name = bboxs.idxmax()
         if len(bboxs) > 1:
-            remote_class = cls.catalog[item_name]
-            keyword = remote_class.prototype.keyword
+            prototype = cls.catalog[item_name]
+            keyword = prototype.prototype.keyword
             logger.info(
                 f'Found multiple remotes for the location, in descending IOU: '
                 f'{bboxs.sort_values(ascending=False).index.tolist()} and '
@@ -671,23 +788,10 @@ class Remote(
         else:
             raise TypeError(f'Invalid type {type(item_name)} for {item_name}')
 
+        msg = f'Matched remote "{prototype}" for location "{geocode.passed}"'
+        logger.info(msg)
         out = prototype.__class__()
         return out
-
-    @classmethod
-    def from_inferred(cls, item) -> Self:
-        """
-        Infer the appropriate Remote instance from various input types.
-
-        >>> Remote.from_inferred('https://example.com/{z}/{x}/{y}.png')
-        >>> Remote.from_inferred('nyc')
-        >>> Remote.from_inferred('New York City')
-        >>> Remote.from_inferred([...])  # bbox coordinates
-        """
-        if isinstance(item, str):
-            return cls.from_str(item)
-
-        return cls.from_location(item)
 
     @classmethod
     def from_str(cls, value: str) -> Self:
@@ -738,8 +842,8 @@ class Remote(
     def _match_features(
             cls,
             criteria: dict[str, Union[str, tuple[str, ...]]],
-            features: dict[str, Any]
-    ) -> bool:
+            features: dict[str, str]
+    ) -> dict[str, MatchResult]:
         """
         Check if all key-value pairs in criteria match corresponding values in features.
 
@@ -749,27 +853,38 @@ class Remote(
         features: dict of feature values from geocoding
 
         Matching is case-insensitive for string values.
+
+        Returns:
+            dict mapping feature keys to MatchResult instances, containing only
+            keys where both criteria and features exist
         """
+        results = {}
+
         for key, expected in criteria.items():
             if key not in features:
                 continue
-            actual = features[key]
 
-            actual_lower = str(actual).casefold()
+            actual = features[key]
+            actual_lower = actual.casefold()
 
             if isinstance(expected, tuple):
-                expected_values = expected
+                needles = expected
             else:
-                expected_values = expected,
+                needles = (expected,)
 
-            if not any(
-                    expected_lower.casefold() in actual_lower
-                    or actual_lower in expected_lower.casefold()
-                    for expected_lower in expected_values
-            ):
-                return False
+            found = any(
+                needle.casefold() in actual_lower
+                or actual_lower in needle.casefold()
+                for needle in needles
+            )
 
-        return True
+            results[key] = MatchResult(
+                needles=needles,
+                haystack=actual,
+                found=found
+            )
+
+        return results
 
 
 if __name__ == '__main__':

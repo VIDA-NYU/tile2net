@@ -261,7 +261,7 @@ class BaseGrid(
     @classmethod
     def from_bounds(
             cls,
-            latlon: Union[
+            bounds: Union[
                 str,
                 list[float],
                 list[int],
@@ -277,38 +277,38 @@ class BaseGrid(
         if zoom is None:
             zoom = cfg.zoom
 
-        if isinstance(latlon, str):
-            if ', ' in latlon:
+        if isinstance(bounds, str):
+            if ', ' in bounds:
                 split = ', '
-            elif ',' in latlon:
+            elif ',' in bounds:
                 split = ','
-            elif ' ' in latlon:
+            elif ' ' in bounds:
                 split = ' '
             else:
                 raise ValueError(
                     "latlon must be a string with coordinates "
                     "separated by either ', ', ',', or ' '."
                 )
-            latlon = [
+            bounds = [
                 float(x)
-                for x in latlon.split(split)
+                for x in bounds.split(split)
             ]
 
-        if isinstance(latlon, (tuple, list)):
-            if len(latlon) != 4:
+        if isinstance(bounds, (tuple, list)):
+            if len(bounds) != 4:
                 raise ValueError('latlon must have exactly 4 elements')
 
             is_all_int = all(
                 isinstance(x, (int, np.integer)) and not isinstance(x, bool)
-                for x in latlon
+                for x in bounds
             )
             is_all_float = all(
                 isinstance(x, (int, float, np.integer, np.floating)) and not isinstance(x, bool)
-                for x in latlon
+                for x in bounds
             )
 
             if not is_all_float:
-                types = {type(x) for x in latlon}
+                types = {type(x) for x in bounds}
                 raise TypeError(
                     'latlon elements must be numeric (int or float), '
                     f'got types: {types}'
@@ -317,7 +317,7 @@ class BaseGrid(
             if is_all_int:
                 if zoom is None:
                     raise ValueError('zoom must be specified when using xtile, ytile bounds')
-                xmin, ymin, xmax, ymax = latlon
+                xmin, ymin, xmax, ymax = bounds
                 tx = np.arange(xmin, xmax)
                 ty = np.arange(ymin, ymax)
                 index = pd.MultiIndex.from_product([tx, ty])
@@ -326,9 +326,9 @@ class BaseGrid(
                 result = cls.from_integers(tx, ty, scale=zoom)
                 return result
 
-            latlon = list(latlon)
+            bounds = list(bounds)
 
-        gn, gw, gs, ge = latlon
+        gn, gw, gs, ge = bounds
         gn, gs = min(gn, gs), max(gn, gs)
         gw, ge = min(gw, ge), max(gw, ge)
         tw, tn = util.lonlat2xy(gw, gn, zoom=zoom)
