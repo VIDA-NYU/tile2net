@@ -796,7 +796,7 @@ class Remote(
         except SourceParseError:
             ...
         try:
-            return cls.from_url(value)
+            return cls.from_server(value)
         except SourceParseError:
             ...
 
@@ -804,7 +804,7 @@ class Remote(
         return out
 
     @classmethod
-    def from_url(
+    def from_server(
             cls,
             value: str,
             name: str = None
@@ -822,7 +822,7 @@ class Remote(
 
         for subclass in cls._name2remote.values():
             try:
-                return subclass.from_url(value)
+                return subclass.from_server(value)
             except SourceParseError:
                 ...
         msg = f'No Remote subclass could parse URL: {value!r}'

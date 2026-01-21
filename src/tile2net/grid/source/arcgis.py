@@ -125,7 +125,7 @@ class ArcGis(
         return out
 
     @classmethod
-    def from_url(
+    def from_server(
             cls,
             value: str,
             name: str | None = None,
