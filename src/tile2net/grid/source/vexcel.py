@@ -33,22 +33,12 @@ class VexCel(
     timeout = 10
     extension = 'png'
 
-    @cached_property
-    def server(self) -> str:
-        return 'https://api.vexcelgroup.com/v2/ortho'
+    server: str = 'https://api.vexcelgroup.com/v2/ortho'
 
-    @cached_property
-    def scheme(self) -> str:
-        return 'https'
+    scheme: str = 'https'
 
-    @cached_property
-    def netloc(self) -> str:
-        return 'api.vexcelgroup.com'
-
-    @cached_property
-    def api_key(self) -> str:
-        """API key for VexCel service. Must be defined in subclasses."""
-        raise AttributeError("api_key must be defined in subclass")
+    api_key: str
+    """API key for VexCel service. Must be defined in subclasses."""
 
     @cached_property
     def _session(self) -> requests.Session:

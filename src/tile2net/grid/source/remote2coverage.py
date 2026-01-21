@@ -15,13 +15,7 @@ if TYPE_CHECKING:
     from .remote import Remote
 
 
-class RemoteNotFound(Exception):
-    """Raised when no appropriate remote source can be found for a location."""
-    ...
-
-
-class Coverage(
-):
+class Remote2Coverage:
     """
     Descriptor providing spatial coverage lookup for Remote sources.
 

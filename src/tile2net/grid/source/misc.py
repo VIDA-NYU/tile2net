@@ -39,10 +39,6 @@ class AlamedaCounty(Remote):
         return 'https'
 
     @cached_property
-    def netloc(self) -> str:
-        return 'svc.pictometry.com'
-
-    @cached_property
     def path(self) -> str:
         return (
             '/Image/6D9E15C5-C6B4-4ACB-A244-4C44ECA33D90/'
@@ -55,14 +51,9 @@ class AlamedaCounty(Remote):
 
     @cached_property
     def coverage(self) -> GeoSeries:
-        return GeoSeries([
-            box(
-                -122.345118999,  # xmin (W)
-                37.451422681,  # ymin (S)
-                -121.462793698,  # xmax (E)
-                37.912241999  # ymax (N)
-            )
-        ], crs='EPSG:4326')
+        data = [box(-122.345118999, 37.451422681, -121.462793698, 37.912241999)]
+        out = GeoSeries(data, crs='EPSG:4326')
+        return out
 
 
 class SanFranciscoBase(Remote, ABC):
@@ -92,10 +83,6 @@ class SanFranciscoBase(Remote, ABC):
     @cached_property
     def scheme(self) -> str:
         return 'https'
-
-    @cached_property
-    def netloc(self) -> str:
-        return 'tile.sf.gov'
 
     @cached_property
     def path(self) -> str:

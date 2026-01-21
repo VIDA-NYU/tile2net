@@ -1,24 +1,26 @@
 from __future__ import annotations
-import requests
 
 from abc import ABC
 from functools import cached_property
 from typing import Self
 
+import geopandas as gpd
+import requests
 import shapely.geometry
 from geopandas import GeoSeries
+from requests.adapters import HTTPAdapter
 from shapely import box, wkt
+from urllib3.util.retry import Retry
 
-from .remote import Remote
+from tile2net.grid.source.exceptions import SourceParseError
+from tile2net.grid.source.remote import Remote
 
 
 class ArcGis(
     Remote,
     ABC
 ):
-    """
-    Base class for ArcGIS tile servers.
-    """
+    """Base class for ArcGIS tile servers."""
 
     server: str
     """Base URL for the ArcGIS MapServer."""
@@ -32,10 +34,27 @@ class ArcGis(
         return data
 
     @cached_property
+    def coverage(self) -> gpd.GeoSeries:
+        """
+        Returns the spatial extent of the ArcGIS service as a GeoSeries.
+        The method extracts the bounding box from the 'fullExtent' metadata
+        and projects it to EPSG:4326.
+        """
+        data = self.response
+        extent = data.get('fullExtent') or data.get('initialExtent')
+        if not extent:
+            return gpd.GeoSeries()
+        crs = f'EPSG:{extent["spatialReference"].get("latestWkid", 3857)}'
+        geometry = box(extent['xmin'], extent['ymin'], extent['xmax'], extent['ymax'])
+        out = (
+            gpd.GeoSeries([geometry], crs=crs)
+            .to_crs(epsg=4326)
+        )
+        return out
+
+    @cached_property
     def zooms(self) -> list[int]:
-        """
-        Fetches metadata from the ArcGIS REST API and extracts supported zoom levels.
-        """
+        """Fetches metadata from the ArcGIS REST API and extracts supported zoom levels."""
         return [
             int(lod.get('level'))
             for lod in self.response['tileInfo']['lods']
@@ -57,8 +76,6 @@ class ArcGis(
         assert rows == cols, "Non-square tiles are not supported"
         return rows
 
-    # zooms: list[int]
-
     @cached_property
     def template(self) -> str:
         """URL template for ArcGIS tile requests."""
@@ -72,16 +89,6 @@ class ArcGis(
         elif self.server.startswith('http://'):
             return 'http'
         return 'https'
-
-    @cached_property
-    def netloc(self) -> str:
-        """Extract network location from server URL."""
-        url = self.server
-        # Remove scheme
-        if '://' in url:
-            url = url.split('://', 1)[1]
-        # Get domain part
-        return url.split('/')[0]
 
     @cached_property
     def path(self) -> str:
@@ -111,13 +118,67 @@ class ArcGis(
         """Create ArcGis instance from a server URL."""
         out = cls()
         value = value.rstrip('/')
-        # remove /tile/{z}/{y}/{x} pattern if present
         if '/tile/' in value:
             value = value.split('/tile/')[0]
         out.server = value
 
         return out
 
+    @classmethod
+    def from_url(
+            cls,
+            value: str,
+            name: str | None = None,
+    ) -> Self:
+        """Create ArcGis instance from a server URL with validation."""
+
+        url = value.strip().rstrip('/')
+        if '/tile/' in url:
+            url = url.split('/tile/')[0]
+
+        # Configure robust retry strategy for the validation request
+        session = requests.Session()
+        retries = Retry(
+            total=3,
+            backoff_factor=0.3,
+            status_forcelist=[500, 502, 503, 504],
+        )
+        adapter = HTTPAdapter(max_retries=retries)
+        session.mount('https://', adapter)
+
+        try:
+            response = session.get(
+                url,
+                params={'f': 'json'},
+                timeout=10,
+            )
+            response.raise_for_status()
+            data = response.json()
+        except (requests.RequestException, ValueError) as e:
+            msg = f"Failed to connect or parse ArcGIS response from {url}: {e}"
+            raise SourceParseError(msg) from e
+
+        if 'error' in data:
+            msg = f"ArcGIS server returned error: {data['error']}"
+            raise SourceParseError(msg)
+
+        # Validate content using multi-line assignment for clarity
+        has_version = 'currentVersion' in data
+        has_services_meta = 'spatialReference' in data
+        has_services_meta &= 'layers' in data or 'initialExtent' in data
+        has_catalog_meta = 'services' in data or 'folders' in data
+
+        is_valid = has_version
+        is_valid &= has_services_meta or has_catalog_meta
+        if not is_valid:
+            msg = f"URL does not appear to be a valid ArcGIS MapServer: {value}"
+            raise SourceParseError(msg)
+
+        out = cls()
+        out.server = url
+        out.response = data
+
+        return out
 
 class NewYorkCity(ArcGis):
     server = 'https://tiles.arcgis.com/tiles/yG5s3afENB5iO9fj/arcgis/rest/services/NYC_Orthos_2024/MapServer'

@@ -274,8 +274,8 @@ class GeoCode:
             logger.debug(f"Nominatim geocoding failed: {e}, trying Photon")
         else:
             geocoder = 'nominatim'
-            keywords = result.raw['address']
-            self.features = keywords
+            tags = result.raw['address']
+            self.tags = tags
 
         if result is None:
             try:
@@ -288,8 +288,8 @@ class GeoCode:
                 raise ValueError(f"Could not geocode '{self.address}'") from e
             else:
                 geocoder = 'photon'
-                keywords = result.raw['properties']
-                self.features = keywords
+                tags = result.raw['properties']
+                self.tags = tags
 
         if result is None:
             raise ValueError(f"Could not geocode '{self.address}'")
@@ -305,7 +305,7 @@ class GeoCode:
         return n, w, s, e
 
     @cached_property
-    def features(self):
+    def tags(self):
         """
         keywords
             {'osm_type': 'W',
@@ -324,7 +324,7 @@ class GeoCode:
         # todo: make this a proper cached_property instead of having nwse and address set it
         _ = self.nwse
         _ = self.address
-        return self.features
+        return self.tags
 
     @cached_property
     def wsen(self):
@@ -357,7 +357,7 @@ class GeoCode:
         if result is None:
             raise ValueError(f"Could not reverse geocode '{self.centroid=}'")
 
-        self.features = keywords
+        self.tags = keywords
         out = result.address
         return out
 

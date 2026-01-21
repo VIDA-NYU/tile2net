@@ -716,7 +716,7 @@ class Grid(
                 cfg.vectorization.parallel_scaling
                 and len(vecgrid) < os.cpu_count()
         ):
-            logger.info(
+            logger.debug(
                 f"Underutilized CPU in {VecGrid.__qualname__}: "
                 f"{len(vecgrid)} tiles < {os.cpu_count()} cores. "
                 f"Rescaling from scale={vecgrid.scale}."

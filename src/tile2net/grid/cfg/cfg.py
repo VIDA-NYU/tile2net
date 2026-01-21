@@ -756,6 +756,25 @@ class Download(cmdline.Namespace):
         """Do not perform any tasks past the downloading step."""
         return False
 
+    @basic
+    @cmdline.property
+    def servers(self) -> str:
+        """Path to servers.yaml which is parsed to get tile server information."""
+        current_dir = Path(__file__).parent
+        out = (
+            current_dir
+            .parent
+            .joinpath('source', 'servers.yaml')
+            .resolve()
+            .__str__()
+        )
+        return out
+
+    @cmdline.property
+    def use_tags(self) -> bool:
+        return True
+
+
 
 class Segmentation(
     cmdline.Namespace

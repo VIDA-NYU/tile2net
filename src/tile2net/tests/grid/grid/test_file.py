@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import os
 
-from tile2net.grid.grid import Grid
-from tile2net.tests.grid.grid.conftest import fixtures
+from tile2net.tests.grid.grid.conftest import *
 
 
 class TestFileStatic:
@@ -45,9 +44,8 @@ class TestFilePolygons:
 
 if __name__ == '__main__':
 
-    for fixture in fixtures():
-        print(f"\nTesting {fixture.__name__}")
-        grid = fixture.__wrapped__()
+    for name, grid in iter_grids():
+        print(f"\nTesting {name}")
         TestFileStatic().test_static_exists(grid)
         TestFilePred().test_pred_exists(grid)
         TestFileProb().test_prob_exists(grid)
