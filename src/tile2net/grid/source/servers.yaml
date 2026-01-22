@@ -8,19 +8,15 @@ sh_tn:
   year: 2020
 
 usgs:
+# USGS: available for entire US, but it seems max zoom is 16 so effectively useless for us;
+#  left here to prevent trying again
+  enabled: false
   base: ArcGis
   server: https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer
   keyword:
     country: USA
     source: USGS
   year: 2024
-
-md:
-  base: ArcGis
-  server: https://geodata.md.gov/imap/rest/services/Imagery/MD_SixInchImagery/MapServer
-  keyword:
-    state: [ Maryland, MD ]
-  year: 2022
 
 nyc:
   base: ArcGis
@@ -76,8 +72,10 @@ nj:
   coverage: "POLYGON ((-73.85543 38.824, -73.85543 41.3866, -75.59981 41.3866, -75.59981 38.824, -73.85543 38.824))"
 
 va:
+#  upon testing, it seems that although the server says up to 23, everything past zoom=19 fails
   base: ArcGis
   server: https://vginmaps.vdem.virginia.gov/arcgis/rest/services/VBMP_Imagery/MostRecentImagery_WGS/MapServer/
   keyword:
     state: [ Virginia, VA ]
   coverage: "POLYGON ((-83.6753 36.5407, -83.6753 39.4660, -75.1664 39.4660, -75.1664 36.5407, -83.6753 36.5407))"
+  zoom: 19

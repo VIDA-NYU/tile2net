@@ -41,7 +41,7 @@ class ArcGis(
         and projects it to EPSG:4326.
         """
         data = self.response
-        extent = data.get('fullExtent') or data.get('initialExtent')
+        extent = data.get('initialExtent') or data.get('fullExtent')
         if not extent:
             return gpd.GeoSeries()
         crs = f'EPSG:{extent["spatialReference"].get("latestWkid", 3857)}'
@@ -128,7 +128,7 @@ class ArcGis(
     def from_server(
             cls,
             value: str,
-            name: str | None = None,
+            base: str | None = None,
     ) -> Self:
         """Create ArcGis instance from a server URL with validation."""
 

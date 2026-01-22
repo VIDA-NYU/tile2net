@@ -11,7 +11,6 @@ import warnings
 from abc import ABC
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from functools import singledispatchmethod
 from pathlib import Path
 from typing import *
 from typing import Union
@@ -27,9 +26,9 @@ from tqdm import tqdm
 
 from tile2net.grid.cfg import cfg
 from tile2net.grid.geocode import GeoCode
-from tile2net.grid.source.name2prototype import Name2Prototype, _Name2Prototype
-from tile2net.grid.source.name2base import _Name2Base
 from tile2net.grid.source.exceptions import InvalidLocation, InvalidRemoteName, SourceParseError, RemoteNotFound
+from tile2net.grid.source.name2base import _Name2Base
+from tile2net.grid.source.name2prototype import Name2Prototype, _Name2Prototype
 from tile2net.grid.source.prototype import Prototype
 from tile2net.grid.source.remote2coverage import Remote2Coverage
 from tile2net.grid.source.source import Source
@@ -41,7 +40,9 @@ tls = threading.local()
 if False:
     # for some reason, my IDE keeps saying SourceParseError is unused, and then clearing it;
     # this is a workaround
+
     _ = SourceParseError, GeoSeries
+
 
 @dataclass
 class MatchResult:
@@ -154,18 +155,33 @@ class Remote(
     coverage: GeoSeries | GeoDataFrame
     """Geographic coverage area of the remote source."""
 
+    def get_urls(
+            self,
+            xtiles: Iterable[int],
+            ytiles: Iterable[int],
+            zoom: int
+    ) -> Iterator[str]:
+        """
+        Generate URLs for given tile coordinates.
+
+        Args:
+            xtiles: Iterable of x tile indices.
+            ytiles: Iterable of y tile indices.
+        """
+        template = self.template
+        it = zip(xtiles, ytiles)
+        yield from (
+            template.format(z=zoom, y=ytile, x=xtile)
+            for xtile, ytile in it
+        )
+
     @property
     def url(self) -> pd.Series:
         """Generate URLs for all tiles in the attached grid."""
         grid = self.grid
         key = f'{self.__name__}.url'
         if key not in grid.columns:
-            template = self.template
-            it = zip(grid.xtile.values, grid.ytile.values)
-            obj = (
-                template.format(z=grid.zoom, y=ytile, x=xtile)
-                for xtile, ytile in it
-            )
+            obj = self.get_urls(grid.xtile.values, grid.ytile.values, grid.zoom)
             arr = pa.array(obj, type=pa.string(), size=len(grid))
             mapper = {pa.string(): pd.ArrowDtype(pa.string())}.get
             out = arr.to_pandas(types_mapper=mapper)
@@ -813,18 +829,19 @@ class Remote(
     def from_server(
             cls,
             value: str,
-            name: str = None
+            base: str = None
     ) -> Self:
         """
         Parse a URL string into a Remote instance.
         Placeholder for future URL parsing implementation.
         """
-        if name:
+        if base:
             try:
-                return cls._name2base[name]
+                cls = cls._name2base[base]
             except KeyError as e:
-                msg = f'No Remote subclass registered with name: {name!r}'
-                raise SourceParseError(msg) from e
+                msg = f'No Remote subclass registered with name: {base!r}'
+                raise ValueError(msg) from e
+            return cls.from_server(value)
 
         for subclass in cls._name2base.values():
             try:
@@ -847,87 +864,109 @@ class Remote(
             raise InvalidRemoteName(msg)
         return out
 
-    @singledispatchmethod
     @classmethod
     def from_yaml(cls, obj: Any) -> Union[Self, dict[str, Self]]:
         """
         If a YAML path/str is passed, returns a dict, mapping names to Remote instances.
         If a dict is passed, returns a singular Remote instance based on its metadata.
         """
-        msg = f'YAML input must be a dict, str, or Path, not {type(obj)}'
-        raise SourceParseError(msg)
+        from shapely import wkt
+        match obj:
+            # case Path() | str():
+            #     path = (
+            #         Path(obj)
+            #         .expanduser()
+            #         .resolve()
+            #     )
+            #
+            #     with path.open('r') as f:
+            #         data: dict[str, dict] = yaml.safe_load(f)
+            #
+            #     if not isinstance(data, dict):
+            #         msg = f'YAML content must parse to a dict, got {type(data)}'
+            #         raise SourceParseError(msg)
+            #
+            #     def load(name, dct):
+            #         # Check enabled status early to avoid unnecessary network calls
+            #         if not dct.setdefault('enabled', True):
+            #             return None
+            #         return name, cls.from_yaml(dct | {'name': name})
+            #
+            #     out = {}
+            #     with ThreadPoolExecutor() as executor:
+            #         future2name = {
+            #             executor.submit(load, name, dct): name
+            #             for name, dct in data.items()
+            #         }
+            #
+            #         for future in as_completed(future2name):
+            #             result = future.result()
+            #             if result:
+            #                 name, source_obj = result
+            #                 out[name] = source_obj
+            #
+            #     return out
 
-    @from_yaml.register
-    def _(cls, obj: str) -> dict[str, Self]:
-        # Delegate string handling to the Path handler
-        return cls.from_yaml(Path(obj))
+            case Path() | str():
+                path = (
+                    Path(obj)
+                    .expanduser()
+                    .resolve()
+                )
+                with path.open('r') as f:
+                    data: dict[str, dict] = yaml.safe_load(f)
+                if not isinstance(data, dict):
+                    msg = f'YAML content must parse to a dict, got {type(data)}'
+                    raise SourceParseError(msg)
+                out = {
+                    name: cls.from_yaml(dct | {'name': name})
+                    for name, dct in data.items()
+                    if dct.setdefault('enabled', True)
+                }
+                return out
 
-    @from_yaml.register
-    def _(cls, obj: Path) -> dict[str, Self]:
-        # File Loading Logic
-        path = obj.expanduser().resolve()
 
-        with path.open('r') as f:
-            data = yaml.safe_load(f)
+            case dict():
+                try:
+                    server = obj['server']
+                except KeyError as e:
+                    msg = 'YAML must contain a "server" key for Remote sources.'
+                    raise SourceParseError(msg) from e
 
-        if not isinstance(data, dict):
-            msg = f'YAML content must parse to a dict, got {type(data)}'
-            raise SourceParseError(msg)
+                base = obj.get('base', None)
+                out = cls.from_server(server, base=base)
+                obj.setdefault('enabled', True)
 
-        out = {
-            name: cls.from_yaml(dct | {'name': name})
-            for name, dct in data.items()
-            if dct.get('enabled', True)
-        }
-        return out
+                for key, value in obj.items():
+                    setattr(out, key, value)
 
-    @from_yaml.register
-    def _(cls, obj: dict) -> Self:
-        try:
-            server = obj['server']
-        except KeyError as e:
-            msg = 'YAML must contain a "server" key for Remote sources.'
-            raise SourceParseError(msg) from e
+                if 'coverage' in obj:
+                    coverage = obj['coverage']
+                    try:
+                        poly = wkt.loads(coverage)
+                    except shapely.errors.GEOSException as e:
+                        msg = f'Could not parse coverage WKT: {coverage!r}'
+                        raise SourceParseError(msg) from e
 
-        try:
-            name = obj['name']
-        except KeyError as e:
-            msg = 'YAML must contain a "name" key for Remote sources.'
-            raise SourceParseError(msg) from e
+                    crs = obj.get('crs', 'EPSG:4326')
+                    coverage = GeoSeries([poly], crs=crs).to_crs(4326)
+                    out.coverage = coverage
 
-        if 'base' in obj:
-            base = obj['base']
-            try:
-                cls = cls._name2base[base]
-            except KeyError as e:
-                msg = f'No Remote subclass registered with name: {base!r}'
-                raise SourceParseError(msg) from e
+                if 'enabled' not in obj:
+                    out.enabled = True
 
-        out = cls.from_server(server, name=name)
+                return out
 
-        for key, value in obj.items():
-            setattr(out, key, value)
-
-        if 'coverage' in obj:
-            coverage = obj['coverage']
-            try:
-                poly = wkt.loads(coverage)
-            except Exception as e:
-                msg = f'Could not parse coverage WKT: {coverage!r}'
-                raise SourceParseError(msg) from e
-
-            crs = obj.get('crs', 'EPSG:4326')
-            coverage = GeoSeries([poly], crs=crs).to_crs(4326)
-            out.coverage = coverage
-
-        return out
+            case _:
+                msg = f'YAML input must be a dict, str, or Path, not {type(obj)}'
+                raise SourceParseError(msg)
 
     def __init_subclass__(cls: type[Remote], **kwargs):
         super().__init_subclass__()
         prototype = cls.prototype
         if (
                 ABC not in cls.__bases__
-                and prototype
+                and prototype.enabled
         ):
             name = prototype.name or prototype.__class__.__qualname__
             cls._name2prototype[name] = prototype

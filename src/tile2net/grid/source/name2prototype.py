@@ -47,10 +47,11 @@ class Name2Prototype(
         for name, prototype in name2prototype.items():
             if name in out.data:
                 msg = (
-                    f'Name {name} found both in the defined {Remote.__qualname__} '
-                    f'subclass {prototype.__class__.__qualname__} as well as in the {file} file.\n',
+                    f'Name "{name}" found both in the defined {Remote.__qualname__} '
+                    f'subclass {prototype.__class__.__qualname__} as well as in the {file} file.\n\t'
                     'Set `enabled=False` for the subclass or the YAML entry.'
                 )
                 logger.warning(msg)
+            out[name] = prototype
         setattr(Remote, self.__name__, out)
         return out
