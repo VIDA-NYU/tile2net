@@ -1,0 +1,83 @@
+sh_tn:
+  base: ArcGis
+  server: https://tiles.arcgis.com/tiles/tF0XsRR9ptiKNVW2/arcgis/rest/services/Spring_Hill_Imagery_WGS84/MapServer
+  keyword:
+    state: [ Tennessee, TN ]
+    city: Spring Hill
+    town: Spring Hill
+  year: 2020
+
+usgs:
+  base: ArcGis
+  server: https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer
+  keyword:
+    country: USA
+    source: USGS
+  year: 2024
+
+md:
+  base: ArcGis
+  server: https://geodata.md.gov/imap/rest/services/Imagery/MD_SixInchImagery/MapServer
+  keyword:
+    state: [ Maryland, MD ]
+  year: 2022
+
+nyc:
+  base: ArcGis
+  server: https://tiles.arcgis.com/tiles/yG5s3afENB5iO9fj/arcgis/rest/services/NYC_Orthos_2024/MapServer
+  keyword:
+    state: [ New York, NY ]
+    city: [ New York, NYC ]
+  year: 2024
+  coverage: "POLYGON ((-73.69048 40.4889, -73.69048 40.92834, -74.27615 40.92834, -74.27615 40.4889, -73.69048 40.4889))"
+
+ny:
+  base: ArcGis
+  server: https://orthos.its.ny.gov/arcgis/rest/services/wms/2024/MapServer
+  keyword:
+    state: [ New York, NY ]
+  dropword:
+    city: New York
+  year: 2024
+  coverage: "POLYGON ((-73.25509 40.48341, -73.25509 45.03931, -79.77922 45.03931, -79.77922 40.48341, -73.25509 40.48341))"
+
+ma:
+  base: ArcGis
+  server: https://tiles.arcgis.com/tiles/hGdibHYSPO59RG1h/arcgis/rest/services/orthos2021/MapServer
+  keyword:
+    state: [ Massachusetts, MA ]
+  extension: jpg
+  year: 2021
+  coverage: "POLYGON ((-69.92466 41.2265, -69.92466 42.89199, -73.51979 42.89199, -73.51979 41.2265, -69.92466 41.2265))"
+
+king:
+  base: ArcGis
+  server: https://gismaps.kingcounty.gov/arcgis/rest/services/BaseMaps/KingCo_Aerial_2023/MapServer
+  keyword:
+    state: [ Washington, WA ]
+    county: King
+  year: 2023
+  coverage: "POLYGON ((-121.03559 47.04875, -121.03559 47.96618, -122.56958 47.96618, -122.56958 47.04875, -121.03559 47.04875))"
+
+la:
+  base: ArcGis
+  server: https://cache.gis.lacounty.gov/cache/rest/services/LACounty_Cache/LACounty_Aerial_2014/MapServer
+  keyword:
+    county: Los Angeles
+  year: 2014
+  coverage: "POLYGON ((-117.63102 33.28853, -117.63102 34.83012, -118.95937 34.83012, -118.95937 33.28853, -117.63102 33.28853))"
+
+nj:
+  base: ArcGis
+  server: https://maps.nj.gov/arcgis/rest/services/Basemap/Orthos_Natural_2020_NJ_WM/MapServer
+  keyword:
+    state: [ New Jersey, NJ ]
+  year: 2020
+  coverage: "POLYGON ((-73.85543 38.824, -73.85543 41.3866, -75.59981 41.3866, -75.59981 38.824, -73.85543 38.824))"
+
+va:
+  base: ArcGis
+  server: https://vginmaps.vdem.virginia.gov/arcgis/rest/services/VBMP_Imagery/MostRecentImagery_WGS/MapServer/
+  keyword:
+    state: [ Virginia, VA ]
+  coverage: "POLYGON ((-83.6753 36.5407, -83.6753 39.4660, -75.1664 39.4660, -75.1664 36.5407, -83.6753 36.5407))"

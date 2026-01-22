@@ -47,3 +47,12 @@ class InvalidLocation(SourceParseError):
     Indicates that the input cannot be resolved to a geographic location
     or no Remote source covers the resolved location.
     """
+
+
+class RemoteNotFound(ValueError):
+    """
+    Raised when no Remote source is found for a given location.
+
+    Indicates that the geocoded location does not fall within the coverage
+    of any available Remote tile sources.
+    """

@@ -180,7 +180,10 @@ class ArcGis(
 
         return out
 
+# These classes are now provided in the `servers.yaml` but left here with `enabled=False` for use as examples.
+
 class NewYorkCity(ArcGis):
+    enabled = False
     server = 'https://tiles.arcgis.com/tiles/yG5s3afENB5iO9fj/arcgis/rest/services/NYC_Orthos_2024/MapServer'
     name = 'nyc'
     keyword = dict(
@@ -196,6 +199,7 @@ class NewYorkCity(ArcGis):
 
 
 class NewYork(ArcGis):
+    enabled = False
     server = 'https://orthos.its.ny.gov/arcgis/rest/services/wms/2024/MapServer'
     name = 'ny'
     keyword = dict(
@@ -213,6 +217,7 @@ class NewYork(ArcGis):
 
 
 class Massachusetts(ArcGis):
+    enabled = False
     server = 'https://tiles.arcgis.com/tiles/hGdibHYSPO59RG1h/arcgis/rest/services/orthos2021/MapServer'
     name = 'ma'
     keyword = dict(
@@ -228,6 +233,7 @@ class Massachusetts(ArcGis):
 
 
 class KingCountyWashington(ArcGis):
+    enabled = False
     server = 'https://gismaps.kingcounty.gov/arcgis/rest/services/BaseMaps/KingCo_Aerial_2023/MapServer'
     name = 'king'
     keyword = dict(
@@ -243,6 +249,7 @@ class KingCountyWashington(ArcGis):
 
 
 class LosAngeles(ArcGis):
+    enabled = False
     server = 'https://cache.gis.lacounty.gov/cache/rest/services/LACounty_Cache/LACounty_Aerial_2014/MapServer'
     name = 'la'
     keyword = dict(
@@ -257,6 +264,7 @@ class LosAngeles(ArcGis):
 
 
 class NewJersey(ArcGis):
+    enabled = False
     server = 'https://maps.nj.gov/arcgis/rest/services/Basemap/Orthos_Natural_2020_NJ_WM/MapServer'
     name = 'nj'
     keyword = dict(
@@ -271,6 +279,7 @@ class NewJersey(ArcGis):
 
 
 class SpringHillTN(ArcGis):
+    enabled = False
     server = 'https://tiles.arcgis.com/tiles/tF0XsRR9ptiKNVW2/arcgis/rest/services/Spring_Hill_Imagery_WGS84/MapServer'
     name = 'sh_tn'
     keyword = dict(
@@ -287,6 +296,7 @@ class SpringHillTN(ArcGis):
 
 
 class Virginia(ArcGis):
+    enabled = False
     """Data from https://vgin.vdem.virginia.gov/pages/orthoimagery"""
     server = "https://vginmaps.vdem.virginia.gov/arcgis/rest/services/VBMP_Imagery/MostRecentImagery_WGS/MapServer/"
     name = "va"

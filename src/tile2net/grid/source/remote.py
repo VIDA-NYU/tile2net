@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import os
 import os.path
 import shutil
@@ -10,7 +11,9 @@ import warnings
 from abc import ABC
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from functools import singledispatchmethod
 from pathlib import Path
+from typing import *
 from typing import Union
 
 import certifi
@@ -18,15 +21,17 @@ import imageio.v3 as iio
 import pandas as pd
 import pyarrow as pa
 import shapely.geometry
+import yaml
 from geopandas import GeoDataFrame, GeoSeries
 from tqdm import tqdm
 
 from tile2net.grid.cfg import cfg
 from tile2net.grid.geocode import GeoCode
-from tile2net.grid.source.catalog import Catalog
-from tile2net.grid.source.exceptions import InvalidLocation, InvalidRemoteName, SourceParseError
+from tile2net.grid.source.name2prototype import Name2Prototype, _Name2Prototype
+from tile2net.grid.source.name2base import _Name2Base
+from tile2net.grid.source.exceptions import InvalidLocation, InvalidRemoteName, SourceParseError, RemoteNotFound
 from tile2net.grid.source.prototype import Prototype
-from tile2net.grid.source.remote2coverage import Remote2Coverage, RemoteNotFound
+from tile2net.grid.source.remote2coverage import Remote2Coverage
 from tile2net.grid.source.source import Source
 from tile2net.grid.util import recursion_block
 from tile2net.logger import logger
@@ -66,14 +71,12 @@ class Remote(
             ...
         return f"{self.__class__.__qualname__}(\n    " + ",\n    ".join(attributes) + "\n)"
 
-    @Catalog
-    def catalog(self):
+    @Name2Prototype
+    def name2prototype(self) -> dict[str, Remote]:
         """
-        Catalog, mapping the name to the prototype instanec, for each
-        enabled Remote subclass.
-
-        Automatically set during Remote subclass initialization:
-        >>> Remote.__init_subclass__
+        Catalog, mapping the name to the prototype instance, for each enabled Remote subclass.
+        The public catalog is assembled using the private catalog and the `servers.yaml`:
+        >>> Name2Prototype.__get__
         """
 
     @Remote2Coverage
@@ -97,7 +100,7 @@ class Remote(
     Set False to disable it from being constructed.
     """
 
-    name: str
+    name: str = ''
     """Short name of the remote source, e.g. `nyc`."""
 
     original: str
@@ -147,6 +150,9 @@ class Remote(
 
     zoom: int = 19
     """Default XYZ zoom level for the remote."""
+
+    coverage: GeoSeries | GeoDataFrame
+    """Geographic coverage area of the remote source."""
 
     @property
     def url(self) -> pd.Series:
@@ -644,7 +650,7 @@ class Remote(
             tags = geocode.tags
             loc = []
             for name in matches.index:
-                prototype = cls.catalog[name]
+                prototype = cls.name2prototype[name]
                 keyword = prototype.prototype.keyword
                 dropword = prototype.prototype.dropword
 
@@ -699,7 +705,7 @@ class Remote(
                 _ = geocode.address
                 tags = geocode.tags
                 for name in matches.index:
-                    prototype = cls.catalog[name]
+                    prototype = cls.name2prototype[name]
                     keyword = prototype.keyword
                     dropword = prototype.dropword
 
@@ -740,7 +746,7 @@ class Remote(
         # If single match, return it
         if len(matches) == 1:
             name = matches.index[0]
-            prototype = cls.catalog[name].prototype
+            prototype = cls.name2prototype[name].prototype
             out = prototype.__class__()
 
             proto_log = textwrap.indent(str(prototype), prefix='\t')
@@ -764,7 +770,7 @@ class Remote(
 
         item_name = bboxs.idxmax()
         if len(bboxs) > 1:
-            prototype = cls.catalog[item_name]
+            prototype = cls.name2prototype[item_name]
             keyword = prototype.prototype.keyword
             logger.info(
                 f'Found multiple remotes for the location, in descending IOU: '
@@ -773,11 +779,11 @@ class Remote(
             )
 
         if isinstance(item_name, str):
-            if item_name not in cls.catalog:
+            if item_name not in cls.name2prototype:
                 raise RemoteNotFound(
-                    f"Remote '{item_name}' found but not in catalog"
+                    f"Remote '{item_name}' found but not in name2prototype"
                 )
-            prototype = cls.catalog[item_name]
+            prototype = cls.name2prototype[item_name]
         else:
             raise TypeError(f'Invalid type {type(item_name)} for {item_name}')
 
@@ -815,12 +821,12 @@ class Remote(
         """
         if name:
             try:
-                return cls._name2remote[name]
+                return cls._name2base[name]
             except KeyError as e:
                 msg = f'No Remote subclass registered with name: {name!r}'
                 raise SourceParseError(msg) from e
 
-        for subclass in cls._name2remote.values():
+        for subclass in cls._name2base.values():
             try:
                 return subclass.from_server(value)
             except SourceParseError:
@@ -833,12 +839,88 @@ class Remote(
         """
         Retrieve a Remote prototype by its registered name.
         """
-        if name in cls.catalog:
-            remote_class = cls.catalog[name]
-            return remote_class.prototype
+        if name in cls.name2prototype:
+            remote_class = cls.name2prototype[name]
+            out = copy.copy(remote_class.prototype)
         else:
             msg = f'No Remote source registered with name: {name!r}'
             raise InvalidRemoteName(msg)
+        return out
+
+    @singledispatchmethod
+    @classmethod
+    def from_yaml(cls, obj: Any) -> Union[Self, dict[str, Self]]:
+        """
+        If a YAML path/str is passed, returns a dict, mapping names to Remote instances.
+        If a dict is passed, returns a singular Remote instance based on its metadata.
+        """
+        msg = f'YAML input must be a dict, str, or Path, not {type(obj)}'
+        raise SourceParseError(msg)
+
+    @from_yaml.register
+    def _(cls, obj: str) -> dict[str, Self]:
+        # Delegate string handling to the Path handler
+        return cls.from_yaml(Path(obj))
+
+    @from_yaml.register
+    def _(cls, obj: Path) -> dict[str, Self]:
+        # File Loading Logic
+        path = obj.expanduser().resolve()
+
+        with path.open('r') as f:
+            data = yaml.safe_load(f)
+
+        if not isinstance(data, dict):
+            msg = f'YAML content must parse to a dict, got {type(data)}'
+            raise SourceParseError(msg)
+
+        out = {
+            name: cls.from_yaml(dct | {'name': name})
+            for name, dct in data.items()
+            if dct.get('enabled', True)
+        }
+        return out
+
+    @from_yaml.register
+    def _(cls, obj: dict) -> Self:
+        try:
+            server = obj['server']
+        except KeyError as e:
+            msg = 'YAML must contain a "server" key for Remote sources.'
+            raise SourceParseError(msg) from e
+
+        try:
+            name = obj['name']
+        except KeyError as e:
+            msg = 'YAML must contain a "name" key for Remote sources.'
+            raise SourceParseError(msg) from e
+
+        if 'base' in obj:
+            base = obj['base']
+            try:
+                cls = cls._name2base[base]
+            except KeyError as e:
+                msg = f'No Remote subclass registered with name: {base!r}'
+                raise SourceParseError(msg) from e
+
+        out = cls.from_server(server, name=name)
+
+        for key, value in obj.items():
+            setattr(out, key, value)
+
+        if 'coverage' in obj:
+            coverage = obj['coverage']
+            try:
+                poly = wkt.loads(coverage)
+            except Exception as e:
+                msg = f'Could not parse coverage WKT: {coverage!r}'
+                raise SourceParseError(msg) from e
+
+            crs = obj.get('crs', 'EPSG:4326')
+            coverage = GeoSeries([poly], crs=crs).to_crs(4326)
+            out.coverage = coverage
+
+        return out
 
     def __init_subclass__(cls: type[Remote], **kwargs):
         super().__init_subclass__()
@@ -847,9 +929,10 @@ class Remote(
                 ABC not in cls.__bases__
                 and prototype
         ):
-            cls.catalog[prototype.name] = prototype
-        if cls.from_url.__name__ in cls.__dict__:
-            cls._name2remote[cls.__name__] = cls
+            name = prototype.name or prototype.__class__.__qualname__
+            cls._name2prototype[name] = prototype
+        if cls.from_server.__name__ in cls.__dict__:
+            cls._name2base[cls.__name__] = cls
 
     @classmethod
     def _match_tags(
@@ -899,11 +982,30 @@ class Remote(
 
         return results
 
-    _name2remote: dict[str, type[Remote]] = {}
-    """
-    Maps the name of a Remote subclass to the subclass itself. 
-    Used for instantiating Remote instances based on provided names and URLs
-    """
+    @_Name2Base
+    def _name2base(self) -> dict[str, type[Remote]]:
+        """
+        Maps the name of a Remote subclass to the subclass itself.
+        >>> _Name2Base.data
+
+        Populated as each Remote subclass is defined:
+        >>> Remote.__init_subclass__
+
+        Used for instantiating Remote instances based on URLs:
+        >>> Remote.from_server
+        """
+
+    @_Name2Prototype
+    def _name2prototype(self) -> dict[str, Remote]:
+        """
+        Private version of the name2prototype catalog.
+
+        It's a dict mapping registered names to Remote prototype instances:
+        >>> _Name2Prototype.data
+
+        The private catalog is populated as each Remote subclass is defined:
+        >>> Remote.__init_subclass__
+        """
 
 
 if __name__ == '__main__':

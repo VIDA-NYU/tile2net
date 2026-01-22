@@ -7,10 +7,10 @@ if TYPE_CHECKING:
     from .remote import Remote
 
 
-class Catalog(
+class _Name2Base(
     UserDict
 ):
-    data: dict[str, Remote]
+    data: dict[str, type[Remote]]
 
     def __getitem__(self, key: str) -> Remote:
         return super().__getitem__(key)

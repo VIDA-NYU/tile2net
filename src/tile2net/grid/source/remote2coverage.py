@@ -56,15 +56,15 @@ class Remote2Coverage:
             coverage = gpd.read_feather(self.file)
             if (
                     coverage.index
-                            .symmetric_difference(owner.catalog.keys())
+                            .symmetric_difference(owner.name2prototype.keys())
                             .empty
             ):
                 self.manifest = coverage.geometry
 
         if self.manifest is None:
-            # instantiate from catalog
+            # instantiate from name2prototype
             coverages: list[GeoSeries] = []
-            for remote in owner.catalog.values():
+            for remote in owner.name2prototype.values():
                 if not remote.enabled:
                     continue
 
