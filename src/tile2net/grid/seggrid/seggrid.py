@@ -55,6 +55,7 @@ class SegGrid(
         >>> Grid.seggrid
     """
     __name__ = 'seggrid'
+    instance: Grid
 
     def _get(
             self,
@@ -150,12 +151,7 @@ class SegGrid(
     @property
     def grid(self) -> Grid:
         """Reference to the parent Grid instance."""
-        return self.basegrid
-
-    @property
-    def outdir(self) -> Outdir:
-        """Reference to the output directory."""
-        return self.grid.outdir
+        return self.instance
 
     @property
     def cfg(self):

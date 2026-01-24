@@ -10,7 +10,7 @@ import pandas as pd
 import tifffile
 import torch
 
-from .postprocess import PostProcess
+from .dense_crf import DenseCRF
 from .. import frame
 from ..basegrid import file
 from ...grid import util
@@ -34,8 +34,8 @@ class File(
 ):
     basegrid: SegGrid
 
-    @PostProcess
-    def postprocess(self) -> pd.Series:
+    @DenseCRF
+    def dense_crf(self) -> pd.Series:
         """
         Namespace for work-in-progress postprocessing of segmentation results.
         """

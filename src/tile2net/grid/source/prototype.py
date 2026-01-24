@@ -41,10 +41,33 @@ class Prototype(
 
     def __get__(
             self,
-            instance,
-            owner
+            instance: Remote,
+            owner: type[Remote]
     ):
         """Returns the prototype instance for the accessing class (owner)."""
+        from tile2net.grid.source.remote import Remote
+        if (
+            isinstance(instance, Remote)
+            and self.__name__ in instance.__dict__
+        ):
+            return instance.__dict__[self.__name__]
         if owner not in self:
             self[owner] = owner()
-        return self[owner]
+        return self.data[owner]
+
+    def __set__(
+            self,
+            instance: Remote,
+            value,
+    ):
+        instance.__dict__[self.__name__] = value
+
+    def __delete__(
+            self,
+            instance: Remote,
+    ):
+        if self.__name__ in instance.__dict__:
+            del instance.__dict__[self.__name__]
+
+
+

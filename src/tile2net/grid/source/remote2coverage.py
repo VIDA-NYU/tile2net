@@ -74,7 +74,7 @@ class Remote2Coverage:
                     logger.error(
                         f'Could not get coverage for {remote.prototype.name},'
                         f' skipping:\n\t'
-                        f'{e}'
+                        f'{repr(e)}'
                     )
                     continue
                 if not (
@@ -93,6 +93,10 @@ class Remote2Coverage:
                     .set_axis(axis)
                 )
                 coverages.append(coverage)
+
+            if not coverages:
+                msg = 'No valid coverages found from any Remote sources.'
+                raise ValueError(msg)
 
             data = dict(geometry=pd.concat(coverages))
             coverage = GeoDataFrame(data, crs='epsg:4326')

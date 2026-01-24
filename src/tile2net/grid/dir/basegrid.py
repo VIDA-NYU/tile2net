@@ -3,7 +3,7 @@ from __future__ import annotations
 from tile2net.grid.dir.dir import Dir
 
 
-class Postprocess(
+class Outputs(
     Dir
 ):
     basegrid: BaseGrid
@@ -14,44 +14,6 @@ class Postprocess(
 
     @Dir
     def colorized(self):
-        ...
-
-    @Dir
-    def overlay(self):
-        ...
-
-    @Dir
-    def prob(self):
-        ...
-
-    @Dir
-    def error(self):
-        ...
-
-    @Dir
-    def intensity(self):
-        ...
-
-
-class BaseGrid(
-    Dir,
-):
-    padded: Padded
-
-    @Dir
-    def postprocess(self):
-        ...
-
-    @Dir
-    def pred(self):
-        ...
-
-    @Dir
-    def colorized(self):
-        ...
-
-    @Dir
-    def static(self):
         ...
 
     @Dir
@@ -71,11 +33,37 @@ class BaseGrid(
         ...
 
     @Dir
+    def static(self):
+        ...
+
+    @Dir
     def sidebyside(self):
         ...
 
     @Dir
     def soft(self):
+        ...
+
+
+class BaseGrid(
+    Outputs
+):
+    padded: Padded
+
+    @Outputs
+    def dense_crf(self):
+        ...
+
+    @Outputs
+    def guided_filter(self):
+        ...
+
+    @Outputs
+    def slic(self):
+        ...
+
+    @Outputs
+    def walker(self):
         ...
 
 

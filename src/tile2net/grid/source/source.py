@@ -112,14 +112,22 @@ class Source:
 
         if isinstance(value, Source):
             return copy.copy(value)
+
         try:
-            return Local.from_inferred(value)
+            out =  Local.from_inferred(value)
         except SourceParseError:
             ...
+        else:
+            return out
         try:
-            return Remote.from_inferred(value)
+            out = Remote.from_inferred(value)
         except SourceParseError:
             ...
+        else:
+            if not out.server:
+                msg = f'Remote source must have a server defined: {value!r}'
+                raise ValueError(msg)
+            return out
 
         msg = f'Cannot infer source from value: {value!r}'
         raise ValueError(msg)

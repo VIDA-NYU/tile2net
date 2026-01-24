@@ -35,6 +35,7 @@ if False:
     from tile2net.grid.seggrid.seggrid import SegGrid
     from tile2net.grid.grid import Grid
     from tile2net.grid.vecgrid.vecgrid import VecGrid
+    from tile2net.grid.dir.outdir import Outdir
 
 
 class BaseGrid(
@@ -651,7 +652,7 @@ class BaseGrid(
         return self.frame.index
 
     @property
-    def outdir(self):
+    def outdir(self) -> Outdir:
         """
         Output in which the results, such as annotated images and geometry, will be stored:
         Example:

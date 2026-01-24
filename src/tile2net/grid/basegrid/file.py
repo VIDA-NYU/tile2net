@@ -24,6 +24,7 @@ from .. import frame
 class File(
     namespace
 ):
+    instance: BaseGrid
     @frame.column
     def static(self):
         ...

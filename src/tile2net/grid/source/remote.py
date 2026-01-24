@@ -763,7 +763,7 @@ class Remote(
         if len(matches) == 1:
             name = matches.index[0]
             prototype = cls.name2prototype[name].prototype
-            out = prototype.__class__()
+            out = copy.copy(prototype)
 
             proto_log = textwrap.indent(str(prototype), prefix='\t')
             # Move the object to the end and separate with a newline
@@ -796,16 +796,14 @@ class Remote(
 
         if isinstance(item_name, str):
             if item_name not in cls.name2prototype:
-                raise RemoteNotFound(
-                    f"Remote '{item_name}' found but not in name2prototype"
-                )
+                raise RemoteNotFound(f"Remote '{item_name}' found but not in name2prototype")
             prototype = cls.name2prototype[item_name]
         else:
             raise TypeError(f'Invalid type {type(item_name)} for {item_name}')
 
         msg = f'Matched remote "{prototype}" for location "{geocode.passed}"'
         logger.info(msg)
-        out = prototype.__class__()
+        out = copy.copy(prototype)
         return out
 
     @classmethod
@@ -925,7 +923,6 @@ class Remote(
                 }
                 return out
 
-
             case dict():
                 try:
                     server = obj['server']
@@ -954,6 +951,8 @@ class Remote(
 
                 if 'enabled' not in obj:
                     out.enabled = True
+
+                out.prototype = out
 
                 return out
 
@@ -1000,16 +999,19 @@ class Remote(
                 continue
 
             actual = tags[key]
-            actual_lower = actual.casefold()
+            haystack = actual.casefold()
 
-            if isinstance(expected, tuple):
+            if isinstance(expected, str):
+                needles = expected,
+            elif isinstance(expected, Iterable):
                 needles = expected
             else:
-                needles = (expected,)
+                msg = f'Invalid type {type(expected)} for criteria value: {expected!r}'
+                raise TypeError(msg)
 
             found = any(
-                needle.casefold() in actual_lower
-                or actual_lower in needle.casefold()
+                needle.casefold() in haystack
+                or haystack in needle.casefold()
                 for needle in needles
             )
 
