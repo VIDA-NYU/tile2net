@@ -1111,7 +1111,7 @@ class BaseGrid(
         lon_west, lat_north = util.xy2lonlat(xmin, ymin, zoom=self.scale)
         lon_east, lat_south = util.xy2lonlat(xmax, ymax, zoom=self.scale)
 
-        return lat_north, lon_west, lat_south, lon_east
+        return float(lat_north), float(lon_west), float(lat_south), float(lon_east)
 
     @cached_property
     # @wraps(Cfg.location)
