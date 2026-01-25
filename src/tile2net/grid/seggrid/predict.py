@@ -18,13 +18,14 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 import tile2net.tileseg.transforms.transforms as extended_transforms
+from tile2net.grid.basegrid.static import Static
 from tile2net.grid.cfg.cfg import Cfg
 from tile2net.grid.cfg.logger import logger
-from tile2net.grid.basegrid.static import Static
 from tile2net.grid.loaders.sample import SampleDataWrapper
 from tile2net.grid.loaders.sampler import DistributedSampler
 from tile2net.grid.loaders.val import ValDataSet, ValDataLoader
 from tile2net.grid.seggrid.broadcast import Broadcast
+from tile2net.grid.seggrid.seggrid import SegGrid
 from tile2net.grid.seggrid.minibatch import MiniBatch
 from tile2net.grid.seggrid.submit import Submit
 from tile2net.tileseg import network
@@ -33,7 +34,7 @@ from tile2net.tileseg.loss.optimizer import get_optimizer, restore_net, restore_
 from tile2net.tileseg.loss.utils import get_loss
 from tile2net.tileseg.network.ocrnet import MscaleOCR
 from tile2net.tileseg.utils.misc import AverageMeter
-from tile2net.grid.cfg import cfg
+
 
 def sha256sum(path):
     h = hashlib.sha256()
@@ -358,7 +359,7 @@ class Predict:
             try:
                 for n, batch in enumerate(loader):
                     submit.rotate()
-                    
+
                     input_images = batch['input']
                     labels = batch['label']
                     i = (
@@ -380,8 +381,10 @@ class Predict:
                     )
 
                     yield mb
-                    
+
+                    pbar.update(len(mb))
                     mb.probs = None
+
 
             finally:
                 try:
@@ -390,6 +393,7 @@ class Predict:
                     pass
 
         msg = f'Finished predicting {len(dataset)} seg-tiles.'
+
         logger.info(msg)
 
     def pred(self) -> Iterator[MiniBatch]:
@@ -403,12 +407,6 @@ class Predict:
             mb.submit_pred()
             yield mb
 
-            try:
-                del mb.submit.t
-            except AttributeError:
-                ...
-            _ = mb.submit.t
-
     def prob(self) -> Iterator[MiniBatch]:
         """
         Iterate through minibatches and submit both predictions and probabilities.
@@ -421,13 +419,6 @@ class Predict:
             mb.submit_prob()
             yield mb
 
-            # del mb.submit.next
-            try:
-                del mb.submit.t
-            except AttributeError:
-                ...
-            _ = mb.submit.t
-
 
 def main():
     """Parse arguments and run inference."""
@@ -436,14 +427,16 @@ def main():
     parser.add_argument("--wrapper", type=str, required=True, help="Path to wrapper Parquet file")
     parser.add_argument("--seggrid", type=str, required=False, help="Path to SegGrid Parquet file")
     parser.add_argument("--clip", type=int, required=True, help="Clipping value for padding")
-    parser.add_argument("--probs", type=str, required=True, choices=['true', 'false'], help="Whether to generate probability maps")
+    parser.add_argument("--probs", type=str, required=True, choices=['true', 'false'],
+                        help="Whether to generate probability maps")
 
     args: argparse.Namespace = parser.parse_args()
 
     cfg: Cfg = Cfg.from_json(args.cfg)
     clip = args.clip
     wrapper: SampleDataWrapper = SampleDataWrapper.from_parquet(args.wrapper)
-    seggrid = Broadcast.from_parquet(args.seggrid)
+    # seggrid = Broadcast.from_parquet(args.seggrid)
+    seggrid = SegGrid.from_parquet(args.seggrid)
     probs = args.probs == 'true'
 
     with cfg as cfg:

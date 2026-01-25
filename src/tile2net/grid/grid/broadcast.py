@@ -96,14 +96,15 @@ class Broadcast(
         if key in cache:
             result = cache[key]
         else:
-            # todo: why did we say we had to use seggrid broadcast?
-            #   seggrid.broadcast was causing problems with `grid.groadcast.segtile.index` duplicates
-            # we have to broadcast to the seggrid broacast, not just seggrid
-            # seggrid = instance.seggrid.broadcast
+            seggrid = instance.seggrid.broadcast
+            loc = ~seggrid.index.duplicated()
+            seggrid = seggrid.loc[loc]
+
             grid = instance.grid.filled
             pad = grid.segtile.pad
+
             corners = (
-                instance.seggrid
+                seggrid
                 .to_corners(grid.scale)
                 .to_padding(pad)
             )
@@ -122,8 +123,17 @@ class Broadcast(
             )
 
             instance.frame.__dict__[self.__name__] = result
-
             _ = result.segtile.row, result.segtile.col
+
+            # expected = 2 ** (instance.scale - instance.seggrid.scale)
+            # expected += 2 * pad
+            # expected **= 2
+            # assert (
+            #     result.segtile.index
+            #     .value_counts()
+            #     .eq(expected)
+            #     .all()
+            # )
 
         result.instance = instance
 

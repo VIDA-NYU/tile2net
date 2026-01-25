@@ -692,31 +692,44 @@ class BaseGrid(
 
     def __repr__(self):
         result = f'{self.__class__.__qualname__}:\n\n'
-        if self.location:
-            result += (
-                f'Location: \n\t'
-                f'{self.location}\n'
-            )
-        if self.lat_lon:
+        try:
+            if self.location:
+                result += (
+                    f'Location: \n\t'
+                    f'{self.location}\n'
+                )
+        except Exception:
+            ...
+        try:
             ymin, xmin, ymax, xmax = self.lat_lon
             result += (
                 f'Lat/Lon Bounds: \n\t'
                 f'({ymin:.4f}, {xmin:.4f}, {ymax:.4f}, {xmax:.4f})\n'
             )
-        if self.xtile_ytile:
+        except Exception:
+            ...
+        try:
             xmin, ymin, xmax, ymax = self.xtile_ytile
             result += (
                 f'XTile/YTile Bounds: \n\t'
                 f'({xmin}, {ymin}, {xmax}, {ymax})\n'
             )
-        result += (
-            f'Scale: \n\t'
-            f'{self.scale}\n'
-        )
-        result += (
-            f'Source: \n\t'
-            f'{self.grid.source}\n'
-        )
+        except Exception:
+            ...
+        try:
+            result += (
+                f'Scale: \n\t'
+                f'{self.scale}\n'
+            )
+        except Exception:
+            ...
+        try:
+            result += (
+                f'Source: \n\t'
+                f'{self.grid.source}\n'
+            )
+        except Exception:
+            ...
         result += f'\n'
         result += self.frame.__repr__()
         return result

@@ -253,9 +253,15 @@ class Broadcast(
             force |= ~grid.segtile.prob.map(os.path.exists)
         force |= self.cfg.force
 
+        msg = f'Now predicting seg-tiles to \n\t{self.grid.outdir.seggrid.pred.dir}'
+        logger.info(msg)
+        # todo: we need grid.segtile.prob
+        # grid.segtile.prob
+        # with grid.seggrid.broadcast.file:
+        #     index = grid.segtile.pred
+
         wrapper: SampleDataWrapper = SampleDataWrapper.from_tiles(
             static=grid.file.static,
-            mask=[None] * len(grid),
             index=grid.segtile.index,
             background=0,
             row=grid.segtile.row,
@@ -285,8 +291,13 @@ class Broadcast(
         # serialize
         self.cfg.to_json(cfg_path)
         wrapper.to_parquet(wrapper_path)
-        seggrid = wrapper_path.replace('.parquet', '_seggrid.parquet')
-        self.broadcast.to_parquet(seggrid)
+        seggrid_path = wrapper_path.replace('.parquet', '_seggrid.parquet')
+        # self.broadcast.to_parquet(seggrid)
+        seggrid = self.broadcast
+        loc = self.index.duplicated()
+        seggrid = seggrid.loc[~loc]
+        seggrid.to_parquet(seggrid_path)
+
         predict = (
             Path(__file__)
             .resolve()
@@ -294,13 +305,13 @@ class Broadcast(
             .__str__()
         )
 
-        seggrid = wrapper_path.replace('.parquet', '_seggrid.parquet')
+        seggrid_path = wrapper_path.replace('.parquet', '_seggrid.parquet')
         cmd = [
             sys.executable,
             str(predict),
             "--cfg", cfg_path,
             "--wrapper", wrapper_path,
-            "--seggrid", seggrid,
+            "--seggrid", seggrid_path,
             "--clip", str(clip),
             "--probs", 'true' if probs else 'false'
         ]
@@ -333,8 +344,8 @@ class Broadcast(
             metadata_path = wrapper_path.replace('.parquet', '_metadata.json')
             if os.path.exists(metadata_path):
                 os.unlink(metadata_path)
-            seggrid = wrapper_path.replace('.parquet', '_seggrid.parquet')
-            if os.path.exists(seggrid):
-                os.unlink(seggrid)
+            seggrid_path = wrapper_path.replace('.parquet', '_seggrid.parquet')
+            if os.path.exists(seggrid_path):
+                os.unlink(seggrid_path)
         except Exception as exc:
             logger.warning(f"Could not clean up temp files: {exc}")

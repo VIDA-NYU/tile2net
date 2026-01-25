@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import os
+import threading
 from dataclasses import dataclass
 from functools import singledispatch, cached_property
-from typing import *
-from typing import Optional
+from pathlib import Path
+from typing import TYPE_CHECKING, Self, Optional
 
-import cv2
 import numpy as np
+import tifffile
 import torch
 from torch.nn.parallel import DataParallel
 
@@ -14,22 +16,31 @@ from tile2net.grid.cfg import cfg
 from tile2net.tileseg.utils.misc import fast_hist
 from .submit import Submit
 
-# cv2.setNumThreads(1)
-
 if TYPE_CHECKING:
     from .seggrid import SegGrid
 
 
-def to_numpy(obj: Any):
-    """converts tensors to ndarrays; preserves lists, dicts, etc."""
-    if isinstance(obj, torch.Tensor):
-        return obj.detach().cpu().numpy()
-    if isinstance(obj, dict):
-        return {k: to_numpy(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
-        typ = type(obj)
-        return typ(to_numpy(v) for v in obj)
-    return obj
+def to_tiff(
+        filename: str,
+        arr: np.ndarray,
+) -> None:
+    p = Path(filename)
+    parent = p.parent
+    parent.mkdir(parents=True, exist_ok=True)
+    tid = threading.get_ident()
+    tmp = parent / f'tmp.{tid}.{p.name}'
+    tmp_str = str(tmp)
+    p_str = str(p)
+
+    try:
+        tifffile.imwrite(tmp_str, arr, compression='zlib')
+        os.replace(tmp_str, p_str)
+    except Exception:
+        try:
+            if os.path.exists(tmp_str):
+                os.unlink(tmp_str)
+        finally:
+            raise
 
 
 @singledispatch
@@ -209,6 +220,9 @@ class MiniBatch:
     probs: Optional[torch.Tensor]
     seggrid: SegGrid
     submit: Submit
+
+    def __len__(self):
+        return self.probs.size(0)
 
     @classmethod
     def _is_placeholder_gt(cls, gt_image: torch.Tensor) -> bool:
@@ -419,70 +433,62 @@ class MiniBatch:
         """Submit probability maps for parallel writing to disk.
 
         Uses CUDA event synchronization to ensure GPU->CPU transfer completes
-        before handing off to thread pool for parallel compression and writing.
+        before dispatching parallel file writes to the I/O pool.
         """
         probs = (
             self.probs
             .to(torch.float16)
-            # avoids sequential sync
             .to('cpu', non_blocking=True)
         )
-        stream = torch.cuda.current_stream()
-        event = stream.record_event()
+        event = torch.cuda.current_stream().record_event()
         files = list(self.seggrid.file.prob)
+        submit = self.submit
 
-        def write_batch():
-            # wait once for all gpu->cpu transfers to complete
+        def coordinate():
+            # wait for gpu->cpu transfer to complete
             event.synchronize()
+            probs_np = probs.numpy()
 
-            it = zip(files, probs.numpy())
+            # dispatch individual file writes to I/O pool
             futures = [
-                self.submit
-                .to_tiff(file, prob)
-                for file, prob in it
+                submit.submit_io(to_tiff, file, prob)
+                for file, prob in zip(files, probs_np)
             ]
 
+            # wait for all I/O to complete; exceptions propagate
             for future in futures:
                 future.result()
 
-        # thread-within-thread necessary bc event.synchronize() is blocking
-        future = self.submit.threads.submit(write_batch)
-        self.submit.next.append(future)
+        submit.submit_batch(coordinate)
 
-    def submit_pred(self):
+    def submit_pred(self) -> None:
         """Submit prediction masks for parallel writing to disk.
 
         Uses async GPU->CPU transfer and batched submission to avoid
         blocking the GPU pipeline during file I/O operations.
         """
-        pred_tensor = (
+        preds = (
             self.max.pred
             .to(torch.uint8)
             .to('cpu', non_blocking=True)
         )
-        event = (
-            torch.cuda
-            .current_stream()
-            .record_event()
-        )
+        event = torch.cuda.current_stream().record_event()
         files = list(self.seggrid.file.pred)
+        submit = self.submit
 
-        def write_batch():
-            # wait once for gpu->cpu transfer to complete
+        def coordinate():
+            # wait for gpu->cpu transfer to complete
             event.synchronize()
+            preds_np = preds.numpy()
 
-            it = zip(files, pred_tensor.numpy())
-            args = [cv2.IMWRITE_PNG_COMPRESSION, 1]
-
+            # dispatch individual file writes to I/O pool
             futures = [
-                self.submit
-                .imwrite(file, prob, args)
-                for file, prob in it
+                submit.submit_io(to_tiff, file, pred)
+                for file, pred in zip(files, preds_np)
             ]
 
+            # wait for all I/O to complete; exceptions propagate
             for future in futures:
                 future.result()
 
-        # thread-within-thread necessary bc event.synchronize() is blocking
-        future = self.submit.threads.submit(write_batch)
-        self.submit.next.append(future)
+        submit.submit_batch(coordinate)
