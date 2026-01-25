@@ -222,6 +222,9 @@ class SegGrid(
             64
             >>> grid.seggrid.filled
             72
+
+        See also:
+            >>> Filled._get
         """
 
     @delayed.Broadcast
@@ -241,6 +244,9 @@ class SegGrid(
             xtile  ytile
             317275 387839          79319          96959          4          0
                    387839          79319          96960          0          0
+
+        See also:
+           >>> Broadcast._get
         """
 
     @Padded
@@ -256,15 +262,6 @@ class SegGrid(
             >>> grid.seggrid.padded.Static
             >>> grid.seggrid.padded.length
         """
-
-    def postprocess(self):
-        """
-        Post-process segmentation results (placeholder for future functionality).
-
-        Currently not implemented. Reserved for future segmentation post-processing
-        operations such as morphological operations or label refinement.
-        """
-        raise NotImplementedError
 
     def _write_benchmark_summary(self) -> None:
         """Write segmentation benchmark summary to file and save detailed CSV."""

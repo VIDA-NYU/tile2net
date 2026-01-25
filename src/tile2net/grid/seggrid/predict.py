@@ -382,15 +382,6 @@ class Predict:
                     yield mb
                     
                     mb.probs = None
-                    # todo: arethese dels needed?
-                    if 'max' in mb.__dict__:
-                        del mb.__dict__['max']
-                    if 'foreground' in mb.__dict__:
-                        del mb.__dict__['foreground']
-                    if 'intensity' in mb.__dict__:
-                        del mb.__dict__['intensity']
-                    
-                    pbar.update(len(grid_batch))
 
             finally:
                 try:

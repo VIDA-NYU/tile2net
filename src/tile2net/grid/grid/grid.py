@@ -36,7 +36,6 @@ from tile2net.grid.vecgrid.vecgrid import VecGrid
 if False:
     from .filled import Filled
     from .broadcast import Broadcast
-    from . import construct
 
 
 class Grid(
@@ -83,6 +82,7 @@ class Grid(
                                                                   geometry
             xtile ytile
             9915  12120  POLYGON ((-7910315.183 5214839.818, -7910315.1...
+
 
         Handles lazy-loading of Grid.VecGrid:
             >>> VecGrid._get
@@ -227,12 +227,11 @@ class Grid(
         Automatically sets the source:
         >>> grid: Grid
         >>> grid = grid.set_source(...)
-        """
 
-    @delayed.Construct
-    def construct(self) -> construct.Construct:
-        """
-        Module which offers pre-constructed `Grid` instances.
+        See also:
+            >>> Source.from_inferred
+            >>> Remote
+            >>> Local
         """
 
     @TempDir
@@ -286,6 +285,9 @@ class Grid(
         "Fills" the Grid with extra tiles implicated by the VecGrid to avoid missing tiles.
         For example, if the Grid is 1x1, but the VecGrid tiles are supposed to be 2 in-tiles wide,
         this will fill in the missing tiles so there are 2x2 total tiles in the Grid.
+
+        See also:
+            >>>> Filled._get
         """
 
     @delayed.Broadcast
@@ -305,100 +307,11 @@ class Grid(
             xtile  ytile
             317275 387839          79319          96959          4          0
                    387839          79319          96960          0          0
+
+        See also:
+            >>> Broadcast._get
         """
 
-    # def set_source(
-    #         self,
-    #         source: str=None,
-    #         outdir: Union[str, Path] = None,
-    # ) -> Self:
-    #     """
-    #     Assign a tile remote for downloading imagery.
-    #
-    #     Args:
-    #         source: remote name, abbreviation, or remote instance. If None, infers from location.
-    #         outdir: Optional output directory path
-    #
-    #     Returns:
-    #         Grid with remote and directories configured
-    #
-    #     Example:
-    #         >>> grid: Grid = Grid.from_location('Boston Common, MA').set_source('ma')
-    #     """
-    #     if source is None:
-    #         source = self.cfg.remote
-    #     if source is None:
-    #         try:
-    #             bbox_geom = shapely.geometry.box(*self.frame.total_bounds)
-    #             source = (
-    #                 gpd.GeoSeries([bbox_geom], crs=self.frame.crs)
-    #                 .to_crs(4326)
-    #                 .pipe(Remote.from_inferred)
-    #             )
-    #         except RemoteNotFound as e:
-    #             msg = f'Unable to infer a remote for {self.location=}'
-    #             raise ValueError(msg) from e
-    #     elif isinstance(source, Remote):
-    #         source = copy.copy(source)
-    #     else:
-    #         try:
-    #             source = Remote.from_inferred(source)
-    #         except RemoteNotFound as e:
-    #             msg = (
-    #                 f'Unable to infer a remote from {source}. '
-    #                 f'Please specify a valid remote or use a '
-    #                 f'different method to set the grid.'
-    #             )
-    #             raise ValueError(msg) from e
-    #
-    #     result = self.copy()
-    #     result.remote = source
-    #     msg = (
-    #         f'Setting remote to {source.__class__.__name__} '
-    #         f'({source.name})'
-    #     )
-    #     logger.info(msg)
-    #
-    #     if not outdir:
-    #         outdir = (
-    #             Path(cfg.outdir)
-    #             .expanduser()
-    #             .resolve()
-    #             .__str__()
-    #         )
-    #
-    #     try:
-    #         dir = Dir.from_format(outdir)
-    #     except ExtensionNotFoundError:
-    #         dir = outdir
-    #         try:
-    #             dir = Dir.from_format(dir)
-    #         except XYNotFoundError as e:
-    #             dir = f'{outdir}/z/x_y'
-    #             dir = Dir.from_format(dir)
-    #
-    #     except XYNotFoundError as e:
-    #         # msg = (
-    #         #     f'Invalid output directory: extension included but '
-    #         #     f'no `x` or `y` in the format: {outdir}. '
-    #         # )
-    #         # raise ValueError(msg) from e
-    #         dir = f'{outdir}/z/x_y'
-    #         dir = Dir.from_format(dir)
-    #
-    #     outdir = dir.original
-    #
-    #     result = result.set_outdir(outdir)
-    #
-    #     grid = result.outdir.grid
-    #     format = os.path.join(
-    #         grid.dir,
-    #         'static',
-    #         f'z/x_y'
-    #     )
-    #     result = result.set_indir(format)
-    #
-    #     return result
 
     def set_source(
             self,
@@ -446,76 +359,6 @@ class Grid(
 
         return result
 
-    # def set_outdir(
-    #         self,
-    #         outdir: Union[str, Path] = None,
-    # ) -> Self:
-    #     """
-    #     Assign an output directory for processed results.
-    #
-    #     Args:
-    #         outdir: Output directory path
-    #
-    #     Returns:
-    #         Grid with output directory configured
-    #
-    #     Example:
-    #     >>> grid: Grid
-    #     >>> grid: Grid = grid.set_outdir('/path/to/output')
-    #     """
-    #     result: BaseGrid = self.copy()
-    #
-    #     if not outdir:
-    #         outdir = cfg.outdir
-    #
-    #     if not outdir:
-    #         raise ValueError(f'No output directory specified. ')
-    #
-    #     dir = outdir
-    #     try:
-    #         result.outdir = dir
-    #     except XYNotFoundError as e:
-    #         _dir = f'{outdir}/z/x_y'
-    #         msg = (
-    #             f'XYZ format not implicated in given outdir format: '
-    #             f'{dir}. Defaulting to {_dir}'
-    #         )
-    #         logger.info(msg)
-    #         dir = _dir
-    #
-    #     try:
-    #         result.outdir = dir
-    #     except ExtensionNotFoundError:
-    #         dir = f'{dir}.png'
-    #
-    #     result.outdir = dir
-    #     # noinspection PyUnresolvedReferences
-    #     msg = f'Setting output directory to \n\t{result.outdir.original} '
-    #     logger.info(msg)
-    #
-    #     return result
-
-    def set_outdir(
-            self,
-            outdir: Union[str, Path] = None,
-    ) -> Self:
-        """
-        Assign an output directory for processed results.
-
-        Args:
-            outdir: Output directory path
-
-        Returns:
-            Grid with output directory configured
-
-        Example:
-        >>> grid: Grid
-        >>> grid: Grid = grid.set_outdir('/path/to/output')
-        """
-        result = self.copy()
-        result.outdir = outdir
-        return result
-
     def set_segmentation(
             self,
             *,
@@ -543,6 +386,9 @@ class Grid(
 
         Example:
             >>> grid: Grid = grid.set_segmentation(dimension=1024, pad=64)
+
+        See also:
+            >>> SegGrid
         """
         from ..seggrid import SegGrid
         # todo: if all are None, determine dimension using VRAM
@@ -642,6 +488,9 @@ class Grid(
 
         Example:
             >>> grid: Grid = grid.set_vectorization(length=5, pad=128)
+
+        See also:
+            >>> VecGrid
         """
 
         if dimension or length or scale:
