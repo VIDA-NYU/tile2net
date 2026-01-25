@@ -75,6 +75,14 @@ class TestPrototypes:
             pytest.fail(f"Returned content from {url} is not a valid image.")
 
 
+    def test_locations(self, prototype: Remote):
+        # todo: include locations under the `test` parameter for each prototype in `servers.yaml`;
+        #   each prototype will iterate across these locations and assure that Remote.from_location() returns a copy
+        #   of that prototype
+        """"""
+
+
+
 if __name__ == '__main__':
     test = TestPrototypes()
     for name, prototype in PROTOTYPES.items():

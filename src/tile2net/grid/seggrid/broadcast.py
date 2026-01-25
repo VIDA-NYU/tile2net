@@ -305,7 +305,7 @@ class Broadcast(
             "--probs", 'true' if probs else 'false'
         ]
 
-        logger.info(f"Launching prediction subprocess: {' '.join(cmd)}")
+        logger.debug(f"Launching prediction subprocess: {' '.join(cmd)}")
 
         with self.benchmark:
             process = subprocess.Popen(

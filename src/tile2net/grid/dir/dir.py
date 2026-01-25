@@ -44,8 +44,8 @@ class Dir(
     original: str
     """Original path specification."""
 
-    extension: str = ''
-    """File extension."""
+    extension: str = 'png'
+    """File extension. Png by default."""
 
     suffix: str
     """Path suffix."""

@@ -795,8 +795,8 @@ class BaseGrid(
             self,
             dimension: int = None,
             length: int = None,
-            mosaic: int = None,
             scale: int = None,
+            mosaic: int = None,
     ) -> int:
         """Unifies varying methods of defining tile scales to the slippy-zoom-based scale integer. """
 
@@ -811,8 +811,11 @@ class BaseGrid(
             )
             raise ValueError(msg)
 
+        if scale:
+            ...
+
         # get scale from dimension, length, or mosaic
-        if dimension:
+        elif dimension:
 
             if (
                     not isinstance(dimension, int)
@@ -844,7 +847,7 @@ class BaseGrid(
             scale = self.scale - dscale
 
         else:
-            msg = 'You must specify either dimension, length, or mosaic to set the scale.'
+            msg = 'You must specify either dimension, length, scale, or mosaic to set the scale.'
             raise ValueError(msg)
 
         _scale = scale

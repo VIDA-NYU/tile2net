@@ -111,12 +111,12 @@ class Broadcast(
                 'segtile.ytile': segtile.get_level_values('ytile'),
             }
 
-            result = (
+            result: Self = (
                 corners
                 .to_grid(drop_duplicates=False)
                 .frame
                 .assign(**kwargs)
-                .pipe(Broadcast.from_frame, wrapper=instance)
+                .pipe(self.__class__.from_frame, wrapper=instance)
             )
 
             instance.frame.__dict__[self.__name__] = result
@@ -127,10 +127,20 @@ class Broadcast(
             # assert len(result) == expected * len(seggrid)
             _ = result.segtile.row, result.segtile.col
 
+            result.instance = instance
+            nunique = (
+                result.segtile.index
+                .value_counts()
+                .nunique()
+            )
+            assert nunique == 1
+            assert nunique == 1
+
         result.instance = instance
+
         return result
 
-    locals().update( __get__=_get )
+    locals().update(__get__=_get)
 
     @property
     def seggrid(self) -> SegGrid:
