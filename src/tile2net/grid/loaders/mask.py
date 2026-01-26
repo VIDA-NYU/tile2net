@@ -23,7 +23,7 @@ class MaskDataSet(
     StitchDataSet
 ):
     @classmethod
-    def from_tiles(
+    def from_columns(
             cls,
             *,
             static: ArrayLike,
@@ -32,7 +32,7 @@ class MaskDataSet(
             col: ArrayLike,
             background: int = 0,
     ) -> Self:
-        wrapper = DataWrapper.from_tiles(
+        wrapper = DataWrapper.from_columns(
             static=static,
             index=index,
             row=row,

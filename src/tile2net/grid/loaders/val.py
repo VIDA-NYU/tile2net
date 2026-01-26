@@ -8,31 +8,12 @@ import torchvision.transforms as standard_transforms
 import tile2net.tileseg.transforms.transforms as extended_transforms
 from tile2net.grid.cfg import cfg
 from .dataloader import BaseDataLoader
-from .labels import label2trainid, trainId2name
 from .sample import SampleDataSet, SampleDataLoader
 
-id_to_trainid = label2trainid
-trainid_to_name = trainId2name
 
 class ValDataSet(
     SampleDataSet
 ):
-
-    # def __getitem__(self, item):
-    #     scale_float = 1.0
-    #     img = self.raster[item]
-    #     img = self.img_transform(img)
-    #
-    #     # only one channel
-    #     mask = np.zeros(img.shape[1::])
-    #
-    #     result = dict(
-    #         input=img,
-    #         mask=mask,
-    #         scale=scale_float,
-    #         i=item,
-    #     )
-    #     return result
 
     @cached_property
     def img_transform(self) -> standard_transforms.Compose:
@@ -52,17 +33,17 @@ class ValDataSet(
     def joint_transform_list(self):
         return []
 
-
-    # @cached_property
-    # def sampler(self):
-    #     result = DistributedSampler(
-    #         self,
-    #         pad=False,
-    #         permutation=False,
-    #         consecutive_sample=False,
-    #     )
-    #     return result
-
+    @cached_property
+    def sampler(self):
+        msg = f'Distributed inference is not implemented yet.'
+        raise NotImplementedError(msg)
+        result = DistributedSampler(
+            self,
+            pad=False,
+            permutation=False,
+            consecutive_sample=False,
+        )
+        return result
 
     def loader[T: BaseDataLoader](
             self,
@@ -108,7 +89,6 @@ class ValDataSet(
             *args, **kwargs
         )
         return out
-
 
 
 class ValDataLoader(

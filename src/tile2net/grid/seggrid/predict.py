@@ -24,8 +24,6 @@ from tile2net.grid.cfg.logger import logger
 from tile2net.grid.loaders.sample import SampleDataWrapper
 from tile2net.grid.loaders.sampler import DistributedSampler
 from tile2net.grid.loaders.val import ValDataSet, ValDataLoader
-from tile2net.grid.seggrid.broadcast import Broadcast
-from tile2net.grid.seggrid.seggrid import SegGrid
 from tile2net.grid.seggrid.minibatch import MiniBatch
 from tile2net.grid.seggrid.submit import Submit
 from tile2net.tileseg import network
@@ -164,12 +162,10 @@ class Predict:
             cfg: Cfg,
             wrapper: SampleDataWrapper,
             clip: int,
-            seggrid: Broadcast,
     ):
         self.cfg = cfg
         self.wrapper = wrapper
         self.clip = clip
-        self.seggrid = seggrid
         self._setup_done = False
 
     def _validate_and_download_checkpoints(self) -> None:
@@ -337,7 +333,7 @@ class Predict:
         logger.info('Predicting segmentation masks')
 
         dataset = self.data.set
-        loader = self.data.loader
+        loader: ValDataLoader = self.data.loader
 
         unit = ' seg-tiles'
         msg = 'Predicting seg-tiles'
@@ -347,7 +343,7 @@ class Predict:
                 Submit(workers=self.cfg.compress_workers) as submit:
 
             stack.enter_context(logging_redirect_tqdm())
-
+            # Register tqdm with the stack; auto-closes on exit/error
             pbar = tqdm(
                 total=len(dataset),
                 desc=msg,
@@ -355,42 +351,23 @@ class Predict:
                 dynamic_ncols=True,
                 mininterval=1,
             )
+            pbar = stack.enter_context(pbar)
 
-            try:
-                for n, batch in enumerate(loader):
-                    submit.rotate()
+            for batch in loader:
+                submit.rotate()
+                mb = MiniBatch.from_data(
+                    images=batch['input'],
+                    gt_image=batch['label'],
+                    net=self.model.net,
+                    pred_paths=batch['pred_paths'],
+                    prob_paths=batch['prob_paths'],
+                    submit=submit,
+                    clip=self.clip,
+                )
 
-                    input_images = batch['input']
-                    labels = batch['label']
-                    i = (
-                        batch['i']
-                        .detach()
-                        .cpu()
-                        .numpy()
-                    )
-                    loc = dataset.index[i]
-                    grid_batch = self.seggrid.loc[loc]
-
-                    mb = MiniBatch.from_data(
-                        images=input_images,
-                        gt_image=labels,
-                        net=self.model.net,
-                        seggrid=grid_batch,
-                        submit=submit,
-                        clip=self.clip,
-                    )
-
-                    yield mb
-
-                    pbar.update(len(mb))
-                    mb.probs = None
-
-
-            finally:
-                try:
-                    pbar.close()
-                except Exception:
-                    pass
+                yield mb
+                pbar.update(len(mb))
+                mb.probs = None
 
         msg = f'Finished predicting {len(dataset)} seg-tiles.'
 
@@ -398,10 +375,8 @@ class Predict:
 
     def pred(self) -> Iterator[MiniBatch]:
         """
-        Iterate through minibatches and submit predictions.
-
-        Yields:
-            MiniBatch: Each processed minibatch after submitting predictions
+        Iterate through minibatches and submit only predictions.
+        This is useful when probability maps are not needed, such as simply generating networks for end-users.
         """
         for mb in self:
             mb.submit_pred()
@@ -410,9 +385,7 @@ class Predict:
     def prob(self) -> Iterator[MiniBatch]:
         """
         Iterate through minibatches and submit both predictions and probabilities.
-
-        Yields:
-            MiniBatch: Each processed minibatch after submitting predictions and probabilities
+        This is useful when probability maps are needed, such as testing and visualization.
         """
         for mb in self:
             mb.submit_pred()
@@ -425,7 +398,6 @@ def main():
     parser = argparse.ArgumentParser(description="Semantic segmentation prediction subprocess")
     parser.add_argument("--cfg", type=str, required=True, help="Path to cfg JSON file")
     parser.add_argument("--wrapper", type=str, required=True, help="Path to wrapper Parquet file")
-    parser.add_argument("--seggrid", type=str, required=False, help="Path to SegGrid Parquet file")
     parser.add_argument("--clip", type=int, required=True, help="Clipping value for padding")
     parser.add_argument("--probs", type=str, required=True, choices=['true', 'false'],
                         help="Whether to generate probability maps")
@@ -434,9 +406,7 @@ def main():
 
     cfg: Cfg = Cfg.from_json(args.cfg)
     clip = args.clip
-    wrapper: SampleDataWrapper = SampleDataWrapper.from_parquet(args.wrapper)
-    # seggrid = Broadcast.from_parquet(args.seggrid)
-    seggrid = SegGrid.from_parquet(args.seggrid)
+    wrapper = SampleDataWrapper.from_parquet(args.wrapper)
     probs = args.probs == 'true'
 
     with cfg as cfg:
@@ -444,7 +414,6 @@ def main():
             cfg=cfg,
             wrapper=wrapper,
             clip=clip,
-            seggrid=seggrid,
         )
 
         if probs:

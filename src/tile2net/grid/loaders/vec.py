@@ -82,7 +82,7 @@ class VecDataWrapper(
             line_file: ArrayLike,
             **kwargs,
     ) -> Self:
-        return super().from_tiles(
+        return super().from_columns(
             static=static,
             index=index,
             row=row,

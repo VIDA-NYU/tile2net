@@ -27,7 +27,7 @@ class UnstitchDataWrapper(DataWrapper):
         """output file paths for each tile"""
 
     @classmethod
-    def from_tiles(
+    def from_columns(
             cls,
             *,
             static,

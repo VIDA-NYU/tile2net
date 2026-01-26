@@ -253,20 +253,18 @@ class Broadcast(
             force |= ~grid.segtile.prob.map(os.path.exists)
         force |= self.cfg.force
 
-        msg = f'Now predicting seg-tiles to \n\t{self.grid.outdir.seggrid.pred.dir}'
+        msg = f'Predicting seg-tiles to \n\t{self.grid.outdir.seggrid.pred.dir}'
         logger.info(msg)
-        # todo: we need grid.segtile.prob
-        # grid.segtile.prob
-        # with grid.seggrid.broadcast.file:
-        #     index = grid.segtile.pred
 
-        wrapper: SampleDataWrapper = SampleDataWrapper.from_tiles(
+        wrapper = SampleDataWrapper.from_columns(
             static=grid.file.static,
             index=grid.segtile.index,
             background=0,
             row=grid.segtile.row,
             col=grid.segtile.col,
             force=force,
+            pred_path=grid.segtile.pred,
+            prob_path=grid.segtile.prob,
         )
 
         if wrapper.empty:
@@ -291,12 +289,6 @@ class Broadcast(
         # serialize
         self.cfg.to_json(cfg_path)
         wrapper.to_parquet(wrapper_path)
-        seggrid_path = wrapper_path.replace('.parquet', '_seggrid.parquet')
-        # self.broadcast.to_parquet(seggrid)
-        seggrid = self.broadcast
-        loc = self.index.duplicated()
-        seggrid = seggrid.loc[~loc]
-        seggrid.to_parquet(seggrid_path)
 
         predict = (
             Path(__file__)
@@ -305,13 +297,11 @@ class Broadcast(
             .__str__()
         )
 
-        seggrid_path = wrapper_path.replace('.parquet', '_seggrid.parquet')
         cmd = [
             sys.executable,
             str(predict),
             "--cfg", cfg_path,
             "--wrapper", wrapper_path,
-            "--seggrid", seggrid_path,
             "--clip", str(clip),
             "--probs", 'true' if probs else 'false'
         ]
@@ -327,13 +317,14 @@ class Broadcast(
             )
             process.wait()
 
-        if process.returncode != 0:
-            if process.returncode == 130:
+        match process.returncode:
+            case 0:
+                ...
+            case 130:
                 raise KeyboardInterrupt("Prediction interrupted by user")
+            case _:
+                raise RuntimeError(f"Prediction subprocess failed (Exit Code {process.returncode}).")
 
-            raise RuntimeError(
-                f"Prediction subprocess failed (Exit Code {process.returncode})."
-            )
 
         self._write_benchmark_summary()
 
@@ -344,8 +335,5 @@ class Broadcast(
             metadata_path = wrapper_path.replace('.parquet', '_metadata.json')
             if os.path.exists(metadata_path):
                 os.unlink(metadata_path)
-            seggrid_path = wrapper_path.replace('.parquet', '_seggrid.parquet')
-            if os.path.exists(seggrid_path):
-                os.unlink(seggrid_path)
         except Exception as exc:
             logger.warning(f"Could not clean up temp files: {exc}")

@@ -926,7 +926,7 @@ class BaseGrid(
 
             loader = (
                 DataWrapper
-                .from_tiles(
+                .from_columns(
                     static=tiles,
                     index=mosaics,
                     row=row,
@@ -1012,7 +1012,7 @@ class BaseGrid(
             )
             logger.info(msg)
 
-            wrapper = UnstitchDataWrapper.from_tiles(
+            wrapper = UnstitchDataWrapper.from_columns(
                 static=mosaics,
                 outfile=tiles,
                 index=mosaics,
@@ -1188,7 +1188,7 @@ class BaseGrid(
         else:
             scale = maxdim / m
 
-        wrapper = DataWrapper.from_tiles(
+        wrapper = DataWrapper.from_columns(
             static=self.file.static,
             index=self.index,
             row=self.r,

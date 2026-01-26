@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import *
 
 import os
 import threading
@@ -8,6 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Self, Optional
 
 import numpy as np
+import pandas as pd
 import tifffile
 import torch
 from torch.nn.parallel import DataParallel
@@ -15,9 +17,6 @@ from torch.nn.parallel import DataParallel
 from tile2net.grid.cfg import cfg
 from tile2net.tileseg.utils.misc import fast_hist
 from .submit import Submit
-
-if TYPE_CHECKING:
-    from .seggrid import SegGrid
 
 
 def to_tiff(
@@ -218,8 +217,9 @@ class Foreground(Max):
 @dataclass
 class MiniBatch:
     probs: Optional[torch.Tensor]
-    seggrid: SegGrid
     submit: Submit
+    pred_paths: list[str]
+    prob_paths: list[str]
 
     def __len__(self):
         return self.probs.size(0)
@@ -244,7 +244,8 @@ class MiniBatch:
             images: torch.Tensor,
             gt_image: torch.Tensor,
             net: DataParallel | torch.nn.Module,
-            seggrid: SegGrid,
+            pred_paths: list[str],
+            prob_paths: list[str],
             submit: Submit,
             clip: int = 0,
     ):
@@ -313,7 +314,8 @@ class MiniBatch:
             )
             result = cls(
                 probs=probs,
-                seggrid=seggrid,
+                pred_paths=pred_paths,
+                prob_paths=prob_paths,
                 submit=submit,
             )
             return result
@@ -429,7 +431,7 @@ class MiniBatch:
     def dump_percent(self) -> int:
         return 100
 
-    def submit_prob(self) -> None:
+    def submit_prob(self):
         """Submit probability maps for parallel writing to disk.
 
         Uses CUDA event synchronization to ensure GPU->CPU transfer completes
@@ -440,28 +442,28 @@ class MiniBatch:
             .to(torch.float16)
             .to('cpu', non_blocking=True)
         )
-        event = torch.cuda.current_stream().record_event()
-        files = list(self.seggrid.file.prob)
+        event = (
+            torch.cuda
+            .current_stream()
+            .record_event()
+        )
         submit = self.submit
 
         def coordinate():
             # wait for gpu->cpu transfer to complete
             event.synchronize()
-            probs_np = probs.numpy()
+            it = zip(self.prob_paths, probs.numpy())
 
-            # dispatch individual file writes to I/O pool
             futures = [
                 submit.submit_io(to_tiff, file, prob)
-                for file, prob in zip(files, probs_np)
+                for file, prob in it
             ]
-
-            # wait for all I/O to complete; exceptions propagate
             for future in futures:
                 future.result()
 
         submit.submit_batch(coordinate)
 
-    def submit_pred(self) -> None:
+    def submit_pred(self):
         """Submit prediction masks for parallel writing to disk.
 
         Uses async GPU->CPU transfer and batched submission to avoid
@@ -472,22 +474,21 @@ class MiniBatch:
             .to(torch.uint8)
             .to('cpu', non_blocking=True)
         )
-        event = torch.cuda.current_stream().record_event()
-        files = list(self.seggrid.file.pred)
+        event = (
+            torch.cuda
+            .current_stream()
+            .record_event()
+        )
         submit = self.submit
 
         def coordinate():
             # wait for gpu->cpu transfer to complete
             event.synchronize()
-            preds_np = preds.numpy()
-
-            # dispatch individual file writes to I/O pool
+            it = zip(self.pred_paths, preds.numpy())
             futures = [
                 submit.submit_io(to_tiff, file, pred)
-                for file, pred in zip(files, preds_np)
+                for file, pred in it
             ]
-
-            # wait for all I/O to complete; exceptions propagate
             for future in futures:
                 future.result()
 

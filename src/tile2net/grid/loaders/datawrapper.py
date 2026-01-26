@@ -45,7 +45,7 @@ class DataWrapper(
         return 0
 
     @classmethod
-    def from_tiles(
+    def from_columns(
             cls,
             *,
             static: ArrayLike,

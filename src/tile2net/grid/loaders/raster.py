@@ -22,7 +22,7 @@ class RasterDataSet(
 ):
 
     @classmethod
-    def from_tiles(
+    def from_columns(
             cls,
             *,
             static: ArrayLike,
@@ -30,13 +30,15 @@ class RasterDataSet(
             row: ArrayLike,
             col: ArrayLike,
             background: int = 0,
+            **kwargs,
     ) -> Self:
-        wrapper = DataWrapper.from_tiles(
+        wrapper = DataWrapper.from_columns(
             static=static,
             index=index,
             row=row,
             col=col,
             background=background,
+            **kwargs
         )
         result = cls(wrapper)
         return result

@@ -18,7 +18,6 @@ from tile2net.grid.cfg import cfg
 from tile2net.grid.frame import frame
 
 
-
 def _worker_init(_: int) -> None:
     logging.disable(logging.ERROR)
     os.environ['TQDM_DISABLE'] = '1'
@@ -34,7 +33,6 @@ class DataWrapper(datawrapper.DataWrapper):
     @frame.column
     def mask(self):
         ...
-
 
 
 class StitchDataSet(
@@ -94,10 +92,10 @@ class StitchDataSet(
 
     @cached_property
     def row(self) -> list[list[int]]:
-        """row within the mosaic of each tile"""
+        """Row in the mosaic which the tile comprises."""
         result = (
             self.wrapper.frame
-            .groupby(level=self.wrapper.frame.index.names)
+            .groupby(level=self.wrapper.frame.index.names, sort=False)
             .row
             .apply(list)
             .tolist()
@@ -106,10 +104,10 @@ class StitchDataSet(
 
     @cached_property
     def col(self) -> list[list[int]]:
-        """column within the mosaic of each tile"""
+        """Column in the mosaic which the tile comprises."""
         result = (
             self.wrapper.frame
-            .groupby(level=self.wrapper.frame.index.names, )
+            .groupby(level=self.wrapper.frame.index.names, sort=False)
             .col
             .apply(list)
             .tolist()
@@ -118,11 +116,11 @@ class StitchDataSet(
 
     @cached_property
     def nrow(self) -> int:
-        """number of rows in each mosaic"""
+        """Number of rows for the mosaic which the tile comprises."""
         nrow = (
             self.wrapper
             .frame
-            .groupby(level=self.wrapper.frame.index.names)
+            .groupby(level=self.wrapper.frame.index.names, sort=False)
             .row
             .max()
         )
@@ -132,11 +130,11 @@ class StitchDataSet(
 
     @cached_property
     def ncol(self) -> int:
-        """number of columns in each mosaic"""
+        """Number of columns for the mosaic which the tile comprises."""
         ncol = (
             self.wrapper
             .frame
-            .groupby(level=self.wrapper.frame.index.names)
+            .groupby(level=self.wrapper.frame.index.names, sort=False)
             .col
             .max()
         )
@@ -146,10 +144,11 @@ class StitchDataSet(
 
     @cached_property
     def static(self) -> list[list[str]]:
+        """Input static imagery file path for each tile in the mosaic."""
         result = (
             self.wrapper
             .frame
-            .groupby(level=self.wrapper.frame.index.names, )
+            .groupby(level=self.wrapper.frame.index.names, sort=False)
             .static
             .apply(list)
             .tolist()
@@ -157,32 +156,56 @@ class StitchDataSet(
         return result
 
     @cached_property
+    def pred_path(self) -> list[str]:
+        """Prediction output file path for each mosaic."""
+        result = (
+            self.wrapper
+            .frame
+            .groupby(level=self.wrapper.frame.index.names, sort=False)
+            .pred_path
+            .first()
+            .tolist()
+        )
+        return result
+
+    @cached_property
+    def prob_path(self) -> list[str]:
+        """Probability output file path for each mosaic."""
+        result = (
+            self.wrapper
+            .frame
+            .groupby(level=self.wrapper.frame.index.names, sort=False)
+            .prob_path
+            .first()
+            .tolist()
+        )
+        return result
+
+    @cached_property
     def crop_size(self) -> Union[int, Tuple[int, int]]:
         result = cfg.dataset.crop_size
-        if (
-                isinstance(result, str)
-                and ',' in result
-        ):
-            result = pipe(
-                result.split(','),
-                curried.map(int),
-                list
-            )
-        elif isinstance(result, (list, tuple)):
+        if isinstance(result, (list, tuple)):
             ...
         else:
             result = int(result)
         return result
 
     @cached_property
-    def mean_std(self) -> tuple[list[float], list[float]]:
+    def mean_std(self) -> tuple[
+        list[float],
+        list[float]
+    ]:
         mean = cfg.dataset.mean
         std = cfg.dataset.std
-        result = (mean, std)
+        result = mean, std
         return result
 
     @cached_property
     def sample(self) -> np.ndarray:
+        """
+        A sample of the input imagery, to automatically determine the dimension of the imagery.
+        This assumes all input tiles have the same shape.
+        """
         try:
             path: str = next(
                 path
@@ -244,170 +267,14 @@ class StitchDataSet(
 
         return arr
 
-    # @staticmethod
-    # def _coerce_to_rgba(
-    #         arr: np.ndarray,
-    # ) -> np.ndarray:
-    #     # ensure uint8 RGBA with α=255 for opaque pixels
-    #
-    #     if arr.ndim == 2:
-    #         arr = np.repeat(arr[..., None], 3, axis=2)
-    #
-    #     if arr.ndim != 3:
-    #         raise ValueError(f'expected HxWxC array, got shape {arr.shape}')
-    #
-    #     if arr.dtype in (np.float32, np.float64):
-    #         arr = np.clip(arr * 255.0, 0.0, 255.0).astype(np.uint8, copy=False)
-    #     elif arr.dtype != np.uint8:
-    #         arr = arr.astype(np.uint8, copy=False)
-    #
-    #     c = arr.shape[2]
-    #     if c == 1:
-    #         arr = np.repeat(arr, 3, axis=2)
-    #         c = 3
-    #
-    #     if c == 3:
-    #         alpha = np.full((*arr.shape[:2], 1), 255, dtype=np.uint8)
-    #         arr = np.concatenate((arr, alpha), axis=2)
-    #     elif c != 4:
-    #         raise ValueError(f'unsupported channel count {c}; expected 1, 3, or 4')
-    #
-    #     result = arr
-    #     return result
-    #
-    # def __getitem__(
-    #         self,
-    #         item,
-    # ) -> np.ndarray:
-    #     # composite tiles into a single RGB mosaic
-    #
-    #     # pull grouped lists
-    #     files = self.static[item]
-    #     rows = self.row[item]
-    #     cols = self.col[item]
-    #
-    #     # find first present tile to infer shape
-    #     sample_path = next(
-    #         (f for f in files if f is not None and Path(f).is_file()),
-    #         None,
-    #     )
-    #     if sample_path is None:
-    #         raise FileNotFoundError('no readable tiles to infer shape')
-    #
-    #     # read the sample and coerce to RGBA
-    #     if Path(sample_path).suffix.lower() == '.npy':
-    #         sample = np.load(sample_path, mmap_mode=None)
-    #     else:
-    #         sample = iio.imread(sample_path)
-    #     sample = self._coerce_to_rgba(sample)
-    #
-    #     # infer tile and mosaic geometry
-    #     tile_h, tile_w = map(int, sample.shape[:2])
-    #     grid_h = int(self.nrow[item]) + 1
-    #     grid_w = int(self.ncol[item]) + 1
-    #     mos_h = grid_h * tile_h
-    #     mos_w = grid_w * tile_w
-    #
-    #     # allocate destination RGB; background defaults to zeros
-    #     mosaic = np.empty((mos_h, mos_w, 3), dtype=np.uint8)
-    #     mosaic.fill(0)
-    #
-    #     # paste the sample tile first if present in the list
-    #     # this avoids re-reading if the sample also appears in the loop
-    #     def _paste(
-    #             img: np.ndarray,
-    #             r: int,
-    #             c: int,
-    #     ) -> None:
-    #         # compute region of interest
-    #         y0 = int(r) * tile_h
-    #         x0 = int(c) * tile_w
-    #         sl = np.s_[y0:y0 + tile_h, x0:x0 + tile_w, :]
-    #
-    #         # split channels and composite where alpha != 0
-    #         rgb = img[..., :3]
-    #         a = img[..., 3:4]
-    #         dst = mosaic[sl]
-    #         np.copyto(dst, rgb, where=(a != 0))
-    #
-    #     # prime a cache for the sample to avoid duplicate decode
-    #     cache_path = sample_path
-    #     cache_img = sample
-    #
-    #     # main paste loop in deterministic row/col order (already sorted)
-    #     # optionally pre-read tiles in parallel to accelerate I/O
-    #     if self.threads != 1:
-    #         # submit read tasks for each tile except None and cached sample
-    #         tasks: list[tuple[int, str]] = [
-    #             (i, f)
-    #             for i, f in enumerate(files)
-    #             if f is not None and f != cache_path
-    #         ]
-    #
-    #         def _read(path: str) -> np.ndarray:
-    #             if Path(path).suffix.lower() == '.npy':
-    #                 arr = np.load(path, mmap_mode=None)
-    #             else:
-    #                 arr = iio.imread(path)
-    #             return self._coerce_to_rgba(arr)
-    #
-    #         results: dict[int, np.ndarray] = {}
-    #         # cap workers at positive int; if threads is 0 or negative, fallback to default behavior
-    #         max_workers = self.threads if self.threads and self.threads > 0 else None
-    #         with cf.ThreadPoolExecutor(max_workers=max_workers) as ex:
-    #             futs = {
-    #                 ex.submit(_read, f): i
-    #                 for i, f in tasks
-    #             }
-    #             for fut in cf.as_completed(futs):
-    #                 idx = futs[fut]
-    #                 results[idx] = fut.result()
-    #
-    #         # sequentially paste following the original order
-    #         for i, (f, r, c) in enumerate(zip(files, rows, cols, strict=True)):
-    #             if f is None:
-    #                 continue
-    #             if f == cache_path:
-    #                 _paste(cache_img, r, c)
-    #                 continue
-    #             arr = results[i]
-    #             if arr.shape[:2] != (tile_h, tile_w):
-    #                 msg = f'unexpected tile shape {arr.shape[:2]} vs {(tile_h, tile_w)} for {f}'
-    #                 raise ValueError(msg)
-    #             _paste(arr, r, c)
-    #     else:
-    #         for f, r, c in zip(files, rows, cols, strict=True):
-    #             if f is None:
-    #                 # skip intentionally empty tiles
-    #                 continue
-    #
-    #             if f == cache_path:
-    #                 # reuse previously decoded sample
-    #                 _paste(cache_img, r, c)
-    #                 continue
-    #
-    #             # read array (npy fast-path; otherwise imageio sniffing)
-    #             if Path(f).suffix.lower() == '.npy':
-    #                 arr = np.load(f, mmap_mode=None)
-    #             else:
-    #                 arr = iio.imread(f)
-    #
-    #             # coerce and paste
-    #             arr = self._coerce_to_rgba(arr)
-    #             if arr.shape[:2] != (tile_h, tile_w):
-    #                 msg = f'unexpected tile shape {arr.shape[:2]} vs {(tile_h, tile_w)} for {f}'
-    #                 raise ValueError(msg)
-    #             _paste(arr, r, c)
-    #
-    #     result = mosaic
-    #     return result
-
     @cached_property
     def h(self):
+        """Height of the mosaic in pixels. This assumes all input tiles have the same shape."""
         return (self.nrow + 1) * self.sample.shape[0]
 
     @cached_property
     def w(self):
+        """Width of the mosaic in pixels. This assumes all input tiles have the same shape."""
         return (self.ncol + 1) * self.sample.shape[1]
 
     @cached_property

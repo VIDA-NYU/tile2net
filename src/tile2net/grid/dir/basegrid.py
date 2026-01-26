@@ -10,7 +10,7 @@ class Outputs(
 
     @Dir
     def pred(self):
-        return Dir.from_parent(self, 'prob', extension='tif')
+        return Dir.from_parent(self, 'pred', extension='tif')
 
     @Dir
     def colorized(self):
