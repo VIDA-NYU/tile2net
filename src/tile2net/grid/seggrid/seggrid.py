@@ -15,11 +15,12 @@ from tile2net.grid.seggrid.file import File
 from tile2net.grid.seggrid.padded import Padded
 from tile2net.grid.seggrid.vectile import VecTile
 
-if False:
+if TYPE_CHECKING:
     from ..dir import Outdir
     from .filled import Filled
     from .broadcast import Broadcast
     from ..grid import Grid
+    from . import predict as predict_py
 
 
 class SegGrid(
@@ -353,4 +354,32 @@ class SegGrid(
         return 0.
 
     def predict(self, probs=None):
+        """
+        Run semantic segmentation prediction on all tiles in the grid using subprocess.
+
+        Args:
+            probs:
+                True:
+                    Serialize both probabilities and predictions.
+                False:
+                    Serialize predictions only.
+
+        See `predict.py` for the inference subprocess:
+            >>> predict_py.main()
+
+        The subprocess runs predict.py which performs the actual inference.
+        Benchmarking is done in the parent process after subprocess completes.
+
+        See the output files:
+            >>> grid: Grid
+            >>> grid.seggrid.file.pred
+            >>> grid.seggrid.file.prob
+
+        Example:
+            >>> grid: Grid
+            >>> grid.seggrid.predict(probs=False)
+            Downloading weights for segmentation...
+            Predicting seg-tiles: 100%|██████| 64/64 [02:15<00:00]
+            Finished predicting 64 seg-tiles.
+        """
         return self.broadcast.predict(probs=probs)

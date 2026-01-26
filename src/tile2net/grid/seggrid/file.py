@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import os
 import sys
+from typing import *
 
 import cv2
 import numpy as np
@@ -17,8 +18,9 @@ from ...grid import util
 
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 
-if False:
+if TYPE_CHECKING:
     from .seggrid import SegGrid
+    from ..grid import Grid
 
 
 def sha256sum(path):
@@ -50,8 +52,8 @@ class File(
         files = grid.grid.outdir.seggrid.static.files(grid)
         self.static = files
         if (
-            not self
-            and not files.map(os.path.exists).all()
+                not self
+                and not files.map(os.path.exists).all()
         ):
             grid = grid.grid
             assert (
@@ -92,7 +94,7 @@ class File(
         grid.file.pred = files
         self.pred = files
         if (
-            not self
+                not self
                 and not grid.predict
                 and not files.map(os.path.exists).all()
         ):
@@ -118,9 +120,9 @@ class File(
         grid.file.prob = files
         self.prob = files
         if (
-            not self
-            and not bool(grid.predict)
-            and not files.map(os.path.exists).all()
+                not self
+                and not bool(grid.predict)
+                and not files.map(os.path.exists).all()
         ):
             grid.predict(probs=True)
             assert files.map(os.path.exists).all()

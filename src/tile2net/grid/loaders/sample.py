@@ -9,11 +9,15 @@ import torch
 from torchvision import transforms as standard_transforms
 
 import tile2net.tileseg.transforms.transforms as extended_transforms
+from tile2net.grid import frame
+from tile2net.grid.loaders.stitch import DataWrapper
 from .dataloader import TensorDataLoader
-from .datawrapper import DataWrapper, frame
 from .mask import MaskDataSet
-from .raster import RasterDataSet
+from .image import ImageDataSet
 from .stitch import StitchDataSet
+
+if TYPE_CHECKING:
+    from tile2net.grid.seggrid.predict import Predict
 
 ArrayLike = Union[
     pd.Series,
@@ -30,7 +34,7 @@ class SampleDataWrapper(
     def from_columns(
             cls,
             *,
-            static: ArrayLike,
+            image_path: ArrayLike,
             index: ArrayLike,
             row: ArrayLike,
             col: ArrayLike,
@@ -40,7 +44,7 @@ class SampleDataWrapper(
             **kwargs,
     ) -> Self:
         return super().from_columns(
-            static=static,
+            image_path=image_path,
             index=index,
             row=row,
             col=col,
@@ -56,41 +60,37 @@ class SampleDataWrapper(
 
 
 class SampleDataSet(
-    # TensorDataSet
     StitchDataSet
 ):
+    image: ImageDataSet
+    """Yields the input image for each sample"""
+
     mask: MaskDataSet
     """Yields the class mask for each sample"""
 
-    raster: RasterDataSet
-    """Yields the input raster for each sample"""
+    joint_transform_list: list = []
+    """
+    List of joint transforms applied to both image and label simultaneously.
 
-    @cached_property
-    def joint_transform_list(self) -> Optional[list]:
-        """List of joint transforms applied to both image and label simultaneously.
+    May include transforms like RandomSizeAndCrop, RandomHorizontallyFlip,
+    and RandAugment. Can be empty when no joint transforms are applied.
+    """
 
-        May include transforms like RandomSizeAndCrop, RandomHorizontallyFlip, 
-        and RandAugment. Can be None when no joint transforms are applied.
-        """
-        return []
+    img_transform: Optional[standard_transforms.Compose] = None
+    """
+    Composed transform applied to input images.
+    
+    Typically includes ToTensor() and Normalize() transforms to convert
+    images to normalized tensors suitable for model input.
+    """
 
-    @cached_property
-    def img_transform(self) -> Optional[standard_transforms.Compose]:
-        """Composed transform applied to input images.
-
-        Typically includes ToTensor() and Normalize() transforms to convert
-        images to normalized tensors suitable for model input.
-        """
-        return
-
-    @cached_property
-    def label_transform(self) -> Optional[extended_transforms.MaskToTensor]:
-        """Transform applied to label masks.
-
-        Converts label masks to tensor format, typically using MaskToTensor
-        to handle proper tensor conversion and data type casting.
-        """
-        return
+    label_transform: Optional[extended_transforms.MaskToTensor] = None
+    """
+    Transform applied to label masks.
+    
+    Converts label masks to tensor format, typically using MaskToTensor
+    to handle proper tensor conversion and data type casting.
+    """
 
     @cached_property
     def skip_mask(self) -> bool:
@@ -103,11 +103,22 @@ class SampleDataSet(
             raise NotImplementedError
         return is_fully_masked
 
-    def __getitem__(self, item) -> Sample:
-        img = self.raster[item]
+    def __getitem__(self, item: int) -> Sample:
+        """
+        Returns a Sample containing the necessary data for training or inference.
+
+        Delegates loading static imagery to the `self.static` StaticDataSet:
+            >>> self.image.__getitem__
+        Delegates loading ground truth masks to the `self.mask` MaskDataSet:
+            >>> self.mask.__getitem__
+        See also:
+            >>> Predict.__iter__
+        """
+
+        img = self.image[item]
         mask = self.mask[item]
-        pred_paths = self.raster.pred_path[item]
-        prob_paths = self.raster.prob_path[item]
+        pred_paths = self.image.pred_path[item]
+        prob_paths = self.image.prob_path[item]
 
         i = item
         scale = 1.
@@ -124,14 +135,14 @@ class SampleDataSet(
         #   but shouldn't it come after the label transform?
 
         if (
-                mask != -1
+                isinstance(mask, torch.Tensor)
                 and self.label_transform
         ):
             mask = self.label_transform(mask)
 
         out = Sample(
-            input=img,
-            label=mask,
+            image=img,
+            mask=mask,
             scale=scale,
             i=i,
             pred_paths=pred_paths,
@@ -144,30 +155,30 @@ class SampleDataSet(
         result = extended_transforms.MaskToTensor()
         return result
 
-    @classmethod
-    def from_wrapper(
-            cls,
+    def __init__(
+            self,
             wrapper: SampleDataWrapper,
             mode: str | None = None,
-    ) -> Self:
-        raster = RasterDataSet(wrapper)
+            *args,
+            **kwargs,
+    ):
+        """Combines an ImageDataSet and MaskDataSet for sample loading. """
+        super().__init__(wrapper, mode, *args, **kwargs)
+        self.image = ImageDataSet(wrapper)
+        # mask wrapper just uses `mask` instead of `static` as input
         wrapper = (
             wrapper.frame
-            .assign(static=wrapper.mask)
+            .assign(image_path=wrapper.mask)
             .pipe(wrapper.from_frame)
         )
-        mask = MaskDataSet(wrapper)
-        out = cls(wrapper)
-        out.raster = raster
-        out.mask = mask
-        out.mode = mode
-        return out
+        self.mask = MaskDataSet(wrapper)
+        self.mode = mode
 
 
 class SampleDataLoader(
     TensorDataLoader
 ):
-    raster: RasterDataSet
+    image: ImageDataSet
 
     if False:
         def __iter__(self) -> Iterator[Sample]:
@@ -175,9 +186,9 @@ class SampleDataLoader(
 
 
 class Sample(TypedDict, total=False):
-    input: torch.Tensor
-    label: torch.Tensor
+    image: torch.Tensor
+    mask: torch.Tensor
     scale: torch.Tensor
-    i: torch.Tensor
+    i: torch.Tensor | int
     pred_paths: str | list[str]
     prob_paths: str | list[str]

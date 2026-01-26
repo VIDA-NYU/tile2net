@@ -39,7 +39,7 @@ class RescaleDataSet(
 
     @cached_property
     def static(self) -> list[str]:
-        result = self.wrapper.static.tolist()
+        result = self.wrapper.image_path.tolist()
         return result
 
     @cached_property

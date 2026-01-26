@@ -30,7 +30,7 @@ class UnstitchDataWrapper(DataWrapper):
     def from_columns(
             cls,
             *,
-            static,
+            image_path,
             outfile,
             index,
             row,
@@ -39,7 +39,7 @@ class UnstitchDataWrapper(DataWrapper):
             **kwargs,
     ) -> Self:
         data = dict(
-            static=static,
+            static=image_path,
             outfile=outfile,
             row=row,
             col=col,
@@ -86,7 +86,7 @@ class UnstitchDataSet(torch.utils.data.Dataset):
             ext = next(
                 (
                     Path(f).suffix.lower()
-                    for f in wrapper.static
+                    for f in wrapper.image_path
                     if f is not None
                 ),
                 None,

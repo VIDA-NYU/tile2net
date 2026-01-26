@@ -8,7 +8,7 @@ import pandas as pd
 
 from .. import frame
 from tile2net.grid.frame.framewrapper import FrameWrapper
-from ..util import xy2lonlat
+from tile2net.grid.util import xy2lonlat
 
 if False:
     from .basegrid import BaseGrid

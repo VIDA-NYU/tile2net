@@ -407,13 +407,13 @@ class VecTile(
         return result
 
     @frame.column
-    def line_file(self):
+    def network_file(self):
         """
         Path to network line parquet file for this vec-tile.
 
         Example:
             >>> grid: Grid
-            >>> grid.seggrid.vectile.line_file
+            >>> grid.seggrid.vectile.network_file
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """

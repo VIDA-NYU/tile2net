@@ -5,7 +5,6 @@ from functools import *
 from types import TracebackType
 from typing import *
 
-from tile2net.grid.util import returns_or_assigns
 from .wrapper import Wrapper
 
 if False:
@@ -60,6 +59,7 @@ class namespace(
             *args,
             **kwargs
     ):
+        from tile2net.grid.util import returns_or_assigns
         if (
                 callable(func)
                 and returns_or_assigns(func)

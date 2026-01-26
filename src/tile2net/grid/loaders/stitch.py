@@ -1,21 +1,24 @@
 from __future__ import annotations
-from . import datawrapper
-import os
 
 import concurrent.futures as cf
+import logging
+import os
 from functools import cached_property
 from pathlib import Path
 from typing import *
 from typing import Union
-import logging
+
 import imageio.v3 as iio
-from .dataloader import BaseDataLoader
 import numpy as np
 import torch.utils.data
-from toolz import pipe, curried
 
 from tile2net.grid.cfg import cfg
 from tile2net.grid.frame import frame
+from . import datawrapper
+from .dataloader import BaseDataLoader
+
+if TYPE_CHECKING:
+    from tile2net.grid.basegrid.basegrid import BaseGrid
 
 
 def _worker_init(_: int) -> None:
@@ -38,42 +41,47 @@ class DataWrapper(datawrapper.DataWrapper):
 class StitchDataSet(
     torch.utils.data.Dataset,
 ):
+    """
+    Implements __getitem__ and __len__ as required by torch.utils.data.Dataset.
+    The columns from `DataWrapper` are reshaped into lists or lists of lists,
+    so that __getitem__[int] can be performed efficiently.
+    """
+
     wrapper: DataWrapper
-    """
-    Data structure which reshapes the DataWrapper into a format to be
-    used optimally for torch's DataLoader.
-    """
+    """Underlying DataWrapper instance."""
 
     def __init__(
             self,
             wrapper: DataWrapper,
-            threads: int = 1,
-            read: Callable[[str], np.ndarray] = None,
-            write: Callable[[np.ndarray, str], None] = None,
             *args,
             **kwargs,
     ):
-        if read is None:
-            # Filter out None values when looking for file extension
-            ext = next(
-                (
-                    Path(file)
-                    .suffix
-                    .lower()
-                    for file in wrapper.static
-                    if file is not None
-                ),
-                None
-            )
-            if ext == '.npy':
-                read = self.read_npy
-            else:
-                read = self.read_image
-
         self.wrapper = wrapper
-        self.threads = threads
-        self.read = read
-        self.write = write
+
+    @cached_property
+    def threads(self):
+        """Number of threads to use for reading input tiles."""
+        return 1
+
+    @cached_property
+    def read(self) -> Callable[[str], np.ndarray]:
+        it = (
+            Path(file)
+            .suffix
+            .lower()
+            for file in self.wrapper.image_path.values
+            if file is not None
+        )
+        ext = next(it, None)
+        if ext == '.npy':
+            read = self.read_npy
+        else:
+            read = self.read_image
+        return read
+
+    @cached_property
+    def write(self) -> Optional[Callable[[np.ndarray, str], str]]:
+        return None
 
     def __len__(self):
         """number of mosaics"""
@@ -143,13 +151,13 @@ class StitchDataSet(
         return ncol.iloc[0]
 
     @cached_property
-    def static(self) -> list[list[str]]:
-        """Input static imagery file path for each tile in the mosaic."""
+    def image_path(self) -> list[list[str]]:
+        """Input static imagery file path for each tile in each mosaic."""
         result = (
             self.wrapper
             .frame
             .groupby(level=self.wrapper.frame.index.names, sort=False)
-            .static
+            .image_path
             .apply(list)
             .tolist()
         )
@@ -209,7 +217,7 @@ class StitchDataSet(
         try:
             path: str = next(
                 path
-                for paths in self.static
+                for paths in self.image_path
                 for path in paths
                 if Path(path).is_file()
             )
@@ -300,7 +308,7 @@ class StitchDataSet(
         # composite tiles into a single RGB mosaic
 
         # pull grouped lists
-        files = self.static[item]
+        files = self.image_path[item]
         rows = self.row[item]
         cols = self.col[item]
         index = self.index[item]
@@ -404,8 +412,15 @@ class StitchDataSet(
             pin_memory=None,
             persistent_workers=None,
             worker_init_fn=None,
-            cls=BaseDataLoader
+            cls=BaseDataLoader,
+            **kwargs
     ) -> Union[T, BaseDataLoader]:
+        """
+        Convenient constructor of a DataLoader for this dataset.
+
+        See also:
+            >>> BaseGrid._stitch2file
+        """
         if batch_size is None:
             batch_size = os.cpu_count()
         if shuffle is None:

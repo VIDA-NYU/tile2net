@@ -28,27 +28,27 @@ class DataWrapper(
     """
 
     @frame.column
-    def static(self):
-        """input file paths"""
+    def image_path(self) -> pd.Series:
+        """Input image filepaths."""
 
     @frame.column
     def row(self) -> pd.Series:
-        """row within the mosaic"""
+        """Row in the mosaic which the tile comprises."""
 
     @frame.column
     def col(self) -> pd.Series:
-        """column within the mosaic"""
+        """Column in the mosaic which the tile comprises."""
 
     @cached_property
     def background(self):
-        """background value to use for padding"""
+        """Background pixel value to use for padding; black by default."""
         return 0
 
     @classmethod
     def from_columns(
             cls,
             *,
-            static: ArrayLike,
+            image_path: ArrayLike,
             index: ArrayLike,
             row: ArrayLike,
             col: ArrayLike,
@@ -57,21 +57,27 @@ class DataWrapper(
             **kwargs,
     ) -> Self:
         """
-        statics:
-            series of input files
-        index:
-            identifier for each tile
-        row:
-            row index for each tile
-        col:
-            column index for each tile
-        background:
-            background value to use for padding
-        force:
-            whether to force stitching of tile
+        Instantiate a DataWrapper from the specified columns.
+        This gives us DataFrame operations for the metadata management.
+
+        Args:
+            image_path:
+                series of input files
+            index:
+                identifier for each tile
+            row:
+                row index for each tile
+            col:
+                column index for each tile
+            background:
+                background value to use for padding
+            force:
+                whether to force stitching of tile
+            **kwargs:
+                additional columns to include in the DataFrame
         """
         data = dict(
-            static=static,
+            image_path=image_path,
             row=row,
             col=col,
             force=force,
@@ -105,7 +111,7 @@ class DataWrapper(
             *args,
             **kwargs,
     ) -> Union[T]:
-        from .stitch import StitchDataSet
+        from tile2net.grid.loaders.stitch import StitchDataSet
         if cls is None:
             cls = StitchDataSet
         out = cls(

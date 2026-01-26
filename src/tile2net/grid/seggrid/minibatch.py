@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import *
 
 import os
 import threading
@@ -9,7 +8,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Self, Optional
 
 import numpy as np
-import pandas as pd
 import tifffile
 import torch
 from torch.nn.parallel import DataParallel
@@ -17,6 +15,9 @@ from torch.nn.parallel import DataParallel
 from tile2net.grid.cfg import cfg
 from tile2net.tileseg.utils.misc import fast_hist
 from .submit import Submit
+
+if TYPE_CHECKING:
+    from .predict import Predict
 
 
 def to_tiff(
@@ -216,41 +217,36 @@ class Foreground(Max):
 
 @dataclass
 class MiniBatch:
-    probs: Optional[torch.Tensor]
+    probs: torch.Tensor
+    """Predicted probability scores for the minibatch."""
     submit: Submit
+    """Submit object for coordinating and parallelizing file I/O."""
     pred_paths: list[str]
+    """File paths to save predicted segmentation masks."""
     prob_paths: list[str]
-
-    def __len__(self):
-        return self.probs.size(0)
-
-    @classmethod
-    def _is_placeholder_gt(cls, gt_image: torch.Tensor) -> bool:
-        """
-        Check if ground truth tensor contains only placeholder values (-1).
-        Returns True if all values are -1, indicating no meaningful ground truth.
-        """
-        out = (
-            gt_image
-            .eq(-1)
-            .all()
-            .item()
-        )
-        return out
+    """File paths to save predicted probability scores."""
 
     @classmethod
     def from_data(
             cls,
             images: torch.Tensor,
-            gt_image: torch.Tensor,
+            masks: torch.Tensor,
             net: DataParallel | torch.nn.Module,
             pred_paths: list[str],
             prob_paths: list[str],
             submit: Submit,
             clip: int = 0,
     ):
+        """
+        Perform inference on a minibatch of images.
 
-        # prepare scales & flips
+        See its use in the prediction module:
+            >>> Predict.__iter__
+
+        Returns:
+            A MiniBatch dataclass instance, providing the
+            probabilities and filepaths necessary for serialization.
+        """
         scales = [cfg.default_scale]
         if cfg.multi_scale_inference:
             scales.extend(cfg.model.extra_scales)
@@ -258,11 +254,15 @@ class MiniBatch:
 
         input_size = images.size(2), images.size(3)
         if cfg.do_flip:
-            flips = 1, 0
+            flips = True, False
         else:
-            flips = 0,
+            flips = False,
 
-        has_meaningful_gt = not cls._is_placeholder_gt(gt_image)
+        has_meaningful_gt = not cls._is_placeholder_gt(masks)
+        if torch.cuda.is_available():
+            device_type = 'cuda'
+        else:
+            device_type = 'cpu'
 
         with torch.inference_mode():
             # preallocate accumulator to avoid repeated allocations
@@ -271,19 +271,22 @@ class MiniBatch:
             for flip in flips:
                 for scale in scales:
                     # flip/resize on GPU only as needed
-                    x = cls.flip_tensor(images, 3) if flip == 1 else images
-                    infer_size = [round(sz * scale) for sz in input_size]
+                    if flip:
+                        x = cls.flip_tensor(images, 3)
+                    else:
+                        x = images
+
+                    infer_size = [
+                        round(sz * scale)
+                        for sz in input_size
+                    ]
                     if scale != 1.0:
                         x = cls.resize_tensor(x, infer_size)
 
                     inputs = dict(images=x.cuda(non_blocking=True))
                     if has_meaningful_gt:
-                        inputs['gts'] = gt_image.cuda(non_blocking=True)
+                        inputs['gts'] = masks.cuda(non_blocking=True)
 
-                    if torch.cuda.is_available():
-                        device_type = 'cuda'
-                    else:
-                        device_type = 'cpu'
                     with torch.amp.autocast(device_type=device_type, dtype=torch.float16):
                         out = net(inputs)
                         pred = out["pred"]
@@ -293,7 +296,7 @@ class MiniBatch:
                         pred = cls.resize_tensor(pred, input_size)
 
                     # flip back if needed
-                    if flip == 1:
+                    if flip:
                         pred = cls.flip_tensor(pred, 3)
 
                     pred_f32 = pred.to(torch.float32)
@@ -493,3 +496,20 @@ class MiniBatch:
                 future.result()
 
         submit.submit_batch(coordinate)
+
+    def __len__(self):
+        return self.probs.size(0)
+
+    @classmethod
+    def _is_placeholder_gt(cls, gt_image: torch.Tensor) -> bool:
+        """
+        Check if ground truth tensor contains only placeholder values (-1).
+        Returns True if all values are -1, indicating no meaningful ground truth.
+        """
+        out = (
+            gt_image
+            .eq(-1)
+            .all()
+            .item()
+        )
+        return out

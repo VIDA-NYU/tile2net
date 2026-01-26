@@ -40,10 +40,12 @@ class Submit:
 
     @cached_property
     def coord_pool(self) -> ThreadPoolExecutor:
+        """Pool for coordinating I/O tasks (waiting on CUDA events, etc)."""
         return ThreadPoolExecutor(max_workers=4)
 
     @cached_property
     def io_pool(self) -> ThreadPoolExecutor:
+        """Pool for actual file I/O operations."""
         return ThreadPoolExecutor(max_workers=self.workers)
 
     def __enter__(self) -> Self:
@@ -66,6 +68,7 @@ class Submit:
                 self._io_pool = None
 
     def _drain(self, futures: list[Future]) -> None:
+        """Drains a list of futures, collecting any exceptions."""
         if not futures:
             return
         done, _ = wait(futures)

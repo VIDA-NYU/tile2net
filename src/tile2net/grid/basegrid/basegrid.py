@@ -30,7 +30,7 @@ from tile2net.grid.loaders.stitch import StitchDataSet
 from tile2net.grid.loaders.unstitch import UnstitchDataSet, UnstitchDataWrapper
 from tile2net.grid.sampler.benchmark import Benchmark
 
-if False:
+if TYPE_CHECKING:
     import folium
     from tile2net.grid.seggrid.seggrid import SegGrid
     from tile2net.grid.grid import Grid
@@ -898,6 +898,10 @@ class BaseGrid(
                 If True, regenerate all mosaics even if they already exist on disk.
             **kwargs:
                 Additional arguments passed to the stitching process.
+
+        See also:
+            Stitching and serializing static imagery from the source scale to the segmentation scale:
+            >>> VecGrid.file.static
         """
 
         # skip mosaics that already exist unless force=True
@@ -927,7 +931,7 @@ class BaseGrid(
             loader = (
                 DataWrapper
                 .from_columns(
-                    static=tiles,
+                    image_path=tiles,
                     index=mosaics,
                     row=row,
                     col=col,
@@ -986,6 +990,10 @@ class BaseGrid(
                 If True, regenerate all tiles even if they already exist on disk.
             **kwargs:
                 Additional arguments (unused, for API consistency).
+
+        See also:
+            Unstitching predictions from the segmentation scale to the source scale:
+            >>> Grid.file.pred
         """
 
         # skip tiles that already exist unless force=True
@@ -1013,7 +1021,7 @@ class BaseGrid(
             logger.info(msg)
 
             wrapper = UnstitchDataWrapper.from_columns(
-                static=mosaics,
+                image_path=mosaics,
                 outfile=tiles,
                 index=mosaics,
                 row=row,
@@ -1127,7 +1135,6 @@ class BaseGrid(
         return float(lat_north), float(lon_west), float(lat_south), float(lon_east)
 
     @cached_property
-    # @wraps(Cfg.location)
     def xtile_ytile(self) -> tuple[int, int, int, int]:
         """
         Overall bounding box of the grid in xtile/ytile format.
@@ -1153,6 +1160,9 @@ class BaseGrid(
             show: bool = True,
             files: Optional[pd.Series] = None,
     ) -> Image.Image:
+        # todo: perhaps make this a method for a column subclass, so we have:
+        #   grid.file.static.preview()
+        #   seggrid.file.pred.preview()
         """
         Generate a mosaic preview of all tiles in the grid.
 
@@ -1189,7 +1199,7 @@ class BaseGrid(
             scale = maxdim / m
 
         wrapper = DataWrapper.from_columns(
-            static=self.file.static,
+            image_path=self.file.static,
             index=self.index,
             row=self.r,
             col=self.c,

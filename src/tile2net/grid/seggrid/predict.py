@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import *
 
 import argparse
 import dataclasses
@@ -21,7 +22,7 @@ import tile2net.tileseg.transforms.transforms as extended_transforms
 from tile2net.grid.basegrid.static import Static
 from tile2net.grid.cfg.cfg import Cfg
 from tile2net.grid.cfg.logger import logger
-from tile2net.grid.loaders.sample import SampleDataWrapper
+from tile2net.grid.loaders.sample import SampleDataWrapper, SampleDataLoader, Sample
 from tile2net.grid.loaders.sampler import DistributedSampler
 from tile2net.grid.loaders.val import ValDataSet, ValDataLoader
 from tile2net.grid.seggrid.minibatch import MiniBatch
@@ -34,6 +35,10 @@ from tile2net.tileseg.network.ocrnet import MscaleOCR
 from tile2net.tileseg.utils.misc import AverageMeter
 
 
+if TYPE_CHECKING:
+    from tile2net.grid.loaders.image import ImageDataSet
+    from tile2net.grid.loaders.mask import MaskDataSet
+
 def sha256sum(path):
     h = hashlib.sha256()
     with open(path, 'rb') as f:
@@ -44,6 +49,10 @@ def sha256sum(path):
 
 @dataclasses.dataclass
 class Model:
+    """
+    See also:
+        >>> Predict.model
+    """
     net: DataParallel
     optim: torch.optim.Optimizer
     scheduler: torch.optim.lr_scheduler._LRScheduler
@@ -63,6 +72,10 @@ class Data:
             wrapper: SampleDataWrapper,
             cfg: Cfg,
     ):
+        """
+        Instantiate the torch DataLoader and DataSet using the DataWrapper class,
+        encapsulating these into a dataclass.
+        """
         # todo: model.eval is a str, not bool
         if cfg.model.eval:
             out = cls._from_eval(wrapper=wrapper, cfg=cfg)
@@ -78,6 +91,8 @@ class Data:
             wrapper: SampleDataWrapper,
             cfg: Cfg,
     ):
+        """Instantiate Data for training."""
+        raise NotImplementedError
 
         mean = cfg.dataset.mean
         std = cfg.dataset.std
@@ -105,7 +120,6 @@ class Data:
 
         target_train_transform = standard_transforms.Compose([])
 
-        raise NotImplementedError
 
     @classmethod
     def _from_eval(
@@ -113,6 +127,7 @@ class Data:
             wrapper: SampleDataWrapper,
             cfg: Cfg,
     ):
+        """Instantiate Data for evaluation/prediction."""
 
         mode = None
         match cfg.model.eval:
@@ -126,10 +141,7 @@ class Data:
                 raise ValueError(f"Unknown eval mode: {cfg.model.eval}")
 
         bs_val = cfg.validation.batch_size or 1
-        dataset = ValDataSet.from_wrapper(
-            wrapper=wrapper,
-            mode=mode,
-        )
+        dataset = ValDataSet(wrapper=wrapper, mode=mode)
         if cfg.distributed:
             sampler = DistributedSampler(
                 dataset,
@@ -139,7 +151,7 @@ class Data:
             )
         else:
             sampler = None
-        loader = ValDataLoader(
+        loader = SampleDataLoader(
             dataset=dataset,
             batch_size=bs_val,
             shuffle=False,
@@ -240,7 +252,7 @@ class Predict:
             cfg.local_rank = -1  # Indicating CPU usage
 
     def _setup(self) -> None:
-        """Perform one-time setup."""
+        """Perform one-time setup based on the old implementation."""
         if self._setup_done:
             return
 
@@ -256,10 +268,9 @@ class Predict:
 
     @cached_property
     def model(self) -> Model:
-        """Load and restore the segmentation model (cached).
-
-        Returns:
-            Model: Dataclass containing net, optimizer, scheduler, and criteria
+        """
+        Load and restore the segmentation model (cached).
+        The model contains the network, optimizer, scheduler, and loss functions.
         """
         self._setup()
         cfg = self.cfg
@@ -270,12 +281,11 @@ class Predict:
         msg = "Loading weights from \n\t{}".format(cfg.model.snapshot)
         logger.debug(msg)
         if cfg.model.snapshot != Static.snapshot:
-            msg = (
+            logger.warning(
                 f'Weights are being loaded using weights_only=False. '
                 f'We assure the security of our weights by using a checksum, '
                 f'but you are using a custom path: \n\t{cfg.model.snapshot}. '
             )
-            logger.warning(msg)
 
         checkpoint = torch.load(
             cfg.model.snapshot,
@@ -308,16 +318,37 @@ class Predict:
 
     @cached_property
     def data(self) -> Data:
-        """Load data wrapper, dataset, and loader (cached)."""
+        """
+        Instantiate dataclass, containing DataWrapper, torch Dataset, and torch DataLoader.
+
+        During eval:
+            >>> Data._from_eval()
+        During train:
+            >>> Data._from_train()
+
+        SampleDataWrapper wraps metadata such as input file and position in the
+        mosaic for stitching without writing to file:
+        >>> SampleDataWrapper.from_columns()
+
+        The ValDataSet returns samples:
+        >>> ValDataSet.__getitem__()
+
+        The ValDataLoader isn't interesting. The __iter__ type hints are just overridden:
+        >>> ValDataLoader.__iter__()
+        """
         self._setup()
         return Data.from_wrapper(self.wrapper, self.cfg)
 
     def __iter__(self) -> Iterator[MiniBatch]:
         """
-        Iterate through minibatches and yield MiniBatch objects.
+        Iterates through the metadata encapsulated by the DataWrapper.
+        For each dict returned by the DataLoader, it passes the inputs
+        through the network via `MiniBatch.from_data`:
+            >>> MiniBatch.from_data
 
-        Yields:
-            MiniBatch: Each processed minibatch
+        Purpose is to generate MiniBatches which are handled for serialization by these methods:
+            >>> Predict.submit_pred
+            >>> Predict.submit_prob
         """
         self.model.net.eval()
         val_loss = AverageMeter()
@@ -332,6 +363,7 @@ class Predict:
 
         logger.info('Predicting segmentation masks')
 
+        # Dataset and DataLoader are constructed from the DataWrapper
         dataset = self.data.set
         loader: ValDataLoader = self.data.loader
 
@@ -354,10 +386,12 @@ class Predict:
             pbar = stack.enter_context(pbar)
 
             for batch in loader:
+                batch: Sample
                 submit.rotate()
+                # instantiate MB from the dict; this will run the forward pass
                 mb = MiniBatch.from_data(
-                    images=batch['input'],
-                    gt_image=batch['label'],
+                    images=batch['image'],
+                    masks=batch['mask'],
                     net=self.model.net,
                     pred_paths=batch['pred_paths'],
                     prob_paths=batch['prob_paths'],
@@ -367,25 +401,25 @@ class Predict:
 
                 yield mb
                 pbar.update(len(mb))
+                # todo: still necessary to set None and save the tensor memory here?
                 mb.probs = None
 
         msg = f'Finished predicting {len(dataset)} seg-tiles.'
-
         logger.info(msg)
 
-    def pred(self) -> Iterator[MiniBatch]:
+    def submit_pred(self) -> Iterator[MiniBatch]:
         """
         Iterate through minibatches and submit only predictions.
-        This is useful when probability maps are not needed, such as simply generating networks for end-users.
+        This is useful when probability scores are not needed, such as simply generating networks for end-users.
         """
         for mb in self:
             mb.submit_pred()
             yield mb
 
-    def prob(self) -> Iterator[MiniBatch]:
+    def submit_prob(self) -> Iterator[MiniBatch]:
         """
         Iterate through minibatches and submit both predictions and probabilities.
-        This is useful when probability maps are needed, such as testing and visualization.
+        This is useful when probability scores are needed, such as testing and visualization.
         """
         for mb in self:
             mb.submit_pred()
@@ -394,7 +428,21 @@ class Predict:
 
 
 def main():
-    """Parse arguments and run inference."""
+    """
+    Parse arguments and run inference.
+
+    Setup:
+        >>> Predict._setup()
+    Model:
+        >>> Predict.model
+    Data:
+        >>> Predict.data
+    Iterate through minibatches:
+        >>> Predict.__iter__()
+    Submit predictions/probabilities:
+        >>> Predict.submit_pred()
+        >>> Predict.submit_prob()
+    """
     parser = argparse.ArgumentParser(description="Semantic segmentation prediction subprocess")
     parser.add_argument("--cfg", type=str, required=True, help="Path to cfg JSON file")
     parser.add_argument("--wrapper", type=str, required=True, help="Path to wrapper Parquet file")
@@ -417,10 +465,10 @@ def main():
         )
 
         if probs:
-            for mb in predict.prob():
+            for mb in predict.submit_prob():
                 del mb
         else:
-            for mb in predict.pred():
+            for mb in predict.submit_pred():
                 del mb
 
         del predict, wrapper

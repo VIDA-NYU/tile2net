@@ -8,25 +8,24 @@ from pathlib import Path
 from typing import *
 from typing import Self
 
-from tile2net.grid.cfg.logger import logger
-from tile2net.grid.loaders.sample import SampleDataWrapper
-from ..util import recursion_block
-
-if False:
-    from ..grid import Grid
+import numpy as np
 import pandas as pd
 
-import numpy as np
-
+from tile2net.grid.cfg.logger import logger
+from tile2net.grid.loaders.sample import SampleDataWrapper
 from . import vectile
 from .seggrid import SegGrid
 from .. import frame
 from ..sampler.benchmark import Benchmark
+from ..util import recursion_block
 
-if False:
+if TYPE_CHECKING:
+    from ..grid import Grid
     from .seggrid import SegGrid
     from ..vecgrid.vecgrid import VecGrid
     from ..grid.grid import Grid
+    from . import predict as predict_py
+    from .minibatch import MiniBatch
 
 
 class VecTile(
@@ -209,32 +208,30 @@ class Broadcast(
     @recursion_block
     def predict(
             self,
-            probs: Optional[bool] = None
+            probs: bool = True,
     ):
         """
-        Run semantic segmentation prediction on all tiles in the grid using subprocess.
+        Run semantic segmentation prediction on all tiles in the grid using a subprocess.
 
         Args:
-            probs: If True, generate probability maps. If False, generate predictions only.
-                   If None, raises NotImplementedError.
+            probs:
+                True:
+                    Serialize both probabilities and predictions.
+                False:
+                    Serialize predictions only.
 
-        This version uses JSON/Parquet serialization instead of pickle, allowing for:
-        - No security vulnerabilities from pickle
-        - Clean subprocess isolation
+        See `predict.py` for the inference subprocess:
+            >>> predict_py.main()
+        See the forward pass through the network:
+            >>> MiniBatch.from_data()
 
         The subprocess runs predict.py which performs the actual inference.
         Benchmarking is done in the parent process after subprocess completes.
 
-        Returns:
-            None. See output file paths:
+        See the output files:
             >>> grid: Grid
             >>> grid.seggrid.file.pred
             >>> grid.seggrid.file.prob
-
-        Raises:
-            RuntimeError: If subprocess fails or model weights checksum is invalid
-            FileNotFoundError: If required model checkpoints are missing
-            NotImplementedError: If probs is None
 
         Example:
             >>> grid: Grid
@@ -256,8 +253,9 @@ class Broadcast(
         msg = f'Predicting seg-tiles to \n\t{self.grid.outdir.seggrid.pred.dir}'
         logger.info(msg)
 
+        # Instantiate a custom DataFrame which wraps the metadata necessary for prediction
         wrapper = SampleDataWrapper.from_columns(
-            static=grid.file.static,
+            image_path=grid.file.static,
             index=grid.segtile.index,
             background=0,
             row=grid.segtile.row,
@@ -324,7 +322,6 @@ class Broadcast(
                 raise KeyboardInterrupt("Prediction interrupted by user")
             case _:
                 raise RuntimeError(f"Prediction subprocess failed (Exit Code {process.returncode}).")
-
 
         self._write_benchmark_summary()
 

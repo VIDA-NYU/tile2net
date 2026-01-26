@@ -10,7 +10,7 @@ import tile2net.tileseg.transforms.transforms as extended_transforms
 from tile2net.grid.cfg import cfg
 from tile2net.tileseg.datasets.randaugment import RandAugment
 from .mask import MaskDataSet
-from .raster import RasterDataSet
+from .image import ImageDataSet
 from .sample import MiniBatch
 from .sample import SampleDataSet, SampleDataLoader
 from .sampler import DistributedSampler
@@ -22,7 +22,7 @@ class TrainDataSet(
     """ SampleDataSet for training """
     mask: MaskDataSet
     # todo: centroid, epoch, sampling
-    raster: RasterDataSet
+    raster: ImageDataSet
     centroid: dict
 
     def __getitem__(self, item) -> MiniBatch:

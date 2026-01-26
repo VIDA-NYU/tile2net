@@ -524,7 +524,7 @@ class VecGrid(BaseGrid):
             lonmax=seggrid.vectile.lonmax,
             latmax=seggrid.vectile.latmax,
             polygon_file=seggrid.vectile.polygon_file,
-            line_file=seggrid.vectile.line_file,
+            line_file=seggrid.vectile.network_file,
         )
 
         total = wrapper.index.nunique()
@@ -534,7 +534,7 @@ class VecGrid(BaseGrid):
             return
         threads = self.cfg.vectorization.num_loaders
         dataset = VecDataSet(wrapper, threads=threads)
-        loader = dataset.loader
+        loader = dataset.loader()
 
         bar = tqdm(
             total=total,

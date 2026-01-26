@@ -16,10 +16,13 @@ from geopandas import GeoDataFrame
 from tile2net.grid.cfg import cfg
 from tile2net.grid.cfg.logger import logger
 from .dataloader import DataLoader
-from .stitch import StitchDataSet
 from .datawrapper import DataWrapper
+from .stitch import StitchDataSet
 from ..pednet import PedNet
 from ..vecgrid.mask2poly import Mask2Poly
+
+if TYPE_CHECKING:
+    from tile2net.grid.vecgrid import VecGrid
 
 
 @contextmanager
@@ -83,7 +86,7 @@ class VecDataWrapper(
             **kwargs,
     ) -> Self:
         return super().from_columns(
-            static=static,
+            image_path=static,
             index=index,
             row=row,
             col=col,
@@ -131,7 +134,7 @@ class VecDataSet(
             xmax = self.lonmax[item]
             ymax = self.latmax[item]
             polygons_file = self.polygon_file[item]
-            network_file = self.line_file[item]
+            network_file = self.network_file[item]
             polys = None
             Path(polygons_file).parent.mkdir(parents=True, exist_ok=True)
             Path(network_file).parent.mkdir(parents=True, exist_ok=True)
@@ -142,7 +145,6 @@ class VecDataSet(
                     assert isinstance(polys, Mask2Poly)
 
                     if polys.empty:
-
                         # Persist the empty layers so downstream steps have concrete files
                         empty_gdf.to_parquet(polygons_file)
                         empty_gdf.to_parquet(network_file)
@@ -228,9 +230,14 @@ class VecDataSet(
 
         return item
 
-    # one-per-stitched mosaic fields (unique per group)
     @cached_property
     def affine(self) -> list[object]:
+        """
+        Affine transformation parameters for georeferencing each tile.
+
+        See also:
+            >>> VecGrid.affine_params
+        """
         result = (
             self.wrapper.frame
             .groupby(level=self.wrapper.frame.index.names)
@@ -242,6 +249,12 @@ class VecDataSet(
 
     @cached_property
     def lonmin(self) -> list[float]:
+        """
+        Minimum longitude of the tile.
+
+        See also:
+            >>> VecGrid.lonmin
+        """
         result = (
             self.wrapper.frame
             .groupby(level=self.wrapper.frame.index.names)
@@ -253,6 +266,12 @@ class VecDataSet(
 
     @cached_property
     def latmin(self) -> list[float]:
+        """
+        Minimum latitude of the tile.
+
+        See also:
+            >>> VecGrid.latmin
+        """
         result = (
             self.wrapper.frame
             .groupby(level=self.wrapper.frame.index.names)
@@ -264,6 +283,12 @@ class VecDataSet(
 
     @cached_property
     def lonmax(self) -> list[float]:
+        """
+        Maximum longitude of the tile.
+
+        See also:
+            >>> VecGrid.lonmax
+        """
         result = (
             self.wrapper.frame
             .groupby(level=self.wrapper.frame.index.names)
@@ -275,6 +300,12 @@ class VecDataSet(
 
     @cached_property
     def latmax(self) -> list[float]:
+        """
+        Maximum latitude of the tile.
+
+        See also:
+            >>> VecGrid.latmax
+        """
         result = (
             self.wrapper.frame
             .groupby(level=self.wrapper.frame.index.names)
@@ -286,6 +317,12 @@ class VecDataSet(
 
     @cached_property
     def polygon_file(self) -> list[str]:
+        """
+        File-paths to polygon geometry parquet files extracted from segmentation masks.
+
+        See also:
+            >>> VecGrid.file.polygons
+        """
         result = (
             self.wrapper.frame
             .groupby(level=self.wrapper.frame.index.names)
@@ -296,7 +333,13 @@ class VecDataSet(
         return result
 
     @cached_property
-    def line_file(self) -> list[str]:
+    def network_file(self) -> list[str]:
+        """
+        File-paths to line geometry parquet files extracted from segmentation masks.
+
+        See also:
+            >>> VecGrid.file.network
+        """
         result = (
             self.wrapper.frame
             .groupby(level=self.wrapper.frame.index.names)
@@ -306,21 +349,42 @@ class VecDataSet(
         )
         return result
 
-    @cached_property
-    def loader(self) -> VecDataLoader:
-        result = VecDataLoader(
+    def loader(
             self,
-            batch_size=cfg.vectorization.batch_size,
+            batch_size=None,
             shuffle=False,
             drop_last=False,
             sampler=None,
-            num_workers=cfg.vectorization.load_workers,
-            # num_workers=0,
+            num_workers=None,
             pin_memory=True,
-            persistent_workers=cfg.vectorization.persistent_workers,
-            worker_init_fn=_worker_init,
+            persistent_workers=None,
+            worker_init_fn=None,
+            cls=None,
+            **kwargs
+    ) -> VecDataLoader:
+        if batch_size is None:
+            batch_size = cfg.vectorization.batch_size
+        if num_workers is None:
+            num_workers = cfg.vectorization.load_workers
+        if persistent_workers is None:
+            persistent_workers = cfg.vectorization.persistent_workers
+        if worker_init_fn is None:
+            worker_init_fn = _worker_init
+        if cls is None:
+            cls = VecDataLoader
+
+        return super().loader(
+            batch_size=batch_size,
+            shuffle=shuffle,
+            drop_last=drop_last,
+            sampler=sampler,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+            persistent_workers=persistent_workers,
+            worker_init_fn=worker_init_fn,
+            cls=cls,
+            **kwargs
         )
-        return result
 
 
 class VecDataLoader(

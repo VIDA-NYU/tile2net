@@ -17,7 +17,7 @@ ArrayLike = Union[
 ]
 
 
-class RasterDataSet(
+class ImageDataSet(
     StitchDataSet
 ):
 
@@ -33,7 +33,7 @@ class RasterDataSet(
             **kwargs,
     ) -> Self:
         wrapper = DataWrapper.from_columns(
-            static=static,
+            image_path=static,
             index=index,
             row=row,
             col=col,
@@ -44,7 +44,7 @@ class RasterDataSet(
         return result
 
 
-class RasterDataLoader(
+class StaticDataLoader(
     DataLoader
 ):
     ...
