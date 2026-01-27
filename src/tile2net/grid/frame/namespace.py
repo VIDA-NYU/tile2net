@@ -10,14 +10,12 @@ from .wrapper import Wrapper
 if False:
     from tile2net.grid.basegrid.basegrid import BaseGrid
 
-TGrid = TypeVar('TGrid', covariant=True)
 
-
-class namespace(
-):
+class namespace:
     __wrapped__ = None
     __name__ = None
-    instance: object
+    instance: namespace = None
+    wrapper: Wrapper = None
 
     @overload
     def _get[T](
@@ -37,8 +35,8 @@ class namespace(
 
     def _get(
             self,
-            instance,
-            owner
+            instance: namespace,
+            owner: type[namespace],
     ) -> Self:
         self.instance = instance
         if instance is None:
@@ -109,8 +107,26 @@ class namespace(
         return False
 
     def __bool__(self):
-        # seee __enter__/__exit__
+        # see __enter__/__exit__
         return (
             self.instance.__dict__
             .get(self.__name__, False)
         )
+
+    @property
+    def _trace(self) -> str:
+        """String which replicates the attribute access chain. """
+        instance = self.instance
+        if instance is None:
+            return ''
+        key = f'{self.__name__}._trace'
+        if key not in instance.__dict__:
+            if (
+                isinstance(instance, namespace)
+                and instance._trace
+            ):
+                trace = f'{instance._trace}.{self.__name__}'
+            else:
+                trace = self.__name__
+            instance.__dict__[key] = trace
+        return instance.__dict__[key]

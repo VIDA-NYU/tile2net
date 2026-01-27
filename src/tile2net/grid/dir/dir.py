@@ -96,7 +96,11 @@ class Dir(
             value = self.from_template(value)
         if not isinstance(value, Dir):
             raise TypeError(value)
-        instance.__dict__[self.__name__] = copy.copy(value)
+        dir = copy.copy(value)
+        instance.__dict__[self.__name__] = dir
+        dir.__name__ = self.__name__
+
+
 
     def __delete__(self, instance):
         try:
@@ -243,7 +247,8 @@ class Dir(
         )
         data = pa.array(obj, type=pa.string(), size=len(grid))
         mapper = {pa.string(): pd.ArrowDtype(pa.string())}.get
-        out = data.to_pandas(types_mapper=mapper)
+        out: pd.Series = data.to_pandas(types_mapper=mapper)
+        out.name = self.__name__
         out.index = grid.index
 
         # makedirs
@@ -267,6 +272,10 @@ class Dir(
         pattern = rf"^(.*)({c})(.*)$"
         match = re.match(pattern, string)
         return match.groups()
+
+    def __set_name__(self, owner, name):
+        self.__name__ = name
+
 
 
 if __name__ == '__main__':

@@ -7,6 +7,7 @@ import os
 import pandas as pd
 
 from tile2net.grid.source import Local, Remote
+from tile2net.logger import logger
 
 if False:
     from tile2net.grid.frame import column
@@ -38,15 +39,38 @@ class File(
             files = source.files(grid)
         else:
             raise TypeError(f"Unsupported source type: {type(source)}")
+        loc = ~files.index.duplicated()
+        files = files.loc[loc]
         grid.file.static = files
+        self.static = files
 
         if (
-                isinstance(source, Remote)
-                and not self
-                and not source.download
-                and not files.map(os.path.exists).all()
+            isinstance(source, Remote)
+            and self
         ):
+            return files
+
+        loc = ~files.map(os.path.exists)
+        if (
+            isinstance(source, Remote)
+            and loc.any()
+        ):
+            name = (
+                str(files.name)
+                .rsplit('.', 1)[-1]
+            )
+            path: str = (
+                grid.outdir
+                .__getattribute__('source')
+                .__getattribute__(name)
+                .dir
+            )
+            trace = f'{self._trace}.{name}'
+            n = loc.sum()
+            msg = f'{trace} found {n} missing files. Downloading to\n\t{path}'
+            logger.info(msg)
             source.download()
+            assert files.map(os.path.exists).all()
         return files
 
     @contextlib.contextmanager
@@ -91,46 +115,70 @@ class File(
         grid = self.basegrid
         files = grid.outdir.project.pred.files(grid)
         self.pred = files
+        if self:
+            return files
+
         loc = ~files.map(os.path.exists)
-        if (
-                not self
-                and loc.any()
-        ):
-            grid = grid.loc[loc]
-            grid._unstitch2file(
-                tiles=grid.file.pred,
-                mosaics=grid.segtile.pred,
-                row=grid.segtile.row,
-                col=grid.segtile.col,
+        if loc.any():
+            name = (
+                str(files.name)
+                .rsplit('.', 1)[-1]
             )
-            loc = ~files.map(os.path.exists)
-            msg = f"Files not unstiched: {files[loc]}"
-            assert not loc.any(), msg
+            path: str = (
+                grid.outdir
+                .__getattribute__('project')
+                .__getattribute__(name)
+                .dir
+            )
+            trace = f'{self._trace}.{name}'
+            n = loc.sum()
+            msg = f'{trace} found {n} missing files. Unstitching to\n\t{path}'
+            logger.info(msg)
+            subset = grid.loc[loc]
+            subset._unstitch2file(
+                tiles=subset.file.pred,
+                mosaics=subset.segtile.pred,
+                row=subset.segtile.row,
+                col=subset.segtile.col,
+            )
+            assert files.map(os.path.exists).all()
         return files
 
     @frame.column
     def prob(self) -> pd.Series:
         """
         File-paths to color-coded segmentation masks for visualization.
-        # TODO: update
         """
         grid = self.basegrid
         files = grid.outdir.project.prob.files(grid)
+        self.prob = files
+        if self:
+            return files
+
         loc = ~files.map(os.path.exists)
-        if (
-                not self
-                and loc.any()
-        ):
-            grid = grid.loc[loc]
-            grid._unstitch2file(
-                tiles=grid.file.prob,
-                mosaics=grid.segtile.prob,
-                row=grid.segtile.row,
-                col=grid.segtile.col,
+        if loc.any():
+            name = (
+                str(files.name)
+                .rsplit('.', 1)[-1]
             )
-            loc = ~files.map(os.path.exists)
-            msg = f"Files not unstiched: {files[loc]}"
-            assert not loc.any(), msg
+            path: str = (
+                grid.outdir
+                .__getattribute__('project')
+                .__getattribute__(name)
+                .dir
+            )
+            trace = f'{self._trace}.{name}'
+            n = loc.sum()
+            msg = f'{trace} found {n} missing files. Unstitching to\n\t{path}'
+            logger.info(msg)
+            subset = grid.loc[loc]
+            subset._unstitch2file(
+                tiles=subset.file.prob,
+                mosaics=subset.segtile.prob,
+                row=subset.segtile.row,
+                col=subset.segtile.col,
+            )
+            assert files.map(os.path.exists).all()
         return files
 
     @frame.property

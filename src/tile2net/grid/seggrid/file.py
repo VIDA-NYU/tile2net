@@ -15,6 +15,7 @@ from .dense_crf import DenseCRF
 from .. import frame
 from ..basegrid import file
 from ...grid import util
+from tile2net.logger import logger
 
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 
@@ -51,10 +52,25 @@ class File(
         grid = self.basegrid
         files = grid.grid.outdir.seggrid.static.files(grid)
         self.static = files
-        if (
-                not self
-                and not files.map(os.path.exists).all()
-        ):
+        if self:
+            return files
+
+        loc = ~files.map(os.path.exists)
+        if loc.any():
+            name = (
+                str(files.name)
+                .rsplit('.', 1)[-1]
+            )
+            path: str = (
+                grid.outdir
+                .__getattribute__(grid.__name__)
+                .__getattribute__(name)
+                .dir
+            )
+            trace = f'{self._trace}.{name}'
+            n = loc.sum()
+            msg = f'{trace} found {n} missing files. Stitching to\n\t{path}'
+            logger.info(msg)
             grid = grid.grid
             assert (
                 grid.file.static
@@ -68,9 +84,7 @@ class File(
                 row=grid.segtile.row,
                 col=grid.segtile.col,
             )
-            msg = f"Files not stitched: {files[~files.map(os.path.exists)]}"
-            assert files.map(os.path.exists).all(), msg
-
+            assert files.map(os.path.exists).all()
         return files
 
     @frame.column
@@ -94,10 +108,27 @@ class File(
         grid.file.pred = files
         self.pred = files
         if (
-                not self
-                and not grid.predict
-                and not files.map(os.path.exists).all()
+            self
+            or bool(grid.predict)
         ):
+            return files
+
+        loc = ~files.map(os.path.exists)
+        if loc.any():
+            name = (
+                str(files.name)
+                .rsplit('.', 1)[-1]
+            )
+            path: str = (
+                grid.outdir
+                .__getattribute__(grid.__name__)
+                .__getattribute__(name)
+                .dir
+            )
+            trace = f'{self._trace}.{name}'
+            n = loc.sum()
+            msg = f'{trace} found {n} missing files. Populating to\n\t{path}'
+            logger.info(msg)
             grid.predict(probs=False)
             assert files.map(os.path.exists).all()
         return files
@@ -120,10 +151,27 @@ class File(
         grid.file.prob = files
         self.prob = files
         if (
-                not self
-                and not bool(grid.predict)
-                and not files.map(os.path.exists).all()
+            self
+            or bool(grid.predict)
         ):
+            return files
+
+        loc = ~files.map(os.path.exists)
+        if loc.any():
+            name = (
+                str(files.name)
+                .rsplit('.', 1)[-1]
+            )
+            path: str = (
+                grid.outdir
+                .__getattribute__(grid.__name__)
+                .__getattribute__(name)
+                .dir
+            )
+            trace = f'{self._trace}.{name}'
+            n = loc.sum()
+            msg = f'{trace} found {n} missing files. Populating to\n\t{path}'
+            logger.info(msg)
             grid.predict(probs=True)
             assert files.map(os.path.exists).all()
         return files

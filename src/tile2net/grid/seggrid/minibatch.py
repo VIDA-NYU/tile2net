@@ -5,7 +5,7 @@ import threading
 from dataclasses import dataclass
 from functools import singledispatch, cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING, Self, Optional
+from typing import *
 
 import numpy as np
 import tifffile
