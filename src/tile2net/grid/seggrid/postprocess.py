@@ -84,7 +84,7 @@ class PostProcess(
                     executor.submit(write, prob_p, pred_p)
                     for prob_p, pred_p in todo.items()
                 ]
-                for future in futures:
+                for future in futures.items():
                     future.result()
 
             assert files.map(os.path.exists).all()

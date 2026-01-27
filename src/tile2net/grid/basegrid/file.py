@@ -103,7 +103,7 @@ class File(
                         file
                     for prob, pred, file in it
                 }
-                for future, file in futures:
+                for future, file in futures.items():
                     future.result()
 
             assert (
@@ -156,7 +156,7 @@ class File(
                         file
                     for prob, pred, file in it
                 }
-                for future, file in futures:
+                for future, file in futures.items():
                     future.result()
 
             assert (
@@ -209,7 +209,7 @@ class File(
                         file
                     for static, colorized_file, file in it
                 }
-                for future, file in futures:
+                for future, file in futures.items():
                     future.result()
 
             assert (
@@ -262,7 +262,7 @@ class File(
                         file
                     for static, colored_file, file in it
                 }
-                for future, file in futures:
+                for future, file in futures.items():
                     future.result()
 
             assert (
@@ -350,7 +350,7 @@ class File(
                     threads.submit(self._compute_soft, prob, file): file
                     for prob, file in zip(probs, files)
                 }
-                for future, file in futures:
+                for future, file in futures.items():
                     future.result()
 
             assert (
