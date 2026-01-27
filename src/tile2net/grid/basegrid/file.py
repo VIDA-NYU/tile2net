@@ -92,16 +92,15 @@ class File(
 
         loc = ~FILES.map(os.path.exists)
         if loc.any():
-            probs = self.prob[loc]
             preds = self.pred[loc]
             files = FILES[loc]
             max_workers = min(self.basegrid.cfg.compress_workers, len(files))
-            it = zip(probs, preds, files)
+            it = zip(preds, files)
             with ThreadPoolExecutor(max_workers=max_workers) as threads:
                 futures: dict[Future, str] = {
-                    threads.submit(self._compute_colorized, prob, pred, file):
+                    threads.submit(self._compute_colorized, pred, file):
                         file
-                    for prob, pred, file in it
+                    for pred, file in it
                 }
                 for future, file in futures.items():
                     future.result()
@@ -369,8 +368,7 @@ class File(
     ) -> str:
         """Generate colorized visualization from prob and pred files."""
         pred = tifffile.imread(pred_file)
-        pred = torch.from_numpy(pred)
-        colors = cfg.colormap(pred).numpy()
+        colors = cfg.colormap(pred)
 
         (
             Path(output_file)
@@ -442,8 +440,6 @@ class File(
         """Generate intensity visualization from prob and pred files."""
         prob = tifffile.imread(prob_file)
         pred = tifffile.imread(pred_file)
-        prob = torch.from_numpy(prob)
-        pred = torch.from_numpy(pred)
         colors = cfg.colormap(pred)
 
         keep = torch.arange(prob.size(0))
@@ -569,8 +565,7 @@ class File(
     ) -> str:
         """Generate probability-weighted color visualization."""
         prob = tifffile.imread(prob_file)
-        prob = torch.from_numpy(prob)
-        num_classes = prob.size(0)
+        num_classes = prob.shape[0]
 
         classes = torch.arange(num_classes)
         # todo: use a custom colorscheme, with r, g, b for the classes,
