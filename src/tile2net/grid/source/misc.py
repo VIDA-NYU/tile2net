@@ -72,11 +72,6 @@ class SanFranciscoBase(Remote, ABC):
     dimension = 512  # tile size in px
 
     @cached_property
-    def enabled(self) -> bool:
-        # Most SF years are outdated, overridden in current year
-        return False
-
-    @cached_property
     def template(self) -> str:
         return f"{self.server}/{{z}}/{{x}}/{{y}}.png"
 

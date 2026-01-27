@@ -45,22 +45,23 @@ class Name2Prototype(
         if self._manifest is not None:
             return self._manifest
         out = self.__class__()
-        out.__dict__.update(owner._name2prototype.__dict__)
+        # out.__dict__.update(owner._name2prototype.__dict__)
+        # out.__dict__.update(self.__dict__)
         out.__dict__.update(self.__dict__)
+        out.data = copy.copy(self.data)
+        out.update(owner._name2prototype)
         file = cfg.download.servers
         name2prototype = owner.from_yaml(file)
         for name, prototype in name2prototype.items():
-            # todo: somehow, this is happening regardless; why?
             from tile2net.grid.source.remote import Remote
-            # if name in out.data:
-                # msg = (
-                #     f'Name "{name}" found both in the defined {Remote.__qualname__} '
-                #     f'subclass {prototype.__class__.__qualname__} as well as in the {file} file.\n\t'
-                #     'Set `enabled=False` for the subclass or the YAML entry.'
-                # )
-                # logger.warning(msg)
+            if name in out.data:
+                msg = (
+                    f'Name "{name}" found both in the defined {Remote.__qualname__} '
+                    f'subclass {prototype.__class__.__qualname__} as well as in the {file} file.\n\t'
+                    'Set `enabled=False` for the subclass or the YAML entry.'
+                )
+                logger.warning(msg)
             out[name] = prototype
-        # setattr(Remote, self.__name__, out)
         self._manifest = out
         return out
 
