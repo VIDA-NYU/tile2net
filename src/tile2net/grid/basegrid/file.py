@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import tifffile
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 
@@ -363,12 +364,12 @@ class File(
     @classmethod
     def _compute_colorized(
             cls,
-            prob_file: str,
             pred_file: str,
             output_file: str,
     ) -> str:
         """Generate colorized visualization from prob and pred files."""
-        pred = cls._load_pred(pred_file)
+        pred = tifffile.imread(pred_file)
+        pred = torch.from_numpy(pred)
         colors = cfg.colormap(pred).numpy()
 
         (
@@ -439,8 +440,10 @@ class File(
             output_file: str,
     ) -> str:
         """Generate intensity visualization from prob and pred files."""
-        prob = cls._load_prob(prob_file)
-        pred = cls._load_pred(pred_file)
+        prob = tifffile.imread(prob_file)
+        pred = tifffile.imread(pred_file)
+        prob = torch.from_numpy(prob)
+        pred = torch.from_numpy(pred)
         colors = cfg.colormap(pred)
 
         keep = torch.arange(prob.size(0))
@@ -565,7 +568,8 @@ class File(
             output_file: str,
     ) -> str:
         """Generate probability-weighted color visualization."""
-        prob = cls._load_prob(prob_file)  # Shape: [C, H, W]
+        prob = tifffile.imread(prob_file)
+        prob = torch.from_numpy(prob)
         num_classes = prob.size(0)
 
         classes = torch.arange(num_classes)

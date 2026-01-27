@@ -195,14 +195,4 @@ class File(
         result += util.path2fsize(self.colorized)
         return result
 
-    @staticmethod
-    def _load_prob(prob_file: str) -> torch.Tensor:
-        """Load probability map from TIFF file. Returns tensor with shape (C, H, W)."""
-        arr = tifffile.imread(prob_file).astype(np.float32)
-        return torch.from_numpy(arr)
 
-    @staticmethod
-    def _load_pred(pred_file: str) -> torch.Tensor:
-        """Load prediction mask from PNG file. Returns tensor with shape (H, W)."""
-        arr = cv2.imread(pred_file, cv2.IMREAD_GRAYSCALE)
-        return torch.from_numpy(arr)
