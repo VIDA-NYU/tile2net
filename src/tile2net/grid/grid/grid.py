@@ -903,16 +903,16 @@ class Grid(
 
         Examples:
             Create a grid from an address. Zoom will default to that given by the Source:
-            >>> grid = BaseGrid.from_location('Times Square, New York')
+            >>> grid = Grid.from_location('Times Square, New York')
 
             Create a grid from coordinates (lat1, lon1, lat2, lon2):
-            >>> grid = BaseGrid.from_location('42.3601,-71.0589,42.3551,-71.0539', zoom=20)
+            >>> grid = Grid.from_location('42.3601,-71.0589,42.3551,-71.0539', zoom=20)
 
             Create a grid from tile coordinates (xtile1, ytile1, xtile2, ytile2):
-            >>> grid = BaseGrid.from_location('317280,387840,317281,387841', zoom=20)
+            >>> grid = Grid.from_location('317280,387840,317281,387841', zoom=20)
 
             Create a grid from a tuple of tile coordinates:
-            >>> grid = BaseGrid.from_location((317280, 387840, 317312, 387872), zoom=20)
+            >>> grid = Grid.from_location((317280, 387840, 317312, 387872), zoom=20)
         """
 
         geocode = GeoCode.from_inferred(location, zoom)
@@ -931,7 +931,11 @@ class Grid(
             zoom = source.zoom
 
         geocode = GeoCode.from_inferred(location, zoom)
-        out = cls.from_bounds(geocode.nwse, zoom, source)
+        if geocode.xtile_ytile:
+            out = cls.from_bounds(geocode.xtile_ytile, zoom, source)
+        else:
+            out = cls.from_bounds(geocode.nwse, zoom, source)
+
         out.location = location
 
         return out

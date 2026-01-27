@@ -103,7 +103,7 @@ class GeoCode:
             except ValueError:
                 obj = list(map(float, obj))
             else:
-                out = cls.from_xtyle_ytlile(obj, zoom)
+                out = cls.from_xtile_ytile(obj, zoom)
                 out.passed = original_obj
                 return out
             out = cls.from_lonlat(obj)
@@ -244,7 +244,7 @@ class GeoCode:
         return result
 
     @classmethod
-    def from_xtyle_ytlile(
+    def from_xtile_ytile(
             cls,
             xtile_ytile: tuple[int, ...],
             zoom: int
@@ -255,6 +255,8 @@ class GeoCode:
         )
         result = cls.from_lonlat(lonlat)
         result.passed = xtile_ytile
+        result.xtile_ytile = tuple(xtile_ytile)
+        result.zoom = zoom
         return result
 
     @cached_property
@@ -386,6 +388,26 @@ class GeoCode:
     @cached_property
     def geometry(self) -> GeoSeries:
         return osmnx.geocode_to_gdf(self.address)
+
+    @cached_property
+    def xtile_ytile(self) -> Optional[tuple[int, int, int, int]]:
+        """
+        Original xtile_ytile bounds if geocode was created from tile coordinates.
+        Format: (xmin, ymin, xmax, ymax)
+
+        See:
+            >>> GeoCode.from_xtile_ytile()
+        """
+        return
+
+    @cached_property
+    def zoom(self) -> Optional[int]:
+        """
+        Zoom level if geocode was created from tile coordinates.
+        See:
+            >>> GeoCode.from_xtile_ytile()
+        """
+        return
 
     def __repr__(self) -> str:
         cls_name = self.__class__.__name__
