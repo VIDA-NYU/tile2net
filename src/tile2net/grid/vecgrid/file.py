@@ -27,7 +27,7 @@ class File(
         """
         grid = self.basegrid
         files = grid.outdir.vecgrid.static.files(grid)
-        self.static = files
+        setattr(self, 'static', files)
         if self:
             return files
 
@@ -75,7 +75,7 @@ class File(
         """
         grid = self.basegrid
         files = grid.outdir.vecgrid.pred.files(grid)
-        self.pred = files
+        setattr(self, 'pred', files)
         if self:
             return files
 
@@ -119,7 +119,7 @@ class File(
         """
         grid = self.basegrid
         files = grid.outdir.vecgrid.prob.files(grid)
-        self.prob = files
+        setattr(self, 'prob', files)
         if self:
             return files
 
@@ -175,7 +175,7 @@ class File(
         """
         vecgrid = self.basegrid
         files = vecgrid.grid.outdir.vecgrid.network.files(vecgrid)
-        self.lines = files
+        setattr(self, 'lines', files)
         if (
             self
             or bool(vecgrid.vectorize)
@@ -226,7 +226,7 @@ class File(
         """
         vecgrid = self.basegrid
         files = vecgrid.grid.outdir.vecgrid.polygons.files(vecgrid)
-        self.polygons = files
+        setattr(self, 'polygons', files)
         if (
             self
             or bool(vecgrid.vectorize)
@@ -262,7 +262,7 @@ class File(
         # todo: needs documentation
         vecgrid = self.basegrid
         files = vecgrid.grid.outdir.vecgrid.curbs.files(vecgrid)
-        self.curbs = files
+        setattr(self, 'curbs', files)
         if (
             self
             or bool(vecgrid.vectorize)

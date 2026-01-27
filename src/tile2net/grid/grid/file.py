@@ -42,7 +42,7 @@ class File(
         loc = ~files.index.duplicated()
         files = files.loc[loc]
         grid.file.static = files
-        self.static = files
+        setattr(self, 'static', files)
 
         if (
             isinstance(source, Remote)
@@ -118,7 +118,7 @@ class File(
 
         grid = self.basegrid
         files = grid.outdir.project.pred.files(grid)
-        self.pred = files
+        setattr(self, 'pred', files)
         if self:
             return files
 
@@ -159,7 +159,7 @@ class File(
         """
         grid = self.basegrid
         files = grid.outdir.project.prob.files(grid)
-        self.prob = files
+        setattr(self, 'prob', files)
         if self:
             return files
 
@@ -196,7 +196,7 @@ class File(
     @frame.property
     def network(self):
         file = self.basegrid.outdir.project.network.parquet
-        self.network = file
+        setattr(self, 'network', file)
         if not self:
             _ = self.basegrid.network
         return file
@@ -204,7 +204,7 @@ class File(
     @frame.property
     def polygons(self):
         file = self.basegrid.outdir.project.polygons.parquet
-        self.polygons = file
+        setattr(self, 'polygons', file)
         if not self:
             _ = self.basegrid.polygons
         return file

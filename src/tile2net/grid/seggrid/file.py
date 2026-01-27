@@ -51,7 +51,7 @@ class File(
         """
         grid = self.basegrid
         files = grid.grid.outdir.seggrid.static.files(grid)
-        self.static = files
+        setattr(self, 'static', files)
         if self:
             return files
 
@@ -110,7 +110,7 @@ class File(
         loc = ~files.index.duplicated()
         files = files.loc[loc]
         grid.file.pred = files
-        self.pred = files
+        setattr(self, 'pred', files)
         if (
             self
             or bool(grid.predict)
@@ -157,7 +157,7 @@ class File(
         loc = ~files.index.duplicated()
         files = files.loc[loc]
         grid.file.prob = files
-        self.prob = files
+        setattr(self, 'prob', files)
         if (
             self
             or bool(grid.predict)

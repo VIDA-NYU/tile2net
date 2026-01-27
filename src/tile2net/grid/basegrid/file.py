@@ -88,7 +88,7 @@ class File(
         )
         if self:
             return FILES
-        self.colorized = FILES
+        setattr(self, 'colorized', FILES)
 
         loc = ~FILES.map(os.path.exists)
         if loc.any():
@@ -139,7 +139,7 @@ class File(
         )
         if self:
             return FILES
-        self.intensity = FILES
+        setattr(self, 'intensity', FILES)
 
         loc = ~FILES.map(os.path.exists)
         if loc.any():
@@ -192,7 +192,7 @@ class File(
         )
         if self:
             return FILES
-        self.sidebyside = FILES
+        setattr(self, 'sidebyside', FILES)
 
         loc = ~FILES.map(os.path.exists)
         if loc.any():
@@ -245,7 +245,7 @@ class File(
         )
         if self:
             return FILES
-        self.overlay = FILES
+        setattr(self, 'overlay', FILES)
 
         loc = ~FILES.map(os.path.exists)
         if loc.any():
@@ -292,7 +292,7 @@ class File(
             getattr(grid.grid.outdir, name)
             .error.files(grid)
         )
-        self.error = FILES
+        setattr(self, 'error', FILES)
 
         loc = ~FILES.map(os.path.exists)
         if loc.any():
@@ -336,7 +336,7 @@ class File(
         )
         if self:
             return FILES
-        self.soft = FILES
+        setattr(self, 'soft', FILES)
 
         loc = ~FILES.map(os.path.exists)
         if loc.any():
