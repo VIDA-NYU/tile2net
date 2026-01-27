@@ -114,7 +114,7 @@ class Source:
             return copy.copy(value)
 
         try:
-            out =  Local.from_inferred(value)
+            out = Local.from_inferred(value)
         except SourceParseError:
             ...
         else:

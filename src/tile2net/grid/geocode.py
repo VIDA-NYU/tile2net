@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import functools
-import json
 import os.path
 import re
 from functools import cached_property
@@ -388,13 +387,15 @@ class GeoCode:
     def geometry(self) -> GeoSeries:
         return osmnx.geocode_to_gdf(self.address)
 
-    def __repr__(self):
-        return json.dumps(
-            self.__dict__,
-            indent=4,
-            default=str,
-            sort_keys=True
-        )
+    def __repr__(self) -> str:
+        cls_name = self.__class__.__name__
+        items = [
+            f"    {k}={v!r},"
+            for k, v in self.__dict__.items()
+        ]
+        params = "\n".join(items)
+        out = f"{cls_name}(\n{params}\n)"
+        return out
 
 
 if __name__ == '__main__':

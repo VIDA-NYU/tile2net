@@ -31,19 +31,20 @@ class File(
         if self:
             return files
 
+        name = (
+            str(files.name)
+            .rsplit('.', 1)[-1]
+        )
+        path: str = (
+            grid.outdir
+            .__getattribute__(grid.__name__)
+            .__getattribute__(name)
+            .dir
+        )
+        trace = f'{self._trace}.{name}'
+
         loc = ~files.map(os.path.exists)
         if loc.any():
-            name = (
-                str(files.name)
-                .rsplit('.', 1)[-1]
-            )
-            path: str = (
-                grid.outdir
-                .__getattribute__(grid.__name__)
-                .__getattribute__(name)
-                .dir
-            )
-            trace = f'{self._trace}.{name}'
             n = loc.sum()
             msg = f'{trace} found {n} missing files. Stitching to\n\t{path}'
             logger.info(msg)
@@ -57,6 +58,9 @@ class File(
                 col=seggrid.vectile.col,
             )
             assert files.map(os.path.exists).all()
+        else:
+            msg = f'{trace} found all files already in \n\t{path}'
+            logger.info(msg)
         return files
 
     @frame.column
@@ -75,19 +79,20 @@ class File(
         if self:
             return files
 
+        name = (
+            str(files.name)
+            .rsplit('.', 1)[-1]
+        )
+        path: str = (
+            grid.outdir
+            .__getattribute__(grid.__name__)
+            .__getattribute__(name)
+            .dir
+        )
+        trace = f'{self._trace}.{name}'
+
         loc = ~files.map(os.path.exists)
         if loc.any():
-            name = (
-                str(files.name)
-                .rsplit('.', 1)[-1]
-            )
-            path: str = (
-                grid.outdir
-                .__getattribute__(grid.__name__)
-                .__getattribute__(name)
-                .dir
-            )
-            trace = f'{self._trace}.{name}'
             n = loc.sum()
             msg = f'{trace} found {n} missing files. Stitching to\n\t{path}'
             logger.info(msg)
@@ -101,6 +106,9 @@ class File(
                 col=seggrid.vectile.col,
             )
             assert files.map(os.path.exists).all()
+        else:
+            msg = f'{trace} found all files already in \n\t{path}'
+            logger.info(msg)
         return files
 
     @frame.column
@@ -115,19 +123,20 @@ class File(
         if self:
             return files
 
+        name = (
+            str(files.name)
+            .rsplit('.', 1)[-1]
+        )
+        path: str = (
+            grid.outdir
+            .__getattribute__(grid.__name__)
+            .__getattribute__(name)
+            .dir
+        )
+        trace = f'{self._trace}.{name}'
+
         loc = ~files.map(os.path.exists)
         if loc.any():
-            name = (
-                str(files.name)
-                .rsplit('.', 1)[-1]
-            )
-            path: str = (
-                grid.outdir
-                .__getattribute__(grid.__name__)
-                .__getattribute__(name)
-                .dir
-            )
-            trace = f'{self._trace}.{name}'
             n = loc.sum()
             msg = f'{trace} found {n} missing files. Stitching to\n\t{path}'
             logger.info(msg)
@@ -141,6 +150,9 @@ class File(
                 col=seggrid.vectile.col,
             )
             assert files.map(os.path.exists).all()
+        else:
+            msg = f'{trace} found all files already in \n\t{path}'
+            logger.info(msg)
         return files
 
     @frame.column
@@ -170,24 +182,28 @@ class File(
         ):
             return files
 
+        name = (
+            str(files.name)
+            .rsplit('.', 1)[-1]
+        )
+        path: str = (
+            vecgrid.grid.outdir
+            .__getattribute__(vecgrid.__name__)
+            .__getattribute__(name)
+            .dir
+        )
+        trace = f'{self._trace}.{name}'
+
         loc = ~files.map(os.path.exists)
         if loc.any():
-            name = (
-                str(files.name)
-                .rsplit('.', 1)[-1]
-            )
-            path: str = (
-                vecgrid.grid.outdir
-                .__getattribute__(vecgrid.__name__)
-                .__getattribute__(name)
-                .dir
-            )
-            trace = f'{self._trace}.{name}'
             n = loc.sum()
             msg = f'{trace} found {n} missing files. Vectorizing to\n\t{path}'
             logger.info(msg)
             vecgrid.vectorize()
             assert files.map(os.path.exists).all()
+        else:
+            msg = f'{trace} found all files already in \n\t{path}'
+            logger.info(msg)
         return files
 
     @frame.column
@@ -217,24 +233,28 @@ class File(
         ):
             return files
 
+        name = (
+            str(files.name)
+            .rsplit('.', 1)[-1]
+        )
+        path: str = (
+            vecgrid.grid.outdir
+            .__getattribute__(vecgrid.__name__)
+            .__getattribute__(name)
+            .dir
+        )
+        trace = f'{self._trace}.{name}'
+
         loc = ~files.map(os.path.exists)
         if loc.any():
-            name = (
-                str(files.name)
-                .rsplit('.', 1)[-1]
-            )
-            path: str = (
-                vecgrid.grid.outdir
-                .__getattribute__(vecgrid.__name__)
-                .__getattribute__(name)
-                .dir
-            )
-            trace = f'{self._trace}.{name}'
             n = loc.sum()
             msg = f'{trace} found {n} missing files. Vectorizing to\n\t{path}'
             logger.info(msg)
             vecgrid.vectorize()
             assert files.map(os.path.exists).all()
+        else:
+            msg = f'{trace} found all files already in \n\t{path}'
+            logger.info(msg)
         return files
 
     @frame.column
@@ -249,24 +269,28 @@ class File(
         ):
             return files
 
+        name = (
+            str(files.name)
+            .rsplit('.', 1)[-1]
+        )
+        path: str = (
+            vecgrid.grid.outdir
+            .__getattribute__(vecgrid.__name__)
+            .__getattribute__(name)
+            .dir
+        )
+        trace = f'{self._trace}.{name}'
+
         loc = ~files.map(os.path.exists)
         if loc.any():
-            name = (
-                str(files.name)
-                .rsplit('.', 1)[-1]
-            )
-            path: str = (
-                vecgrid.grid.outdir
-                .__getattribute__(vecgrid.__name__)
-                .__getattribute__(name)
-                .dir
-            )
-            trace = f'{self._trace}.{name}'
             n = loc.sum()
             msg = f'{trace} found {n} missing files. Vectorizing to\n\t{path}'
             logger.info(msg)
             vecgrid.vectorize()
             assert files.map(os.path.exists).all()
+        else:
+            msg = f'{trace} found all files already in \n\t{path}'
+            logger.info(msg)
         return files
 
     @frame.column

@@ -50,27 +50,31 @@ class File(
         ):
             return files
 
+        name = (
+            str(files.name)
+            .rsplit('.', 1)[-1]
+        )
+        path: str = (
+            grid.outdir
+            .__getattribute__('source')
+            .__getattribute__(name)
+            .dir
+        )
+        trace = f'{self._trace}.{name}'
+
         loc = ~files.map(os.path.exists)
         if (
             isinstance(source, Remote)
             and loc.any()
         ):
-            name = (
-                str(files.name)
-                .rsplit('.', 1)[-1]
-            )
-            path: str = (
-                grid.outdir
-                .__getattribute__('source')
-                .__getattribute__(name)
-                .dir
-            )
-            trace = f'{self._trace}.{name}'
             n = loc.sum()
             msg = f'{trace} found {n} missing files. Downloading to\n\t{path}'
             logger.info(msg)
             source.download()
             assert files.map(os.path.exists).all()
+        else:
+            msg = f'{trace} found all files already in \n\t{path}'
+            logger.info(msg)
         return files
 
     @contextlib.contextmanager
@@ -118,19 +122,20 @@ class File(
         if self:
             return files
 
+        name = (
+            str(files.name)
+            .rsplit('.', 1)[-1]
+        )
+        path: str = (
+            grid.outdir
+            .__getattribute__('project')
+            .__getattribute__(name)
+            .dir
+        )
+        trace = f'{self._trace}.{name}'
+
         loc = ~files.map(os.path.exists)
         if loc.any():
-            name = (
-                str(files.name)
-                .rsplit('.', 1)[-1]
-            )
-            path: str = (
-                grid.outdir
-                .__getattribute__('project')
-                .__getattribute__(name)
-                .dir
-            )
-            trace = f'{self._trace}.{name}'
             n = loc.sum()
             msg = f'{trace} found {n} missing files. Unstitching to\n\t{path}'
             logger.info(msg)
@@ -142,6 +147,9 @@ class File(
                 col=subset.segtile.col,
             )
             assert files.map(os.path.exists).all()
+        else:
+            msg = f'{trace} found all files already in \n\t{path}'
+            logger.info(msg)
         return files
 
     @frame.column
@@ -155,19 +163,20 @@ class File(
         if self:
             return files
 
+        name = (
+            str(files.name)
+            .rsplit('.', 1)[-1]
+        )
+        path: str = (
+            grid.outdir
+            .__getattribute__('project')
+            .__getattribute__(name)
+            .dir
+        )
+        trace = f'{self._trace}.{name}'
+
         loc = ~files.map(os.path.exists)
         if loc.any():
-            name = (
-                str(files.name)
-                .rsplit('.', 1)[-1]
-            )
-            path: str = (
-                grid.outdir
-                .__getattribute__('project')
-                .__getattribute__(name)
-                .dir
-            )
-            trace = f'{self._trace}.{name}'
             n = loc.sum()
             msg = f'{trace} found {n} missing files. Unstitching to\n\t{path}'
             logger.info(msg)
@@ -179,6 +188,9 @@ class File(
                 col=subset.segtile.col,
             )
             assert files.map(os.path.exists).all()
+        else:
+            msg = f'{trace} found all files already in \n\t{path}'
+            logger.info(msg)
         return files
 
     @frame.property
