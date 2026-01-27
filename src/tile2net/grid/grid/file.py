@@ -63,17 +63,17 @@ class File(
         trace = f'{self._trace}.{name}'
 
         loc = ~files.map(os.path.exists)
+        n = loc.sum()
         if (
             isinstance(source, Remote)
             and loc.any()
         ):
-            n = loc.sum()
             msg = f'{trace} found {n} missing files. Downloading to\n\t{path}'
             logger.info(msg)
             source.download()
             assert files.map(os.path.exists).all()
         else:
-            msg = f'{trace} found all files already in \n\t{path}'
+            msg = f'{trace} found all {len(loc)} files already in \n\t{path}'
             logger.info(msg)
         return files
 
@@ -148,7 +148,7 @@ class File(
             )
             assert files.map(os.path.exists).all()
         else:
-            msg = f'{trace} found all files already in \n\t{path}'
+            msg = f'{trace} found all {len(loc)} files already in \n\t{path}'
             logger.info(msg)
         return files
 
@@ -189,7 +189,7 @@ class File(
             )
             assert files.map(os.path.exists).all()
         else:
-            msg = f'{trace} found all files already in \n\t{path}'
+            msg = f'{trace} found all {len(loc)} files already in \n\t{path}'
             logger.info(msg)
         return files
 

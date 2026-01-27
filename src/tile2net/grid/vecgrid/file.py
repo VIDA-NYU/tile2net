@@ -59,7 +59,7 @@ class File(
             )
             assert files.map(os.path.exists).all()
         else:
-            msg = f'{trace} found all files already in \n\t{path}'
+            msg = f'{trace} found all {len(loc)} files already in \n\t{path}'
             logger.info(msg)
         return files
 
@@ -107,7 +107,7 @@ class File(
             )
             assert files.map(os.path.exists).all()
         else:
-            msg = f'{trace} found all files already in \n\t{path}'
+            msg = f'{trace} found all {len(loc)} files already in \n\t{path}'
             logger.info(msg)
         return files
 
@@ -151,7 +151,7 @@ class File(
             )
             assert files.map(os.path.exists).all()
         else:
-            msg = f'{trace} found all files already in \n\t{path}'
+            msg = f'{trace} found all {len(loc)} files already in \n\t{path}'
             logger.info(msg)
         return files
 
@@ -202,7 +202,7 @@ class File(
             vecgrid.vectorize()
             assert files.map(os.path.exists).all()
         else:
-            msg = f'{trace} found all files already in \n\t{path}'
+            msg = f'{trace} found all {len(loc)} files already in \n\t{path}'
             logger.info(msg)
         return files
 
@@ -253,7 +253,7 @@ class File(
             vecgrid.vectorize()
             assert files.map(os.path.exists).all()
         else:
-            msg = f'{trace} found all files already in \n\t{path}'
+            msg = f'{trace} found all {len(loc)} files already in \n\t{path}'
             logger.info(msg)
         return files
 
@@ -289,7 +289,7 @@ class File(
             vecgrid.vectorize()
             assert files.map(os.path.exists).all()
         else:
-            msg = f'{trace} found all files already in \n\t{path}'
+            msg = f'{trace} found all {len(loc)} files already in \n\t{path}'
             logger.info(msg)
         return files
 
