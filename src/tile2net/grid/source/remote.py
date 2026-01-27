@@ -893,40 +893,6 @@ class Remote(
         If a dict is passed, returns a singular Remote instance based on its metadata.
         """
         match obj:
-            # case Path() | str():
-            #     path = (
-            #         Path(obj)
-            #         .expanduser()
-            #         .resolve()
-            #     )
-            #
-            #     with path.open('r') as f:
-            #         data: dict[str, dict] = yaml.safe_load(f)
-            #
-            #     if not isinstance(data, dict):
-            #         msg = f'YAML content must parse to a dict, got {type(data)}'
-            #         raise SourceParseError(msg)
-            #
-            #     def load(name, dct):
-            #         # Check enabled status early to avoid unnecessary network calls
-            #         if not dct.setdefault('enabled', True):
-            #             return None
-            #         return name, cls.from_yaml(dct | {'name': name})
-            #
-            #     out = {}
-            #     with ThreadPoolExecutor() as executor:
-            #         future2name = {
-            #             executor.submit(load, name, dct): name
-            #             for name, dct in data.items()
-            #         }
-            #
-            #         for future in as_completed(future2name):
-            #             result = future.result()
-            #             if result:
-            #                 name, source_obj = result
-            #                 out[name] = source_obj
-            #
-            #     return out
 
             case Path() | str():
                 path = (
@@ -954,7 +920,20 @@ class Remote(
                     raise SourceParseError(msg) from e
 
                 base = obj.get('base', None)
-                out = cls.from_server(server, base=base)
+                if base:
+                    # bypass from_server to avoid potential network calls
+                    # during simple configuration loading.
+                    try:
+                        subclass = cls._name2base[base]
+                    except KeyError as e:
+                        msg = f'No Remote subclass registered with name: {base!r}'
+                        raise ValueError(msg) from e
+
+                    out = subclass.__new__(subclass)
+                    out.server = server
+                else:
+                    out = cls.from_server(server, base=base)
+
                 obj.setdefault('enabled', True)
 
                 for key, value in obj.items():
@@ -969,8 +948,11 @@ class Remote(
                         raise SourceParseError(msg) from e
 
                     crs = obj.get('crs', 'EPSG:4326')
-                    coverage = GeoSeries([poly], crs=crs).to_crs(4326)
-                    out.coverage = coverage
+                    # Optimization: Avoid overhead of to_crs if already in target CRS
+                    val = GeoSeries([poly], crs=crs)
+                    if crs != 'EPSG:4326':
+                        val = val.to_crs(4326)
+                    out.coverage = val
 
                 if 'enabled' not in obj:
                     out.enabled = True
