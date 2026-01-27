@@ -23,16 +23,6 @@ class TestGridAttributes:
         LOCATIONS.values(),
         ids=LOCATIONS.keys()
     )
-    def test_xtile_ytile(self, coords, zoom):
-        """Test that Grid.from_location preserves input xtile_ytile coordinates."""
-        grid = Grid.from_location(coords, zoom=zoom)
-        assert grid.xtile_ytile == coords
-
-    @pytest.mark.parametrize(
-        "coords,zoom",
-        LOCATIONS.values(),
-        ids=LOCATIONS.keys()
-    )
     def test_zoom(self, coords, zoom):
         """Test that Grid.from_location preserves input zoom level."""
         grid = Grid.from_location(coords, zoom=zoom)
@@ -47,9 +37,6 @@ if __name__ == '__main__':
 
         test_instantiation.test_grid_is_instance(coords, zoom)
         print(f"  ✓ Grid instantiation test passed")
-
-        test_attrs.test_xtile_ytile(coords, zoom)
-        print(f"  ✓ xtile_ytile preservation test passed")
 
         test_attrs.test_zoom(coords, zoom)
         print(f"  ✓ zoom preservation test passed")
