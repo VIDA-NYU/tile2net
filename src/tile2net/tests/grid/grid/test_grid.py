@@ -1,15 +1,55 @@
 from __future__ import annotations
 
-from tile2net.tests.grid.grid.conftest import *
+import pytest
+
+from tile2net.grid import Grid
+from tile2net.tests.grid.grid.locations import LOCATIONS
 
 
 class TestGridInstantiation:
-    def test_grid_is_instance(self, grid: Grid):
+    @pytest.mark.parametrize(
+        "coords,zoom",
+        LOCATIONS.values(),
+        ids=LOCATIONS.keys()
+    )
+    def test_grid_is_instance(self, coords, zoom):
+        grid = Grid.from_location(coords, zoom=zoom)
         assert isinstance(grid, Grid)
 
 
+class TestGridAttributes:
+    @pytest.mark.parametrize(
+        "coords,zoom",
+        LOCATIONS.values(),
+        ids=LOCATIONS.keys()
+    )
+    def test_xtile_ytile(self, coords, zoom):
+        """Test that Grid.from_location preserves input xtile_ytile coordinates."""
+        grid = Grid.from_location(coords, zoom=zoom)
+        assert grid.xtile_ytile == coords
+
+    @pytest.mark.parametrize(
+        "coords,zoom",
+        LOCATIONS.values(),
+        ids=LOCATIONS.keys()
+    )
+    def test_zoom(self, coords, zoom):
+        """Test that Grid.from_location preserves input zoom level."""
+        grid = Grid.from_location(coords, zoom=zoom)
+        assert grid.zoom == zoom
+
+
 if __name__ == '__main__':
-    for name, grid in iter_grids():
+    test_instantiation = TestGridInstantiation()
+    test_attrs = TestGridAttributes()
+    for name, (coords, zoom) in LOCATIONS.items():
         print(f"\nTesting {name}")
-        TestGridInstantiation().test_grid_is_instance(grid)
+
+        test_instantiation.test_grid_is_instance(coords, zoom)
         print(f"  ✓ Grid instantiation test passed")
+
+        test_attrs.test_xtile_ytile(coords, zoom)
+        print(f"  ✓ xtile_ytile preservation test passed")
+
+        test_attrs.test_zoom(coords, zoom)
+        print(f"  ✓ zoom preservation test passed")
