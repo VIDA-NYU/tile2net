@@ -45,24 +45,32 @@ class Outputs(
         ...
 
 
+class PostProcessedOutputs(
+    Outputs
+):
+    @Dir
+    def colorized_sidebyside(self):
+        ...
+
+
 class BaseGrid(
     Outputs
 ):
     padded: Padded
 
-    @Outputs
+    @PostProcessedOutputs
     def dense_crf(self):
         ...
 
-    @Outputs
+    @PostProcessedOutputs
     def guided_filter(self):
         ...
 
-    @Outputs
+    @PostProcessedOutputs
     def slic(self):
         ...
 
-    @Outputs
+    @PostProcessedOutputs
     def walker(self):
         ...
 
