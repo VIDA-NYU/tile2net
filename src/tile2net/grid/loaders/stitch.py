@@ -10,6 +10,7 @@ from typing import Union
 
 import imageio.v3 as iio
 import numpy as np
+import tifffile
 import torch.utils.data
 
 from tile2net.grid.cfg import cfg
@@ -73,15 +74,13 @@ class StitchDataSet(
             if file is not None
         )
         ext = next(it, None)
-        if ext == '.npy':
-            read = self.read_npy
-        else:
-            read = self.read_image
-        return read
-
-    @cached_property
-    def write(self) -> Optional[Callable[[np.ndarray, str], str]]:
-        return None
+        match ext:
+            case '.npy':
+                return self.read_npy
+            case '.tif' | '.tiff':
+                return self.read_tiff
+            case _:
+                return self.read_iio
 
     def __len__(self):
         """number of mosaics"""
@@ -243,8 +242,41 @@ class StitchDataSet(
         return arr
 
     @staticmethod
-    def read_image(path: str) -> np.ndarray:
+    def read_iio(path: str) -> np.ndarray:
         arr = iio.imread(path)
+
+        match arr.ndim:
+            case 2:
+                arr = np.repeat(arr[..., None], 3, axis=2)
+            case 3:
+                pass
+            case _:
+                raise ValueError(f'{path!s}: unsupported image ndim {arr.ndim}')
+
+        match arr.dtype:
+            case np.float32 | np.float64:
+                arr = np.clip(arr * 255.0, 0, 255).astype(np.uint8)
+            case np.uint8:
+                pass
+            case _:
+                arr = arr.astype(np.uint8, copy=False)
+
+        match arr.shape[2]:
+            case 1:
+                arr = np.repeat(arr, 3, axis=2)
+            case 3:
+                pad = np.full((*arr.shape[:2], 1), 255, dtype=np.uint8)
+                arr = np.concatenate((arr, pad), axis=2)
+            case 4:
+                pass
+            case _:
+                raise ValueError(f'{path!s}: expected channels in (1,3,4), got {arr.shape[2]}')
+
+        return arr
+
+    @staticmethod
+    def read_tiff(path: str) -> np.ndarray:
+        arr = tifffile.imread(path)
 
         match arr.ndim:
             case 2:
@@ -349,10 +381,7 @@ class StitchDataSet(
                 arr = results[i]
                 self.paste(mosaic, arr, r, c)
 
-        if self.write:
-            out = self.write(mosaic, index)
-        else:
-            out = mosaic
+        out = mosaic
         return out
 
     def paste(
@@ -381,26 +410,6 @@ class StitchDataSet(
         a = tile[..., 3:4]
         dst = mosaic[sl]
         np.copyto(dst, rgb, where=(a != 0))
-
-    @staticmethod
-    def write_npy(
-            arr: np.ndarray,
-            file: str,
-    ):
-        outp = Path(file)
-        outp.parent.mkdir(parents=True, exist_ok=True)
-        np.save(outp, arr, allow_pickle=False)
-        return str(outp)
-
-    @staticmethod
-    def write_image(
-            arr: np.ndarray,
-            file: str,
-    ):
-        outp = Path(file)
-        outp.parent.mkdir(parents=True, exist_ok=True)
-        iio.imwrite(outp, arr)
-        return str(outp)
 
     def loader[T: BaseDataLoader](
             self,
@@ -469,3 +478,60 @@ class TensorDataSet(
             .contiguous()
         )
         return result
+
+
+class StitchWriterDataSet(
+    StitchDataSet
+):
+    def __init__(
+            self,
+            wrapper: DataWrapper,
+            write: Callable[[np.ndarray, str], str] | None = None,
+            *args,
+            **kwargs,
+    ):
+        super().__init__(wrapper, *args, **kwargs)
+        if write:
+            self.write = write
+
+    def __getitem__(self, item):
+        out = super().__getitem__(item)
+        index = self.index[item]
+        self.write(out, index)
+        return -1
+
+    @cached_property
+    def write(self) -> Callable[[np.ndarray, str], str]:
+        it = (
+            Path(file)
+            .suffix
+            .lower()
+            for file in self.wrapper.index.values
+            if file is not None
+        )
+        ext = next(it, None)
+        match ext:
+            case '.tif' | '.tiff':
+                return self.write_tiff
+            case _:
+                return self.write_iio
+
+    @staticmethod
+    def write_iio(
+            arr: np.ndarray,
+            file: str,
+    ):
+        outp = Path(file)
+        outp.parent.mkdir(parents=True, exist_ok=True)
+        iio.imwrite(outp, arr)
+        return str(outp)
+
+    @staticmethod
+    def write_tiff(
+            arr: np.ndarray,
+            file: str,
+    ):
+        outp = Path(file)
+        outp.parent.mkdir(parents=True, exist_ok=True)
+        tifffile.imwrite(outp, arr)
+        return str(outp)
