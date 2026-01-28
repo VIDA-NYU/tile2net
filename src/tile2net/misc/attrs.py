@@ -1,4 +1,5 @@
 from __future__ import annotations
+from tile2net.grid.frame.wrapper import Wrapper
 
 import functools
 import logging
@@ -11,10 +12,10 @@ import numpy as np
 import pandas as pd
 from pandas import Series
 from pandas.core.generic import NDFrame
+# todo: force fget if keyerror when setting column or subframe
 
 if TYPE_CHECKING:
-    from tile2net.grid.frame.wrapper import Wrapper
-# todo: force fget if keyerror when setting column or subframe
+    from tile2net.grid.frame.framewrapper import FrameWrapper
 
 __all__ = ['attr', 'subframe', 'column']
 
@@ -77,13 +78,13 @@ class attr:
         return instance.attrs[self.name]
 
     def __get__(self, instance: NDFrame, owner):
+        from tile2net.grid.frame.framewrapper import FrameWrapper
         from tile2net.grid.frame.namespace import namespace
-        from tile2net.grid.frame.wrapper import Wrapper
         self.instance = instance
         self.owner = owner
         if instance is None:
             self.wrapper = None
-        elif isinstance(instance, Wrapper):
+        elif isinstance(instance, FrameWrapper):
             self.wrapper = instance
         elif isinstance(instance, (attr, namespace)):
             self.wrapper = instance.wrapper
@@ -202,6 +203,29 @@ class attr:
             self.instance.__fspath__(),
             self.name + '.pkl'
         )
+
+    @property
+    def key(self):
+        if self.instance is None:
+            return self.__name__
+        cache = self.instance.__dict__
+        key = f'{self.__name__}.key'
+        if key not in cache:
+            instance = self
+            names = []
+            while True:
+                names.append(instance.__name__)
+                instance = instance.instance
+                if (
+                        instance is None
+                        or isinstance(instance, Wrapper)
+                ):
+                    break
+            result = '.'.join(names[::-1])
+            cache[key] = result
+
+        return cache[key]
+
 
 
 class subframe(attr):
@@ -337,10 +361,14 @@ class column(attr):
     def __bool__(self):
         # return self.name in self.instance.columns
         # noinspection PyTypeChecker
-        instance: DataFrame = self.instance
+        instance: DataFrame = self
         if self.name in instance.index.names:
             return True
         return self.name in instance.columns
+
+    def __bool__(self):
+        wrapper: WrapperFrame
+
 
 
 if __name__ == '__main__':
