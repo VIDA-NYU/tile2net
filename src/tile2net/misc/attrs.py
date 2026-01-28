@@ -1,5 +1,4 @@
 from __future__ import annotations
-from tile2net.grid.frame.wrapper import Wrapper
 
 import functools
 import logging
@@ -12,6 +11,9 @@ import numpy as np
 import pandas as pd
 from pandas import Series
 from pandas.core.generic import NDFrame
+
+from tile2net.grid.frame.wrapper import Wrapper
+
 # todo: force fget if keyerror when setting column or subframe
 
 if TYPE_CHECKING:
@@ -24,7 +26,7 @@ class attr:
     instance: NDFrame
     owner: Type[NDFrame]
     _validate = None
-    wrapper: Optional[Wrapper] = None
+    wrapper: Optional[FrameWrapper] = None
 
     def __init__(
             self,
@@ -326,25 +328,26 @@ class subframe(attr):
 
 class column(attr):
     def set(self, instance, value):
-        value.__class__.mro()
-        # Series.mro()
-        # ndarray.mro()
-        # if isinstance(value, ndarray):
-        #     assert len(value) == len(instance)
-        # elif not (
-        #         value.index
-        #                 .difference(instance.index)
-        #                 .empty
-        # ):
-        #     # todo: perhaps force it to recompute
-        #     raise ValueError('Cannot assign a Series with a different index')
+        from tile2net.grid.frame.framewrapper import FrameWrapper
+        from tile2net.grid.frame.namespace import namespace
+        self.instance = instance
+        if instance is None:
+            self.wrapper = None
+        elif isinstance(instance, FrameWrapper):
+            self.wrapper = instance
+        elif isinstance(instance, (attr, namespace)):
+            self.wrapper = instance.wrapper
+        else:
+            raise TypeError(instance)
+
+        wrapper = self.wrapper
         if (
                 isinstance(value, Series)
-                and not value.index.difference(instance.index).empty
+                and not value.index.difference(wrapper.index).empty
         ):
             raise ValueError('Cannot assign a Series with a different index')
+        wrapper[self.key] = value
 
-        instance[self.name] = value
 
     def delete(self, instance):
         try:
@@ -353,21 +356,20 @@ class column(attr):
             ...
 
     def get(self, instance: DataFrame, owner):
-        # return instance[self.name]
-        if self.name in instance.index.names:
-            return instance.index.get_level_values(self.name)
-        return instance[self.name]
+        wrapper = self.wrapper
+        key = self.key
+        if key in wrapper.frame.index:
+            return wrapper.frame.index.get_level_values(key)
+        return wrapper.frame[key]
 
     def __bool__(self):
-        # return self.name in self.instance.columns
-        # noinspection PyTypeChecker
-        instance: DataFrame = self
-        if self.name in instance.index.names:
-            return True
-        return self.name in instance.columns
+        key = self.key
+        wrapper = self.wrapper
+        return (
+            key in wrapper.frame.index
+            or key in wrapper.frame.columns
+        )
 
-    def __bool__(self):
-        wrapper: WrapperFrame
 
 
 
@@ -420,3 +422,4 @@ if __name__ == '__main__':
     sub.scalar
     sub.series
     sub.frame
+
