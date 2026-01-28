@@ -1,25 +1,19 @@
 from __future__ import annotations
-import numpy as np
-from numpy import ndarray
-
-from geopandas import GeoDataFrame, GeoSeries
-from pandas import Series, DataFrame
-
-import copy
-from geopandas import GeoDataFrame, GeoSeries
-from pandas import Series, DataFrame
 
 import functools
+import logging
 import os
-from _weakrefset import WeakSet
-from typing import Callable, Type, Union
+import pickle
+from typing import *
+from typing import Callable, Type
 
 import numpy as np
 import pandas as pd
-import logging
-import pickle
+from pandas import Series
 from pandas.core.generic import NDFrame
 
+if TYPE_CHECKING:
+    from tile2net.grid.frame.wrapper import Wrapper
 # todo: force fget if keyerror when setting column or subframe
 
 __all__ = ['attr', 'subframe', 'column']
@@ -29,6 +23,7 @@ class attr:
     instance: NDFrame
     owner: Type[NDFrame]
     _validate = None
+    wrapper: Optional[Wrapper] = None
 
     def __init__(
             self,
@@ -82,8 +77,18 @@ class attr:
         return instance.attrs[self.name]
 
     def __get__(self, instance: NDFrame, owner):
+        from tile2net.grid.frame.namespace import namespace
+        from tile2net.grid.frame.wrapper import Wrapper
         self.instance = instance
         self.owner = owner
+        if instance is None:
+            self.wrapper = None
+        elif isinstance(instance, Wrapper):
+            self.wrapper = instance
+        elif isinstance(instance, (attr, namespace)):
+            self.wrapper = instance.wrapper
+        else:
+            raise TypeError(instance)
         if instance is None:
             return self
         if not self:
@@ -176,53 +181,6 @@ class attr:
                 self.__get__(*args, **kwargs)
 
             owner.__init__ = init
-
-    # def __new__(cls, *args, **kwargs):
-    #     def __get__(func: Callable) -> Callable:
-    #         # @functools.wraps(func)
-    #         def wrapper(self: attr, instance, owner):
-    #             # saves if not on disk, loads if on disk
-    #             self.instance = instance
-    #             self.owner = type(instance)
-    #             if instance is None:
-    #                 return self
-    #
-    #             if not self:
-    #                 res = self.fget(instance)
-    #                 self.__set__(instance, res)
-    #
-    #             res = func(self, instance, owner)
-    #             return res
-    #
-    #         return wrapper
-    #
-    #     def __set__(func: Callable) -> Callable:
-    #         # @functools.wraps(func)
-    #         def wrapper(self: attr, instance: NDFrame, value):
-    #             self.instance = instance
-    #             self.owner = type(instance)
-    #             func(self, instance, value)
-    #
-    #         return wrapper
-    #
-    #     def __delete__(func: Callable) -> Callable:
-    #         # @functools.wraps(func)
-    #         def wrapper(self: attr, instance: NDFrame):
-    #             self.instance = instance
-    #             self.owner = type(instance)
-    #             func(self, instance)
-    #
-    #         return wrapper
-    #
-    #     # cls.__get__ = __get__(cls.__get__)
-    #     # cls.__set__ = __set__(cls.__set__)
-    #     # cls.__delete__ = __delete__(cls.__delete__)
-    #     self = super().__new__(cls)
-    #     self.__get__ = __get__(self.__get__)
-    #     self.__set__ = __set__(self.__set__)
-    #     self.__delete__ = __delete__(self.__delete__)
-    #     return self
-    #
 
     def __repr__(self):
         try:
@@ -357,11 +315,10 @@ class column(attr):
         #     # todo: perhaps force it to recompute
         #     raise ValueError('Cannot assign a Series with a different index')
         if (
-            isinstance(value, Series)
-            and not value.index.difference(instance.index).empty
+                isinstance(value, Series)
+                and not value.index.difference(instance.index).empty
         ):
             raise ValueError('Cannot assign a Series with a different index')
-
 
         instance[self.name] = value
 
@@ -370,7 +327,6 @@ class column(attr):
             del instance[self.name]
         except KeyError:
             ...
-
 
     def get(self, instance: DataFrame, owner):
         # return instance[self.name]
@@ -385,7 +341,6 @@ class column(attr):
         if self.name in instance.index.names:
             return True
         return self.name in instance.columns
-
 
 
 if __name__ == '__main__':
