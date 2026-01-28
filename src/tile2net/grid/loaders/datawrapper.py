@@ -7,7 +7,7 @@ from typing import Any, Union
 import numpy as np
 import pandas as pd
 
-if False:
+if TYPE_CHECKING:
     from .stitch import StitchDataSet
 from .. import frame
 
@@ -107,10 +107,10 @@ class DataWrapper(
             threads: int = None,
             read=None,
             write=None,
-            cls: type[T] = None,
+            cls: type[T, type['StitchDataSet']] = None,
             *args,
             **kwargs,
-    ) -> Union[T]:
+    ) -> Union[T, 'StitchDataSet']:
         from tile2net.grid.loaders.stitch import StitchDataSet
         if cls is None:
             cls = StitchDataSet

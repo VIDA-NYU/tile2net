@@ -24,9 +24,10 @@ from tile2net.grid.cfg import cfg, Cfg
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.explore import explore
 from tile2net.grid.frame.framewrapper import FrameWrapper
+from tile2net.grid.loaders.dataloader import BaseDataLoader
 from tile2net.grid.loaders.datawrapper import DataWrapper
 from tile2net.grid.loaders.rescale import RescaleDataSet
-from tile2net.grid.loaders.stitch import StitchDataSet
+from tile2net.grid.loaders.stitch import StitchWriterDataSet
 from tile2net.grid.loaders.unstitch import UnstitchDataSet, UnstitchDataWrapper
 from tile2net.grid.sampler.benchmark import Benchmark
 
@@ -928,25 +929,20 @@ class BaseGrid(
             )
             logger.info(msg)
 
-            loader = (
-                DataWrapper
-                .from_columns(
-                    image_path=tiles,
-                    index=mosaics,
-                    row=row,
-                    col=col,
-                    background=background,
-                )
-                .dataset(
-                    write=StitchDataSet.write_image
-                )
-                .loader(
-
-                )
+            wrapper = DataWrapper.from_columns(
+                image_path=tiles,
+                index=mosaics,
+                row=row,
+                col=col,
+                background=background,
             )
+            dataset = StitchWriterDataSet(wrapper)
+            batch_size = max(1, os.cpu_count())
+            loader = BaseDataLoader(dataset, batch_size)
+
             total = loader.wrapper.index.nunique()
 
-            bar = tqdm.tqdm(
+            pbar = tqdm.tqdm(
                 total=total,
                 # desc=f'vecgrid.{self.vectorize.__name__}()',
                 desc=f'Stitching to file',
@@ -955,9 +951,9 @@ class BaseGrid(
                 mininterval=10,
             )
 
-            with self.grid.cfg, bar, self.sampler:
+            with self.grid.cfg, pbar, self.sampler:
                 for minibatch in loader:
-                    bar.update(len(minibatch))
+                    pbar.update(len(minibatch))
 
             msg = 'Not all stitched mosaics were written to disk.'
             assert mosaics.map(os.path.exists).all(), msg
