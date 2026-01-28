@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import copy
 from functools import *
 from typing import *
@@ -29,7 +30,8 @@ class Column(
             instance: FrameWrapper,
             owner: type
     ) -> Self | pd.Series:
-        self = super()._get(instance, owner)
+        # to avoid confusing IDE when self is overwritten
+        locals()['self'] = super()._get(instance, owner)
         result = copy.copy(self)
         # if instance is None:
         if (
@@ -69,22 +71,28 @@ class Column(
         ]:
             ...
 
-    @cached_property
+    @builtins.property
     def key(self):
         from .framewrapper import FrameWrapper
-        instance = self
-        names = []
-        while True:
-            names.append(instance.__name__)
-            instance = instance.instance
-            if (
-                    instance is None
-                    or isinstance(instance, FrameWrapper)
-            ):
-                break
+        if self.instance is None:
+            return self.__name__
+        cache = self.instance.__dict__
+        key = f'{self.__name__}.key'
+        if key not in cache:
+            instance = self
+            names = []
+            while True:
+                names.append(instance.__name__)
+                instance = instance.instance
+                if (
+                        instance is None
+                        or isinstance(instance, FrameWrapper)
+                ):
+                    break
+            result = '.'.join(names[::-1])
+            cache[key] = result
 
-        result = '.'.join(names[::-1])
-        return result
+        return cache[key]
 
     def __set__(
             self,
