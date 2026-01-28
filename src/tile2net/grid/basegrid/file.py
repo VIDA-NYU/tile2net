@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import *
 
 import os
 import tifffile
@@ -14,10 +15,11 @@ from PIL import Image
 from tile2net.grid.frame.namespace import namespace
 from ..cfg import cfg
 
-if False:
+if TYPE_CHECKING:
     from tile2net.grid.frame import column
     from tile2net.grid.basegrid.basegrid import BaseGrid
     from tile2net.grid.grid import Grid
+    from tile2net.grid.dir.basegrid import Outputs
 
 from .. import frame
 
@@ -26,6 +28,7 @@ class File(
     namespace
 ):
     instance: BaseGrid
+
     @frame.column
     def static(self):
         ...
@@ -81,11 +84,8 @@ class File(
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
         grid = self.basegrid
-        name = grid.__name__
-        FILES = (
-            getattr(grid.outdir, name)
-            .colorized.files(grid)
-        )
+        FILES = self.dir.colorized.files(grid)
+
         if self:
             return FILES
         setattr(self, 'colorized', FILES)
@@ -132,11 +132,7 @@ class File(
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
         grid = self.basegrid
-        name = grid.__name__
-        FILES = (
-            getattr(grid.grid.outdir, name)
-            .intensity.files(grid)
-        )
+        FILES = self.dir.intensity.files(grid)
         if self:
             return FILES
         setattr(self, 'intensity', FILES)
@@ -185,11 +181,7 @@ class File(
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
         grid = self.basegrid
-        name = grid.__name__
-        FILES = (
-            getattr(grid.outdir, name)
-            .sidebyside.files(grid)
-        )
+        FILES = self.dir.sidebyside.files(grid)
         if self:
             return FILES
         setattr(self, 'sidebyside', FILES)
@@ -238,11 +230,7 @@ class File(
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
         grid = self.basegrid
-        name = grid.__name__
-        FILES = (
-            getattr(grid.grid.outdir, name)
-            .overlay.files(grid)
-        )
+        FILES = self.dir.overlay.files(grid)
         if self:
             return FILES
         setattr(self, 'overlay', FILES)
@@ -329,11 +317,7 @@ class File(
         # todo: examples
         """
         grid = self.basegrid
-        name = grid.__name__
-        FILES = (
-            getattr(grid.grid.outdir, name)
-            .soft.files(grid)
-        )
+        FILES = self.dir.soft.files(grid)
         if self:
             return FILES
         setattr(self, 'soft', FILES)
@@ -606,3 +590,10 @@ class File(
             raise
 
         return output_file
+
+    @property
+    def dir(self) -> Outputs:
+        return (
+            self.basegrid.outdir
+            .__getattribute__(self.basegrid.__name__)
+        )

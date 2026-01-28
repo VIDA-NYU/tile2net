@@ -26,7 +26,7 @@ class File(
         Stitches input files when seggrid.file is accessed
         """
         grid = self.basegrid
-        files = grid.outdir.vecgrid.static.files(grid)
+        files = self.dir.static.files(grid)
         setattr(self, 'static', files)
         if self:
             return files
@@ -36,8 +36,7 @@ class File(
             .rsplit('.', 1)[-1]
         )
         path: str = (
-            grid.outdir
-            .__getattribute__(grid.__name__)
+            self.dir
             .__getattribute__(name)
             .dir
         )
@@ -74,7 +73,7 @@ class File(
 
         """
         grid = self.basegrid
-        files = grid.outdir.vecgrid.pred.files(grid)
+        files = self.dir.pred.files(grid)
         setattr(self, 'pred', files)
         if self:
             return files
@@ -84,8 +83,7 @@ class File(
             .rsplit('.', 1)[-1]
         )
         path: str = (
-            grid.outdir
-            .__getattribute__(grid.__name__)
+            self.dir
             .__getattribute__(name)
             .dir
         )
@@ -118,7 +116,7 @@ class File(
         # TODO: update
         """
         grid = self.basegrid
-        files = grid.outdir.vecgrid.prob.files(grid)
+        files = self.dir.prob.files(grid)
         setattr(self, 'prob', files)
         if self:
             return files
@@ -128,8 +126,7 @@ class File(
             .rsplit('.', 1)[-1]
         )
         path: str = (
-            grid.outdir
-            .__getattribute__(grid.__name__)
+            self.dir
             .__getattribute__(name)
             .dir
         )

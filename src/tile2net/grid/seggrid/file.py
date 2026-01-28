@@ -5,17 +5,14 @@ import os
 import sys
 from typing import *
 
-import cv2
-import numpy as np
 import pandas as pd
-import tifffile
-import torch
 
+from tile2net.logger import logger
 from .dense_crf import DenseCRF
+from .guided_filter import GuidedFilter
 from .. import frame
 from ..basegrid import file
 from ...grid import util
-from tile2net.logger import logger
 
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 
@@ -43,6 +40,12 @@ class File(
         Namespace for work-in-progress postprocessing of segmentation results.
         """
 
+    @GuidedFilter
+    def guided_filter(self) -> pd.Series:
+        """
+        Namespace for work-in-progress postprocessing of segmentation results.
+        """
+
     @frame.column
     def static(self) -> pd.Series:
         """
@@ -50,7 +53,7 @@ class File(
         Stitches input files when seggrid.file is accessed
         """
         grid = self.basegrid
-        files = grid.grid.outdir.seggrid.static.files(grid)
+        files = self.dir.static.files(grid)
         setattr(self, 'static', files)
         if self:
             return files
@@ -60,8 +63,7 @@ class File(
             .rsplit('.', 1)[-1]
         )
         path: str = (
-            grid.outdir
-            .__getattribute__(grid.__name__)
+            self.dir
             .__getattribute__(name)
             .dir
         )
@@ -112,8 +114,8 @@ class File(
         grid.file.pred = files
         setattr(self, 'pred', files)
         if (
-            self
-            or bool(grid.predict)
+                self
+                or bool(grid.predict)
         ):
             return files
 
@@ -159,8 +161,8 @@ class File(
         grid.file.prob = files
         setattr(self, 'prob', files)
         if (
-            self
-            or bool(grid.predict)
+                self
+                or bool(grid.predict)
         ):
             return files
 
@@ -194,5 +196,3 @@ class File(
         result = util.path2fsize(self.pred)
         result += util.path2fsize(self.colorized)
         return result
-
-

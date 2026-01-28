@@ -1,7 +1,4 @@
 from __future__ import annotations
-import pyarrow as pa
-import pyarrow.compute as pc
-from pathlib import Path
 
 import copy
 import os
@@ -16,7 +13,6 @@ import pyarrow as pa
 
 from tile2net.grid.dir.exceptions import XYNotFoundError
 from tile2net.grid.frame.namespace import namespace
-from tile2net.grid.frame.weak import weak
 
 if TYPE_CHECKING:
     from ..basegrid.basegrid import BaseGrid
@@ -275,8 +271,6 @@ class Dir(
 
     def __set_name__(self, owner, name):
         self.__name__ = name
-
-
 
 if __name__ == '__main__':
     # template parsing: x/y/z structure
