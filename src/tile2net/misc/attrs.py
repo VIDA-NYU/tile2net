@@ -12,12 +12,12 @@ import pandas as pd
 from pandas import Series
 from pandas.core.generic import NDFrame
 
-from tile2net.grid.frame.wrapper import Wrapper
+from tile2net.xyz.frame.wrapper import Wrapper
 
 # todo: force fget if keyerror when setting column or subframe
 
 if TYPE_CHECKING:
-    from tile2net.grid.frame.framewrapper import FrameWrapper
+    from tile2net.xyz.frame.framewrapper import FrameWrapper
 
 __all__ = ['attr', 'subframe', 'column']
 
@@ -80,8 +80,8 @@ class attr:
         return instance.attrs[self.name]
 
     def __get__(self, instance: NDFrame, owner):
-        from tile2net.grid.frame.framewrapper import FrameWrapper
-        from tile2net.grid.frame.namespace import namespace
+        from tile2net.xyz.frame.framewrapper import FrameWrapper
+        from tile2net.xyz.frame.namespace import namespace
         self.instance = instance
         self.owner = owner
         if instance is None:
@@ -328,8 +328,8 @@ class subframe(attr):
 
 class column(attr):
     def set(self, instance, value):
-        from tile2net.grid.frame.framewrapper import FrameWrapper
-        from tile2net.grid.frame.namespace import namespace
+        from tile2net.xyz.frame.framewrapper import FrameWrapper
+        from tile2net.xyz.frame.namespace import namespace
         self.instance = instance
         if instance is None:
             self.wrapper = None

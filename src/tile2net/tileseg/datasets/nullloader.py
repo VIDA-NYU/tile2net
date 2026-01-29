@@ -33,7 +33,7 @@ import numpy as np
 import torch
 from typing import Optional, List, Tuple, Union
 from tile2net.tileseg.datasets.base_loader import BaseLoader
-from tile2net.grid.cfg import cfg
+from tile2net.xyz.cfg import cfg
 
 
 class Loader(BaseLoader):

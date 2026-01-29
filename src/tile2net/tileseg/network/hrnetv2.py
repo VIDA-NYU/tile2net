@@ -19,8 +19,8 @@ import torch._utils
 import torch.nn.functional as F
 
 from tile2net.tileseg.network.mynn import Norm2d
-from tile2net.grid.cfg.logger import logger
-from tile2net.grid.cfg import cfg
+from tile2net.xyz.cfg.logger import logger
+from tile2net.xyz.cfg import cfg
 
 BN_MOMENTUM = 0.1
 relu_inplace = True

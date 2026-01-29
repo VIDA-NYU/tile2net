@@ -10,8 +10,8 @@ from torch.nn.modules.loss import _Loss
 from torch.nn.parallel.data_parallel import DataParallel
 from torch.nn.parallel.distributed import DistributedDataParallel
 
-from tile2net.grid.cfg.logger import logger
-from tile2net.grid.cfg import cfg
+from tile2net.xyz.cfg.logger import logger
+from tile2net.xyz.cfg import cfg
 
 
 def get_net(criterion: _Loss) -> torch.nn.Module:

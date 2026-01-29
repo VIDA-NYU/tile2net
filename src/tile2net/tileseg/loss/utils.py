@@ -32,10 +32,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from tile2net.grid.cfg.logger import logger
-from tile2net.grid.cfg import cfg
+from tile2net.xyz.cfg.logger import logger
+from tile2net.xyz.cfg import cfg
 from tile2net.tileseg.loss.rmi import RMILoss
-from tile2net.grid.cfg import Cfg
+from tile2net.xyz.cfg import Cfg
 
 
 def get_loss(args: Cfg):

@@ -38,7 +38,7 @@ from tile2net.tileseg.network.utils import BNReLU, get_aspp
 from tile2net.tileseg.network.utils import make_attn_head
 from tile2net.tileseg.network.ocr_utils import SpatialGather_Module, SpatialOCR_Module
 from tile2net.tileseg.utils.misc import fmt_scale
-from tile2net.grid.cfg import cfg
+from tile2net.xyz.cfg import cfg
 
 
 class OCR_block(nn.Module):

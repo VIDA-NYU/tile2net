@@ -12,8 +12,8 @@
 from runpy import run_module
 
 if __name__ == '__main__':
-    # delegate -m tile2net to -m tile2net.grid
+    # delegate -m tile2net to -m tile2net.xyz
     run_module(
-        'tile2net.grid',
+        'tile2net.xyz',
         run_name='__main__'
     )

@@ -34,8 +34,8 @@ from torch import nn
 from tile2net.tileseg.network.mynn import Norm2d, Upsample
 import tile2net.tileseg.network.hrnetv2 as hrnetv2
 from tile2net.logger import  logger
-from tile2net.grid.cfg.logger import logger
-from tile2net.grid.cfg import cfg
+from tile2net.xyz.cfg.logger import logger
+from tile2net.xyz.cfg import cfg
 
 
 def get_trunk(trunk_name, output_stride=8):

@@ -7,7 +7,7 @@ import torch
 from typing import List, Tuple, Optional, Union, Any, Callable
 
 from PIL import Image, ImageOps, ImageEnhance, ImageDraw
-from tile2net.grid.cfg import cfg
+from tile2net.xyz.cfg import cfg
 
 
 fillmask = cfg.DATASET.IGNORE_LABEL

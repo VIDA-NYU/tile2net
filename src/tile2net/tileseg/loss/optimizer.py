@@ -34,9 +34,9 @@ import math
 import torch
 
 from torch import optim
-from tile2net.grid.cfg.logger import logger
+from tile2net.xyz.cfg.logger import logger
 
-from tile2net.grid.cfg import cfg
+from tile2net.xyz.cfg import cfg
 from tile2net.tileseg.loss.radam import RAdam
 
 
