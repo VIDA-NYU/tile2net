@@ -72,14 +72,30 @@ def _clip_image_np(
         view = array[clip:-clip, clip:-clip]
 
     elif nd == 3:
-        # assume channel-last (H, W, C)
-        h, w = array.shape[0], array.shape[1]
-        msg = f"Invalid clip={clip} for shape {array.shape}"
-        assert (
-                h > 2 * clip
-                and w > 2 * clip
-        ), msg
-        view = array[clip:-clip, clip:-clip, :]
+        # detect channel-first vs channel-last based on which dimension is smallest
+        # probability maps are (K, H, W) where K is typically small (< 10)
+        # images would be (H, W, C) where C is typically 3 or 4
+        dim_sizes = array.shape
+        smallest_dim = np.argmin(dim_sizes)
+
+        if smallest_dim == 0:
+            # channel-first (K, H, W)
+            h, w = array.shape[1], array.shape[2]
+            msg = f"Invalid clip={clip} for shape {array.shape}"
+            assert (
+                    h > 2 * clip
+                    and w > 2 * clip
+            ), msg
+            view = array[:, clip:-clip, clip:-clip]
+        else:
+            # channel-last (H, W, C)
+            h, w = array.shape[0], array.shape[1]
+            msg = f"Invalid clip={clip} for shape {array.shape}"
+            assert (
+                    h > 2 * clip
+                    and w > 2 * clip
+            ), msg
+            view = array[clip:-clip, clip:-clip, :]
 
     elif nd == 4:
         # support both (N, C, H, W) and (N, H, W, C)
@@ -218,13 +234,17 @@ class Foreground(Max):
 @dataclass
 class MiniBatch:
     probs: torch.Tensor
-    """Predicted probability scores for the minibatch."""
+    """Clipped predicted probability scores for the minibatch."""
+    unclipped_probs: torch.Tensor | None
+    """Unclipped predicted probability scores for the minibatch."""
     submit: Submit
     """Submit object for coordinating and parallelizing file I/O."""
     pred_paths: list[str]
     """File paths to save predicted segmentation masks."""
     prob_paths: list[str]
     """File paths to save predicted probability scores."""
+    unclipped_prob_paths: list[str] | None
+    """File paths to save unclipped predicted probability scores."""
 
     @classmethod
     def from_data(
@@ -236,6 +256,7 @@ class MiniBatch:
             prob_paths: list[str],
             submit: Submit,
             clip: int = 0,
+            unclipped_prob_paths: list[str] | None = None,
     ):
         """
         Perform inference on a minibatch of images.
@@ -309,16 +330,25 @@ class MiniBatch:
                     # aggressively drop refs
                     del pred_f32, pred, out
 
-            probs = clip_image(
+            averaged = (
                 output_accum
                 .div_(len(scales) * len(flips))
-                .softmax(dim=1),
-                clip
+                .softmax(dim=1)
             )
+
+            if unclipped_prob_paths is not None:
+                unclipped_probs = averaged.clone()
+                probs = clip_image(averaged, clip)
+            else:
+                unclipped_probs = None
+                probs = clip_image(averaged, clip)
+
             result = cls(
                 probs=probs,
+                unclipped_probs=unclipped_probs,
                 pred_paths=pred_paths,
                 prob_paths=prob_paths,
+                unclipped_prob_paths=unclipped_prob_paths,
                 submit=submit,
             )
             return result
@@ -491,6 +521,41 @@ class MiniBatch:
             futures = [
                 submit.submit_io(to_tiff, file, pred)
                 for file, pred in it
+            ]
+            for future in futures:
+                future.result()
+
+        submit.submit_batch(coordinate)
+
+    def submit_unclipped_prob(self):
+        """Submit unclipped probability maps for parallel writing to disk.
+
+        Uses CUDA event synchronization to ensure GPU->CPU transfer completes
+        before dispatching parallel file writes to the I/O pool.
+        """
+        if self.unclipped_probs is None or self.unclipped_prob_paths is None:
+            return
+
+        unclipped_probs = (
+            self.unclipped_probs
+            .to(torch.float16)
+            .to('cpu', non_blocking=True)
+        )
+        event = (
+            torch.cuda
+            .current_stream()
+            .record_event()
+        )
+        submit = self.submit
+
+        def coordinate():
+            # wait for gpu->cpu transfer to complete
+            event.synchronize()
+            it = zip(self.unclipped_prob_paths, unclipped_probs.numpy())
+
+            futures = [
+                submit.submit_io(to_tiff, file, prob)
+                for file, prob in it
             ]
             for future in futures:
                 future.result()

@@ -144,7 +144,7 @@ class File(
             n = loc.sum()
             msg = f'{trace} found {n} missing files. Predicting to\n\t{path}'
             logger.info(msg)
-            grid.predict(probs=False)
+            grid.predict(output='pred')
             assert files.map(os.path.exists).all()
         else:
             msg = f'{trace} found all {len(loc)} files already in \n\t{path}'
@@ -191,7 +191,54 @@ class File(
             n = loc.sum()
             msg = f'{trace} found {n} missing files. Predicting to\n\t{path}'
             logger.info(msg)
-            grid.predict(probs=True)
+            grid.predict(output='prob')
+            assert files.map(os.path.exists).all()
+        else:
+            msg = f'{trace} found all {len(loc)} files already in \n\t{path}'
+            logger.info(msg)
+        return files
+
+    @frame.column
+    def unclipped_prob(self) -> pd.Series:
+        """
+        File-paths to unclipped probability maps for postprocessing.
+
+        Example:
+            >>> grid: Grid
+            >>> grid.seggrid.file.unclipped_prob
+            xtile  ytile
+            79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
+        """
+        grid = self.basegrid.broadcast
+        files = grid.outdir.seggrid.unclipped_prob.files(grid)
+        loc = ~files.index.duplicated()
+        files = files.loc[loc]
+        grid.file.unclipped_prob = files
+        setattr(self, 'unclipped_prob', files)
+        if (
+                self
+                or bool(grid.predict)
+        ):
+            return files
+
+        name = (
+            str(files.name)
+            .rsplit('.', 1)[-1]
+        )
+        path: str = (
+            grid.outdir
+            .__getattribute__(grid.__name__)
+            .__getattribute__(name)
+            .dir
+        )
+        trace = f'{self._trace}.{name}'
+
+        loc = ~files.map(os.path.exists)
+        if loc.any():
+            n = loc.sum()
+            msg = f'{trace} found {n} missing files. Predicting to\n\t{path}'
+            logger.info(msg)
+            grid.predict(output='unclipped_prob')
             assert files.map(os.path.exists).all()
         else:
             msg = f'{trace} found all {len(loc)} files already in \n\t{path}'

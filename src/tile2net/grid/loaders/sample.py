@@ -148,6 +148,11 @@ class SampleDataSet(
             pred_paths=pred_paths,
             prob_paths=prob_paths,
         )
+
+        unclipped_prob_path = self.image.unclipped_prob_path
+        if unclipped_prob_path is not None:
+            out['unclipped_prob_paths'] = unclipped_prob_path[item]
+
         return out
 
     @cached_property
@@ -192,3 +197,4 @@ class Sample(TypedDict, total=False):
     i: torch.Tensor | int
     pred_paths: str | list[str]
     prob_paths: str | list[str]
+    unclipped_prob_paths: str | list[str]

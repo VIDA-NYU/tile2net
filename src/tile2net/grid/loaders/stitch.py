@@ -189,6 +189,21 @@ class StitchDataSet(
         return result
 
     @cached_property
+    def unclipped_prob_path(self) -> list[str] | None:
+        """Unclipped probability output file path for each mosaic."""
+        if 'unclipped_prob_path' not in self.wrapper.frame.columns:
+            return None
+        result = (
+            self.wrapper
+            .frame
+            .groupby(level=self.wrapper.frame.index.names, sort=False)
+            .unclipped_prob_path
+            .first()
+            .tolist()
+        )
+        return result
+
+    @cached_property
     def crop_size(self) -> Union[int, Tuple[int, int]]:
         result = cfg.dataset.crop_size
         if isinstance(result, (list, tuple)):

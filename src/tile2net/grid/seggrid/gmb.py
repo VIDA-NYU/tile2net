@@ -5,6 +5,7 @@ from typing import *
 from tile2net.grid import frame
 from tile2net.grid.basegrid import file
 from tile2net.grid.seggrid.postprocess import PostProcess
+from tile2net.grid.seggrid.minibatch import clip_image
 
 if TYPE_CHECKING:
     from tile2net.grid.seggrid import SegGrid
@@ -72,12 +73,13 @@ def geodesic_masked_boosting(prob_tensor: np.ndarray) -> np.ndarray:
     return refined
 
 
-def _process(args: tuple[str, str]) -> None:
-    in_path, out_path = args
+def _process(args: tuple[str, str, int]) -> None:
+    in_path, out_path, clip = args
     try:
         prob_map = tiff.imread(in_path)
         refined_map = geodesic_masked_boosting(prob_map)
-        tiff.imwrite(out_path, refined_map.astype(np.float32))
+        clipped_map = clip_image(refined_map, clip)
+        tiff.imwrite(out_path, clipped_map.astype(np.float32))
     except Exception as e:
         logging.error(f"Failed to process {in_path}: {e}")
 
@@ -94,7 +96,7 @@ class GMB(PostProcess):
     def prob(self) -> pd.Series:
         print(f'Note: temporary AI Generated code in GMB.prob')
         grid = self.basegrid
-        inputs: pd.Series = grid.file.prob
+        inputs: pd.Series = grid.file.unclipped_prob
         dir = self.dir.prob
         files = dir.files(grid)
         setattr(self, 'prob', files)
@@ -117,7 +119,11 @@ class GMB(PostProcess):
             missing_inputs = inputs[loc]
             missing_outputs = files[loc]
 
-            tasks = list(zip(missing_inputs, missing_outputs))
+            clip = grid.grid.dimension * grid.cfg.segmentation.pad
+            tasks = [
+                (inp, out, clip)
+                for inp, out in zip(missing_inputs, missing_outputs)
+            ]
 
             with ProcessPoolExecutor() as executor:
                 list(tqdm(

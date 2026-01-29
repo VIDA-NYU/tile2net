@@ -5,6 +5,7 @@ from typing import *
 from tile2net.grid import frame
 from tile2net.grid.basegrid import file
 from tile2net.grid.seggrid.postprocess import PostProcess
+from tile2net.grid.seggrid.minibatch import clip_image
 
 if TYPE_CHECKING:
     from tile2net.grid.seggrid import SegGrid
@@ -41,7 +42,7 @@ def grayscale_area_closing(prob_tensor: np.ndarray) -> np.ndarray:
             # and the space between them is low prob, this sets the space to max(A, B)
             ndi.grey_closing(refined[k], structure=footprint)
             # forcefully increase confidence to beat the background class
-            .mul(FOREGROUND_GAIN)
+            * FOREGROUND_GAIN
         )
 
     # R-normalize
@@ -54,12 +55,13 @@ def grayscale_area_closing(prob_tensor: np.ndarray) -> np.ndarray:
     return refined
 
 
-def _process(args: tuple[str, str]) -> None:
-    in_path, out_path = args
+def _process(args: tuple[str, str, int]) -> None:
+    in_path, out_path, clip = args
     try:
         prob_map = tiff.imread(in_path)
         refined_map = grayscale_area_closing(prob_map)
-        tiff.imwrite(out_path, refined_map.astype(np.float32))
+        clipped_map = clip_image(refined_map, clip)
+        tiff.imwrite(out_path, clipped_map.astype(np.float32))
     except Exception as e:
         logging.error(f"Failed to process {in_path}: {e}")
 
@@ -73,7 +75,7 @@ class GAC(PostProcess):
     def prob(self) -> pd.Series:
         print('Note: temporary AI Generated code in GAC.prob')
         grid = self.basegrid
-        inputs: pd.Series = grid.file.prob
+        inputs: pd.Series = grid.file.unclipped_prob
         dir = self.dir.prob
         files = dir.files(grid)
         setattr(self, 'prob', files)
@@ -96,7 +98,11 @@ class GAC(PostProcess):
             missing_inputs = inputs[loc]
             missing_outputs = files[loc]
 
-            tasks = list(zip(missing_inputs, missing_outputs))
+            clip = grid.grid.dimension * grid.cfg.segmentation.pad
+            tasks = [
+                (inp, out, clip)
+                for inp, out in zip(missing_inputs, missing_outputs)
+            ]
 
             with ProcessPoolExecutor() as executor:
                 list(tqdm(

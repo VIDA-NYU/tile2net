@@ -152,6 +152,19 @@ class SegTile(
         )
         return result
 
+    @frame.column
+    def unclipped_prob(self) -> pd.Series:
+        """Path to unclipped probability segmentation file for this tile."""
+        grid = self.grid
+        seggrid = grid.seggrid.broadcast
+        result = (
+            seggrid.file.unclipped_prob
+            .loc[~seggrid.index.duplicated()]
+            .loc[self.index]
+            .values
+        )
+        return result
+
     @property
     def pad(self) -> int:
         """Number of in-tiles to pad each seg-tile by."""

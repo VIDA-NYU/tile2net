@@ -208,16 +208,18 @@ class Broadcast(
     @recursion_block
     def predict(
             self,
-            probs: bool = True,
+            output: str = 'prob',
     ):
         """
         Run semantic segmentation prediction on all tiles in the grid using a subprocess.
 
         Args:
-            probs:
-                True:
-                    Serialize both probabilities and predictions.
-                False:
+            output:
+                'unclipped_prob':
+                    Serialize unclipped probabilities, clipped probabilities, and predictions.
+                'prob':
+                    Serialize clipped probabilities and predictions.
+                'pred':
                     Serialize predictions only.
 
         See `predict.py` for the inference subprocess:
@@ -232,29 +234,32 @@ class Broadcast(
             >>> grid: Grid
             >>> grid.seggrid.file.pred
             >>> grid.seggrid.file.prob
+            >>> grid.seggrid.file.unclipped_prob
 
         Example:
             >>> grid: Grid
-            >>> grid.seggrid.predict(probs=False)
+            >>> grid.seggrid.predict(output='pred')
             Downloading weights for segmentation...
             Predicting seg-tiles: 100%|██████| 64/64 [02:15<00:00]
             Finished predicting 64 seg-tiles.
         """
         if not self.predict:
             return
-        if probs is None:
-            raise NotImplementedError("probs parameter must be explicitly set to True or False")
+        if output not in ('unclipped_prob', 'prob', 'pred'):
+            raise ValueError(f"output must be 'unclipped_prob', 'prob', or 'pred', got {output!r}")
         grid = self.grid.broadcast
         force = ~grid.segtile.pred.map(os.path.exists)
-        if probs:
+        if output in ('prob', 'unclipped_prob'):
             force |= ~grid.segtile.prob.map(os.path.exists)
+        if output == 'unclipped_prob':
+            force |= ~grid.segtile.unclipped_prob.map(os.path.exists)
         force |= self.cfg.force
 
         msg = f'Predicting seg-tiles to \n\t{self.grid.outdir.seggrid.pred.dir}'
         logger.info(msg)
 
         # Instantiate a custom DataFrame which wraps the metadata necessary for prediction
-        wrapper = SampleDataWrapper.from_columns(
+        wrapper_kwargs = dict(
             image_path=grid.file.static,
             index=grid.segtile.index,
             background=0,
@@ -264,6 +269,9 @@ class Broadcast(
             pred_path=grid.segtile.pred,
             prob_path=grid.segtile.prob,
         )
+        if output == 'unclipped_prob':
+            wrapper_kwargs['unclipped_prob_path'] = grid.segtile.unclipped_prob
+        wrapper = SampleDataWrapper.from_columns(**wrapper_kwargs)
 
         if wrapper.empty:
             msg = f'All seg-tiles are already on disk.'
@@ -301,7 +309,7 @@ class Broadcast(
             "--cfg", cfg_path,
             "--wrapper", wrapper_path,
             "--clip", str(clip),
-            "--probs", 'true' if probs else 'false'
+            "--output", output
         ]
 
         logger.debug(f"Launching prediction subprocess: {' '.join(cmd)}")

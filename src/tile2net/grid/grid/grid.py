@@ -312,7 +312,6 @@ class Grid(
             >>> Broadcast._get
         """
 
-
     def set_source(
             self,
             source: Union[Source, str, None] = None,

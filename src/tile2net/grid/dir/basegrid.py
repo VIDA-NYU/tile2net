@@ -25,6 +25,10 @@ class Outputs(
         return Dir.from_parent(self, 'prob', extension='tif')
 
     @Dir
+    def unclipped_prob(self):
+        return Dir.from_parent(self, 'unclipped_prob', extension='tif')
+
+    @Dir
     def error(self):
         ...
 
@@ -76,6 +80,18 @@ class BaseGrid(
 
     @PostProcessedOutputs
     def walker(self):
+        ...
+
+    @PostProcessedOutputs
+    def hysteresis(self):
+        ...
+
+    @PostProcessedOutputs
+    def gac(self):
+        ...
+
+    @PostProcessedOutputs
+    def gmb(self):
         ...
 
 

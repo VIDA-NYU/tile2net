@@ -32,7 +32,7 @@ class Test(PostProcess):
     def prob(self) -> pd.Series:
         print(f'Note: temporary AI Generated code in test.prob')
         grid = self.basegrid
-        inputs: pd.Series = grid.file.prob
+        inputs: pd.Series = grid.file.unclipped_prob
         dir = self.dir.prob
         files = dir.files(grid)
         setattr(self, 'prob', files)

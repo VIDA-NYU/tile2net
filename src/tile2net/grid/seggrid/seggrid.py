@@ -353,15 +353,20 @@ class SegGrid(
         """Time spent on segmentation operations in seconds."""
         return 0.
 
-    def predict(self, probs=None):
+    def predict(
+            self,
+            output: str = 'prob',
+    ):
         """
         Run semantic segmentation prediction on all tiles in the grid using subprocess.
 
         Args:
-            probs:
-                True:
-                    Serialize both probabilities and predictions.
-                False:
+            output:
+                'unclipped_prob':
+                    Serialize unclipped probabilities, clipped probabilities, and predictions.
+                'prob':
+                    Serialize clipped probabilities and predictions.
+                'pred':
                     Serialize predictions only.
 
         See `predict.py` for the inference subprocess:
@@ -374,12 +379,13 @@ class SegGrid(
             >>> grid: Grid
             >>> grid.seggrid.file.pred
             >>> grid.seggrid.file.prob
+            >>> grid.seggrid.file.unclipped_prob
 
         Example:
             >>> grid: Grid
-            >>> grid.seggrid.predict(probs=False)
+            >>> grid.seggrid.predict(output='pred')
             Downloading weights for segmentation...
             Predicting seg-tiles: 100%|██████| 64/64 [02:15<00:00]
             Finished predicting 64 seg-tiles.
         """
-        return self.broadcast.predict(probs=probs)
+        return self.broadcast.predict(output=output)
