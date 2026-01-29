@@ -14,6 +14,7 @@ from .gmb import GMB
 from .. import frame
 from ..basegrid import file
 from ...grid import util
+from .hysteresis import Hysteresis
 
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 
@@ -48,6 +49,10 @@ class File(
     @GMB
     def gmb(self) -> pd.Series:
         """Graph-based Minimum Spanning Tree postprocessing namespace."""
+
+    @Hysteresis
+    def hysteresis(self) -> pd.Series:
+        """Hysteresis Thresholding postprocessing namespace."""
 
     @frame.column
     def static(self) -> pd.Series:
