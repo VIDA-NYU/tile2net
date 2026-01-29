@@ -17,13 +17,13 @@ from PIL import ImageColor, Image
 from geopandas import GeoDataFrame
 from pandas import MultiIndex, Series, Index
 
+from tile2net.grid.basegrid import basegrid
 from tile2net.xyz import frame, util
 from tile2net.xyz.basegrid.corners import Corners
 from tile2net.xyz.basegrid.file import File
 from tile2net.xyz.cfg import cfg, Cfg
 from tile2net.xyz.cfg.logger import logger
 from tile2net.xyz.explore import explore
-from tile2net.xyz.frame.framewrapper import FrameWrapper
 from tile2net.xyz.loaders.dataloader import BaseDataLoader
 from tile2net.xyz.loaders.datawrapper import DataWrapper
 from tile2net.xyz.loaders.rescale import RescaleDataSet
@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 
 
 class BaseGrid(
-    FrameWrapper,
+    basegrid.BaseGrid
 ):
 
     @frame.column
