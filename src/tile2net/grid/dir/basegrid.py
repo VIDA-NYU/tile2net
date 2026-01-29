@@ -52,6 +52,10 @@ class PostProcessedOutputs(
     def colorized_sidebyside(self):
         ...
 
+    @Dir
+    def comparison(self):
+        ...
+
 
 class BaseGrid(
     Outputs
@@ -63,7 +67,7 @@ class BaseGrid(
         ...
 
     @PostProcessedOutputs
-    def guided_filter(self):
+    def test(self):
         ...
 
     @PostProcessedOutputs

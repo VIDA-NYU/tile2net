@@ -8,8 +8,9 @@ from typing import *
 import pandas as pd
 
 from tile2net.logger import logger
-from .dense_crf import DenseCRF
-from .guided_filter import GuidedFilter
+from .test import Test
+from .gac import GAC
+from .gmb import GMB
 from .. import frame
 from ..basegrid import file
 from ...grid import util
@@ -34,17 +35,19 @@ class File(
 ):
     basegrid: SegGrid
 
-    @DenseCRF
-    def dense_crf(self) -> pd.Series:
+    @Test
+    def test(self) -> pd.Series:
         """
         Namespace for work-in-progress postprocessing of segmentation results.
         """
 
-    @GuidedFilter
-    def guided_filter(self) -> pd.Series:
-        """
-        Namespace for work-in-progress postprocessing of segmentation results.
-        """
+    @GAC
+    def gac(self) -> pd.Series:
+        """Grayscale Area Closing postprocessing namespace."""
+
+    @GMB
+    def gmb(self) -> pd.Series:
+        """Graph-based Minimum Spanning Tree postprocessing namespace."""
 
     @frame.column
     def static(self) -> pd.Series:

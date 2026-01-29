@@ -1,4 +1,5 @@
 from __future__ import annotations
+from PIL import Image
 
 import os
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -27,6 +28,10 @@ class PostProcess(
     """
     Namespace for work-in-progress postprocessing of segmentation results. 
     """
+
+    @property
+    def static(self):
+        return self.instance.static
 
     @property
     def basegrid(self) -> SegGrid:
@@ -142,3 +147,115 @@ class PostProcess(
             super().dir
             .__getattribute__(self.__name__)
         )
+
+    @classmethod
+    def _compute_comparison(
+            cls,
+            static_file: str,
+            before_file: str,
+            after_file: str,
+            output_file: str,
+    ) -> str:
+        """
+        Create a 2x2 comparison grid:
+        Top: Static Imagery (Left & Right)
+        Bottom: Before Mask & After Mask (RGB, opaque)
+        """
+        static = Image.open(static_file).convert('RGB')
+        before = Image.open(before_file).convert('RGB')
+        after = Image.open(after_file).convert('RGB')
+
+        # Stitch 2x2 Grid
+        width, height = static.size
+        composited = Image.new('RGB', (width * 2, height * 2))
+
+        # Top Row: Static Imagery
+        composited.paste(static, (0, 0))
+        composited.paste(static, (width, 0))
+
+        # Bottom Row: Masks (Opaque RGB)
+        composited.paste(before, (0, height))
+        composited.paste(after, (width, height))
+
+        # Downscale to max 1024px width if necessary
+        MAX_WIDTH = 1024
+        if composited.width > MAX_WIDTH:
+            ratio = MAX_WIDTH / composited.width
+            new_height = int(composited.height * ratio)
+            composited = composited.resize((MAX_WIDTH, new_height), Image.Resampling.LANCZOS)
+
+        # Atomic Save
+        (
+            Path(output_file)
+            .parent
+            .mkdir(parents=True, exist_ok=True)
+        )
+        tmp = (
+                Path(output_file)
+                .parent
+                / f'tmp.{Path(output_file).name}'
+        )
+
+        try:
+            composited.save(str(tmp))
+            os.replace(tmp, output_file)
+        except Exception:
+            if tmp.exists():
+                tmp.unlink()
+            raise
+
+        return output_file
+
+    @frame.column
+    def comparison(self) -> pd.Series:
+        """
+        Overlay of colorized files onto static imagery: before (left) vs after (right).
+        """
+        grid = self.basegrid
+        dir: Dir = self.dir.comparison
+
+        FILES = dir.files(grid)
+        setattr(self, 'comparison', FILES)
+        if self:
+            return FILES
+
+        name = (
+            str(FILES.name)
+            .rsplit('.', 1)[-1]
+        )
+        path: str = dir.dir
+        trace = f'{self._trace}.{name}'
+
+        loc = ~FILES.map(os.path.exists)
+        if loc.any():
+            n = loc.sum()
+            msg = f'{trace} found {n} missing files. Generating to\n\t{path}'
+            logger.info(msg)
+
+            static = grid.file.static.loc[loc]
+            before = grid.file.colorized.loc[loc]
+
+            after = (
+                grid.file
+                .__getattribute__(self.__name__)
+                .colorized
+                .loc[loc]
+            )
+
+            files = FILES.loc[loc]
+            max_workers = min(len(files), grid.cfg.compress_workers)
+
+            with ThreadPoolExecutor(max_workers=max_workers) as threads:
+                it = zip(static, before, after, files)
+                futures: dict[Future, str] = {
+                    threads.submit(self._compute_comparison, s, b, a, f): f
+                    for s, b, a, f in it
+                }
+                for future in futures:
+                    future.result()
+
+            assert files.map(os.path.exists).all()
+        else:
+            msg = f'{trace} found all {len(loc)} files already in \n\t{path}'
+            logger.info(msg)
+        return FILES
