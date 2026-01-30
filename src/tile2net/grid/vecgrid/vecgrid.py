@@ -533,7 +533,7 @@ class VecGrid(BaseGrid):
         bar = tqdm(
             total=total,
             desc=f'vecgrid.{self.vectorize.__name__}()',
-            unit=f' {self.file.lines.name}',
+            unit=f' {self.file.network.name}',
             smoothing=0.01,
             mininterval=10,
         )
@@ -626,7 +626,7 @@ class VecGrid(BaseGrid):
             grid.lonmax,
             grid.latmax,
             grid.file.polygons,
-            grid.file.lines,
+            grid.file.network,
         )
         for (
                 static,

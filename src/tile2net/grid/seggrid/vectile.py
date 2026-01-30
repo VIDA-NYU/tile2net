@@ -179,7 +179,7 @@ class VecTile(
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
         result = (
-            self.basegrid.vecgrid.file.lines
+            self.basegrid.vecgrid.file.network
             .loc[self.index]
             .values
         )
@@ -216,7 +216,7 @@ class VecTile(
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
         result = (
-            self.basegrid.vecgrid.file.lines
+            self.basegrid.vecgrid.file.network
             .loc[self.index]
             .values
         )
