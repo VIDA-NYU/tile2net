@@ -137,13 +137,22 @@ class Grid(
             >>> grid.name
             'Boston Common, MA'
         """
-        name = (
-                self.cfg.name
-                or self.cfg.indir.name
-                or self.location
-                or self.indir.dir.rsplit(os.sep, 1)[-1]
-        )
-        return name
+        if self.cfg.name:
+            # use name from config
+            return self.cfg.name
+        if (
+            isinstance(self.source, Remote)
+            and self.source.name
+        ):
+            # use remote name
+            return self.source.name
+        if self.location:
+            # use location string
+            return str(self.location)
+        if isinstance(self.source, Local):
+            # use input directory name
+            return self.source.dir.rsplit(os.sep, 1)[-1]
+        raise ValueError('Could not infer Grid name.')
 
     @property
     def shape(self):
