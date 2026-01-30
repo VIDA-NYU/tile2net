@@ -67,6 +67,7 @@ class Dir(
             instance: Dir,
             owner
     ) -> Self:
+        from tile2net.grid.basegrid.basegrid import BaseGrid
         if instance is None:
             out = self
             out.basegrid = None
@@ -81,6 +82,15 @@ class Dir(
                 self.__set__(instance, value=value)
             out = cache[name]
             out.obj = instance.basegrid
+        else:
+            raise TypeError(instance)
+
+        if instance is None:
+            out.basegrid = None
+        elif isinstance(instance, BaseGrid):
+            out.basegrid = instance
+        elif isinstance(instance, Dir):
+            out.basegrid = instance.basegrid
         else:
             raise TypeError(instance)
         return out
