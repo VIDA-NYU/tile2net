@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ...xyz.frame.namespace import namespace
+from tile2net.grid.frame.namespace import namespace
 
 if False:
     from .vecgrid import VecGrid

@@ -30,7 +30,7 @@ POSSIBILITY OF SUCH DAMAGE.
 import torch
 from torch import nn
 
-from tile2net.xyz.cfg import cfg
+from tile2net.grid.cfg import cfg
 from tile2net.tileseg.network.mynn import initialize_weights, Norm2d, Upsample, Upsample2
 from tile2net.tileseg.network.mynn import ResizeX, scale_as
 from tile2net.tileseg.network.utils import get_aspp, get_trunk, ConvBnRelu

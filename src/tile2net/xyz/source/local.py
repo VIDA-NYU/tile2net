@@ -7,9 +7,9 @@ from typing import Self
 import PIL.Image as Image
 import pandas as pd
 
+from tile2net.grid.source.exceptions import InvalidLocalPath
 from tile2net.xyz.dir.dir import Dir
 from tile2net.xyz.dir.exceptions import XYNotFoundError
-from tile2net.xyz.source.exceptions import InvalidLocalPath
 from tile2net.xyz.source.source import Source
 
 

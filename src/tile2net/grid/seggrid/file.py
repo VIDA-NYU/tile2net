@@ -13,7 +13,7 @@ from .gac import GAC
 from .gmb import GMB
 from .. import frame
 from ..basegrid import file
-from ...xyz import util
+from tile2net.grid import util
 from .hysteresis import Hysteresis
 
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))

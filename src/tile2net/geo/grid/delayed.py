@@ -1,0 +1,55 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from . import filled
+
+
+class Filled:
+    def __get__(
+            self,
+            instance,
+            owner
+    ):
+        from . import filled
+        filled = filled.Filled()
+        setattr(owner, self.__name__, filled)
+        filled.__set_name__(owner, self.__name__)
+        if instance is None:
+            result = getattr(owner, self.__name__)
+        else:
+            result = getattr(instance, self.__name__)
+        return result
+
+    def __set_name__(self, owner, name):
+        self.__name__ = name
+
+    def __init__(self, *args, ):
+        ...
+
+
+class Broadcast:
+
+    def __get__(
+            self,
+            instance,
+            owner
+    ):
+        from . import broadcast
+        broadcast = broadcast.Broadcast()
+        setattr(owner, self.__name__, broadcast)
+        broadcast.__set_name__(owner, self.__name__)
+        if instance is None:
+            result = getattr(owner, self.__name__)
+        else:
+            result = getattr(instance, self.__name__)
+        return result
+
+    def __set_name__(self, owner, name):
+        self.__name__ = name
+
+    def __init__(self, *args, ):
+        ...
+
+

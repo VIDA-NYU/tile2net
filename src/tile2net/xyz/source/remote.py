@@ -28,16 +28,16 @@ from shapely import wkt
 from tqdm import tqdm
 from urllib3.util import Retry
 
-from tile2net.xyz.cfg import cfg
+from tile2net.grid.source.exceptions import InvalidLocation, InvalidRemoteName, SourceParseError, RemoteNotFound
+from tile2net.grid.source.name2base import _Name2Base
+from tile2net.grid.source.remote2coverage import Remote2Coverage
+from tile2net.grid.cfg import cfg
+from tile2net.grid.cfg.logger import logger
 from tile2net.xyz.geocode import GeoCode
-from tile2net.xyz.source.exceptions import InvalidLocation, InvalidRemoteName, SourceParseError, RemoteNotFound
-from tile2net.xyz.source.name2base import _Name2Base
 from tile2net.xyz.source.name2prototype import Name2Prototype, _Name2Prototype
 from tile2net.xyz.source.prototype import Prototype
-from tile2net.xyz.source.remote2coverage import Remote2Coverage
 from tile2net.xyz.source.source import Source
 from tile2net.xyz.util import recursion_block
-from tile2net.logger import logger
 
 tls = threading.local()
 

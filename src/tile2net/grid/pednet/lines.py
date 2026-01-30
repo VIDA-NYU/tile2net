@@ -13,7 +13,7 @@ from geopandas import GeoDataFrame
 from .edges import Edges
 from .nodes import Nodes
 from .. import frame
-from ...xyz.frame.framewrapper import FrameWrapper
+from ..frame.framewrapper import FrameWrapper
 
 if False:
     from .pednet import PedNet

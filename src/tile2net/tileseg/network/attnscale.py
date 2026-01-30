@@ -33,7 +33,7 @@ from torch import nn
 from tile2net.tileseg.network.mynn import initialize_weights, Norm2d, Upsample
 from tile2net.tileseg.network.mynn import ResizeX, scale_as
 from tile2net.tileseg.network.utils import get_aspp, get_trunk
-from tile2net.xyz.cfg import cfg
+from tile2net.grid.cfg import cfg
 
 
 class ASDV3P(nn.Module):

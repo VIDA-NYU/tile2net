@@ -6,8 +6,8 @@ from typing import *
 import numpy as np
 import pandas as pd
 
-from .. import frame
-from tile2net.xyz.frame.framewrapper import FrameWrapper
+from tile2net.grid import frame
+from tile2net.grid.frame.framewrapper import FrameWrapper
 from tile2net.xyz.util import xy2lonlat
 
 if False:
@@ -30,7 +30,7 @@ class Corners(
     @frame.column
     def height(self):
         """height in pixels"""
-        return  self.ymax - self.ymin
+        return self.ymax - self.ymin
 
     @cached_property
     def scale(self) -> int:

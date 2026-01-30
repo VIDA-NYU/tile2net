@@ -10,7 +10,7 @@ from tqdm.auto import tqdm
 from tile2net.grid.cfg.logger import logger
 from ..benchmark import benchmark
 from ..explore import explore
-from ...xyz.frame.namespace import namespace
+from tile2net.grid.frame.namespace import namespace
 
 INF = float('inf')
 from .lines import Lines

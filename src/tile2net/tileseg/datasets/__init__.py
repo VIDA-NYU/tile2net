@@ -38,10 +38,10 @@ from torch.utils.data import DataLoader
 
 import tile2net.tileseg.transforms.joint_transforms as joint_transforms
 import tile2net.tileseg.transforms.transforms as extended_transforms
-from tile2net.xyz.cfg.logger import logger
+from tile2net.grid.cfg.logger import logger
 from tile2net.tileseg.datasets.randaugment import RandAugment
 from .base_loader import BaseLoader
-from tile2net.xyz.cfg import cfg
+from tile2net.grid.cfg import cfg
 
 if False:
     from ...seggrid import SegGrid

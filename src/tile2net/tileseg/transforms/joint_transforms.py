@@ -32,7 +32,7 @@ import numbers
 from PIL import Image, ImageOps
 import numpy as np
 import random
-from tile2net.xyz.cfg import cfg
+from tile2net.grid.cfg import cfg
 
 
 

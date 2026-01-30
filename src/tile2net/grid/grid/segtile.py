@@ -42,10 +42,7 @@ class SegTile(
 
     @property
     def index(self):
-        """MultiIndex of (xtile, ytile) for seg-tiles."""
-        arrays = self.xtile, self.ytile
-        names = self.xtile.name, self.ytile.name
-        result = pd.MultiIndex.from_arrays(arrays, names=names)
+        result = pd.Index(self.itile, name='itile')
         return result
 
     @frame.column

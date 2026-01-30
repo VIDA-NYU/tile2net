@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import *
 
 from tile2net.xyz import Grid
-from tile2net.xyz.cfg.logger import logger
+from tile2net.grid.cfg.logger import logger
 
 
 # Must be within main to avoid parallelism issues

@@ -5,8 +5,8 @@ from collections import UserDict
 from typing import *
 from typing import TYPE_CHECKING
 
-from tile2net.xyz.cfg import cfg
-from tile2net.logger import logger
+from tile2net.grid.cfg import cfg
+from tile2net.grid.cfg.logger import logger
 
 if TYPE_CHECKING:
     from .remote import Remote

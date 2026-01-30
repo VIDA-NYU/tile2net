@@ -1,1 +1,0 @@
-from .indir import  Indir

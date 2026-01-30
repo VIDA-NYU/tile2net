@@ -29,7 +29,6 @@ from tile2net.grid.util import assert_perfect_overlap
 from tile2net.grid.vecgrid.vecgrid import VecGrid
 
 if False:
-    from .filled import Filled
     from .broadcast import Broadcast
 
 

@@ -51,8 +51,8 @@ from collections import defaultdict
 from scipy.ndimage.measurements import center_of_mass
 from PIL import Image
 from tqdm import tqdm
-from tile2net.xyz.cfg import cfg
-from tile2net.xyz.cfg.logger import logger
+from tile2net.grid.cfg import cfg
+from tile2net.grid.cfg.logger import logger
 
 pbar = None
 

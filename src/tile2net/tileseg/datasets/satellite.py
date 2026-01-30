@@ -25,17 +25,13 @@ Mapillary Dataset Loader
 """
 from __future__ import annotations
 
-import itertools
 from collections import namedtuple
 
-from tile2net.xyz.cfg import cfg
-from tile2net.xyz.cfg.logger import logger
-from tile2net.tileseg.datasets import uniform
 from tile2net.tileseg.datasets.base_loader import BaseLoader
 
 if False:
     from tile2net.tiles import Tiles
-    from tile2net.xyz.seggrid import SegGrid
+    from tile2net.grid.seggrid import SegGrid
 
 Label = namedtuple('Label', [
 

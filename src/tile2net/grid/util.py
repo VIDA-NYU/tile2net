@@ -1,36 +1,31 @@
 from __future__ import annotations
 
-import base64
-import hashlib
-import tempfile
-from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
-
-if False:
-    from .basegrid.basegrid import BaseGrid
-import pandas as pd
-
 import ast
+import base64
 import copy
+import hashlib
 import inspect
 import json
+import math
 import os
+import tempfile
 import textwrap
-from functools import singledispatch
-from functools import update_wrapper
+from concurrent.futures import ThreadPoolExecutor
+from functools import singledispatch, update_wrapper
+from pathlib import Path
 from typing import *
 from weakref import WeakKeyDictionary
 
 import geopy
-import math
 import numpy as np
+import pandas as pd
 import toolz
 from geopy.geocoders import Nominatim, Photon
 from numpy import ndarray
 
 from tile2net.grid.cfg.logger import logger
 
-if False:
+if TYPE_CHECKING:
     from .basegrid.basegrid import BaseGrid
 
 
@@ -618,6 +613,7 @@ def ensure_tempdir_for_indir(indir: str | os.PathLike, **kwargs) -> Path:
     d.mkdir(parents=True, exist_ok=True)
     return d
 
+
 def cleanup(
         statics: pd.Series,
         max_workers: int | None = None,
@@ -666,4 +662,3 @@ def path2fsize(
         for p in path
     ]
     return pd.Series(sizes, index=path.index, dtype="uint64")
-

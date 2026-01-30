@@ -12,7 +12,7 @@ from requests.adapters import HTTPAdapter
 from shapely import box, wkt
 from urllib3.util.retry import Retry
 
-from tile2net.xyz.source.exceptions import SourceParseError
+from tile2net.grid.source.exceptions import SourceParseError
 from tile2net.xyz.source.remote import Remote
 
 

@@ -11,7 +11,7 @@ from .. import frame
 from ..cfg import cfg
 from ..explore import explore
 from ..frame.framewrapper import FrameWrapper
-from ...xyz.frame.namespace import namespace
+from tile2net.grid.frame.namespace import namespace
 
 if False:
     import folium

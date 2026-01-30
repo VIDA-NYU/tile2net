@@ -16,30 +16,27 @@ import geopandas as gpd
 import imageio.v3 as iio
 import numpy as np
 import pandas as pd
-import rasterio
-import rasterio.features
 from PIL import Image
 from affine import Affine
 from tqdm import tqdm
 from tqdm.auto import tqdm
 
 from tile2net.grid.cfg.logger import logger
+from tile2net.grid.util import recursion_block
 from .feature import Feature
 from .file import File
 from .mask2poly import Mask2Poly
 from .network import Network
 from .padded import Padded
 from .polygons import Polygons
-from .. import frame
 from ..basegrid.basegrid import BaseGrid
 from ..cfg.cfg import Cfg
 from ..loaders.dataset import DataSet
 from ..loaders.vec import VecDataSet, VecDataWrapper
 from ..pednet import PedNet
 from ..sampler.benchmark import Benchmark
-from ...xyz.util import recursion_block
 
-if False:
+if TYPE_CHECKING:
     from ..grid import Grid
     from ..seggrid import SegGrid
 

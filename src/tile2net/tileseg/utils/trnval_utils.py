@@ -27,12 +27,12 @@ import os
 import torch
 import numpy as np
 
-from tile2net.xyz.cfg import cfg
+from tile2net.grid.cfg import cfg
 from tile2net.tileseg.utils.misc import fast_hist, fmt_scale
 from tile2net.tileseg.utils.misc import AverageMeter, eval_metrics
 from tile2net.tileseg.utils.misc import metrics_per_image
 from tile2net.tileseg.utils.misc import ImageDumper
-from tile2net.xyz.cfg.logger import logger
+from tile2net.grid.cfg.logger import logger
 
 
 def flip_tensor(

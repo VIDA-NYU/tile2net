@@ -18,25 +18,25 @@ from geopandas import GeoDataFrame
 from pandas import MultiIndex, Series, Index
 
 from tile2net.grid.basegrid import basegrid
-from tile2net.xyz import frame, util
+from tile2net.grid.basegrid.file import File
+from tile2net.grid.explore import explore
+from tile2net.grid import frame, util
+from tile2net.grid.cfg import cfg, Cfg
+from tile2net.grid.cfg.logger import logger
+from tile2net.grid.loaders.dataloader import BaseDataLoader
+from tile2net.grid.loaders.datawrapper import DataWrapper
+from tile2net.grid.loaders.rescale import RescaleDataSet
+from tile2net.grid.loaders.stitch import StitchWriterDataSet
+from tile2net.grid.loaders.unstitch import UnstitchDataSet, UnstitchDataWrapper
+from tile2net.grid.sampler.benchmark import Benchmark
 from tile2net.xyz.basegrid.corners import Corners
-from tile2net.xyz.basegrid.file import File
-from tile2net.xyz.cfg import cfg, Cfg
-from tile2net.xyz.cfg.logger import logger
-from tile2net.xyz.explore import explore
-from tile2net.xyz.loaders.dataloader import BaseDataLoader
-from tile2net.xyz.loaders.datawrapper import DataWrapper
-from tile2net.xyz.loaders.rescale import RescaleDataSet
-from tile2net.xyz.loaders.stitch import StitchWriterDataSet
-from tile2net.xyz.loaders.unstitch import UnstitchDataSet, UnstitchDataWrapper
-from tile2net.xyz.sampler.benchmark import Benchmark
 
 if TYPE_CHECKING:
     import folium
     from tile2net.xyz.seggrid.seggrid import SegGrid
     from tile2net.xyz.grid import Grid
     from tile2net.xyz.vecgrid.vecgrid import VecGrid
-    from tile2net.xyz.dir.outdir import Outdir
+    from tile2net.grid.dir.outdir import Outdir
 
 
 class BaseGrid(

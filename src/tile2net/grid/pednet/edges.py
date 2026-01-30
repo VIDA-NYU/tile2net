@@ -7,8 +7,8 @@ import pandas as pd
 
 from tile2net.grid.cfg.logger import logger
 from .. import frame
-from ...xyz.frame.framewrapper import FrameWrapper
-from ...xyz.frame.namespace import namespace
+from ..frame.framewrapper import FrameWrapper
+from tile2net.grid.frame.namespace import namespace
 
 if False:
     from .lines import Lines

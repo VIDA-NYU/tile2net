@@ -7,14 +7,13 @@ import geopandas as gpd
 import shapely
 
 from tile2net.xyz.basegrid.basegrid import BaseGrid
-from tile2net.xyz.frame.weak import weak
-from tile2net.logger import logger
+from tile2net.grid.frame.weak import weak
+from tile2net.grid.cfg.logger import logger
 
 if TYPE_CHECKING:
     from ..grid import Grid
 
-from tile2net.xyz.cfg.logger import logger
-from tile2net.xyz.source.exceptions import SourceParseError
+from tile2net.grid.source.exceptions import SourceParseError
 
 
 class Source:

@@ -18,7 +18,6 @@ from geopandas import GeoDataFrame
 from pandas import MultiIndex, Series, Index
 
 from tile2net.grid import frame, util
-from tile2net.grid.basegrid.corners import Corners
 from tile2net.grid.basegrid.file import File
 from tile2net.grid.cfg import cfg, Cfg
 from tile2net.grid.cfg.logger import logger
