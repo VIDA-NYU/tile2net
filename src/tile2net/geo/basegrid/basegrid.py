@@ -1076,7 +1076,7 @@ class BaseGrid(
              'road': 'cyan',
              'crosswalk': 'yellow',
              'curb': 'blue',
-             'ignore_label': 'black'}
+             'void': 'black'}
 
         Example:
             >>> self.colormap
@@ -1084,7 +1084,7 @@ class BaseGrid(
               0 -> [255, 0, 0]   (sidewalk -> red)
               1 -> [0, 255, 255] (road -> cyan)
               2 -> [255, 255, 0] (crosswalk -> yellow)
-              3 -> [0, 0, 0]     (ignore_label -> black)
+              3 -> [0, 0, 0]     (void -> black)
             )
 
             >>> self.colormap(np.array([[0,1,2]]))

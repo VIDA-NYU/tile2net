@@ -32,6 +32,7 @@ from tile2net.grid.loaders.dataset import DataSet
 from tile2net.grid.loaders.vec import VecDataSet, VecDataWrapper
 from tile2net.grid.pednet import PedNet
 from tile2net.grid.util import recursion_block
+from tile2net.geo.vecgrid.padded import Padded
 from .mask2poly import Mask2Poly
 
 if TYPE_CHECKING:
@@ -85,6 +86,10 @@ class VecGrid(
         >>> VecGrid._get
     """
     __name__ = 'vecgrid'
+
+    @Padded
+    def padded(self):
+        ...
 
     @cached_property
     def padding(self) -> Corners:
@@ -704,3 +709,4 @@ class VecGrid(
                     continue
                 new_fut = executor.submit(self._vectorize_submit, *nxt)
                 inflight[new_fut] = nxt
+

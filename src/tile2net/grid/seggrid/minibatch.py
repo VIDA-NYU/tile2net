@@ -212,7 +212,7 @@ class Foreground(Max):
             dim=1,
     ) -> Self:
         keep = torch.arange(probs.size(1), device=probs.device)
-        x = torch.arange(probs.shape[1])[cfg.dataset.ignore_label]
+        x = torch.arange(probs.shape[1])[cfg.dataset.void]
         keep = keep[keep != x]
         fore = torch.index_select(probs, 1, keep)
         return super().from_probs(fore, dim)

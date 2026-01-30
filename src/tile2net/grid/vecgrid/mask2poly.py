@@ -164,14 +164,14 @@ class Mask2Poly(
             array = array[..., 0]  # assuming single channel for simplicity
 
         for label, id in label2id.items():
-            # mask = np.array(array == id, dtype=np.uint8)
-            # it = rasterio.features.shapes(array, mask, transform=affine)
-            # geometry = [
-            #     shape(geom)
-            #     for geom, _ in it
-            # ]
+            if label == 'void':
+                continue
             # binary mask for this class
-            mask = (array == id).astype(np.uint8)
+            mask = (
+                array
+                .__eq__(id)
+                .astype(np.uint8)
+            )
 
             # polygonize the mask itself; filter val==1
             it = rasterio.features.shapes(mask, transform=affine)

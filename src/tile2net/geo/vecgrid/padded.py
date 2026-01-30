@@ -11,8 +11,8 @@ if TYPE_CHECKING:
 class Padded(
     namespace
 ):
-
     instance: VecGrid
+
     @property
     def length(self) -> int:
         """
@@ -30,8 +30,3 @@ class Padded(
         padded a number of seg-tiles.
         """
         return self.instance.seggrid.dimension * self.length
-
-
-
-
-

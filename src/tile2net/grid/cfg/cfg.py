@@ -1410,7 +1410,7 @@ class Cfg(
             sidewalk=0,
             road=1,
             crosswalk=2,
-            ignore_label=3
+            void=3
         )
 
     @basic
@@ -1424,7 +1424,7 @@ class Cfg(
             road='cyan',
             crosswalk='yellow',
             curb='blue',
-            ignore_label='black'
+            void='black'
         )
 
     @functools.cached_property
