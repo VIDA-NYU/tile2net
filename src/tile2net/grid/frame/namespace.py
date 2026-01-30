@@ -7,7 +7,7 @@ from typing import *
 
 from .wrapper import Wrapper
 
-if False:
+if TYPE_CHECKING:
     from tile2net.grid.basegrid.basegrid import BaseGrid
 
 

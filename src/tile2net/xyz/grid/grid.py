@@ -19,7 +19,7 @@ from tile2net.xyz.source.remote import Remote
 from tile2net.xyz.source.source import Source
 from tile2net.xyz.vecgrid.vecgrid import VecGrid
 
-if False:
+if TYPE_CHECKING:
     from .filled import Filled
 
 

@@ -15,7 +15,7 @@ from .nodes import Nodes
 from .. import frame
 from ..frame.framewrapper import FrameWrapper
 
-if False:
+if TYPE_CHECKING:
     from .pednet import PedNet
     import folium
     from .stubs import Stubs

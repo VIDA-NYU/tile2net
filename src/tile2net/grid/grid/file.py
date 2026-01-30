@@ -1,4 +1,7 @@
 from __future__ import annotations
+
+from typing import *
+
 from pathlib import Path
 import contextlib
 
@@ -9,7 +12,7 @@ import pandas as pd
 from tile2net.grid.source import Local, Remote
 from tile2net.logger import logger
 
-if False:
+if TYPE_CHECKING:
     from tile2net.grid.frame import column
     from tile2net.grid.grid import Grid
     from tile2net.grid.frame import column
@@ -18,7 +21,7 @@ if False:
 from .. import frame
 from tile2net.grid.basegrid import file
 
-if False:
+if TYPE_CHECKING:
     from .grid import Grid
 
 

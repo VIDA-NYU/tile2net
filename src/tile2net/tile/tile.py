@@ -5,7 +5,7 @@ from typing import *
 
 from . import cached
 
-if False:
+if TYPE_CHECKING:
     from ..tiles.tiles.tiles import Tiles
 
 

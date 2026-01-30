@@ -10,7 +10,7 @@ from tile2net.grid import frame
 from tile2net.grid.frame.framewrapper import FrameWrapper
 from tile2net.xyz.util import xy2lonlat
 
-if False:
+if TYPE_CHECKING:
     from .basegrid import BaseGrid
 
 

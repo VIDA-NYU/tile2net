@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from typing import *
+
 from tile2net.grid.frame.namespace import namespace
 
-if False:
+if TYPE_CHECKING:
     from .vecgrid import VecGrid
 
 

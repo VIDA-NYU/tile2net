@@ -10,7 +10,7 @@ import pandas as pd
 
 from tile2net.grid.frame.namespace import namespace
 
-if False:
+if TYPE_CHECKING:
     from .framewrapper import FrameWrapper
 
 

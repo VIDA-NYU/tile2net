@@ -21,7 +21,7 @@ import torch
 from tile2net.grid.cfg import cmdline
 from tile2net.grid.cfg.colormap import ColorMap
 
-if False:
+if TYPE_CHECKING:
     from ..basegrid.basegrid import BaseGrid
 
 T = TypeVar('T')

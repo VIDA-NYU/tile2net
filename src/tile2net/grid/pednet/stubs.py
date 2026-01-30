@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import heapq
 import logging
-from typing import Self, overload
+from typing import *
 
 import pandas as pd
 from tqdm.auto import tqdm
@@ -15,7 +15,7 @@ from tile2net.grid.frame.namespace import namespace
 INF = float('inf')
 from .lines import Lines
 
-if False:
+if TYPE_CHECKING:
     from .pednet import PedNet
     import folium
 

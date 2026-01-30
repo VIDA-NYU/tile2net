@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-if False:
-    from . import filled
+from typing import *
 
-if False:
+if TYPE_CHECKING:
     from . import (
         filled,
         broadcast,

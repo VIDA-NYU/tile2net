@@ -28,7 +28,7 @@ from tile2net.grid.source.source import Source
 from tile2net.grid.util import assert_perfect_overlap
 from tile2net.grid.vecgrid.vecgrid import VecGrid
 
-if False:
+if TYPE_CHECKING:
     from .broadcast import Broadcast
 
 

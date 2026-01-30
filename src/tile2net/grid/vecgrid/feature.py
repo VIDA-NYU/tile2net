@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import copy
-from typing import Self
+from typing import *
 
 import geopandas as gpd
 
 from tile2net.grid.frame.namespace import namespace
 
-if False:
+if TYPE_CHECKING:
     from tile2net.grid.vecgrid.vecgrid import VecGrid
 
 

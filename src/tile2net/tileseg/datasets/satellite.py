@@ -25,11 +25,13 @@ Mapillary Dataset Loader
 """
 from __future__ import annotations
 
+from typing import *
+
 from collections import namedtuple
 
 from tile2net.tileseg.datasets.base_loader import BaseLoader
 
-if False:
+if TYPE_CHECKING:
     from tile2net.tiles import Tiles
     from tile2net.grid.seggrid import SegGrid
 

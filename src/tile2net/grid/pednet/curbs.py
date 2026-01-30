@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Self
+from typing import *
 
 import geopandas as gpd
 
@@ -9,7 +9,7 @@ from ..frame.framewrapper import FrameWrapper
 
 _ = mintrees, stubs
 
-if False:
+if TYPE_CHECKING:
     from .pednet import PedNet
 
 

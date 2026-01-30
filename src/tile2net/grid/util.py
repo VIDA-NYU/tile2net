@@ -484,7 +484,7 @@ class RecursionBlock:
         raise NotImplementedError
 
 
-if False:
+if TYPE_CHECKING:
     def recursion_block(
             func
     ):

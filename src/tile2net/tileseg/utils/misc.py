@@ -52,7 +52,7 @@ from geopandas import GeoDataFrame
 from tile2net.grid.cfg import cfg
 from tile2net.grid.cfg.logger import logger
 
-if False:
+if TYPE_CHECKING:
     from ...grid import Tiles
 
 

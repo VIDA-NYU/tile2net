@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import numpy as np
-from typing import Self
+from typing import *
 
 from . import segtile
 from .. import frame
 from .grid import Grid
 
-if False:
+if TYPE_CHECKING:
     from .grid import Grid
     from ..seggrid.seggrid import SegGrid
-    xyz import util
 
 
 class SegTile(

@@ -5,7 +5,7 @@ from typing import *
 import numpy as np
 import torch
 
-if False:
+if TYPE_CHECKING:
     from .stitch import StitchDataSet
 
 T = TypeVar("T", np.ndarray, torch.Tensor)

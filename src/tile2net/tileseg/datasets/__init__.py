@@ -30,7 +30,7 @@ POSSIBILITY OF SUCH DAMAGE.
 Dataset setup and loaders
 """
 from __future__ import annotations
-from typing import NamedTuple, Optional
+from typing import *
 
 import torchvision.transforms as standard_transforms
 from toolz import pipe, curried
@@ -43,7 +43,7 @@ from tile2net.tileseg.datasets.randaugment import RandAugment
 from .base_loader import BaseLoader
 from tile2net.grid.cfg import cfg
 
-if False:
+if TYPE_CHECKING:
     from ...seggrid import SegGrid
 
 class LoaderBundle(NamedTuple):

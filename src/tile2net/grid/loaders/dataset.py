@@ -14,7 +14,7 @@ from toolz import pipe, curried
 from tile2net.grid.cfg import cfg
 
 T = TypeVar("T", bound="StitchDataSet")
-if False:
+if TYPE_CHECKING:
     from .datawrapper import DataWrapper
 
 

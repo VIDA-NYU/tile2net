@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Self, overload
+from typing import *
 
 import geopandas as gpd
 import numpy as np
@@ -13,7 +13,7 @@ from .. import frame
 from ..frame.framewrapper import FrameWrapper
 from tile2net.grid.frame.namespace import namespace
 
-if False:
+if TYPE_CHECKING:
     from .lines import Lines
 
 """

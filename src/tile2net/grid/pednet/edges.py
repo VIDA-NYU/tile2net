@@ -10,7 +10,7 @@ from .. import frame
 from ..frame.framewrapper import FrameWrapper
 from tile2net.grid.frame.namespace import namespace
 
-if False:
+if TYPE_CHECKING:
     from .lines import Lines
 
 """

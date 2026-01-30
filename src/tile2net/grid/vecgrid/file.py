@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import *
+
 import os
 import os.path
 
@@ -9,7 +11,7 @@ from .. import frame, util
 from ..basegrid import file
 from tile2net.logger import logger
 
-if False:
+if TYPE_CHECKING:
     from .vecgrid import VecGrid
     from ..grid import Grid
 

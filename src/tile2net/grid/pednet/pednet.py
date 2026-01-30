@@ -18,7 +18,7 @@ from ..cfg import cfg
 from ..explore import explore
 from ..frame.framewrapper import FrameWrapper
 
-if False:
+if TYPE_CHECKING:
     import folium
 
 

@@ -12,7 +12,7 @@ from ..explore import explore
 from ..frame.framewrapper import FrameWrapper
 from tile2net.grid.frame.namespace import namespace
 
-if False:
+if TYPE_CHECKING:
     import folium
     from .pednet import PedNet
 

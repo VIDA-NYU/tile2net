@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import *
-from typing import Self, overload
+from typing import *
 
 import geopandas as gpd
 import numpy as np
@@ -20,7 +20,7 @@ from .. import frame
 _ = mintrees, stubs
 from ..explore import explore
 
-if False:
+if TYPE_CHECKING:
     from .pednet import PedNet
     import folium
 

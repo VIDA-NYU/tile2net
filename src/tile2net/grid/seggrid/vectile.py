@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from typing import *
+
 import pandas as pd
 
 from tile2net.grid.frame.namespace import namespace
 from .. import frame
 
-if False:
+if TYPE_CHECKING:
     from .seggrid import SegGrid
     from ..vecgrid.vecgrid import VecGrid
     from ..grid import Grid

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-from typing import Self, overload
+from typing import *
 
 import geopandas as gpd
 import pandas as pd
@@ -13,7 +13,7 @@ from ..cfg import cfg
 from ..explore import explore
 from ..frame.framewrapper import FrameWrapper
 
-if False:
+if TYPE_CHECKING:
     from .vecgrid import VecGrid
     from ..grid import Grid
     import folium

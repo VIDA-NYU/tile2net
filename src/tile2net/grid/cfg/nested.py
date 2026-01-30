@@ -5,7 +5,7 @@ from collections import UserDict
 from functools import *
 from typing import *
 
-if False:
+if TYPE_CHECKING:
     from .cfg import Cfg
 
 

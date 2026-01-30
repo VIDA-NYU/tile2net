@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from PIL import Image, ImageColor
 
-if False:
+if TYPE_CHECKING:
     pass
 
 T = TypeVar('T')

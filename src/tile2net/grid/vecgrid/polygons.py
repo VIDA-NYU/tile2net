@@ -15,7 +15,7 @@ from ..cfg.logger import logger
 from ..explore import explore
 from ..frame.framewrapper import FrameWrapper
 
-if False:
+if TYPE_CHECKING:
     from .vecgrid import VecGrid
     from ..grid import Grid
     import folium
