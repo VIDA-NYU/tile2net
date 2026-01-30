@@ -1018,6 +1018,13 @@ class Vectorization(
         """
         return True
 
+    @cmdline.property
+    def load_workers(self) -> int:
+        """
+        Number of workers for data loading
+        """
+        return min(os.cpu_count() // 2, 4)
+
 
 class Loss(cmdline.Namespace):
 
@@ -1107,6 +1114,7 @@ class Polygon(cmdline.Namespace):
             crosswalk=2,
         )
 
+    @cmdline.property
     def borders(self) -> list[str]:
         """
         Feature which are included not as pedestrian networks
@@ -1884,13 +1892,6 @@ class Cfg(
         Runtime epoch counter
         """
         return 0
-
-    @cmdline.property
-    def load_workers(self) -> int:
-        """
-        Number of workers for data loading
-        """
-        return min(os.cpu_count() // 2, 4)
 
     @cmdline.property
     def compress_workers(self) -> int:
