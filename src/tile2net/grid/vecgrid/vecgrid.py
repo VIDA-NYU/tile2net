@@ -1,44 +1,37 @@
 from __future__ import annotations
 
-import concurrent.futures as cf
 import copy
 import gc
 import logging
 import os
 import os.path
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, wait, FIRST_COMPLETED
+from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 from functools import cached_property
 from pathlib import Path
 from typing import *
 
-import PIL.Image
 import geopandas as gpd
 import imageio.v3 as iio
 import numpy as np
 import pandas as pd
-from PIL import Image
 from affine import Affine
 from tqdm import tqdm
 from tqdm.auto import tqdm
 
+from tile2net.grid.basegrid.basegrid import BaseGrid
+from tile2net.grid.cfg.cfg import Cfg
 from tile2net.grid.cfg.logger import logger
+from tile2net.grid.pednet import PedNet
+from tile2net.grid.sampler.benchmark import Benchmark
 from tile2net.grid.util import recursion_block
-from .feature import Feature
-from .file import File
-from .mask2poly import Mask2Poly
-from .network import Network
-from .padded import Padded
-from .polygons import Polygons
-from ..basegrid.basegrid import BaseGrid
-from ..cfg.cfg import Cfg
-from ..loaders.dataset import DataSet
-from ..loaders.vec import VecDataSet, VecDataWrapper
-from ..pednet import PedNet
-from ..sampler.benchmark import Benchmark
+from tile2net.grid.vecgrid.feature import Feature
+from tile2net.grid.vecgrid.file import File
+from tile2net.grid.vecgrid.mask2poly import Mask2Poly
+from tile2net.grid.vecgrid.network import Network
+from tile2net.grid.vecgrid.polygons import Polygons
 
 if TYPE_CHECKING:
     from ..grid import Grid
-    from ..seggrid import SegGrid
 
 
 class VectorizeTask(NamedTuple):
@@ -141,10 +134,6 @@ class VecGrid(BaseGrid):
 
     @File
     def file(self):
-        ...
-
-    @Padded
-    def padded(self):
         ...
 
     @property
@@ -437,248 +426,6 @@ class VecGrid(BaseGrid):
                         del locals()[name]
                 import gc
                 gc.collect()
-
-    @staticmethod
-    def _silence_logging() -> None:
-        """
-        Disable log records below ERROR and route stdout/stderr to /dev/null without leaking file descriptors.
-        """
-        # suppress anything below ERROR
-        logging.disable(logging.ERROR)
-
-        # dup stdout/stderr to /dev/null, then close the temporary fd
-        fd = os.open(os.devnull, os.O_WRONLY)
-        try:
-            os.dup2(fd, 1)
-            os.dup2(fd, 2)
-        finally:
-            os.close(fd)
-
-    @recursion_block
-    def vectorize(
-            self,
-            force=False,
-    ) -> None:
-        """
-        Convert segmentation masks to vector geometries (polygons and lines).
-
-        Processes all vec-tiles in parallel, extracting polygon boundaries and
-        centerline networks from semantic segmentation masks. Results are saved as parquet
-        files containing GeoDataFrames with geometry for each feature class (sidewalk,
-        crosswalk, road).
-
-        Args:
-            force: Re-vectorize existing tiles if True, skip existing if False
-
-        Returns:
-            None. See output file paths:
-            >>> grid: Grid
-            >>> grid.vecgrid.file.polygons
-            >>> grid.vecgrid.file.network
-
-        Example:
-            >>> grid: Grid = Grid.from_location('Boston Common, MA')
-            >>> grid = grid.set_source().set_segmentation().set_vectorization()
-            >>> grid.vecgrid.vectorize()
-            Vectorizing to /home/<user>/tile2net/ma/vecgrid/polygons
-            vecgrid.vectorize(): 100%|██████| 16/16 [00:45<00:00]
-            Finished vectorizing 16 vectorizing tiles.
-        """
-
-        dest = (
-            self.grid.outdir.vecgrid.polygons.dir
-            .rpartition(os.sep)
-            [0]
-        )
-        msg = f'Vectorizing to \n\t{dest}'
-        logger.debug(msg)
-
-        seggrid: SegGrid = self.seggrid.broadcast
-
-        assert (
-            seggrid.file.pred
-            .map(os.path.exists)
-            .all()
-        )
-
-        if not force:
-            force = ~seggrid.vectile.line.map(os.path.exists)
-            force |= self.cfg.force
-
-        wrapper: VecDataWrapper = VecDataWrapper.from_segtiles(
-            static=seggrid.file.pred,
-            index=seggrid.vectile.index,
-            row=seggrid.vectile.row,
-            col=seggrid.vectile.col,
-            background=3,
-            force=force,
-            affine=seggrid.vectile.affine,
-            lonmin=seggrid.vectile.lonmin,
-            latmin=seggrid.vectile.latmin,
-            lonmax=seggrid.vectile.lonmax,
-            latmax=seggrid.vectile.latmax,
-            polygon_file=seggrid.vectile.polygon_file,
-            line_file=seggrid.vectile.network_file,
-        )
-
-        total = wrapper.index.nunique()
-        if not total:
-            msg = 'All vector tiles already exist on disk.'
-            logger.info(msg)
-            return
-        threads = self.cfg.vectorization.num_loaders
-        dataset = VecDataSet(wrapper, threads=threads)
-        loader = dataset.loader()
-
-        bar = tqdm(
-            total=total,
-            desc=f'vecgrid.{self.vectorize.__name__}()',
-            unit=f' {self.file.network.name}',
-            smoothing=0.01,
-            mininterval=10,
-        )
-
-        with self.grid.cfg, bar, self.benchmark:
-            for minibatch in loader:
-                bar.update(len(minibatch))
-
-        msg = f'Finished vectorizing {total} vectorizing tiles.'
-        logger.info(msg)
-
-    def view(
-            self,
-            maxdim: int = 2048,
-            divider: Optional[str] = None,
-    ) -> PIL.Image.Image:
-        """
-        Generate a mosaic preview of all vec-tiles in the grid.
-
-        Creates a single image showing all vec-tiles arranged in their spatial grid pattern,
-        with optional divider lines between tiles. Automatically downscales to fit within maxdim.
-
-        Args:
-            maxdim: Maximum dimension for the output image in pixels
-            divider: Color name for tile divider lines (None for no divider)
-
-        Returns:
-            PIL Image containing the tile mosaic
-
-        Example:
-            >>> grid: Grid
-            >>> img = grid.vecgrid.view(maxdim=4096, divider='red')
-            >>> img.show()
-        """
-
-        files = self.file.grayscale
-        R: pd.Series = self.r  # 0-based row id
-        C: pd.Series = self.c  # 0-based col id
-
-        dim = self.dimension  # original tile side length
-        n_rows = int(R.max()) + 1
-        n_cols = int(C.max()) + 1
-        div_px = 1 if divider else 0
-
-        # full mosaic size before optional down-scaling
-        full_w0 = n_cols * dim + div_px * (n_cols - 1)
-        full_h0 = n_rows * dim + div_px * (n_rows - 1)
-
-        scale = 1.0
-        if max(full_w0, full_h0) > maxdim:
-            scale = maxdim / max(full_w0, full_h0)
-
-        tile_w = max(1, int(round(dim * scale)))
-        tile_h = tile_w  # square grid
-        full_w = n_cols * tile_w + div_px * (n_cols - 1)
-        full_h = n_rows * tile_h + div_px * (n_rows - 1)
-
-        canvas_col = divider if divider else (0, 0, 0)
-        mosaic = Image.new('RGB', (full_w, full_h), color=canvas_col)
-
-        def load(idx: int) -> tuple[int, int, np.ndarray]:
-            arr = iio.imread(files.iat[idx])
-            if scale != 1.0:
-                arr = np.asarray(
-                    Image.fromarray(arr).resize(
-                        (tile_w, tile_h), Image.Resampling.LANCZOS
-                    )
-                )
-            return R.iat[idx], C.iat[idx], arr
-
-        with ThreadPoolExecutor() as pool:
-            for r, c, arr in pool.map(load, range(len(files))):
-                x0 = c * (tile_w + div_px)
-                y0 = r * (tile_h + div_px)
-                mosaic.paste(Image.fromarray(arr), (x0, y0))
-
-        return mosaic
-
-    def _iter_tasks(
-            self,
-            grid: VecGrid,
-            loader: DataSet,
-            cfg: Cfg,
-    ) -> Iterator[VectorizeTask]:
-        it = zip(
-            loader,
-            grid.affine_params,
-            grid.lonmin,
-            grid.latmin,
-            grid.lonmax,
-            grid.latmax,
-            grid.file.polygons,
-            grid.file.network,
-        )
-        for (
-                static,
-                affine,
-                xmin,
-                ymin,
-                xmax,
-                ymax,
-                polygons_file,
-                network_file,
-        ) in it:
-            yield VectorizeTask(
-                static=static,
-                affine=affine,
-                xmin=float(xmin),
-                ymin=float(ymin),
-                xmax=float(xmax),
-                ymax=float(ymax),
-                polygons_file=polygons_file,
-                network_file=network_file,
-                cfg=cfg,
-            )
-
-    def _bounded_as_completed(
-            self,
-            executor: ProcessPoolExecutor,
-            tasks: Iterator[VectorizeTask],
-            max_inflight: int,
-    ) -> Iterator[tuple[cf.Future, VectorizeTask]]:
-        inflight: dict[cf.Future, VectorizeTask] = {}
-
-        # prefill up to the window size
-        for _ in range(max_inflight):
-            try:
-                task = next(tasks)
-            except StopIteration:
-                break
-            fut = executor.submit(self._vectorize_submit, *task)
-            inflight[fut] = task
-
-        # main loop
-        while inflight:
-            done, _ = wait(inflight, return_when=FIRST_COMPLETED)
-            for fut in done:
-                task = inflight.pop(fut)
-                yield fut, task
-                try:
-                    nxt = next(tasks)
-                except StopIteration:
-                    continue
-                new_fut = executor.submit(self._vectorize_submit, *nxt)
-                inflight[new_fut] = nxt
 
     @Feature
     def road(self):

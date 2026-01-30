@@ -211,3 +211,8 @@ class File(
         if not self:
             _ = self.basegrid.polygons
         return file
+
+    @frame.column
+    def mask(self):
+        ...
+

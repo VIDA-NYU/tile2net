@@ -10,7 +10,6 @@ from functools import *
 from pathlib import Path
 from typing import *
 
-
 from tile2net.grid import util
 from tile2net.grid.basegrid.basegrid import BaseGrid
 from tile2net.grid.basegrid.static import Static
@@ -27,9 +26,6 @@ from tile2net.grid.source.remote import Remote
 from tile2net.grid.source.source import Source
 from tile2net.grid.util import assert_perfect_overlap
 from tile2net.grid.vecgrid.vecgrid import VecGrid
-
-if TYPE_CHECKING:
-    from .broadcast import Broadcast
 
 
 class Grid(

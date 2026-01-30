@@ -5,7 +5,7 @@ from typing import *
 from tile2net.grid.frame.namespace import namespace
 
 if TYPE_CHECKING:
-    from .vecgrid import VecGrid
+    from tile2net.grid.vecgrid.vecgrid import VecGrid
 
 
 class Padded(
