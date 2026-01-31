@@ -10,12 +10,15 @@ from functools import *
 from pathlib import Path
 from typing import *
 
+import pandas as pd
+
 from tile2net.grid import util
 from tile2net.grid.basegrid.basegrid import BaseGrid
 from tile2net.grid.basegrid.static import Static
 from tile2net.grid.cfg import cfg
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.dir.outdir import Outdir
+from tile2net.grid.dir.dir import Dir
 from tile2net.grid.dir.tempdir import TempDir
 from tile2net.grid.grid.file import File
 from tile2net.grid.grid.segtile import SegTile
@@ -31,6 +34,35 @@ from tile2net.grid.vecgrid.vecgrid import VecGrid
 class Grid(
     BaseGrid
 ):
+    @classmethod
+    def from_source(
+            cls,
+            source: Union[
+                str,
+                Source,
+            ],
+            mask: str = None,
+    ) -> Self:
+        """
+        Instantiate a Grid from a geocoded location string or tile coordinates.
+
+        Args:
+            source: Tile Source instance or name/abbreviation.
+
+        Returns:
+            Grid instance covering the geocoded bounding box at the specified zoom level.
+        """
+        # todo: maybe we can also support a geo Grid.from_source which performs the pipeline on the entirety
+        #   of the remote source
+        source = Local.from_inferred(source)
+        static = source.glob()
+        name = cls.file.static.key
+        frame = pd.DataFrame({name: static})
+        out = cls.from_frame(frame)
+        out.source = source
+        out.mask = mask
+        return out
+
     """
     "Input Grid" (Grid), comprised of "input tiles" (in-tiles).
     Each tile is an image from the source.
@@ -161,23 +193,48 @@ class Grid(
             >>> grid.Static.snapshot
         """
 
-    @Outdir
+    @Outdir.from_wrapper(requires='i')
     def outdir(self):
         """
         Output in which the results, such as annotated images and geometry, will be stored:
-        
-        >>> grid: Grid
-        >>> Outdir(
-        >>>     format='/home/<user>/tile2net/{z}/{x}_{y}',
-        >>>     dir='/home/<user>/tile2net',
-        >>>     original='/home/<user>/tile2net/z/x_y',
-        >>>     suffix='z/x_y'
-        >>> )
+        Example:
+            >>> grid: Grid
+            >>> grid.outdir
+            Outdir(
+                format='/home/<user>/tile2net/{z}/{x}_{y}',
+                dir='/home/<user>/tile2net',
+                original='/home/<user>/tile2net/z/x_y',
+                suffix='z/x_y'
+            )
 
         Setting the output directory:
         >>> grid: Grid
-        >>> grid = grid.set_outdir('/path/to/output')
         """
+        return dict(
+            i=self.index
+        )
+
+    @Dir.from_wrapper(requires='i')
+    def mask(self):
+        """
+        Directory for storing mask files aligned with the tiles of a Grid.
+
+        Example:
+            >>> grid: Grid
+            >>> grid.mask
+            Dir(
+                format='/home/<user>/tile2net/{z}/{x}_{y}',
+                dir='/home/<user>/tile2net/mask',
+                original='/home/<user>/tile2net/mask/z/x_y',
+                suffix='z/x_y'
+            )
+
+        Setting the mask directory:
+        >>> grid: Grid
+        """
+        return dict(
+            i=self.index
+        )
 
     @Source
     def source(self) -> Union[Remote, Local]:

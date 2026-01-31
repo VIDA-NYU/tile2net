@@ -1,4 +1,6 @@
 from __future__ import annotations
+import re
+import glob
 
 import os
 from functools import cached_property
@@ -56,11 +58,25 @@ class Local(
         Delegates to Dir.from_format() and converts exceptions.
         """
         try:
-            instance = cls.from_template(value, force_xy=True)
+            instance = cls.from_template(value)
             return instance
         except XYNotFoundError as e:
             msg = f'Local path failed to parse {value!r}; missing required characters: {", ".join(e.missing)}'
             raise InvalidLocalPath(msg) from e
+
+    def glob(self) -> pd.Series:
+        """
+        Find every filepath that matches the template.
+        Returns a Series where the index is the filename (no ext), and the values are the filepaths.
+        """
+        # Convert template placeholders like {x}, {y} to glob wildcard *
+        pattern = re.sub(r'\{[^}]+\}', '*', self.template)
+
+        files = glob.glob(pattern)
+
+        index = [os.path.splitext(os.path.basename(f))[0] for f in files]
+
+        return pd.Series(files, index=index)
 
 
 if __name__ == '__main__':

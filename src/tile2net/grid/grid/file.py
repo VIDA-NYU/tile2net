@@ -80,6 +80,12 @@ class File(
             logger.info(msg)
         return files
 
+    @frame.column
+    def mask(self):
+        mask = self.basegrid.mask
+        out = mask.files()
+        return out
+
     @contextlib.contextmanager
     def _static_peek(self):
         key = self.basegrid.__class__.file.static.key
@@ -211,8 +217,4 @@ class File(
         if not self:
             _ = self.basegrid.polygons
         return file
-
-    @frame.column
-    def mask(self):
-        ...
 

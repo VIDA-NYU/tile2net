@@ -28,6 +28,8 @@ from tile2net.grid import grid
 from tile2net.grid.basegrid.static import Static
 from tile2net.grid.cfg import cfg, Cfg
 from tile2net.grid.cfg.logger import logger
+from tile2net.grid.dir.dir import Dir
+from tile2net.grid.dir.outdir import Outdir
 from tile2net.grid.sampler.benchmark import Benchmark
 
 if TYPE_CHECKING:
@@ -39,6 +41,31 @@ class Grid(
     grid.Grid,
     basegrid.BaseGrid,
 ):
+
+    @Outdir.from_wrapper(requires='x y'.split())
+    def outdir(self):
+        """
+        Output in which the results, such as annotated images and geometry, will be stored:
+        Example:
+            >>> grid: Grid
+            >>> grid.outdir
+            Outdir(
+                format='/home/<user>/tile2net/{z}/{x}_{y}',
+                dir='/home/<user>/tile2net',
+                original='/home/<user>/tile2net/z/x_y',
+                suffix='z/x_y'
+            )
+
+        Setting the output directory:
+        >>> grid: Grid
+        >>> grid = grid.set_outdir('/path/to/output')
+        """
+        return dict(
+            x=self.xtile,
+            y=self.ytile,
+            z=self.zoom
+        )
+
     """
     "Input Grid" (Grid), comprised of "input tiles" (in-tiles).
     Each tile is an image from the source.
@@ -50,6 +77,30 @@ class Grid(
         xtile  ytile
         317280 387840 -7.911538e+06  5.214840e+06 -7.911500e+06  5.214802e+06
     """
+
+    @Dir.from_wrapper(requires='x y'.split())
+    def mask(self):
+        """
+        Directory where segmentation masks are stored for each in-tile.
+
+        Example:
+            >>> grid: Grid
+            >>> grid.mask
+            Dir(
+                format='/home/<user>/tile2net/mask/{z}/{x}_{y}.png',
+                dir='/home/<user>/tile2net/mask',
+                original='/home/<user>/tile2net/mask/z/x_y.png',
+                suffix='z/x_y.png'
+            )
+
+        Setting the mask directory:
+            >>> grid: Grid
+        """
+        return dict(
+            x=self.xtile,
+            y=self.ytile,
+            z=self.zoom
+        )
 
     @File
     def file(self):
@@ -141,8 +192,8 @@ class Grid(
             # use name from config
             return self.cfg.name
         if (
-            isinstance(self.source, Remote)
-            and self.source.name
+                isinstance(self.source, Remote)
+                and self.source.name
         ):
             # use remote name
             return self.source.name
@@ -844,6 +895,7 @@ class Grid(
                 None,
                 False
             ] = None,
+            mask: str = None,
     ) -> Self:
         """
         Instantiate a Grid from a geocoded location string or tile coordinates.
@@ -903,6 +955,8 @@ class Grid(
             out = cls.from_bounds(geocode.nwse, zoom, source)
 
         out.location = location
+        if mask:
+            out.mask = mask
 
         return out
 
