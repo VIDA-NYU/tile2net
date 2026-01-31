@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 import os
 import os.path
 import shutil
@@ -13,7 +12,6 @@ from typing import *
 from tile2net.grid import util
 from tile2net.grid.basegrid.basegrid import BaseGrid
 from tile2net.grid.basegrid.static import Static
-from tile2net.grid.cfg import cfg
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.dir.dir import Dir
 from tile2net.grid.dir.outdir import Outdir
@@ -25,7 +23,6 @@ from tile2net.grid.seggrid.seggrid import SegGrid
 from tile2net.grid.source.local import Local
 from tile2net.grid.source.remote import Remote
 from tile2net.grid.source.source import Source
-from tile2net.grid.util import assert_perfect_overlap
 from tile2net.grid.vecgrid.vecgrid import VecGrid
 
 
@@ -43,7 +40,6 @@ class Grid(
         xtile  ytile
         317280 387840 -7.911538e+06  5.214840e+06 -7.911500e+06  5.214802e+06
     """
-
 
     @classmethod
     def from_source(
@@ -76,7 +72,6 @@ class Grid(
         out.mask = mask
         assert out.source.basegrid is not None
         return out
-
 
     @File
     def file(self):
@@ -352,234 +347,35 @@ class Grid(
 
     def set_segmentation(
             self,
-            *,
-            dimension: int = None,
-            length: int = None,
-            mosaic: int = None,
-            scale: int = None,
-            fill: bool = None,
-            batch_size: int = None,
-            pad=None,
+            *args,
+            **kwargs,
     ) -> Self:
         """
-        Configure segmentation grid dimensions and create Grid.seggrid.
-
-        Args:
-            dimension: Pixel dimension of each seg-tile
-            length: Number of in-tiles per seg-tile dimension
-            scale: Zoom scale for seg-tiles
-            fill: Whether to fill missing tiles
-            batch_size: Batch size for model inference
-            pad: Padding pixels for seg-tiles
-
-        Returns:
-            Grid with Grid.seggrid configured
-
-        Example:
-            >>> grid: Grid = grid.set_segmentation(dimension=1024, pad=64)
-
         See also:
-            >>> SegGrid
+            >>> SegGrid._get
         """
         from ..seggrid import SegGrid
-        # todo: if all are None, determine dimension using VRAM
-
-        if dimension or length or scale:
-            # directly passed
-            ...
-        elif (
-                cfg.segmentation.dimension !=
-                cfg._default.segmentation.dimension
-        ):
-            # dimension in config
-            dimension = cfg.segmentation.dimension
-        elif (
-                cfg.segmentation.length !=
-                cfg._default.segmentation.length
-        ):
-            # length in config
-            length = cfg.segmentation.length
-        elif (
-                cfg.segmentation.scale !=
-                cfg._default.segmentation.scale
-        ):
-            # scale in config
-            scale = cfg.segmentation.scale
-        else:
-            # use defaults
-            dimension = cfg.segmentation.dimension
-            length = cfg.segmentation.length
-            scale = cfg.segmentation.scale
-
-        scale = self._to_scale(dimension, length, mosaic, scale)
-
-        if batch_size:
-            self.cfg.validation.batch_size = batch_size
-        if fill is None:
-            fill = self.cfg.segmentation.fill
-
-        msg = 'Filling Grid to align with SegGrid'
-        logger.debug(msg)
-        grid = (
-            self
-            .to_scale(scale, fill=fill)
-            .to_scale(self.scale, fill=fill)
-        )
-        seggrid = SegGrid.from_rescale(grid, scale, fill)
+        grid = self.copy()
+        seggrid = SegGrid.from_index(self.index)
         grid.seggrid = seggrid
-        seggrid = grid.seggrid
-        if pad is not None:
-            seggrid.pad = pad
-
-        assert (
-            grid.filled.segtile.index
-            .isin(seggrid.filled.index)
-            .all()
-        )
-        assert (
-            seggrid.filled.index
-            .isin(grid.filled.segtile.index)
-            .all()
-        )
-
-        assert seggrid.scale == scale
-        assert len(seggrid) <= len(grid)
-        assert len(self) <= len(grid)
-
-        area = 4 ** (self.scale - scale)
-        assert len(grid) == len(seggrid) * area
-        assert_perfect_overlap(seggrid, grid)
-
-        assert seggrid.index.difference(grid.segtile.index).empty
 
         return grid
 
     def set_vectorization(
             self,
-            *,
-            dimension: int = None,
-            length: int = None,
-            # mosaic: int = None,
-            scale: int = None,
-            fill: bool = True,
-            pad: int = None,
+            *args,
+            **kwargs,
     ) -> Self:
         """
-        Configure vectorization grid dimensions and create Grid.vecgrid.
-
-        Args:
-            dimension: Pixel dimension of each vec-tile including padding
-            length: Number of seg-tiles per vec-tile dimension
-            scale: Zoom scale for vec-tiles
-            fill: Whether to fill missing tiles
-            pad: Padding pixels for vec-tiles
-
-        Returns:
-            Grid with Grid.vecgrid configured
-
-        Example:
-            >>> grid: Grid = grid.set_vectorization(length=5, pad=128)
-
         See also:
-            >>> VecGrid
+            >>> VecGrid._get
         """
 
-        if dimension or length or scale:
-            # directly passed
-            ...
-        elif (
-                cfg.vectorization.dimension !=
-                cfg._default.vectorization.dimension
-        ):
-            # dimension in config
-            dimension = cfg.vectorization.dimension
-        elif (
-                cfg.vectorization.length !=
-                cfg._default.vectorization.length
-        ):
-            # length in config
-            length = cfg.vectorization.length
-        elif (
-                cfg.vectorization.scale !=
-                cfg._default.vectorization.scale
-        ):
-            # scale in config
-            scale = cfg.vectorization.scale
-        else:
-            # use defaults
-            dimension = cfg.vectorization.dimension
-            length = cfg.vectorization.length
-            scale = cfg.vectorization.scale
-
-        # todo: if all are None, determine dimension using RAM
+        grid = self.copy()
         seggrid = self.seggrid
-        # if dimension:
-        #     dimension -= 2 * seggrid.dimension
-        # if length:
-        #     assert length >= 3
-        #     length -= 2
-        # length *= seggrid.length
-        # if mosaic:
-        #     raise NotImplementedError
-        #     mosaic **= 1 / 2
-        #     mosaic -= 2
-        #     mosaic **= 2
-        #     mosaic = int(mosaic)
-
-        scale = self.seggrid._to_scale(dimension, length, scale)
-
-        msg = 'Filling Grid to align with VecGrid'
-        logger.debug(msg)
-        grid = (
-            self
-            .to_scale(scale, fill=fill)
-            .to_scale(self.scale, fill=fill)
-        )
-
-        assert grid.scale == self.grid.scale
-        msg = 'Filling SegGrid to align with VecGrid'
-        logger.debug(msg)
-        seggrid = (
-            self.seggrid
-            .to_scale(scale, fill=fill)
-            .to_scale(self.seggrid.scale, fill=fill)
-        )
-
+        vecgrid = VecGrid.from_index(grid.index)
         grid.seggrid = seggrid
-
-        assert grid.filled.segtile.index.isin(seggrid.filled.index).all()
-        assert seggrid.filled.index.isin(grid.filled.segtile.index).all()
-        assert seggrid.scale == self.seggrid.scale
-        vecgrid = VecGrid.from_rescale(grid, scale, fill=fill)
-
-        if (
-                cfg.vectorization.parallel_scaling
-                and len(vecgrid) < os.cpu_count()
-        ):
-            logger.debug(
-                f"Underutilized CPU in {VecGrid.__qualname__}: "
-                f"{len(vecgrid)} tiles < {os.cpu_count()} cores. "
-                f"Rescaling from scale={vecgrid.scale}."
-            )
-            rescale = os.cpu_count() / len(vecgrid)
-            rescale = math.log(rescale, 4)
-            rescale = math.ceil(rescale)
-            scale = min(scale + rescale, seggrid.seggrid.scale)
-            vecgrid = VecGrid.from_rescale(grid, scale, fill=fill)
-            msg = f"Optimized {VecGrid.__qualname__}: scale={scale} ({len(vecgrid)} tiles)."
-            logger.info(msg)
-
-        if pad is not None:
-            vecgrid.pad = pad
-
         grid.vecgrid = vecgrid
-        seggrid = grid.seggrid
-        vecgrid = grid.vecgrid
-
-        assert len(self) <= len(grid)
-        assert len(vecgrid) <= len(seggrid) <= len(grid)
-        area = 4 ** (self.scale - scale)
-        assert len(grid) == len(vecgrid) * area
 
         return grid
 
@@ -847,3 +643,11 @@ class Grid(
         return self
 
     __name__ = 'grid'
+
+    @property
+    def broadcast(self) -> Self:
+        return self
+
+    @property
+    def filled(self) -> Self:
+        return self

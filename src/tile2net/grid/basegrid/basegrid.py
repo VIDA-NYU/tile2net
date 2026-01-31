@@ -1,37 +1,21 @@
 from __future__ import annotations
+from pandas import DataFrame
 
 import hashlib
-import math
-import os
-import tempfile
 from functools import *
 from typing import *
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pyproj
-import shapely
-import tqdm
-from PIL import ImageColor, Image
-from geopandas import GeoDataFrame
-from pandas import MultiIndex, Series, Index
+from pandas import MultiIndex
 
-from tile2net.grid import frame, util
+from tile2net.grid import frame
 from tile2net.grid.basegrid.file import File
-from tile2net.grid.cfg import cfg, Cfg
-from tile2net.grid.cfg.logger import logger
-from tile2net.grid.explore import explore
+from tile2net.grid.cfg import Cfg
 from tile2net.grid.frame.framewrapper import FrameWrapper
-from tile2net.grid.loaders.dataloader import BaseDataLoader
-from tile2net.grid.loaders.datawrapper import DataWrapper
-from tile2net.grid.loaders.rescale import RescaleDataSet
-from tile2net.grid.loaders.stitch import StitchWriterDataSet
-from tile2net.grid.loaders.unstitch import UnstitchDataSet, UnstitchDataWrapper
 from tile2net.grid.sampler.benchmark import Benchmark
 
 if TYPE_CHECKING:
-    import folium
     from tile2net.grid.seggrid.seggrid import SegGrid
     from tile2net.grid.grid import Grid
     from tile2net.grid.vecgrid.vecgrid import VecGrid
@@ -271,4 +255,10 @@ class BaseGrid(
     @cached_property
     def sampler(self) -> Benchmark:
         result = Benchmark(include_gpu=True)
+        return result
+
+    @classmethod
+    def from_index(cls, index: pd.Index) -> Self:
+        grid = DataFrame(index=index)
+        result = cls(grid)
         return result
