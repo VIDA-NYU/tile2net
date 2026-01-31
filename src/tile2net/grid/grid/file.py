@@ -48,8 +48,8 @@ class File(
         setattr(self, 'static', files)
 
         if (
-            isinstance(source, Remote)
-            and self
+                isinstance(source, Remote)
+                and self
         ):
             return files
 
@@ -68,8 +68,8 @@ class File(
         loc = ~files.map(os.path.exists)
         n = loc.sum()
         if (
-            isinstance(source, Remote)
-            and loc.any()
+                isinstance(source, Remote)
+                and loc.any()
         ):
             msg = f'{trace} found {n} missing files. Downloading to\n\t{path}'
             logger.info(msg)
@@ -114,53 +114,6 @@ class File(
             raise FileNotFoundError('No image files found to infer dimension.')
         return sample
 
-    @frame.column
-    def pred(self) -> pd.Series:
-        """
-        File-paths to segmentation masks where each pixel value represents a class ID.
-
-        Core output of the segmentation pipeline. Each pixel in the mask corresponds
-        to a semantic class.
-
-        # TODO: update
-        """
-
-        grid = self.basegrid
-        files = grid.outdir.project.pred.files(grid)
-        setattr(self, 'pred', files)
-        if self:
-            return files
-
-        name = (
-            str(files.name)
-            .rsplit('.', 1)[-1]
-        )
-        path: str = (
-            grid.outdir
-            .__getattribute__('project')
-            .__getattribute__(name)
-            .dir
-        )
-        trace = f'{self._trace}.{name}'
-
-        loc = ~files.map(os.path.exists)
-        if loc.any():
-            n = loc.sum()
-            msg = f'{trace} found {n} missing files. Unstitching to\n\t{path}'
-            logger.info(msg)
-            subset = grid.loc[loc]
-            subset._unstitch2file(
-                tiles=subset.file.pred,
-                mosaics=subset.segtile.pred,
-                row=subset.segtile.row,
-                col=subset.segtile.col,
-            )
-            assert files.map(os.path.exists).all()
-        else:
-            msg = f'{trace} found all {len(loc)} files already in \n\t{path}'
-            logger.info(msg)
-        return files
-
     @property
     def pred(self) -> pd.Series:
         """
@@ -171,47 +124,12 @@ class File(
         """
         return self.basegrid.seggrid.file.pred
 
-
-    @frame.column
+    @property
     def prob(self) -> pd.Series:
         """
         File-paths to color-coded segmentation masks for visualization.
         """
-        grid = self.basegrid
-        files = grid.outdir.project.prob.files(grid)
-        setattr(self, 'prob', files)
-        if self:
-            return files
-
-        name = (
-            str(files.name)
-            .rsplit('.', 1)[-1]
-        )
-        path: str = (
-            grid.outdir
-            .__getattribute__('project')
-            .__getattribute__(name)
-            .dir
-        )
-        trace = f'{self._trace}.{name}'
-
-        loc = ~files.map(os.path.exists)
-        if loc.any():
-            n = loc.sum()
-            msg = f'{trace} found {n} missing files. Unstitching to\n\t{path}'
-            logger.info(msg)
-            subset = grid.loc[loc]
-            subset._unstitch2file(
-                tiles=subset.file.prob,
-                mosaics=subset.segtile.prob,
-                row=subset.segtile.row,
-                col=subset.segtile.col,
-            )
-            assert files.map(os.path.exists).all()
-        else:
-            msg = f'{trace} found all {len(loc)} files already in \n\t{path}'
-            logger.info(msg)
-        return files
+        return self.basegrid.seggrid.file.prob
 
     @frame.property
     def network(self):
@@ -228,4 +146,3 @@ class File(
         if not self:
             _ = self.basegrid.polygons
         return file
-
