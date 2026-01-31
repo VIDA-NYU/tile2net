@@ -41,9 +41,7 @@ if TYPE_CHECKING:
 class BaseGrid(
     FrameWrapper,
 ):
-
-
-    @frame.column
+    @frame.index
     def itile(self):
         """
         Simple sequential integer identifier for each tile in the grid.
@@ -56,7 +54,6 @@ class BaseGrid(
                           ...
                 387871    1023
         """
-        return np.arange(len(self))
 
     @cached_property
     def hash(self) -> str:
@@ -74,7 +71,6 @@ class BaseGrid(
         cfg = self.cfg.hash()
         result = f'{tiles}-{cfg}'
         return result
-
 
     scale: int
     """Tile scale; the XYZ scale of the grid.
@@ -131,7 +127,6 @@ class BaseGrid(
 
     location: str = None
     """Location passed by the user when instantiating the Grid"""
-
 
     @Cfg
     def cfg(self):
@@ -277,4 +272,3 @@ class BaseGrid(
     def sampler(self) -> Benchmark:
         result = Benchmark(include_gpu=True)
         return result
-

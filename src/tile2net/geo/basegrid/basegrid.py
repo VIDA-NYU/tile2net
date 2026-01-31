@@ -113,20 +113,6 @@ class BaseGrid(
             Index([387840, 387841, 387842, 387843, 387844, 387845, 387846, 387847, 387848,
         """
 
-    @frame.column
-    def itile(self):
-        """
-        Simple sequential integer idnetifier for each tile in the grid.
-
-        Example:
-            >>> grid: Grid
-            >>> grid.itile
-        xtile   ytile
-        317280  387840       0
-                          ...
-                387871    1023
-        """
-        return np.arange(len(self))
 
     @cached_property
     def hash(self) -> str:

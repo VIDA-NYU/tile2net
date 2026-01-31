@@ -10,15 +10,13 @@ from functools import *
 from pathlib import Path
 from typing import *
 
-import pandas as pd
-
 from tile2net.grid import util
 from tile2net.grid.basegrid.basegrid import BaseGrid
 from tile2net.grid.basegrid.static import Static
 from tile2net.grid.cfg import cfg
 from tile2net.grid.cfg.logger import logger
-from tile2net.grid.dir.outdir import Outdir
 from tile2net.grid.dir.dir import Dir
+from tile2net.grid.dir.outdir import Outdir
 from tile2net.grid.dir.tempdir import TempDir
 from tile2net.grid.grid.file import File
 from tile2net.grid.grid.segtile import SegTile
@@ -34,6 +32,19 @@ from tile2net.grid.vecgrid.vecgrid import VecGrid
 class Grid(
     BaseGrid
 ):
+    """
+    "Input Grid" (Grid), comprised of "input tiles" (in-tiles).
+    Each tile is an image from the source.
+
+    Example construction:
+        >>> grid = Grid.from_location('Boston Common, MA')
+        Grid:
+                             lonmin        latmax        lonmax        latmin
+        xtile  ytile
+        317280 387840 -7.911538e+06  5.214840e+06 -7.911500e+06  5.214802e+06
+    """
+
+
     @classmethod
     def from_source(
             cls,
@@ -42,6 +53,7 @@ class Grid(
                 Source,
             ],
             mask: str = None,
+            itile: str = '{i}',
     ) -> Self:
         """
         Instantiate a Grid from a geocoded location string or tile coordinates.
@@ -55,25 +67,16 @@ class Grid(
         # todo: maybe we can also support a geo Grid.from_source which performs the pipeline on the entirety
         #   of the remote source
         source = Local.from_inferred(source)
-        static = source.glob()
-        name = cls.file.static.key
-        frame = pd.DataFrame({name: static})
-        out = cls.from_frame(frame)
+        out: Self = (
+            source.glob(itile)
+            .to_frame(cls.file.static.key)
+            .pipe(cls.from_frame)
+        )
         out.source = source
         out.mask = mask
+        assert out.source.basegrid is not None
         return out
 
-    """
-    "Input Grid" (Grid), comprised of "input tiles" (in-tiles).
-    Each tile is an image from the source.
-
-    Example construction:
-        >>> grid = Grid.from_location('Boston Common, MA')
-        Grid:
-                             lonmin        latmax        lonmax        latmin
-        xtile  ytile
-        317280 387840 -7.911538e+06  5.214840e+06 -7.911500e+06  5.214802e+06
-    """
 
     @File
     def file(self):
@@ -192,6 +195,10 @@ class Grid(
             >>> grid.Static.hrnet_checkpoint
             >>> grid.Static.snapshot
         """
+
+    @property
+    def tokens(self):
+        return dict(i=self.itile)
 
     @Outdir.from_wrapper(requires='i')
     def outdir(self):

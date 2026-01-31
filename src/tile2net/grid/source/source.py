@@ -7,14 +7,14 @@ import geopandas as gpd
 import shapely
 
 from tile2net.grid.basegrid.basegrid import BaseGrid
+from tile2net.grid.cfg.logger import logger
+from tile2net.grid.dir.dir import Dir
 from tile2net.grid.frame.weak import weak
+from tile2net.grid.source.exceptions import SourceParseError
 from tile2net.logger import logger
 
 if TYPE_CHECKING:
     from ..grid import Grid
-
-from tile2net.grid.cfg.logger import logger
-from tile2net.grid.source.exceptions import SourceParseError
 
 
 class Source:
@@ -57,6 +57,15 @@ class Source:
         out: Self = cache[key]
         if isinstance(out, Source):
             out.grid = instance
+        if instance is None:
+            out.basegrid = None
+        elif isinstance(instance, BaseGrid):
+            out.basegrid = instance
+        elif isinstance(instance, Dir):
+            out.basegrid = instance.basegrid
+        else:
+            raise TypeError(instance)
+        out.instance = instance
         return out
 
     locals().update(__get__=_get)
@@ -83,9 +92,8 @@ class Source:
                 f'Expected either a Source or a str.'
             )
             raise TypeError(msg)
+        value.__dict__ = self.__dict__ | value.__dict__
         instance.__dict__[self.__name__] = value
-        if isinstance(value, Source):
-            value.__name__ = self.__name__
 
     def __delete__(self, instance: Grid):
         try:

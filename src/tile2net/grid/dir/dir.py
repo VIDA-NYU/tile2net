@@ -105,6 +105,7 @@ class Dir(namespace):
 
     def __set__(self, instance: 'Dir', value) -> Self:
         # problem is we lose __wrapped__ by using from_template
+        self.instance = instance
         if isinstance(value, str):
             value = self.from_template(value)
             value.__dict__ = self.__dict__ | value.__dict__
@@ -210,7 +211,6 @@ class Dir(namespace):
             dict[str, Iterable]
         ]):
             out = cls()
-            out.__wrapped__ = func
             out.requirements = requires
             return out
 
@@ -218,6 +218,10 @@ class Dir(namespace):
 
     def __set_name__(self, owner, name):
         self.__name__ = name
+
+    def format(self, template: str, files: pd.Series) -> pd.Series:
+        ...
+
 
     def files(
             self,
@@ -246,7 +250,7 @@ class Dir(namespace):
             msg = f'Dir.files() requires a Grid instance as basegrid, got {type(self.basegrid)}'
             raise TypeError(msg)
 
-        context_data = self.__wrapped__(self.basegrid)
+        context_data = self.basegrid.tokens
         if context_data:
             fill_data.update(context_data)
 
