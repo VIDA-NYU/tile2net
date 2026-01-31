@@ -34,6 +34,7 @@ from tile2net.grid.pednet import PedNet
 from tile2net.grid.util import recursion_block
 from tile2net.geo.vecgrid.padded import Padded
 from .mask2poly import Mask2Poly
+from tile2net.geo.vecgrid.file import File
 
 if TYPE_CHECKING:
     from ..grid import Grid
@@ -86,6 +87,10 @@ class VecGrid(
         >>> VecGrid._get
     """
     __name__ = 'vecgrid'
+
+    @File
+    def file(self):
+        ...
 
     @Padded
     def padded(self):

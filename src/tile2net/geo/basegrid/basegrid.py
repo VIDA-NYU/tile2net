@@ -30,6 +30,7 @@ from tile2net.grid.loaders.stitch import StitchWriterDataSet
 from tile2net.grid.loaders.unstitch import UnstitchDataSet, UnstitchDataWrapper
 from tile2net.grid.sampler.benchmark import Benchmark
 from tile2net.geo.basegrid.corners import Corners
+from tile2net.geo.basegrid.file import File
 
 if TYPE_CHECKING:
     import folium
@@ -42,6 +43,9 @@ if TYPE_CHECKING:
 class BaseGrid(
     basegrid.BaseGrid
 ):
+    @File
+    def file(self):
+        ...
 
     @frame.column
     def lonmax(self):

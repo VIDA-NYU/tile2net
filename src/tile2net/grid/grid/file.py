@@ -161,6 +161,17 @@ class File(
             logger.info(msg)
         return files
 
+    @property
+    def pred(self) -> pd.Series:
+        """
+        File-paths to segmentation masks where each pixel value represents a class ID.
+
+        Core output of the segmentation pipeline. Each pixel in the mask corresponds
+        to a semantic class.
+        """
+        return self.basegrid.seggrid.file.pred
+
+
     @frame.column
     def prob(self) -> pd.Series:
         """
