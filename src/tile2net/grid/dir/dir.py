@@ -219,9 +219,6 @@ class Dir(namespace):
     def __set_name__(self, owner, name):
         self.__name__ = name
 
-    def format(self, template: str, files: pd.Series) -> pd.Series:
-        ...
-
 
     def files(
             self,

@@ -62,6 +62,17 @@ class Grid(
         """
         # todo: maybe we can also support a geo Grid.from_source which performs the pipeline on the entirety
         #   of the remote source
+        if (
+            isinstance(source, str)
+            and '{i}' not in source
+        ):
+            source = os.path.join(source, '{i}')
+        if (
+            isinstance(mask, str)
+            and '{i}' not in mask
+        ):
+            mask = os.path.join(mask, '{i}')
+
         source = Local.from_inferred(source)
         out: Self = (
             source.glob(itile)
@@ -367,6 +378,8 @@ class Grid(
             **kwargs,
     ) -> Self:
         """
+        Configure vectorization grid dimensions and create Grid.vecgrid.
+
         See also:
             >>> VecGrid._get
         """
