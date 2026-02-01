@@ -4,9 +4,6 @@ from concurrent.futures import Future, ThreadPoolExecutor, wait
 from functools import cached_property
 from typing import TYPE_CHECKING, Self, Callable, Any
 
-if TYPE_CHECKING:
-    pass
-
 class Submit:
     """
     Manages parallel file I/O with double-buffering and two-tier thread pools.

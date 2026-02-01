@@ -98,14 +98,18 @@ class Outdir(
             instance: Grid,
             value: str | Dir,
     ):
+        itile = (
+            instance.cfg.itile
+            or instance.ITILE
+        )
+
         if isinstance(value, str):
-            try:
-                value = self.from_template(value)
-            except XYNotFoundError:
-                item = os.path.join(value, instance.cfg.template)
-                value = self.from_template(item)
-        if not isinstance(value, Dir):
+            value = self.from_template(value, itile=itile)
+        elif isinstance(value, Dir):
+            ...
+        else:
             raise TypeError(value)
+
         instance.__dict__[self.__name__] = copy.copy(value)
 
     def __delete__(

@@ -17,20 +17,19 @@ from PIL import ImageColor, Image
 from geopandas import GeoDataFrame
 from pandas import MultiIndex, Series, Index
 
-from tile2net.grid.basegrid import basegrid
-from tile2net.grid.basegrid.file import File
-from tile2net.grid.explore import explore
+from tile2net.geo.basegrid.corners import Corners
+from tile2net.geo.basegrid.file import File
 from tile2net.grid import frame, util
+from tile2net.grid.basegrid import basegrid
 from tile2net.grid.cfg import cfg, Cfg
 from tile2net.grid.cfg.logger import logger
+from tile2net.grid.explore import explore
 from tile2net.grid.loaders.dataloader import BaseDataLoader
 from tile2net.grid.loaders.datawrapper import DataWrapper
 from tile2net.grid.loaders.rescale import RescaleDataSet
 from tile2net.grid.loaders.stitch import StitchWriterDataSet
 from tile2net.grid.loaders.unstitch import UnstitchDataSet, UnstitchDataWrapper
 from tile2net.grid.sampler.benchmark import Benchmark
-from tile2net.geo.basegrid.corners import Corners
-from tile2net.geo.basegrid.file import File
 
 if TYPE_CHECKING:
     import folium
@@ -43,6 +42,8 @@ if TYPE_CHECKING:
 class BaseGrid(
     basegrid.BaseGrid
 ):
+    ITILE: str = '{z}/{x}_{y}'
+
     @File
     def file(self):
         ...

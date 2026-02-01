@@ -541,23 +541,7 @@ class VecGrid(
             force = ~seggrid.vectile.line.map(os.path.exists)
             force |= self.cfg.force
 
-        match self.cfg.segmentation.postprocess:
-            case None:
-                pred = seggrid.file.pred
-            case 'gac':
-                pred = seggrid.file.gac.pred
-            case 'gmb':
-                pred = seggrid.file.gmb.pred
-            case 'hysteresis':
-                pred = seggrid.file.hysteresis.pred
-            case _:
-                msg = (
-                    f'Unknown segmentation postprocess: '
-                    f'{self.cfg.segmentation.postprocess}.'
-                    f' Using raw predictions instead.'
-                )
-                logger.error(msg)
-                pred = seggrid.file.pred
+        pred = seggrid.file.pred
 
         wrapper: VecDataWrapper = VecDataWrapper.from_segtiles(
             static=pred,
@@ -580,7 +564,9 @@ class VecGrid(
             msg = 'All vector tiles already exist on disk.'
             logger.info(msg)
             return
+        # todo: update cfg
         threads = self.cfg.vectorization.num_loaders
+        threads = os.cpu_count() - 1
         dataset = VecDataSet(wrapper, threads=threads)
         loader = dataset.loader()
 

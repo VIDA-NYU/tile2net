@@ -94,38 +94,44 @@ class SanFranciscoBase(Remote, ABC):
         bounds = box(-122.514926, 37.708075, -122.356779, 37.832371)
         return GeoSeries([bounds], crs="EPSG:4326")
 
-
+# todo: allow better date priorities
 class SanFrancisco2014(SanFranciscoBase):
+    enabled = False
     name = 'sf2014'
     year = 2014
     server = 'https://tile.sf.gov/api/tiles/p2014_rgb8cm'
 
 
 class SanFrancisco2017(SanFranciscoBase):
+    enabled = False
     name = 'sf2017'
     year = 2017
     server = 'https://tile.sf.gov/api/tiles/p2017_rgb8cm'
 
 
 class SanFrancisco2018(SanFranciscoBase):
+    enabled = False
     name = 'sf2018'
     year = 2018
     server = 'https://tile.sf.gov/api/tiles/p2018_rgb8cm'
 
 
 class SanFrancisco2019(SanFranciscoBase):
+    enabled = False
     name = 'sf2019'
     year = 2019
     server = 'https://tile.sf.gov/api/tiles/p2019_rgb8cm'
 
 
 class SanFrancisco2020(SanFranciscoBase):
+    enabled = False
     name = 'sf2020'
     year = 2020
     server = 'https://tile.sf.gov/api/tiles/p2020_rgb8cm'
 
 
 class SanFrancisco2023(SanFranciscoBase):
+    enabled = False
     name = 'sf2023'
     year = 2023
     server = 'https://tile.sf.gov/api/tiles/p2023_rgb8cm'

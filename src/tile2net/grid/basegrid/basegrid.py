@@ -24,6 +24,8 @@ if TYPE_CHECKING:
 class BaseGrid(
     FrameWrapper,
 ):
+    ITILE: str = '{i}'
+
     @frame.index
     def itile(self):
         """

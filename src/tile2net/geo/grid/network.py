@@ -176,7 +176,7 @@ class Network(
 
                     result = (
                         result.frame
-                        .pipe(tile2net.geo.pednet.lines.Lines.from_center)
+                        .pipe(tile2net.grid.pednet.lines.Lines.from_center)
                         .drop2nodes()
                         .frame
                         .set_index('feature')

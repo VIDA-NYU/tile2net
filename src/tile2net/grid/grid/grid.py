@@ -203,7 +203,7 @@ class Grid(
         """
 
 
-    @Outdir.from_wrapper(requires='i')
+    @Outdir
     def outdir(self):
         """
         Output in which the results, such as annotated images and geometry, will be stored:
@@ -224,7 +224,7 @@ class Grid(
             i=self.index
         )
 
-    @Dir.from_wrapper(requires='i')
+    @Dir
     def mask(self):
         """
         Directory for storing mask files aligned with the tiles of a Grid.

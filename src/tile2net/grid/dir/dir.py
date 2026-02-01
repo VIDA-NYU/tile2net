@@ -46,7 +46,7 @@ class Dir(namespace):
     _defaults: dict[str, str]
     """Dictionary mapping template keys to their default string values."""
 
-    requirements: Iterable[str] = tuple()
+    requires: Iterable[str] = tuple()
     """Iterable of required keys for this Dir instance."""
 
     @cached_property
@@ -71,7 +71,9 @@ class Dir(namespace):
             cache = instance.__dict__
             name = self.__name__
             if name not in cache:
-                if isinstance(instance, Dir):
+                if self.__wrapped__:
+                    value = self.__wrapped__(instance)
+                elif isinstance(instance, Dir):
                     value = self.from_parent(instance, name, self.extension)
                 elif isinstance(instance, BaseGrid):
                     value = self
@@ -93,15 +95,17 @@ class Dir(namespace):
 
     locals().update(__get__=_get)
 
-    @cached_property
-    def __wrapped__(self) -> Callable[
-        [BaseGrid],
-        dict[str, Iterable]
-    ]:
-        instance = self.instance
-        if not isinstance(instance, Dir):
-            raise TypeError(instance)
-        return instance.__wrapped__
+    # @cached_property
+    # def __wrapped__(self) -> Callable[
+    #     [BaseGrid],
+    #     dict[str, Iterable]
+    # ]:
+    #     instance = self.instance
+    #     if not isinstance(instance, Dir):
+    #         raise TypeError(instance)
+    #     return instance.__wrapped__
+
+    __wrapped__ = None
 
     def __set__(self, instance: 'Dir', value) -> Self:
         # problem is we lose __wrapped__ by using from_template
@@ -161,6 +165,7 @@ class Dir(namespace):
     def from_template(
             cls,
             item: str,
+            itile: str = None,
     ) -> Self:
         path_obj = Path(item).expanduser().resolve()
         value = str(path_obj)
@@ -199,30 +204,163 @@ class Dir(namespace):
         return instance
 
     @classmethod
-    def from_wrapper(cls, requires: Iterable[str]) -> Callable[
-        [Callable],
-        Self
-    ]:
-        if isinstance(requires, str):
-            requires = requires,
+    def from_template(
+            cls,
+            item: str,
+            itile: str = None,
+    ) -> Self:
+        """
+        Create a Dir instance from a template string.
 
-        def wrapper(func: Callable[
-            [BaseGrid],
-            dict[str, Iterable]
-        ]):
-            out = cls()
-            out.requirements = requires
-            return out
+        Args:
+            item: The path or template string (e.g., '/path/to/data' or '/path/{z}/{x}_{y}.png').
+            itile: Optional expected tile format (e.g., '{z}/{x}_{y}').
+                   - If 'item' contains NONE of the tokens in 'itile', 'itile' is appended to 'item'.
+                   - If 'item' contains ALL of the tokens in 'itile', 'item' is used as is.
+                   - If 'item' contains SOME but not ALL tokens, a ValueError is raised.
+        """
+        if itile:
+            # Extract required tokens from the expected itile format
+            itile_tokens = set(re.findall(r'\{([^}]+)\}', itile))
+            # Extract tokens present in the provided item
+            item_tokens = set(re.findall(r'\{([^}]+)\}', item))
 
-        return wrapper
+            # Find intersection of tokens
+            common = itile_tokens & item_tokens
+
+            if not common:
+                # Case: Item has none of the tokens -> Append itile to item
+                item = os.path.join(item, itile)
+            elif common < itile_tokens:
+                # Case: Item has some, but not all tokens -> Raise Exception
+                # (common is a strict subset of itile_tokens)
+                missing = itile_tokens - common
+                raise ValueError(
+                    f"The path template '{item}' contains partial tokens from the expected format '{itile}'. "
+                    f"Missing tokens: {missing}. "
+                    f"Please provide either a base directory (containing no tokens) or the full template."
+                )
+            # Case: Item has all required tokens (common == itile_tokens) -> Do nothing
+
+        path_obj = Path(item).expanduser().resolve()
+        value = str(path_obj)
+
+        instance = cls()
+        instance.original = value
+        if '.' in value:
+            instance.extension = value.rsplit('.', 1)[1]
+        else:
+            instance.extension = ''
+
+        # Explicit tokenization required: keys must be wrapped in {}
+        instance.template = value
+        # Extract keys within braces for defaults
+        keys = re.findall(r'\{([^}]+)\}', value)
+        instance._defaults = {k: k for k in keys}
+
+        # Calculate static root (text before the first variable)
+        match = re.search(r'^(.*?)\{', instance.template)
+        if match:
+            instance.root = match.group(1)
+        else:
+            instance.root = instance.template
+
+        # Determine dir (parent directory of the template)
+        head, _ = os.path.split(instance.template)
+        instance.dir = head
+
+        # Calculate suffix relative to dir
+        if instance.template.startswith(instance.dir):
+            rel = instance.template[len(instance.dir):]
+            instance.suffix = rel.lstrip(os.sep)
+        else:
+            instance.suffix = os.path.basename(instance.template)
+
+        return instance
+
+    @classmethod
+    def from_template(
+            cls,
+            item: str,
+            itile: str = None,
+    ) -> Self:
+        """
+        Create a Dir instance from a template string.
+
+        Args:
+            item: The path or template string (e.g., '/path/to/data' or '/path/{z}/{x}_{y}.png').
+            itile: Optional expected tile format (e.g., '{z}/{x}_{y}').
+                   - If 'item' contains NONE of the tokens in 'itile', 'itile' is appended to 'item'.
+                   - If 'item' contains ALL of the tokens in 'itile', 'item' is used as is.
+                   - If 'item' contains SOME but not ALL tokens, a ValueError is raised.
+        """
+        if itile:
+            # Extract required tokens from the expected itile format
+            itile_tokens = set(re.findall(r'\{([^}]+)\}', itile))
+            # Extract tokens present in the provided item
+            item_tokens = set(re.findall(r'\{([^}]+)\}', item))
+
+            # Find intersection of tokens
+            common = itile_tokens & item_tokens
+
+            if not common:
+                # Case: Item has none of the tokens -> Append itile to item
+                item = os.path.join(item, itile)
+            elif common < itile_tokens:
+                # Case: Item has some, but not all tokens -> Raise Exception
+                # (common is a strict subset of itile_tokens)
+                missing = itile_tokens - common
+                raise ValueError(
+                    f"The path template '{item}' contains partial tokens from the expected format '{itile}'. "
+                    f"Missing tokens: {missing}. "
+                    f"Please provide either a base directory (containing no tokens) or the full template."
+                )
+            # Case: Item has all required tokens (common == itile_tokens) -> Do nothing
+
+        path_obj = Path(item).expanduser().resolve()
+        value = str(path_obj)
+
+        instance = cls()
+        instance.original = value
+        if '.' in value:
+            instance.extension = value.rsplit('.', 1)[1]
+        else:
+            instance.extension = ''
+
+        # Explicit tokenization required: keys must be wrapped in {}
+        instance.template = value
+        # Extract keys within braces for defaults
+        keys = re.findall(r'\{([^}]+)\}', value)
+        instance._defaults = {k: k for k in keys}
+
+        # Calculate static root (text before the first variable)
+        match = re.search(r'^(.*?)\{', instance.template)
+        if match:
+            instance.root = match.group(1)
+        else:
+            instance.root = instance.template
+
+        # Determine dir: The directory component of the static root.
+        # This ensures 'dir' stops before any curly braces.
+        # e.g., root='/path/img_' -> dir='/path'
+        # e.g., root='/path/dir/' -> dir='/path/dir'
+        instance.dir = os.path.dirname(instance.root)
+
+        # Calculate suffix relative to dir
+        if instance.template.startswith(instance.dir):
+            rel = instance.template[len(instance.dir):]
+            instance.suffix = rel.lstrip(os.sep)
+        else:
+            instance.suffix = os.path.basename(instance.template)
+
+        return instance
 
     def __set_name__(self, owner, name):
         self.__name__ = name
 
-
     def files(
             self,
-            grid:BaseGrid=None,
+            grid: BaseGrid = None,
             dirname: str = '',
             makedirs: bool = True,
             **key2fill,
@@ -365,15 +503,13 @@ if __name__ == '__main__':
     print(f'Explicit split (/var/tiles/houston_{{i}}.png): {d.template}')
 
     # 3. Custom keys
-    d_custom = Dir.from_template('/var/tiles/houston{i}.png',)
+    d_custom = Dir.from_template('/var/tiles/houston{i}.png', )
     assert '{houston}' not in d_custom.template
     assert '{i}' in d_custom.template
     print(f'User specified braces (/var/tiles/houston{{i}}.png): {d_custom.template}')
 
-
     # 4. Mixed scalar and iterable in files()
     # Explicitly wrapping {region}, {x}, {y}
-    d_mix = Dir.from_template('/data/{region}/{x}_{y}.tif',)
-
+    d_mix = Dir.from_template('/data/{region}/{x}_{y}.tif', )
 
     print("All tests passed.")

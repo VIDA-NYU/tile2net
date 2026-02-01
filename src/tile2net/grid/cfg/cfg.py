@@ -1480,7 +1480,7 @@ class Cfg(
 
     @basic(1.5)
     @cmdline.property
-    def template(self) -> str:
+    def itile(self) -> Optional[str]:
         """
         Template for saving tile images within the output directory,
         where x, y, and z (optional) indicate how the output files
@@ -1491,7 +1491,6 @@ class Cfg(
         you may want to align the output files with the structure of the imagery
         you work with. You would pass: `--template z/x/y`
         """
-        return 'z/x_y'
 
     outdir.add_options(short='-f')
 

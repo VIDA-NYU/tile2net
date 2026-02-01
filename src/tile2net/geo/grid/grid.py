@@ -43,7 +43,7 @@ class Grid(
 ):
 
 
-    @Outdir.from_wrapper(requires='x y'.split())
+    @Outdir
     def outdir(self):
         """
         Output in which the results, such as annotated images and geometry, will be stored:
@@ -79,7 +79,7 @@ class Grid(
         317280 387840 -7.911538e+06  5.214840e+06 -7.911500e+06  5.214802e+06
     """
 
-    @Dir.from_wrapper(requires='x y'.split())
+    @Dir
     def mask(self):
         """
         Directory where segmentation masks are stored for each in-tile.

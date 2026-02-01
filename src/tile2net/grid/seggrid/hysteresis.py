@@ -155,7 +155,7 @@ class Hysteresis(PostProcess):
 
         if loc.any():
             n = loc.sum()
-            msg = f'{trace} found {n} missing files. Predicting to\n\t{path}'
+            msg = f'{trace} found {n} missing files. Postprocessing to\n\t{path}'
             logging.info(msg)
 
             os.makedirs(path, exist_ok=True)
