@@ -25,6 +25,8 @@ from tqdm.auto import tqdm
 
 from tile2net.geo.basegrid import basegrid
 from tile2net.geo.basegrid.corners import Corners
+from tile2net.geo.vecgrid.file import File
+from tile2net.geo.vecgrid.padded import Padded
 from tile2net.grid import vecgrid, frame
 from tile2net.grid.cfg.cfg import Cfg
 from tile2net.grid.cfg.logger import logger
@@ -32,9 +34,7 @@ from tile2net.grid.loaders.dataset import DataSet
 from tile2net.grid.loaders.vec import VecDataSet, VecDataWrapper
 from tile2net.grid.pednet import PedNet
 from tile2net.grid.util import recursion_block
-from tile2net.geo.vecgrid.padded import Padded
 from .mask2poly import Mask2Poly
-from tile2net.geo.vecgrid.file import File
 
 if TYPE_CHECKING:
     from ..grid import Grid
@@ -189,6 +189,7 @@ class VecGrid(
             True
         """
         return self.instance
+
     @recursion_block
     def _overlay(self) -> Self:
         """
@@ -540,8 +541,26 @@ class VecGrid(
             force = ~seggrid.vectile.line.map(os.path.exists)
             force |= self.cfg.force
 
+        match self.cfg.segmentation.postprocess:
+            case None:
+                pred = seggrid.file.pred
+            case 'gac':
+                pred = seggrid.file.gac.pred
+            case 'gmb':
+                pred = seggrid.file.gmb.pred
+            case 'hysteresis':
+                pred = seggrid.file.hysteresis.pred
+            case _:
+                msg = (
+                    f'Unknown segmentation postprocess: '
+                    f'{self.cfg.segmentation.postprocess}.'
+                    f' Using raw predictions instead.'
+                )
+                logger.error(msg)
+                pred = seggrid.file.pred
+
         wrapper: VecDataWrapper = VecDataWrapper.from_segtiles(
-            static=seggrid.file.pred,
+            static=pred,
             index=seggrid.vectile.index,
             row=seggrid.vectile.row,
             col=seggrid.vectile.col,
@@ -714,4 +733,3 @@ class VecGrid(
                     continue
                 new_fut = executor.submit(self._vectorize_submit, *nxt)
                 inflight[new_fut] = nxt
-

@@ -4,17 +4,18 @@ import copy
 import os
 from functools import *
 from pathlib import Path
+from typing import *
 from typing import TYPE_CHECKING
 
+from tile2net.geo.basegrid import basegrid
 from tile2net.geo.seggrid import delayed
 from tile2net.geo.seggrid.padded import Padded
 from tile2net.geo.seggrid.vectile import VecTile
-from tile2net.grid.seggrid import seggrid
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.frame.namespace import namespace
 from tile2net.grid.sampler.benchmark import Benchmark
+from tile2net.grid.seggrid import seggrid
 from tile2net.grid.seggrid.file import File
-from tile2net.geo.basegrid import basegrid
 
 if TYPE_CHECKING:
     from .filled import Filled
@@ -356,8 +357,8 @@ class SegGrid(
 
     def predict(
             self,
-            output: str = 'prob',
-    ):
+            output: Literal['unclipped_prob', 'prob', 'pred'] = 'pred',
+    ) -> None:
         """
         Run semantic segmentation prediction on all tiles in the grid using subprocess.
 

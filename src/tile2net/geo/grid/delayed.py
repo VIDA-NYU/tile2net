@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from . import filled
+    from . import filled, broadcast
 
 
 class Filled:
@@ -11,7 +11,7 @@ class Filled:
             self,
             instance,
             owner
-    ):
+    ) -> filled.Filled:
         from . import filled
         filled = filled.Filled()
         setattr(owner, self.__name__, filled)
@@ -35,7 +35,7 @@ class Broadcast:
             self,
             instance,
             owner
-    ):
+    ) -> broadcast.Broadcast:
         from . import broadcast
         broadcast = broadcast.Broadcast()
         setattr(owner, self.__name__, broadcast)

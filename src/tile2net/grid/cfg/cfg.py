@@ -775,7 +775,6 @@ class Download(cmdline.Namespace):
         return True
 
 
-
 class Segmentation(
     cmdline.Namespace
 ):
@@ -889,6 +888,13 @@ class Segmentation(
     def only(self) -> bool:
         """Do not perform any tasks past the segmentation step."""
         return False
+
+    @cmdline.property
+    def postprocess(self) -> Optional[Literal[
+        'gac', 'gmb', 'hysteresis'
+    ]]:
+        """Post-processing to run on the segmentation to improve results."""
+        return
 
 
 class Vectorization(

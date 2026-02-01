@@ -18,8 +18,8 @@ class Filled:
             self,
             instance,
             owner
-    ):
-        from . import filled as filled
+    ) -> filled.Filled:
+        from . import filled
         filled = filled.Filled()
         setattr(owner, self.__name__, filled)
         filled.__set_name__(owner, self.__name__)
@@ -50,7 +50,7 @@ class Broadcast:
             self,
             instance,
             owner
-    ):
+    ) -> broadcast.Broadcast:
         from . import broadcast as broadcast
         broadcast = broadcast.Broadcast()
         setattr(owner, self.__name__, broadcast)
