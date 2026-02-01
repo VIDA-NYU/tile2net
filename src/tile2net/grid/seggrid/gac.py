@@ -19,7 +19,7 @@ import torch
 import tifffile as tiff
 import scipy.ndimage as ndi
 from skimage.morphology import disk
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from tqdm import tqdm
 
 # Radius of 15 means gaps up to ~30 pixels wide will be bridged.
@@ -66,12 +66,20 @@ def _grayscale_area_closing_np(prob_tensor: np.ndarray) -> np.ndarray:
 @grayscale_area_closing.register
 def _grayscale_area_closing_torch(prob_tensor: torch.Tensor) -> torch.Tensor:
     """Applies Grayscale Closing and Foreground Gain to torch tensor."""
-    # Convert to numpy, process, convert back
     device = prob_tensor.device
     dtype = prob_tensor.dtype
 
     prob_np = prob_tensor.detach().cpu().numpy()
-    refined_np = _grayscale_area_closing_np(prob_np)
+
+    if prob_np.ndim == 4:
+        batch_size = prob_np.shape[0]
+        with ThreadPoolExecutor() as executor:
+            refined_list = list(
+                executor.map(_grayscale_area_closing_np, [prob_np[i] for i in range(batch_size)])
+            )
+        refined_np = np.stack(refined_list, axis=0)
+    else:
+        refined_np = _grayscale_area_closing_np(prob_np)
 
     result = torch.from_numpy(refined_np).to(device=device, dtype=dtype)
     return result

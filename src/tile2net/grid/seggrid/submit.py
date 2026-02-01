@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Self, Callable, Any
 if TYPE_CHECKING:
     pass
 
-
 class Submit:
     """
     Manages parallel file I/O with double-buffering and two-tier thread pools.

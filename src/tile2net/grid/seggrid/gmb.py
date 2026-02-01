@@ -18,7 +18,7 @@ import pandas as pd
 import torch
 import tifffile as tiff
 from skimage.morphology import reconstruction, dilation, disk, square
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from tqdm import tqdm
 
 # We use a small footprint for the potential mask to bridge small local disconnects
@@ -88,7 +88,16 @@ def _geodesic_masked_boosting_torch(prob_tensor: torch.Tensor) -> torch.Tensor:
     dtype = prob_tensor.dtype
 
     prob_np = prob_tensor.detach().cpu().numpy()
-    refined_np = _geodesic_masked_boosting_np(prob_np)
+
+    if prob_np.ndim == 4:
+        batch_size = prob_np.shape[0]
+        with ThreadPoolExecutor() as executor:
+            refined_list = list(
+                executor.map(_geodesic_masked_boosting_np, [prob_np[i] for i in range(batch_size)])
+            )
+        refined_np = np.stack(refined_list, axis=0)
+    else:
+        refined_np = _geodesic_masked_boosting_np(prob_np)
 
     result = torch.from_numpy(refined_np).to(device=device, dtype=dtype)
     return result
