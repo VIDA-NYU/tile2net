@@ -1,1 +1,0 @@
-from .vecgrid import VecGrid
