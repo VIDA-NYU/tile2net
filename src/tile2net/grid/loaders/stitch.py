@@ -54,10 +54,12 @@ class StitchDataSet(
     def __init__(
             self,
             wrapper: DataWrapper,
+            padded_dimension: int | None = None,
             *args,
             **kwargs,
     ):
         self.wrapper = wrapper
+        self.padded_dimension = padded_dimension
 
     @cached_property
     def threads(self):
@@ -348,10 +350,7 @@ class StitchDataSet(
         out.fill(0)
         return out
 
-    def __getitem__(
-            self,
-            item,
-    ) -> np.ndarray:
+    def __getitem__( self, item, ) -> np.ndarray:
         # composite tiles into a single RGB mosaic
 
         # pull grouped lists
@@ -397,6 +396,15 @@ class StitchDataSet(
                 self.paste(mosaic, arr, r, c)
 
         out = mosaic
+
+        if self.padded_dimension is not None:
+            size = self.padded_dimension
+            offset = (out.shape[0] - size) // 2
+            out = out[
+                offset: offset + size,
+                offset: offset + size
+            ]
+
         return out
 
     def paste(

@@ -810,8 +810,8 @@ class Segmentation(
 
     @cmdline.property
     def pad(self) -> int:
-        """Number of seg-tiles to pad each vec-tile by."""
-        return 1
+        """Number of pixels from other in-tiles to pad each segt-tile by during inference."""
+        return 128
 
     @cmdline.property
     def prefetch_factor(self) -> int:

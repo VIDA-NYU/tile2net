@@ -562,23 +562,26 @@ class BaseGrid(
         assert result.scale == scale
         return result
 
-    def to_padding(self, pad: int = 1) -> Self:
+    def to_padding(
+            self,
+            tiles: int = 1
+    ) -> Self:
         """ Pad each tile by `pad` grid in each direction. """
         filled = (
             self
             .to_corners(self.scale)
-            .to_padding(pad)
+            .to_padding(tiles)
             .to_grid()
             .pipe(self.from_wrapper)
         )
         assert isinstance(filled, self.__class__)
         filled.frame = filled.frame.sort_index()
 
-        assert self.xtile.min() - pad == filled.xtile.min()
-        assert self.ytile.min() - pad == filled.ytile.min()
-        assert self.xtile.max() + pad == filled.xtile.max()
-        assert self.ytile.max() + pad == filled.ytile.max()
-        if pad >= 0:
+        assert self.xtile.min() - tiles == filled.xtile.min()
+        assert self.ytile.min() - tiles == filled.ytile.min()
+        assert self.xtile.max() + tiles == filled.xtile.max()
+        assert self.ytile.max() + tiles == filled.ytile.max()
+        if tiles >= 0:
             assert self.index.isin(filled.index).all()
 
         result = self.copy()

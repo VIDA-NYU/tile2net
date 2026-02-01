@@ -37,7 +37,9 @@ class Padded(
         Pixel dimension of each seg-tile after it has been
         padded a number of in-tiles.
         """
-        return self.instance.grid.dimension * self.length
+        out = self.instance.length * self.instance.grid.dimension
+        out += 2 * self.instance.cfg.segmentation.pad
+        return out
 
     @property
     def basegrid(self) -> SegGrid:

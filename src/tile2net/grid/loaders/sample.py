@@ -164,19 +164,20 @@ class SampleDataSet(
             self,
             wrapper: SampleDataWrapper,
             mode: str | None = None,
+            padded_dimension: int | None = None,
             *args,
             **kwargs,
     ):
         """Combines an ImageDataSet and MaskDataSet for sample loading. """
-        super().__init__(wrapper, mode, *args, **kwargs)
-        self.image = ImageDataSet(wrapper)
+        super().__init__(wrapper, mode, padded_dimension=padded_dimension, *args, **kwargs)
+        self.image = ImageDataSet(wrapper, padded_dimension=padded_dimension)
         # mask wrapper just uses `mask` instead of `static` as input
         wrapper = (
             wrapper.frame
             .assign(image_path=wrapper.mask)
             .pipe(wrapper.from_frame)
         )
-        self.mask = MaskDataSet(wrapper)
+        self.mask = MaskDataSet(wrapper, padded_dimension=padded_dimension)
         self.mode = mode
 
 

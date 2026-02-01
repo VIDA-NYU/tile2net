@@ -56,10 +56,15 @@ class Filled(
             result = cache[key]
         else:
             seggrid = instance.seggrid
+            tiles = (
+                instance.cfg.segmentation.pad
+                .__truediv__(instance.dimension)
+                .__ceil__()
+            )
             result = (
                 instance
                 .to_scale(seggrid.scale)
-                .to_padding(instance.cfg.segmentation.pad)
+                .to_padding(tiles=tiles)
                 .to_scale(instance.scale)
                 .pipe(self.__class__.from_wrapper)
             )
