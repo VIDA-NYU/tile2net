@@ -6,8 +6,8 @@ import os
 
 import pandas as pd
 
-import tile2net.geo.basegrid.file
-import tile2net.grid.vecgrid.file
+from tile2net.grid.vecgrid.file import File as VecGridFile
+from tile2net.geo.basegrid.file import File as BaseGridFile
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid import frame
 
@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 
 
 class File(
-    tile2net.grid.vecgrid.file.File,
-    tile2net.geo.basegrid.file.File,
+    VecGridFile,
+    BaseGridFile,
 ):
     instance: VecGrid
     basegrid: VecGrid
