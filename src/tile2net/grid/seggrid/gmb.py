@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import *
+from functools import singledispatch
 
 from tile2net.grid import frame
 from tile2net.grid.basegrid import file
@@ -14,6 +15,7 @@ import os
 import logging
 import numpy as np
 import pandas as pd
+import torch
 import tifffile as tiff
 from skimage.morphology import reconstruction, dilation, disk, square
 from concurrent.futures import ProcessPoolExecutor
@@ -29,7 +31,13 @@ CONNECTIVITY_FOOTPRINT = disk(3)
 FOREGROUND_GAIN = 6.0
 
 
-def geodesic_masked_boosting(prob_tensor: np.ndarray) -> np.ndarray:
+@singledispatch
+def geodesic_masked_boosting(prob_tensor):
+    raise TypeError(f"Unsupported type for geodesic_masked_boosting: {type(prob_tensor)!r}")
+
+
+@geodesic_masked_boosting.register
+def _geodesic_masked_boosting_np(prob_tensor: np.ndarray) -> np.ndarray:
     """
     Applies Morphological Reconstruction by Dilation followed by Foreground Gain.
     This allows high-confidence areas to 'flow' into low-confidence gaps
@@ -71,6 +79,19 @@ def geodesic_masked_boosting(prob_tensor: np.ndarray) -> np.ndarray:
     refined /= total_prob
 
     return refined
+
+
+@geodesic_masked_boosting.register
+def _geodesic_masked_boosting_torch(prob_tensor: torch.Tensor) -> torch.Tensor:
+    """Applies Geodesic Masked Boosting to torch tensor."""
+    device = prob_tensor.device
+    dtype = prob_tensor.dtype
+
+    prob_np = prob_tensor.detach().cpu().numpy()
+    refined_np = _geodesic_masked_boosting_np(prob_np)
+
+    result = torch.from_numpy(refined_np).to(device=device, dtype=dtype)
+    return result
 
 
 def _process(args: tuple[str, str, int]) -> None:

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import *
+from functools import singledispatch
 
 from tile2net.grid import frame
 from tile2net.grid.basegrid import file
@@ -15,12 +16,13 @@ import os
 import logging
 import numpy as np
 import pandas as pd
+import torch
 import tifffile as tiff
 from skimage.morphology import reconstruction, disk
 from concurrent.futures import ProcessPoolExecutor
 from tqdm import tqdm
 
-# ─── Configuration ────────────────────────────────────────────────────────────
+# Configuration
 
 # High Threshold: Pixels above this are DEFINITELY the class.
 # This anchors the object.
@@ -40,7 +42,13 @@ CONFIRMED_GAIN = 10.0
 CONN_FOOTPRINT = disk(2)
 
 
-def hysteresis_boost(prob_tensor: np.ndarray) -> np.ndarray:
+@singledispatch
+def hysteresis_boost(prob_tensor):
+    raise TypeError(f"Unsupported type for hysteresis_boost: {type(prob_tensor)!r}")
+
+
+@hysteresis_boost.register
+def _hysteresis_boost_np(prob_tensor: np.ndarray) -> np.ndarray:
     """
     Applies Hysteresis Thresholding to selectively boost connected low-confidence regions.
 
@@ -83,6 +91,19 @@ def hysteresis_boost(prob_tensor: np.ndarray) -> np.ndarray:
     refined /= total_prob
 
     return refined
+
+
+@hysteresis_boost.register
+def _hysteresis_boost_torch(prob_tensor: torch.Tensor) -> torch.Tensor:
+    """Applies Hysteresis Boost to torch tensor."""
+    device = prob_tensor.device
+    dtype = prob_tensor.dtype
+
+    prob_np = prob_tensor.detach().cpu().numpy()
+    refined_np = _hysteresis_boost_np(prob_np)
+
+    result = torch.from_numpy(refined_np).to(device=device, dtype=dtype)
+    return result
 
 
 def _process(args: tuple[str, str, int]) -> None:

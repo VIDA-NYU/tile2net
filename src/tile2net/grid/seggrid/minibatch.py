@@ -257,6 +257,7 @@ class MiniBatch:
             submit: Submit,
             clip: int = 0,
             unclipped_prob_paths: list[str] | None = None,
+            postprocess: Callable[[torch.Tensor], torch.Tensor] | None = None,
     ):
         """
         Perform inference on a minibatch of images.
@@ -335,6 +336,8 @@ class MiniBatch:
                 .div_(len(scales) * len(flips))
                 .softmax(dim=1)
             )
+            if postprocess:
+                averaged = postprocess(averaged)
 
             if unclipped_prob_paths is not None:
                 unclipped_probs = averaged.clone()

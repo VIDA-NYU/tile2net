@@ -34,10 +34,10 @@ from tile2net.tileseg.loss.utils import get_loss
 from tile2net.tileseg.network.ocrnet import MscaleOCR
 from tile2net.tileseg.utils.misc import AverageMeter
 
-
 if TYPE_CHECKING:
     from tile2net.grid.loaders.image import ImageDataSet
     from tile2net.grid.loaders.mask import MaskDataSet
+
 
 def sha256sum(path):
     h = hashlib.sha256()
@@ -119,7 +119,6 @@ class Data:
         train_input_transform = standard_transforms.Compose(train_input_transform)
 
         target_train_transform = standard_transforms.Compose([])
-
 
     @classmethod
     def _from_eval(

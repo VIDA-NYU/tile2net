@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import *
+from functools import singledispatch
 
 from tile2net.grid import frame
 from tile2net.grid.basegrid import file
@@ -14,6 +15,7 @@ import os
 import logging
 import numpy as np
 import pandas as pd
+import torch
 import tifffile as tiff
 import scipy.ndimage as ndi
 from skimage.morphology import disk
@@ -26,8 +28,14 @@ CLOSING_RADIUS = 2
 FOREGROUND_GAIN = 6.
 
 
-def grayscale_area_closing(prob_tensor: np.ndarray) -> np.ndarray:
-    """ Applies Grayscale Closing and Foreground Gain. """
+@singledispatch
+def grayscale_area_closing(prob_tensor):
+    raise TypeError(f"Unsupported type for grayscale_area_closing: {type(prob_tensor)!r}")
+
+
+@grayscale_area_closing.register
+def _grayscale_area_closing_np(prob_tensor: np.ndarray) -> np.ndarray:
+    """Applies Grayscale Closing and Foreground Gain."""
     # [K, H, W]
     refined = prob_tensor.astype(np.float32)
     K, H, W = refined.shape
@@ -53,6 +61,20 @@ def grayscale_area_closing(prob_tensor: np.ndarray) -> np.ndarray:
     refined /= total_prob
 
     return refined
+
+
+@grayscale_area_closing.register
+def _grayscale_area_closing_torch(prob_tensor: torch.Tensor) -> torch.Tensor:
+    """Applies Grayscale Closing and Foreground Gain to torch tensor."""
+    # Convert to numpy, process, convert back
+    device = prob_tensor.device
+    dtype = prob_tensor.dtype
+
+    prob_np = prob_tensor.detach().cpu().numpy()
+    refined_np = _grayscale_area_closing_np(prob_np)
+
+    result = torch.from_numpy(refined_np).to(device=device, dtype=dtype)
+    return result
 
 
 def _process(args: tuple[str, str, int]) -> None:

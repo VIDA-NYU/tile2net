@@ -894,7 +894,7 @@ class Segmentation(
         'gac', 'gmb', 'hysteresis'
     ]]:
         """Post-processing to run on the segmentation to improve results."""
-        return
+        return 'gac'
 
 
 class Vectorization(
