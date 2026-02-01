@@ -68,7 +68,7 @@ class File(
         """
         vecgrid = self.basegrid
         files = vecgrid.grid.outdir.vecgrid.network.files(vecgrid)
-        setattr(self, 'lines', files)
+        setattr(self, 'network', files)
         if (
             self
             or bool(vecgrid.vectorize)

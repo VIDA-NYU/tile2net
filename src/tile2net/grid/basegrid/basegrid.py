@@ -1,5 +1,4 @@
 from __future__ import annotations
-from pandas import DataFrame
 
 import hashlib
 from functools import *
@@ -7,7 +6,7 @@ from typing import *
 
 import numpy as np
 import pandas as pd
-from pandas import MultiIndex
+from pandas import DataFrame, MultiIndex
 
 from tile2net.grid import frame
 from tile2net.grid.basegrid.file import File
@@ -262,3 +261,15 @@ class BaseGrid(
         grid = DataFrame(index=index)
         result = cls(grid)
         return result
+
+    @property
+    def broadcast(self) -> Self:
+        return self
+
+    @property
+    def filled(self) -> Self:
+        return self
+
+    @property
+    def tokens(self):
+        return dict(i=self.itile)

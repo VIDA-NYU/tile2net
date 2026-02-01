@@ -1283,3 +1283,13 @@ class BaseGrid(
                         pass
 
         return mosaic_im
+
+
+
+    @property
+    def tokens(self):
+        return dict(
+            x=self.xtile,
+            y=self.ytile,
+            z=self.zoom
+        )

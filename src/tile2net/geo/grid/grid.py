@@ -41,13 +41,6 @@ class Grid(
     grid.Grid,
     basegrid.BaseGrid,
 ):
-    @property
-    def tokens(self):
-        return dict(
-            x=self.xtile,
-            y=self.ytile,
-            z=self.zoom
-        )
 
 
     @Outdir.from_wrapper(requires='x y'.split())

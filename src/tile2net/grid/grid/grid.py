@@ -202,9 +202,6 @@ class Grid(
             >>> grid.Static.snapshot
         """
 
-    @property
-    def tokens(self):
-        return dict(i=self.itile)
 
     @Outdir.from_wrapper(requires='i')
     def outdir(self):
@@ -657,10 +654,3 @@ class Grid(
 
     __name__ = 'grid'
 
-    @property
-    def broadcast(self) -> Self:
-        return self
-
-    @property
-    def filled(self) -> Self:
-        return self

@@ -50,7 +50,7 @@ class Dir(namespace):
     """Iterable of required keys for this Dir instance."""
 
     @cached_property
-    def basegrid(self) -> Optional['Grid']:
+    def basegrid(self) -> Optional['BaseGrid']:
         """The Grid instance this directory is attached to."""
         return None
 
@@ -222,6 +222,7 @@ class Dir(namespace):
 
     def files(
             self,
+            grid:BaseGrid=None,
             dirname: str = '',
             makedirs: bool = True,
             **key2fill,
@@ -242,12 +243,14 @@ class Dir(namespace):
         # Initialize with defaults (keys found in the template, e.g. {x: 'x'})
         fill_data = self._defaults.copy()
         from tile2net.grid.basegrid.basegrid import BaseGrid
+        if grid is None:
+            grid = self.basegrid
 
-        if not isinstance(self.basegrid, BaseGrid):
-            msg = f'Dir.files() requires a Grid instance as basegrid, got {type(self.basegrid)}'
+        if not isinstance(grid, BaseGrid):
+            msg = f'Dir.files() requires a Grid instance as basegrid, got {type(grid)}'
             raise TypeError(msg)
 
-        context_data = self.basegrid.tokens
+        context_data = grid.tokens
         if context_data:
             fill_data.update(context_data)
 
@@ -307,8 +310,8 @@ class Dir(namespace):
         out: pd.Series = arr.to_pandas(types_mapper=mapper)
 
         out.name = self.__name__
-        if self.basegrid is not None:
-            out.index = self.basegrid.index
+        if grid is not None:
+            out.index = grid.index
 
         # 8. Create directories
         if makedirs and not out.empty:

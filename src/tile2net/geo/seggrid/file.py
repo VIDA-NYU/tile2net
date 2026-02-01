@@ -23,6 +23,57 @@ class File(
     basegrid: SegGrid
 
     @frame.column
+    def pred(self) -> pd.Series:
+        """
+        File-paths to segmentation masks where each pixel value represents a class ID.
+
+        Core output of the segmentation pipeline. Each pixel in the mask corresponds
+        to a semantic class.
+
+        Example:
+            >>> grid: Grid
+            >>> grid.seggrid.file.pred
+            xtile  ytile
+            79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
+        """
+        grid = self.basegrid.broadcast
+        files = grid.outdir.seggrid.pred.files(grid)
+        assert files.index == grid.index
+        loc = ~files.index.duplicated()
+        files = files.loc[loc]
+        grid.file.pred = files
+        setattr(self, 'pred', files)
+        if (
+                self
+                or bool(grid.predict)
+        ):
+            return files
+
+        name = (
+            str(files.name)
+            .rsplit('.', 1)[-1]
+        )
+        path: str = (
+            grid.outdir
+            .__getattribute__(grid.__name__)
+            .__getattribute__(name)
+            .dir
+        )
+        trace = f'{self._trace}.{name}'
+
+        loc = ~files.map(os.path.exists)
+        if loc.any():
+            n = loc.sum()
+            msg = f'{trace} found {n} missing files. Predicting to\n\t{path}'
+            logger.info(msg)
+            grid.predict(output='pred')
+            assert files.map(os.path.exists).all()
+        else:
+            msg = f'{trace} found all {len(loc)} files already in \n\t{path}'
+            logger.info(msg)
+        return files
+
+    @frame.column
     def static(self) -> pd.Series:
         """
         A file for each seg-tile: the stitched input grid.

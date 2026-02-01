@@ -48,6 +48,10 @@ class Outputs(
     def soft(self):
         ...
 
+    @Dir
+    def mask(self):
+        ...
+
 
 class PostProcessedOutputs(
     Outputs
