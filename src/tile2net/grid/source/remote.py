@@ -287,7 +287,7 @@ class Remote(
                 try:
                     with tls.session.get(url, stream=True, timeout=(3, 30)) as resp:
                         status = resp.status_code
-                        if status in (404, 403):
+                        if status in (400, 403, 404, 410):
                             not_found.append(path)
                             return 'not_found'
                         if status != 200:
@@ -390,14 +390,7 @@ class Remote(
     ):
         """
         Download all tiles from this remote source to the input directory.
-
-        Args:
-            retry:
-                Retry failed downloads once
-            force:
-                Re-download existing files
-            max_workers:
-                Maximum concurrent download threads
+        Handles 204 No Content by linking the placeholder tile.
         """
         grid = self.grid
         paths = grid.file.static
@@ -443,6 +436,7 @@ class Remote(
 
         pool_size = min(max_workers, len(mapping))
         not_found: list[Path] = []
+        empty: list[Path] = []
         failed: list[Path] = []
         succeeded: list[Path] = []
 
@@ -450,13 +444,19 @@ class Remote(
                 path: Path,
                 url: str,
         ) -> str:
-            """Returns 'success', 'not_found', or 'failed'"""
+            """Returns 'success', 'empty', 'not_found', or 'failed'"""
             try:
                 with tls.session.get(url, stream=True, timeout=(3, 30)) as resp:
                     status = resp.status_code
+
+                    if status == 204:
+                        empty.append(path)
+                        return 'empty'
+
                     if status in (404, 403):
                         not_found.append(path)
                         return 'not_found'
+
                     if status != 200:
                         failed.append(path)
                         return 'failed'
@@ -517,6 +517,7 @@ class Remote(
                     result = fut.result()
                     pbar.set_postfix(
                         success=len(succeeded),
+                        empty=len(empty),
                         not_found=len(not_found),
                         failed=len(failed),
                         refresh=False,
@@ -534,23 +535,33 @@ class Remote(
                 raise RuntimeError(msg) from e
             raise
 
-        total_downloaded = len(succeeded)
+        total_downloaded = len(succeeded) + len(empty)
         total_failed = len(failed) + len(not_found)
 
-        if total_downloaded == 0:
+        if total_downloaded == 0 and total_failed > 0:
             msg = (
                 f'All {total_failed:,} downloads failed: '
                 f'{len(not_found)} not found, {len(failed)} errors'
             )
             raise FileNotFoundError(msg)
 
+        # Handle missing or empty tiles by linking the black placeholder
+        placeholders = []
+
         if not_found:
-            black = grid.static.black
             logger.warning(
                 "%d tile(s) returned 404/403 – linking placeholder.",
                 len(not_found)
             )
-            for p in not_found:
+            placeholders.extend(not_found)
+
+        if empty:
+            # 204 is expected behavior for edge/ocean tiles; do not warn.
+            placeholders.extend(empty)
+
+        if placeholders:
+            black = grid.static.black
+            for p in placeholders:
                 try:
                     os.symlink(black, p)
                 except (OSError, NotImplementedError):
@@ -567,8 +578,8 @@ class Remote(
             raise FileNotFoundError(f"{len(failed):,} files failed.")
 
         msg = (
-            f"Downloaded {total_downloaded:,} tiles "
-            f"({len(not_found)} not found, {len(failed)} failed)"
+            f"Downloaded {len(succeeded):,} tiles "
+            f"({len(empty)} empty, {len(not_found)} not found, {len(failed)} failed)"
         )
         logger.info(msg)
         return grid.file.static
