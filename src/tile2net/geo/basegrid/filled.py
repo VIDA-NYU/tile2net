@@ -1,0 +1,26 @@
+from __future__ import annotations
+
+from typing import *
+
+from .basegrid import BaseGrid
+
+
+class Filled(
+    BaseGrid
+):
+
+    @property
+    def grid(self):
+        return self.instance.grid
+
+    @property
+    def seggrid(self):
+        return self.instance.seggrid
+
+    @property
+    def vecgrid(self):
+        return self.instance.vecgrid
+
+    @property
+    def filled(self) -> Self:
+        return self
