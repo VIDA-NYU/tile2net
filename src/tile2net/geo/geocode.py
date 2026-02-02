@@ -98,22 +98,14 @@ class GeoCode:
         if (
                 isinstance(obj, (list, tuple))
         ):
-            # try:
-            #     obj = list(map(int, obj))
-            # except ValueError:
-            #     obj = list(map(float, obj))
-            # else:
-            #     out = cls.from_xtile_ytile(obj, zoom)
-            #     out.passed = original_obj
-            #     return out
             if any(
-                isinstance(v, float)
-                for v in obj
+                    isinstance(v, float)
+                    for v in obj
             ):
                 obj = list(map(float, obj))
             elif any(
-                isinstance(v, int)
-                for v in obj
+                    isinstance(v, int)
+                    for v in obj
             ):
                 try:
                     obj = list(map(int, obj))
@@ -122,7 +114,7 @@ class GeoCode:
             else:
                 obj = list(map(float, obj))
 
-            out = cls.from_lonlat(obj)
+            out = cls.from_latlon(obj)
             out.passed = original_obj
             return out
         if isinstance(obj, shapely.Polygon):
@@ -187,6 +179,17 @@ class GeoCode:
         result.nwse = n, w, s, e
         cls.cache[lonlat] = result
         return result
+
+    @classmethod
+    def from_latlon(
+            cls,
+            latlon: Union[
+                list[float],
+                tuple[int, ...]
+            ]
+    ) -> Self:
+        lonlat = [latlon[1], latlon[0], latlon[3], latlon[2]]
+        return cls.from_lonlat(lonlat)
 
     @classmethod
     def from_centroid(cls, centroid: tuple[float, float] | list[float]) -> Self:
