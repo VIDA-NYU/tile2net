@@ -14,6 +14,8 @@ from tile2net.grid.source.exceptions import SourceParseError
 from tile2net.logger import logger
 
 if TYPE_CHECKING:
+    from .remote import Remote
+    from .local import Local
     from ..grid import Grid
 
 
@@ -34,11 +36,11 @@ class Source:
         """The Grid instance this source is attached to."""
         return None
 
-    def _get(
+    def __get__(
             self,
             instance: Grid,
             owner: type[Grid],
-    ) -> Self:
+    ) -> Self | Remote | Local:
         """Return the remote object for the grid instance."""
         if instance is None:
             return self
@@ -68,7 +70,7 @@ class Source:
         out.instance = instance
         return out
 
-    locals().update(__get__=_get)
+    # locals().update(__get__=_get)
 
     def __set_name__(self, owner, name):
         self.__name__ = name
