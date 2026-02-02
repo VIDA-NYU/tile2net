@@ -41,6 +41,9 @@ from tile2net.logger import logger
 
 tls = threading.local()
 
+if TYPE_CHECKING:
+    from tile2net.grid.grid.grid import Grid
+
 
 @dataclass
 class MatchResult:
@@ -155,23 +158,53 @@ class Remote(
 
     def get_urls(
             self,
-            xtiles: Iterable[int],
-            ytiles: Iterable[int],
-            zoom: int
+            grid: Grid = None,
+            **key2fill
     ) -> Iterator[str]:
         """
-        Generate URLs for given tile coordinates.
+        Generate URLs for given tile coordinates using grid.tokens.
 
         Args:
-            xtiles: Iterable of x tile indices.
-            ytiles: Iterable of y tile indices.
+            **key2fill: Mapping of keys to iterables or scalars
         """
+        if grid is None:
+            grid = self.grid
+        fill_data = grid.tokens | key2fill
+
+        iterables = {}
+        scalars = {}
+        length = 1
+
+        for key, val in fill_data.items():
+            # Strings are iterable but should be treated as scalars
+            if (
+                    isinstance(val, (str, bytes))
+                    or not isinstance(val, Iterable)
+            ):
+                scalars[key] = val
+            else:
+                if isinstance(val, (pd.Series, pd.Index)):
+                    it = val.values
+                else:
+                    it = list(val)
+
+                n = len(it)
+                if length == 1 and n > 0:
+                    length = n
+
+                iterables[key] = it
+
         template = self.template
-        it = zip(xtiles, ytiles)
-        yield from (
-            template.format(z=zoom, y=ytile, x=xtile)
-            for xtile, ytile in it
-        )
+
+        if not iterables:
+            yield template.format(**scalars)
+            return
+
+        keys = list(iterables.keys())
+        for values in zip(*iterables.values()):
+            row = scalars | dict(zip(keys, values))
+            out = template.format(**row)
+            yield out
 
     @property
     def url(self) -> pd.Series:
@@ -179,7 +212,7 @@ class Remote(
         grid = self.grid
         key = f'{self.__name__}.url'
         if key not in grid.columns:
-            obj = self.get_urls(grid.xtile.values, grid.ytile.values, grid.zoom)
+            obj = self.get_urls()
             arr = pa.array(obj, type=pa.string(), size=len(grid))
             mapper = {pa.string(): pd.ArrowDtype(pa.string())}.get
             out = arr.to_pandas(types_mapper=mapper)
