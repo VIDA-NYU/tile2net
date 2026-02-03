@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import *
 
 from functools import *
 from typing import TYPE_CHECKING
@@ -110,15 +111,15 @@ class Corners(
         )
         return result
 
-    def to_padding(self, pad: int = 1) -> Self:
+    def to_padding(self, tiles: int = 1) -> Self:
         """Returns a new Corners object with padding added to each corner"""
         # todo: handle negative padding
-        assert pad >= 0
+        assert tiles >= 0
         result = self.from_data(
-            xmin=self.xmin - pad,
-            ymin=self.ymin - pad,
-            xmax=self.xmax + pad,
-            ymax=self.ymax + pad,
+            xmin=self.xmin - tiles,
+            ymin=self.ymin - tiles,
+            xmax=self.xmax + tiles,
+            ymax=self.ymax + tiles,
             scale=self.scale,
             index=self.index,
         )

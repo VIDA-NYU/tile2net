@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import numpy as np
 from typing import Self, TYPE_CHECKING
 
-from . import segtile
-from tile2net.grid.frame import frame
 from tile2net.geo.grid.grid import Grid
+from tile2net.grid.frame import frame
+from . import segtile
 
 if TYPE_CHECKING:
     from ..seggrid.seggrid import SegGrid
@@ -99,7 +98,11 @@ class Broadcast(
             seggrid = seggrid.loc[loc]
 
             grid = instance.grid.filled
-            pad = grid.segtile.pad
+            pad = (
+                grid.segtile.pad
+                .__truediv__(grid.grid.dimension)
+                .__ceil__()
+            )
 
             corners = (
                 seggrid
