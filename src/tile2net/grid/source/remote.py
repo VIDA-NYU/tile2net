@@ -30,6 +30,7 @@ from urllib3.util import Retry
 
 from tile2net.grid.cfg import cfg
 from tile2net.grid.geocode import GeoCode
+from tile2net.grid.source.base import Base
 from tile2net.grid.source.exceptions import InvalidLocation, InvalidRemoteName, SourceParseError, RemoteNotFound
 from tile2net.grid.source.name2base import _Name2Base
 from tile2net.grid.source.name2prototype import Name2Prototype, _Name2Prototype
@@ -39,10 +40,10 @@ from tile2net.grid.source.source import Source
 from tile2net.grid.util import recursion_block
 from tile2net.logger import logger
 
-tls = threading.local()
-
 if TYPE_CHECKING:
     from tile2net.grid.grid.grid import Grid
+
+tls = threading.local()
 
 
 @dataclass
@@ -72,14 +73,6 @@ class Remote(
         except AttributeError:
             ...
         return f"{self.__class__.__qualname__}(\n    " + ",\n    ".join(attributes) + "\n)"
-
-    @Name2Prototype
-    def name2prototype(self) -> dict[str, Remote]:
-        """
-        Catalog, mapping the name to the prototype instance, for each enabled Remote subclass.
-        The public catalog is assembled using the private catalog and the `servers.yaml`:
-        >>> Name2Prototype.__get__
-        """
 
     @Remote2Coverage
     def remote2coverage(self):
@@ -1009,14 +1002,26 @@ class Remote(
                 msg = f'YAML input must be a dict, str, or Path, not {type(obj)}'
                 raise SourceParseError(msg)
 
-    def __init_subclass__(cls: type[Remote], **kwargs):
-        super().__init_subclass__()
+    def __init_subclass__(
+            cls: type[Remote],
+            base=False,
+            **kwargs
+    ):
+        super().__init_subclass__(**kwargs)
+        if base:
+            Base.data[cls] = cls
+        for base in cls.mro():
+            if issubclass(base, Source):
+                base.derived.add(cls)
         prototype = cls.prototype
         if (
                 ABC not in cls.__bases__
                 and prototype.enabled
         ):
-            name = prototype.name or prototype.__class__.__qualname__
+            name = (
+                    prototype.name
+                    or cls.__name__
+            )
             cls._name2prototype[name] = prototype
         if cls.from_server.__name__ in cls.__dict__:
             cls._name2base[cls.__name__] = cls
@@ -1086,19 +1091,17 @@ class Remote(
         """
 
     @_Name2Prototype
-    def _name2prototype(self) -> dict[str, Remote]:
+    def _name2prototype(self):
+        ...
+
+    @Name2Prototype
+    def name2prototype(self) -> dict[str, Remote]:
         """
-        Private version of the name2prototype catalog.
-
-        It's a dict mapping registered names to Remote prototype instances:
-        >>> _Name2Prototype.data
-
-        The private catalog is populated as each Remote subclass is defined:
-        >>> Remote.__init_subclass__
+        name2prototype, mapping the name to the prototype instance, for each enabled Remote subclass.
+        >>> Name2Prototype.__get__
         """
 
-# todo: The import * from this code block was causing my IDE to clean up important imports from
-#   the top. Make sure this code block's functionality is reflected in the tests.
+#   todo: Make sure this code block's functionality is reflected in the tests.
 
 # if __name__ == '__main__':
 #     from tile2net.grid.source.arcgis import *

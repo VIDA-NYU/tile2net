@@ -7,11 +7,10 @@ from typing import Self
 import PIL.Image as Image
 import pandas as pd
 
-from tile2net.grid.source.exceptions import InvalidLocalPath
+from tile2net.geo.source.source import Source
 from tile2net.grid.dir.dir import Dir
 from tile2net.grid.dir.exceptions import XYNotFoundError
-
-from tile2net.geo.source.source import Source
+from tile2net.grid.source.exceptions import InvalidLocalPath
 
 
 class Local(

@@ -12,7 +12,8 @@ from tile2net.geo.source.remote import Remote
 
 class MapTiler(
     Remote,
-    ABC
+    ABC,
+    base=True,
 ):
     """
     Base class for MapTiler-based tile servers.

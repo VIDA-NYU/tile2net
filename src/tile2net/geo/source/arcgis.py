@@ -12,13 +12,14 @@ from requests.adapters import HTTPAdapter
 from shapely import box, wkt
 from urllib3.util.retry import Retry
 
-from tile2net.grid.source.exceptions import SourceParseError
 from tile2net.geo.source.remote import Remote
+from tile2net.grid.source.exceptions import SourceParseError
 
 
 class ArcGis(
     Remote,
-    ABC
+    ABC,
+    base=True,
 ):
     """Base class for ArcGIS tile servers."""
 
@@ -179,6 +180,7 @@ class ArcGis(
         out.response = data
 
         return out
+
 
 # These classes are now provided in the `servers.yaml` but left here with `enabled=False` for use as examples.
 

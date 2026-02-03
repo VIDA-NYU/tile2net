@@ -6,10 +6,11 @@ sh_tn:
     city: Spring Hill
     town: Spring Hill
   year: 2020
+  desc: "Spring Hill, Tennessee, 2020"
 
 usgs:
-# USGS: available for entire US, but it seems max zoom is 16 so effectively useless for us;
-#  left here to prevent trying again
+  # USGS: available for entire US, but it seems max zoom is 16 so effectively useless for us;
+  #  left here to prevent trying again
   enabled: false
   base: ArcGis
   server: https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer
@@ -17,6 +18,7 @@ usgs:
     country: USA
     source: USGS
   year: 2024
+  desc: "USGS Imagery Only"
 
 nyc:
   base: ArcGis
@@ -26,6 +28,7 @@ nyc:
     city: [ New York, NYC ]
   year: 2024
   coverage: "POLYGON ((-73.69048 40.4889, -73.69048 40.92834, -74.27615 40.92834, -74.27615 40.4889, -73.69048 40.4889))"
+  desc : "New York City, 2024"
 
 ny:
   base: ArcGis
@@ -36,6 +39,7 @@ ny:
     city: New York
   year: 2024
   coverage: "POLYGON ((-73.25509 40.48341, -73.25509 45.03931, -79.77922 45.03931, -79.77922 40.48341, -73.25509 40.48341))"
+  desc : "New York State, 2024"
 
 ma:
   base: ArcGis
@@ -45,6 +49,7 @@ ma:
   extension: jpg
   year: 2021
   coverage: "POLYGON ((-69.92466 41.2265, -69.92466 42.89199, -73.51979 42.89199, -73.51979 41.2265, -69.92466 41.2265))"
+  desc : "Massachusetts, 2021"
 
 king:
   base: ArcGis
@@ -54,6 +59,7 @@ king:
     county: King
   year: 2023
   coverage: "POLYGON ((-121.03559 47.04875, -121.03559 47.96618, -122.56958 47.96618, -122.56958 47.04875, -121.03559 47.04875))"
+  desc : "King County, Washington, 2023"
 
 la:
   base: ArcGis
@@ -62,6 +68,7 @@ la:
     county: Los Angeles
   year: 2014
   coverage: "POLYGON ((-117.63102 33.28853, -117.63102 34.83012, -118.95937 34.83012, -118.95937 33.28853, -117.63102 33.28853))"
+  desc : "Los Angeles County, California, 2014"
 
 nj:
   base: ArcGis
@@ -70,12 +77,14 @@ nj:
     state: [ New Jersey, NJ ]
   year: 2020
   coverage: "POLYGON ((-73.85543 38.824, -73.85543 41.3866, -75.59981 41.3866, -75.59981 38.824, -73.85543 38.824))"
+  desc : "New Jersey, 2020"
 
 va:
-#  upon testing, it seems that although the server says up to 23, everything past zoom=19 fails
+  #  upon testing, it seems that although the server says up to 23, everything past zoom=19 fails
   base: ArcGis
   server: https://vginmaps.vdem.virginia.gov/arcgis/rest/services/VBMP_Imagery/MostRecentImagery_WGS/MapServer/
   keyword:
     state: [ Virginia, VA ]
   coverage: "POLYGON ((-83.6753 36.5407, -83.6753 39.4660, -75.1664 39.4660, -75.1664 36.5407, -83.6753 36.5407))"
   zoom: 19
+  desc : "Virginia"

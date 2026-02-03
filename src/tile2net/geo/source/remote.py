@@ -1,36 +1,22 @@
 from __future__ import annotations
 
 import copy
-import os
-import os.path
-import shutil
-import tempfile
 import textwrap
 import threading
 import warnings
 from abc import ABC
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import *
 from typing import Union
 
-import certifi
-import imageio.v3 as iio
-import pandas as pd
-import pyarrow as pa
-import requests
 import shapely.geometry
 import yaml
 from geopandas import GeoDataFrame, GeoSeries
-from requests.adapters import HTTPAdapter
 from shapely import wkt
-from tqdm import tqdm
-from urllib3.util import Retry
 
 from tile2net.geo.geocode import GeoCode
 from tile2net.geo.source.source import Source
-from tile2net.geo.util import recursion_block
 from tile2net.grid.cfg import cfg
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.source import remote
@@ -50,8 +36,12 @@ class MatchResult:
 class Remote(
     remote.Remote,
     Source,
-    ABC
+    ABC,
+    base=True,
 ):
+    desc: str = ''
+    """Brief description of the remote source."""
+
     """Base class for remote tile sources"""
 
     server: str
@@ -466,18 +456,6 @@ class Remote(
             case _:
                 msg = f'YAML input must be a dict, str, or Path, not {type(obj)}'
                 raise SourceParseError(msg)
-
-    def __init_subclass__(cls: type[Remote], **kwargs):
-        super().__init_subclass__()
-        prototype = cls.prototype
-        if (
-                ABC not in cls.__bases__
-                and prototype.enabled
-        ):
-            name = prototype.name or prototype.__class__.__qualname__
-            cls._name2prototype[name] = prototype
-        if cls.from_server.__name__ in cls.__dict__:
-            cls._name2base[cls.__name__] = cls
 
     @classmethod
     def _match_tags(

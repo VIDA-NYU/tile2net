@@ -10,6 +10,7 @@ from tile2net.grid.basegrid.basegrid import BaseGrid
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.dir.dir import Dir
 from tile2net.grid.frame.weak import weak
+from tile2net.grid.source.base import Base, Derived
 from tile2net.grid.source.exceptions import SourceParseError
 from tile2net.logger import logger
 
@@ -148,3 +149,18 @@ class Source:
             **kwargs,
     ):
         """Empty init just to allow use as a decorator."""
+
+    @Base
+    def base(self) -> type[Source]:
+        """
+        See:
+            >>> Base.__get__
+        """
+
+    @Derived
+    def derived(self) -> list[type[Source]]:
+        """
+        See:
+            >>> Derived.__get__
+        """
+
