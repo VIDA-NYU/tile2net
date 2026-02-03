@@ -9,11 +9,11 @@ import textwrap
 import threading
 import warnings
 from abc import ABC
+from collections import UserDict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import *
-from typing import Union
 
 import certifi
 import imageio.v3 as iio
@@ -30,7 +30,6 @@ from urllib3.util import Retry
 
 from tile2net.grid.cfg import cfg
 from tile2net.grid.geocode import GeoCode
-from tile2net.grid.source.base import Base
 from tile2net.grid.source.exceptions import InvalidLocation, InvalidRemoteName, SourceParseError, RemoteNotFound
 from tile2net.grid.source.name2base import _Name2Base
 from tile2net.grid.source.name2prototype import Name2Prototype, _Name2Prototype
@@ -52,6 +51,106 @@ class MatchResult:
     needles: tuple[str, ...]
     haystack: str
     found: bool
+
+
+class Base:
+    """
+    A descriptor that resolves the 'Base' class for any given Remote subclass.
+    Uses a static class-level dictionary for O(1) caching and registration.
+    """
+    data: dict[
+        type[Remote],
+        type[Remote]
+    ] = {}
+
+    def __set_name__(self, owner, name):
+        self.__name__ = name
+
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T]
+    ) -> type[T]:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner
+    ) -> type[T]:
+        ...
+
+    def __get__(
+            self,
+            instance: Remote,
+            owner: type[Remote]
+    ) -> type[Remote]:
+        if owner in self.data:
+            return self.data[owner]
+
+        for base in owner.mro():
+            if base in self.data:
+                base: type[Remote]
+                self.data[owner] = self.data[base]
+                return self.data[base]
+
+        self.data[owner] = owner
+        return owner
+
+    def __init__(self, func=None):
+        ...
+
+
+class Derived(
+    UserDict
+):
+    """
+    A descriptor and registry that maintains lists of derived subclasses
+    for each Base class.
+    """
+
+    def __set_name__(self, owner, name):
+        self.__name__ = name
+
+    @overload
+    def __get__[T](
+            self,
+            instance,
+            owner: type[T]
+    ) -> set[type[T]]:
+        ...
+
+    @overload
+    def __get__[T](
+            self,
+            instance: T,
+            owner
+    ) -> set[type[T]]:
+        ...
+
+    def __get__(
+            self,
+            instance: Remote,
+            owner: type[Remote]
+    ) -> set[type[Remote]]:
+        base = owner.base
+        if base not in self.data:
+            self.data[base] = set()
+
+        return self.data[base]
+
+    def __init__(
+            self,
+            dict=None,
+            /,
+            **kwargs
+    ):
+        if callable(dict):
+            super().__init__(**kwargs)
+        else:
+            super().__init__(dict, **kwargs)
 
 
 class Remote(
