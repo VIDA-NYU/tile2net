@@ -10,7 +10,10 @@ from shapely import box
 from tile2net.geo.source.remote import Remote
 
 
-class MapTiler(Remote, ABC):
+class MapTiler(
+    Remote,
+    ABC
+):
     """
     Base class for MapTiler-based tile servers.
     Dynamically fetches metadata from the /tiles.json endpoint.
@@ -39,7 +42,7 @@ class MapTiler(Remote, ABC):
     @cached_property
     def coverage(self) -> GeoSeries:
         """
-        Returns the spatial extent from the metadata 'bounds'.
+        Returns the spatial extent from the metadata.
         Format: [minx, miny, maxx, maxy]
         """
         bounds = self.response.get('bounds')
