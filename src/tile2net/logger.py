@@ -6,4 +6,4 @@ fname = os.path.join(
     'logging.conf',
 )
 logging.config.fileConfig(fname)
-logger = logging.getLogger('user')
+logger = logging.getLogger('debug')

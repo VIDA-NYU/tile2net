@@ -13,7 +13,7 @@ from requests.adapters import HTTPAdapter
 from shapely import wkt
 from urllib3.util.retry import Retry
 
-from .remote import Remote
+from tile2net.geo.source.remote import Remote
 
 
 class VexCel(
@@ -29,7 +29,7 @@ class VexCel(
 
     flip_y = False
     prefer_layers: Iterable[str] = ('wide-area', 'urban', 'urban-r', 'graysky')
-    base = 'https://api.vexcelgroup.com/v2/ortho/wmts'
+    endpoint = 'https://api.vexcelgroup.com/v2/ortho/wmts'
     timeout = 10
     extension = 'png'
 
@@ -86,7 +86,7 @@ class VexCel(
             VERSION='1.0.0',
             api_key=self.api_key,
         )
-        url = f"{self.base}?{urlencode(query)}"
+        url = f"{self.endpoint}?{urlencode(query)}"
 
         with self._session as s:
             r = s.get(url, timeout=self.timeout)
