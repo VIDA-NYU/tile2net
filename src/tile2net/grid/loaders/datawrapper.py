@@ -44,6 +44,10 @@ class DataWrapper(
         """Background pixel value to use for padding; black by default."""
         return 0
 
+    @frame.column
+    def mask(self):
+        ...
+
     @classmethod
     def from_columns(
             cls,

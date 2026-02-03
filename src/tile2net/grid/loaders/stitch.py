@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import concurrent.futures as cf
-import logging
 import os
 from functools import cached_property
 from pathlib import Path
@@ -14,29 +13,11 @@ import tifffile
 import torch.utils.data
 
 from tile2net.grid.cfg import cfg
-from tile2net.grid.frame import frame
-from . import datawrapper
-from .dataloader import BaseDataLoader
+from tile2net.grid.loaders.dataloader import BaseDataLoader
+from tile2net.grid.loaders.datawrapper import DataWrapper
 
 if TYPE_CHECKING:
     from tile2net.grid.basegrid.basegrid import BaseGrid
-
-
-def _worker_init(_: int) -> None:
-    logging.disable(logging.ERROR)
-    os.environ['TQDM_DISABLE'] = '1'
-    fd = os.open(os.devnull, os.O_WRONLY)
-    try:
-        os.dup2(fd, 1)
-        os.dup2(fd, 2)
-    finally:
-        os.close(fd)
-
-
-class DataWrapper(datawrapper.DataWrapper):
-    @frame.column
-    def mask(self):
-        ...
 
 
 class StitchDataSet(
@@ -350,7 +331,7 @@ class StitchDataSet(
         out.fill(0)
         return out
 
-    def __getitem__( self, item, ) -> np.ndarray:
+    def __getitem__(self, item, ) -> np.ndarray:
         # composite tiles into a single RGB mosaic
 
         # pull grouped lists

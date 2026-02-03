@@ -896,6 +896,11 @@ class Segmentation(
         """Post-processing to run on the segmentation to improve results."""
         return 'gac'
 
+    @cmdline.property
+    def stream(self) -> bool:
+        """Stream the input imagery tiles from a remote source instead of reading from disk."""
+        return True
+
 
 class Vectorization(
     cmdline.Namespace

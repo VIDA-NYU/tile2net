@@ -10,6 +10,7 @@ from contextlib import ExitStack
 from functools import cached_property
 from typing import Iterator
 
+import numpy as np
 import torch
 import torch.distributed as dist
 from torch.nn.parallel.data_parallel import DataParallel
@@ -22,6 +23,7 @@ from tile2net.grid.cfg.cfg import Cfg
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.loaders.sample import SampleDataWrapper, SampleDataLoader, Sample
 from tile2net.grid.loaders.sampler import DistributedSampler
+from tile2net.grid.loaders.stream import StreamStitchDataSet
 from tile2net.grid.loaders.val import ValDataSet, ValDataLoader
 from tile2net.grid.seggrid.gac import grayscale_area_closing
 from tile2net.grid.seggrid.gmb import geodesic_masked_boosting
@@ -56,6 +58,8 @@ class Model:
     criterion_val: torch.nn.Module
 
 
+
+
 class Predict:
     """Semantic segmentation prediction orchestrator."""
 
@@ -65,15 +69,26 @@ class Predict:
             wrapper: SampleDataWrapper,
             padded_dimension: int,
             clipped_dimension: int,
+            stitched_dimension: int = None,
+            tile_dimension: int = None,
     ):
         self.cfg = cfg
         self.wrapper = wrapper
         self.padded_dimension = padded_dimension
         self.clipped_dimension = clipped_dimension
+        self.stitched_dimension = stitched_dimension
+        self.tile_dimension = tile_dimension
         self._setup_done = False
+        self._stream_stats = {
+            'success': 0,
+            'empty': 0,
+            'not_found': 0,
+            'failed': 0,
+        }
 
     def _validate_and_download_checkpoints(self) -> None:
         """Validate and download model checkpoints if needed."""
+        # todo: rethink where the weights are to be stored
         cfg = self.cfg
         if (
                 not os.path.exists(cfg.model.snapshot)
@@ -167,6 +182,7 @@ class Predict:
         self._setup()
         cfg = self.cfg
 
+        logger.debug('Initializing segmentation model...')
         criterion, criterion_val = get_loss(cfg)
 
         cfg.restore_net = True
@@ -185,6 +201,7 @@ class Predict:
             weights_only=False,
         )
 
+        logger.debug('Building network architecture...')
         net: MscaleOCR = network.get_net(criterion)
         optim, scheduler = get_optimizer(net)
         net: DataParallel = network.wrap_network_in_dataparallel(net)
@@ -192,6 +209,7 @@ class Predict:
         if cfg.restore_optimizer:
             restore_opt(optim, checkpoint)
         if cfg.restore_net:
+            logger.debug('Restoring model weights...')
             restore_net(net, checkpoint)
         if cfg.options.init_decoder:
             net.module.init_mods()
@@ -200,6 +218,7 @@ class Predict:
         gc.collect()
         torch.cuda.empty_cache()
 
+        logger.debug('Model loaded successfully.')
         return Model(
             net=net,
             optim=optim,
@@ -209,7 +228,7 @@ class Predict:
         )
 
     @cached_property
-    def dataset(self) -> ValDataSet:
+    def dataset(self) -> ValDataSet | StreamValDataSet:
         """
         Instantiate torch Dataset for evaluation/prediction.
 
@@ -235,11 +254,26 @@ class Predict:
                 case _:
                     raise ValueError(f"Unknown eval mode: {cfg.model.eval}")
 
-            dataset = ValDataSet(
-                wrapper=self.wrapper,
-                mode=mode,
-                padded_dimension=self.padded_dimension,
-            )
+            if cfg.segmentation.stream:
+                if self.tile_dimension is None:
+                    raise ValueError("tile_dimension must be provided for streaming mode")
+                tile_shape = (self.tile_dimension, self.tile_dimension, 3)
+                logger.info(
+                    f'Using streaming mode: fetching tiles on-the-fly '
+                    f'(tile_shape={tile_shape}, stitched={self.stitched_dimension}px)'
+                )
+                dataset = StreamValDataSet(
+                    wrapper=self.wrapper,
+                    tile_shape=tile_shape,
+                    mode=mode,
+                    padded_dimension=self.padded_dimension,
+                )
+            else:
+                dataset = ValDataSet(
+                    wrapper=self.wrapper,
+                    mode=mode,
+                    padded_dimension=self.padded_dimension,
+                )
         else:
             raise NotImplementedError("Training mode not implemented")
 
@@ -287,6 +321,7 @@ class Predict:
             >>> Predict.submit_pred
             >>> Predict.submit_prob
         """
+        logger.debug('Setting model to evaluation mode...')
         self.model.net.eval()
         val_loss = AverageMeter()
         scales = [self.cfg.default_scale]
@@ -296,12 +331,12 @@ class Predict:
             msg = f'Using multi-scale inference (AVGPOOL) with scales {scales}'
         else:
             msg = f'Using single-scale inference with scale {scales}'
-        logger.debug(msg)
-
-        logger.info('Predicting segmentation masks')
+        logger.info(msg)
 
         dataset = self.dataset
         loader = self.loader
+
+        logger.debug(f'Starting inference on {len(dataset)} seg-tiles...')
 
         unit = ' seg-tiles'
         msg = 'Predicting seg-tiles'
@@ -309,12 +344,16 @@ class Predict:
         match self.cfg.segmentation.postprocess:
             case None:
                 postprocess = None
+                logger.debug('No postprocessing enabled.')
             case 'gac':
                 postprocess = grayscale_area_closing
+                logger.debug('Using grayscale area closing postprocessing.')
             case 'gmb':
                 postprocess = geodesic_masked_boosting
+                logger.debug('Using geodesic masked boosting postprocessing.')
             case 'hysteresis':
                 postprocess = hysteresis_boost
+                logger.debug('Using hysteresis boost postprocessing.')
             case _:
                 msg = (
                     f'Unknown segmentation postprocess: '
@@ -342,6 +381,12 @@ class Predict:
             for batch in loader:
                 batch: Sample
                 submit.rotate()
+
+                if self.cfg.segmentation.stream:
+                    for key in ('success', 'empty', 'not_found', 'failed'):
+                        if key in batch:
+                            self._stream_stats[key] += int(batch[key].sum())
+
                 # instantiate MB from the dict; this will run the forward pass
                 kwargs = dict(
                     images=batch['image'],
@@ -361,12 +406,32 @@ class Predict:
 
                 yield mb
                 pbar.update(len(mb))
+
+                if self.cfg.segmentation.stream:
+                    pbar.set_postfix(
+                        tiles_ok=self._stream_stats['success'],
+                        empty=self._stream_stats['empty'],
+                        not_found=self._stream_stats['not_found'],
+                        failed=self._stream_stats['failed'],
+                        refresh=False,
+                    )
+
                 # todo: still necessary to set None and save the tensor memory here?
                 mb.probs = None
                 mb.unclipped_probs = None
 
         msg = f'Finished predicting {len(dataset)} seg-tiles.'
-        logger.info(msg)
+        logger.debug(msg)
+
+        if self.cfg.segmentation.stream:
+            total_tiles = sum(self._stream_stats.values())
+            msg = (
+                f"Downloaded {self._stream_stats['success']:,} tiles "
+                f"({self._stream_stats['empty']} empty, "
+                f"{self._stream_stats['not_found']} not found, "
+                f"{self._stream_stats['failed']} failed)"
+            )
+            logger.debug(msg)
 
     def submit_pred(self) -> Iterator[MiniBatch]:
         """
@@ -422,6 +487,8 @@ def main():
     parser.add_argument("--wrapper", type=str, required=True, help="Path to wrapper Parquet file")
     parser.add_argument("--padded-dimension", type=int, required=True, help="Dimension of padded mosaic")
     parser.add_argument("--clipped-dimension", type=int, required=True, help="Dimension of clipped output")
+    parser.add_argument("--stitched-dimension", type=int, help="Dimension of full stitched mosaic")
+    parser.add_argument("--tile-dimension", type=int, help="Dimension of individual tiles")
     parser.add_argument(
         "--output",
         type=str,
@@ -435,6 +502,8 @@ def main():
     cfg: Cfg = Cfg.from_json(args.cfg)
     padded_dimension = args.padded_dimension
     clipped_dimension = args.clipped_dimension
+    stitched_dimension = args.stitched_dimension
+    tile_dimension = args.tile_dimension
     wrapper = SampleDataWrapper.from_parquet(args.wrapper)
     output = args.output
 
@@ -444,6 +513,8 @@ def main():
             wrapper=wrapper,
             padded_dimension=padded_dimension,
             clipped_dimension=clipped_dimension,
+            stitched_dimension=stitched_dimension,
+            tile_dimension=tile_dimension,
         )
 
         match output:

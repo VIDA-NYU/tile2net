@@ -453,7 +453,7 @@ class Remote(
                         empty.append(path)
                         return 'empty'
 
-                    if status in (404, 403):
+                    if status in (404, 403, 400, 410):
                         not_found.append(path)
                         return 'not_found'
 

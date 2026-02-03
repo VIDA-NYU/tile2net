@@ -11,13 +11,13 @@ from typing import Self
 import numpy as np
 import pandas as pd
 
+from tile2net.geo.seggrid import vectile
+from tile2net.geo.util import recursion_block
+from tile2net.grid import frame
 from tile2net.grid.cfg.logger import logger
 from tile2net.grid.loaders.sample import SampleDataWrapper
-from tile2net.grid import frame
 from tile2net.grid.sampler.benchmark import Benchmark
-from tile2net.geo.util import recursion_block
-from . import vectile
-from .seggrid import SegGrid
+from tile2net.grid.source.remote import Remote
 
 if TYPE_CHECKING:
     from ..grid import Grid
@@ -280,7 +280,15 @@ class Broadcast(
             return
 
         padded_dimension = self.padded.dimension
-        clipped_dimension = self.grid.dimension
+        clipped_dimension = self.basegrid.dimension
+        stitched_dimension = self.padded.length * self.grid.dimension
+        tile_dimension = self.grid.dimension
+
+        if self.cfg.segmentation.stream:
+            if not isinstance(grid.source, Remote):
+                msg = f"Streaming mode requires a Remote source, got {type(grid.source)}"
+                raise TypeError(msg )
+            wrapper_kwargs['image_path'] = grid.source.url
 
         with (
             tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as cfg_file,
@@ -289,11 +297,12 @@ class Broadcast(
             cfg_path = cfg_file.name
             wrapper_path = wrapper_file.name
 
-        assert (
-            self.grid.file.static
-            .map(os.path.exists)
-            .all()
-        )
+        if not self.cfg.segmentation.stream:
+            assert (
+                self.grid.file.static
+                .map(os.path.exists)
+                .all()
+            )
 
         # serialize
         self.cfg.to_json(cfg_path)
@@ -313,10 +322,17 @@ class Broadcast(
             "--wrapper", wrapper_path,
             "--padded-dimension", str(padded_dimension),
             "--clipped-dimension", str(clipped_dimension),
+            "--stitched-dimension", str(stitched_dimension),
+            "--tile-dimension", str(tile_dimension),
             "--output", output,
         ]
 
-        logger.debug(f"Launching prediction subprocess: {' '.join(cmd)}")
+        if self.cfg.segmentation.stream:
+            mode_desc = "streaming"
+        else:
+            mode_desc = "serialized"
+        logger.info(f"Launching prediction subprocess ({mode_desc} mode)")
+        logger.debug(f"Command: {' '.join(cmd)}")
 
         with self.benchmark:
             process = subprocess.Popen(
@@ -325,11 +341,12 @@ class Broadcast(
                 stderr=sys.stderr,
                 env=os.environ.copy(),
             )
+            logger.debug(f"Subprocess started with PID {process.pid}")
             process.wait()
 
         match process.returncode:
             case 0:
-                ...
+                logger.debug(f"Subprocess completed")
             case 130:
                 raise KeyboardInterrupt("Prediction interrupted by user")
             case _:
