@@ -5,7 +5,7 @@ initialization
 # import re
 import torch
 import torch.nn as nn
-from tile2net.grid.cfg import cfg
+from tile2net.core.cfg import cfg
 
 
 

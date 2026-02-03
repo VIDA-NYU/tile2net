@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import *
 
-from tile2net.grid.frame.namespace import namespace
+from tile2net.core.frame.namespace import namespace
 
 if TYPE_CHECKING:
-    from tile2net.grid.vecgrid.vecgrid import VecGrid
+    from tile2net.core.vecgrid.vecgrid import VecGrid
 
 
 class Padded(

@@ -12,8 +12,8 @@ import tifffile
 import torch
 from torch.nn.parallel import DataParallel
 
-from tile2net.grid.cfg import cfg
-from tile2net.grid.seggrid.submit import Submit
+from tile2net.core.cfg import cfg
+from tile2net.core.seggrid.submit import Submit
 from tile2net.tileseg.utils.misc import fast_hist
 
 if TYPE_CHECKING:

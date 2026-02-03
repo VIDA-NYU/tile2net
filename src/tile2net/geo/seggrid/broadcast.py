@@ -13,11 +13,11 @@ import pandas as pd
 
 from tile2net.geo.seggrid import vectile
 from tile2net.geo.util import recursion_block
-from tile2net.grid import frame
-from tile2net.grid.cfg.logger import logger
-from tile2net.grid.loaders.sample import SampleDataWrapper
-from tile2net.grid.sampler.benchmark import Benchmark
-from tile2net.grid.source.remote import Remote
+from tile2net.core import frame
+from tile2net.core.cfg.logger import logger
+from tile2net.core.loaders.sample import SampleDataWrapper
+from tile2net.core.sampler.benchmark import Benchmark
+from tile2net.core.source.remote import Remote
 
 if TYPE_CHECKING:
     from ..grid import Grid

@@ -17,10 +17,10 @@ from shapely import wkt
 
 from tile2net.geo.geocode import GeoCode
 from tile2net.geo.source.source import Source
-from tile2net.grid.cfg import cfg
-from tile2net.grid.cfg.logger import logger
-from tile2net.grid.source import remote
-from tile2net.grid.source.exceptions import InvalidLocation, InvalidRemoteName, SourceParseError, RemoteNotFound
+from tile2net.core.cfg import cfg
+from tile2net.core.cfg.logger import logger
+from tile2net.core.source import remote
+from tile2net.core.source.exceptions import InvalidLocation, InvalidRemoteName, SourceParseError, RemoteNotFound
 
 tls = threading.local()
 

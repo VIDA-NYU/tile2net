@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
-from tile2net.grid import frame
-from tile2net.grid.frame.framewrapper import FrameWrapper
+from tile2net.core import frame
+from tile2net.core.frame.framewrapper import FrameWrapper
 from tile2net.geo.util import xy2lonlat
 
 if TYPE_CHECKING:

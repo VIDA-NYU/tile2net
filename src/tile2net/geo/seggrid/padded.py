@@ -5,8 +5,8 @@ import os
 import os.path
 
 import pandas as pd
-from tile2net.grid.frame import frame
-from tile2net.grid.frame.namespace import namespace
+from tile2net.core.frame import frame
+from tile2net.core.frame.namespace import namespace
 
 if TYPE_CHECKING:
     from .seggrid import SegGrid

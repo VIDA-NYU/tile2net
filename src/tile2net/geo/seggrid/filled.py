@@ -8,8 +8,8 @@ import pandas as pd
 from . import vectile
 from .seggrid import SegGrid
 from ..basegrid import filled
-from tile2net.grid.sampler.benchmark import Benchmark
-from tile2net.grid.frame.namespace import namespace
+from tile2net.core.sampler.benchmark import Benchmark
+from tile2net.core.frame.namespace import namespace
 
 if TYPE_CHECKING:
     pass

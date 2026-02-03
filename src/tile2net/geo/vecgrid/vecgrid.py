@@ -27,13 +27,13 @@ from tile2net.geo.basegrid import basegrid
 from tile2net.geo.basegrid.corners import Corners
 from tile2net.geo.vecgrid.file import File
 from tile2net.geo.vecgrid.padded import Padded
-from tile2net.grid import vecgrid, frame
-from tile2net.grid.cfg.cfg import Cfg
-from tile2net.grid.cfg.logger import logger
-from tile2net.grid.loaders.dataset import DataSet
-from tile2net.grid.loaders.vec import VecDataSet, VecDataWrapper
-from tile2net.grid.pednet import PedNet
-from tile2net.grid.util import recursion_block
+from tile2net.core import vecgrid, frame
+from tile2net.core.cfg.cfg import Cfg
+from tile2net.core.cfg.logger import logger
+from tile2net.core.loaders.dataset import DataSet
+from tile2net.core.loaders.vec import VecDataSet, VecDataWrapper
+from tile2net.core.pednet import PedNet
+from tile2net.core.util import recursion_block
 from .mask2poly import Mask2Poly
 
 if TYPE_CHECKING:

@@ -7,15 +7,15 @@ import os
 
 import pandas as pd
 
-from tile2net.grid.cfg.logger import logger
-from tile2net.grid import frame
+from tile2net.core.cfg.logger import logger
+from tile2net.core import frame
 from tile2net.geo.source import Local, Remote
 
-from tile2net.grid.grid.file import File as GridFile
+from tile2net.core.grid.file import File as GridFile
 from tile2net.geo.basegrid.file import File as BaseGridFile
 
 if TYPE_CHECKING:
-    from tile2net.grid.frame import column
+    from tile2net.core.frame import column
     from .grid import Grid
 
 

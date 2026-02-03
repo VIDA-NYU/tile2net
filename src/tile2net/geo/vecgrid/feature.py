@@ -5,7 +5,7 @@ from typing import Self, TYPE_CHECKING
 
 import geopandas as gpd
 
-from tile2net.grid.frame.namespace import namespace
+from tile2net.core.frame.namespace import namespace
 
 if TYPE_CHECKING:
     from tile2net.geo.vecgrid.vecgrid import VecGrid

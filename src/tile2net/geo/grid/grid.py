@@ -24,13 +24,13 @@ from tile2net.geo.source.remote import Remote
 from tile2net.geo.source.source import Source
 from tile2net.geo.util import assert_perfect_overlap
 from tile2net.geo.vecgrid.vecgrid import VecGrid
-from tile2net.grid import grid
-from tile2net.grid.basegrid.static import Static
-from tile2net.grid.cfg import cfg, Cfg
-from tile2net.grid.cfg.logger import logger
-from tile2net.grid.dir.dir import Dir
-from tile2net.grid.dir.outdir import Outdir
-from tile2net.grid.sampler.benchmark import Benchmark
+from tile2net.core import grid
+from tile2net.core.basegrid.static import Static
+from tile2net.core.cfg import cfg, Cfg
+from tile2net.core.cfg.logger import logger
+from tile2net.core.dir.dir import Dir
+from tile2net.core.dir.outdir import Outdir
+from tile2net.core.sampler.benchmark import Benchmark
 
 if TYPE_CHECKING:
     from .filled import Filled

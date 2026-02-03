@@ -7,9 +7,9 @@ import geopandas as gpd
 import shapely
 
 from tile2net.geo.basegrid.basegrid import BaseGrid
-from tile2net.grid.frame.weak import weak
-from tile2net.grid.source import source
-from tile2net.grid.source.exceptions import SourceParseError
+from tile2net.core.frame.weak import weak
+from tile2net.core.source import source
+from tile2net.core.source.exceptions import SourceParseError
 
 if TYPE_CHECKING:
     from ..grid import Grid

@@ -1,5 +1,5 @@
 import argparse
-from tile2net.grid.cfg import cfg
+from tile2net.core.cfg import cfg
 import os
 import shutil
 import time

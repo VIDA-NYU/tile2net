@@ -6,7 +6,7 @@ from tile2net.geo.basegrid import filled
 from tile2net.geo.grid.grid import Grid
 
 if TYPE_CHECKING:
-    from tile2net.grid.seggrid.seggrid import SegGrid
+    from tile2net.core.seggrid.seggrid import SegGrid
 
 
 class Filled(

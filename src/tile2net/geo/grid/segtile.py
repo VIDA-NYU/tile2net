@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from tile2net.grid.frame import frame
-from tile2net.grid.grid import segtile
+from tile2net.core.frame import frame
+from tile2net.core.grid import segtile
 
 if TYPE_CHECKING:
     from .grid import Grid

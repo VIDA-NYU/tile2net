@@ -33,7 +33,7 @@ from tile2net.tileseg.datasets.base_loader import BaseLoader
 
 if TYPE_CHECKING:
     from tile2net.tiles import Tiles
-    from tile2net.grid.seggrid import SegGrid
+    from tile2net.core.seggrid import SegGrid
 
 Label = namedtuple('Label', [
 

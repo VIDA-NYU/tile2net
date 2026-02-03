@@ -18,17 +18,17 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 from tile2net.geo.seggrid.minibatch import MiniBatch
-from tile2net.grid.basegrid.static import Static
-from tile2net.grid.cfg.cfg import Cfg
-from tile2net.grid.cfg.logger import logger
-from tile2net.grid.loaders.sample import SampleDataWrapper, SampleDataLoader, Sample
-from tile2net.grid.loaders.sampler import DistributedSampler
-from tile2net.grid.loaders.stream import StreamStitchDataSet
-from tile2net.grid.loaders.val import ValDataSet, ValDataLoader
-from tile2net.grid.seggrid.gac import grayscale_area_closing
-from tile2net.grid.seggrid.gmb import geodesic_masked_boosting
-from tile2net.grid.seggrid.hysteresis import hysteresis_boost
-from tile2net.grid.seggrid.submit import Submit
+from tile2net.core.basegrid.static import Static
+from tile2net.core.cfg.cfg import Cfg
+from tile2net.core.cfg.logger import logger
+from tile2net.core.loaders.sample import SampleDataWrapper, SampleDataLoader, Sample
+from tile2net.core.loaders.sampler import DistributedSampler
+from tile2net.core.loaders.stream import StreamStitchDataSet
+from tile2net.core.loaders.val import ValDataSet, ValDataLoader
+from tile2net.core.seggrid.gac import grayscale_area_closing
+from tile2net.core.seggrid.gmb import geodesic_masked_boosting
+from tile2net.core.seggrid.hysteresis import hysteresis_boost
+from tile2net.core.seggrid.submit import Submit
 from tile2net.tileseg import network
 from tile2net.tileseg.datasets.sampler import DistributedSampler
 from tile2net.tileseg.loss.optimizer import get_optimizer, restore_net, restore_opt

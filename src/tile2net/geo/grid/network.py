@@ -16,11 +16,11 @@ from PIL import Image
 from matplotlib.collections import LineCollection
 from scipy.spatial import cKDTree
 
-import tile2net.grid.pednet.lines
-from tile2net.grid.cfg import cfg
-from tile2net.grid.cfg.logger import logger
-from tile2net.grid.explore import explore
-from tile2net.grid.frame.framewrapper import FrameWrapper
+import tile2net.core.pednet.lines
+from tile2net.core.cfg import cfg
+from tile2net.core.cfg.logger import logger
+from tile2net.core.explore import explore
+from tile2net.core.frame.framewrapper import FrameWrapper
 
 if TYPE_CHECKING:
     from .grid import Grid
@@ -176,7 +176,7 @@ class Network(
 
                     result = (
                         result.frame
-                        .pipe(tile2net.grid.pednet.lines.Lines.from_center)
+                        .pipe(tile2net.core.pednet.lines.Lines.from_center)
                         .drop2nodes()
                         .frame
                         .set_index('feature')

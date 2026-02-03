@@ -28,10 +28,10 @@ from rasterio.errors import NotGeoreferencedWarning
 from rasterio.features import shapes
 from shapely.geometry import shape
 
-from tile2net.grid.benchmark import benchmark
-from tile2net.grid.cfg import cfg
-from tile2net.grid.cfg.logger import logger
-from tile2net.grid.frame.framewrapper import FrameWrapper
+from tile2net.core.benchmark import benchmark
+from tile2net.core.cfg import cfg
+from tile2net.core.cfg.logger import logger
+from tile2net.core.frame.framewrapper import FrameWrapper
 
 os.environ['USE_PYGEOS'] = '0'
 

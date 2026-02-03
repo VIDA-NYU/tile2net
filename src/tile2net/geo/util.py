@@ -27,7 +27,7 @@ import toolz
 from geopy.geocoders import Nominatim, Photon
 from numpy import ndarray
 
-from tile2net.grid.cfg.logger import logger
+from tile2net.core.cfg.logger import logger
 
 
 @singledispatch

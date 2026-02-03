@@ -39,7 +39,7 @@ import numpy as np
 from PIL import Image
 from torch.utils import data
 
-from tile2net.grid.cfg import cfg
+from tile2net.core.cfg import cfg
 from tile2net.logger import logger
 from tile2net.tileseg.datasets import uniform
 from tile2net.tileseg.utils.misc import tensor_to_pil

@@ -3,8 +3,8 @@ from __future__ import annotations
 import pandas as pd
 from typing import TYPE_CHECKING
 
-from tile2net.grid.frame.namespace import namespace
-from tile2net.grid import frame
+from tile2net.core.frame.namespace import namespace
+from tile2net.core import frame
 
 if TYPE_CHECKING:
     from .seggrid import SegGrid

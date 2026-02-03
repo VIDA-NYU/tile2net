@@ -3,8 +3,8 @@ from __future__ import annotations
 import pandas as pd
 from typing import TYPE_CHECKING
 
-from tile2net.grid import frame
-from tile2net.grid.grid import vectile
+from tile2net.core import frame
+from tile2net.core.grid import vectile
 
 if TYPE_CHECKING:
     from .grid import Grid

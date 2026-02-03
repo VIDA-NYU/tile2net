@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Self, TYPE_CHECKING
 
 from tile2net.geo.grid.grid import Grid
-from tile2net.grid.frame import frame
+from tile2net.core.frame import frame
 from . import segtile
 
 if TYPE_CHECKING:

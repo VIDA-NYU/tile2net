@@ -6,10 +6,10 @@ import os
 
 import pandas as pd
 
-from tile2net.grid.vecgrid.file import File as VecGridFile
+from tile2net.core.vecgrid.file import File as VecGridFile
 from tile2net.geo.basegrid.file import File as BaseGridFile
-from tile2net.grid.cfg.logger import logger
-from tile2net.grid import frame
+from tile2net.core.cfg.logger import logger
+from tile2net.core import frame
 
 if TYPE_CHECKING:
     from .vecgrid import VecGrid

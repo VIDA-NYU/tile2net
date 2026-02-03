@@ -13,7 +13,7 @@ from shapely import box, wkt
 from urllib3.util.retry import Retry
 
 from tile2net.geo.source.remote import Remote
-from tile2net.grid.source.exceptions import SourceParseError
+from tile2net.core.source.exceptions import SourceParseError
 
 
 class ArcGis(
