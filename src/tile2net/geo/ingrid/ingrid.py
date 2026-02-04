@@ -9,9 +9,16 @@ from functools import *
 from pathlib import Path
 from typing import *
 
+from tile2net.core.cfg import cfg, Cfg
+from tile2net.core.cfg.logger import logger
+from tile2net.core.dir.dir import Dir
+from tile2net.core.dir.outdir import Outdir
+from tile2net.core.grid.static import Static
+from tile2net.core.ingrid.ingrid import InGrid as CoreInGrid
+from tile2net.core.sampler.benchmark import Benchmark
 from tile2net.geo import util
-from tile2net.geo.grid import grid
 from tile2net.geo.geocode import GeoCode
+from tile2net.geo.grid.grid import Grid as GeoGrid
 from tile2net.geo.ingrid import delayed
 from tile2net.geo.ingrid.file import File
 from tile2net.geo.ingrid.network import Network
@@ -24,13 +31,6 @@ from tile2net.geo.source.remote import Remote
 from tile2net.geo.source.source import Source
 from tile2net.geo.util import assert_perfect_overlap
 from tile2net.geo.vecgrid.vecgrid import VecGrid
-from tile2net.core import InGrid
-from tile2net.core.grid.static import Static
-from tile2net.core.cfg import cfg, Cfg
-from tile2net.core.cfg.logger import logger
-from tile2net.core.dir.dir import Dir
-from tile2net.core.dir.outdir import Outdir
-from tile2net.core.sampler.benchmark import Benchmark
 
 if TYPE_CHECKING:
     from .filled import Filled
@@ -38,10 +38,9 @@ if TYPE_CHECKING:
 
 
 class InGrid(
-    grid.InGrid,
-    grid.Grid,
+    GeoGrid,
+    CoreInGrid,
 ):
-
 
     @Outdir
     def outdir(self):
