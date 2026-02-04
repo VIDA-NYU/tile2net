@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from tile2net.xyz.grid import Grid
-from tile2net.tests.xyz.grid.locations import LOCATIONS
+from tile2net.geo.ingrid import InGrid
+from tile2net.tests.geo.ingrid.locations import LOCATIONS
 
 
 @pytest.fixture(
@@ -11,9 +11,9 @@ from tile2net.tests.xyz.grid.locations import LOCATIONS
     params=LOCATIONS.values(),
     ids=LOCATIONS.keys(),
 )
-def grid(request) -> Grid:
+def grid(request) -> InGrid:
     coords, zoom = request.param
-    return Grid.from_location(
+    return InGrid.from_location(
         coords,
         zoom=zoom,
     )
@@ -21,11 +21,11 @@ def grid(request) -> Grid:
 
 def iter_grids():
     """
-    Yields (name, Grid) tuples for all configured locations.
+    Yields (name, InGrid) tuples for all configured locations.
     Useful for maintenance scripts or manual debugging.
     """
     for name, (coords, zoom) in LOCATIONS.items():
-        yield name, Grid.from_location(
+        yield name, InGrid.from_location(
             coords,
             zoom=zoom,
         )

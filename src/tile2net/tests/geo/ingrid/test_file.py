@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import os
 
-from tile2net.tests.xyz.grid.conftest import *
+from tile2net.tests.geo.ingrid.conftest import *
 
 
 class TestFileStatic:
-    def test_static_exists(self, grid: Grid):
+    def test_static_exists(self, grid: InGrid):
         assert (
             grid.file.static
             .map(os.path.exists)
@@ -15,7 +15,7 @@ class TestFileStatic:
 
 
 class TestFilePred:
-    def test_pred_exists(self, grid: Grid):
+    def test_pred_exists(self, grid: InGrid):
         assert (
             grid.file.pred
             .map(os.path.exists)
@@ -24,7 +24,7 @@ class TestFilePred:
 
 
 class TestFileProb:
-    def test_prob_exists(self, grid: Grid):
+    def test_prob_exists(self, grid: InGrid):
         assert (
             grid.file.prob
             .map(os.path.exists)
@@ -33,12 +33,12 @@ class TestFileProb:
 
 
 class TestFileNetwork:
-    def test_network_exists(self, grid: Grid):
+    def test_network_exists(self, grid: InGrid):
         assert os.path.exists(grid.file.network)
 
 
 class TestFilePolygons:
-    def test_polygons_exists(self, grid: Grid):
+    def test_polygons_exists(self, grid: InGrid):
         assert os.path.exists(grid.file.polygons)
 
 

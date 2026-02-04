@@ -8,7 +8,7 @@ from tile2net.core.frame.namespace import namespace
 from .. import frame
 
 if TYPE_CHECKING:
-    from .grid import Grid
+    from .ingrid import InGrid
 
 
 class VecTile(
@@ -18,18 +18,18 @@ class VecTile(
     Namespace for accessing vec-tile attributes aligned with in-tiles.
 
     See usage:
-        >>> Grid.vectile
+        >>> InGrid.vectile
     """
 
     @property
-    def grid(self) -> Grid:
+    def ingrid(self) -> InGrid:
         """Reference to parent Grid instance."""
         return self.instance
 
     @property
-    def basegrid(self) -> Grid:
+    def basegrid(self) -> InGrid:
         """Reference to parent Grid instance."""
-        return self.grid
+        return self.ingrid
 
     @property
     def dimension(self) -> int:
@@ -37,8 +37,8 @@ class VecTile(
         Pixel dimension of each vec-tile (width and height are equal).
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.dimension
             8192
         """
-        return self.grid.vecgrid.dimension
+        return self.ingrid.vecgrid.dimension

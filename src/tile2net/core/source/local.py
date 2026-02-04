@@ -40,7 +40,7 @@ class Local(
     @cached_property
     def dimension(self) -> int:
         """Default dimension of tiles in pixels."""
-        files: pd.Series = self.grid.file.static
+        files: pd.Series = self.ingrid.file.static
         for path in files:
             try:
                 with Image.open(path) as img:

@@ -3,7 +3,7 @@ from __future__ import annotations
 from .basegrid import BaseGrid
 
 
-class Grid(
+class InGrid(
     BaseGrid,
 ):
     @property

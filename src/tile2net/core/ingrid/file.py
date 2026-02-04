@@ -14,22 +14,22 @@ from tile2net.logger import logger
 
 if TYPE_CHECKING:
     from tile2net.core.frame import column
-    from tile2net.core.grid import Grid
+    from tile2net.core.ingrid import InGrid
     from tile2net.core.frame import column
-    from tile2net.core.grid import Grid
+    from tile2net.core.ingrid import InGrid
 
 from .. import frame
 from tile2net.core.basegrid import file
 
 if TYPE_CHECKING:
-    from .grid import Grid
+    from .ingrid import InGrid
 
 
 class File(
     file.File
 ):
-    instance: Grid
-    basegrid: Grid
+    instance: InGrid
+    basegrid: InGrid
 
     @frame.column
     def static(self):

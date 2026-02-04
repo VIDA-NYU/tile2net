@@ -28,7 +28,7 @@ class Local(
     @cached_property
     def dimension(self) -> int:
         """Default dimension of tiles in pixels."""
-        files: pd.Series = self.grid.file.static
+        files: pd.Series = self.ingrid.file.static
         for path in files:
             try:
                 with Image.open(path) as img:
@@ -179,7 +179,7 @@ if __name__ == '__main__':
 
     # test files property
     print("\n8. Testing files generation:")
-    local1.grid = MockGrid()
+    local1.ingrid = MockGrid()
     files = local1.files
     assert len(files) == 2
     assert '10' in files[0] and '20' in files[0]

@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-import pandas as pd
 from typing import TYPE_CHECKING
 
-from tile2net.core.frame.namespace import namespace
+import pandas as pd
+
 from tile2net.core import frame
+from tile2net.core.frame.namespace import namespace
 
 if TYPE_CHECKING:
     from .seggrid import SegGrid
     from ..vecgrid.vecgrid import VecGrid
-    from ..grid import Grid
+    from ..ingrid import InGrid
 
 
 class VecTile(
@@ -19,7 +20,7 @@ class VecTile(
     Namespace for accessing vec-tile attributes aligned with seg-tiles.
 
     See usage:
-        >>> Grid.vectile
+        >>> InGrid.vectile
     """
 
     @property
@@ -38,9 +39,9 @@ class VecTile(
         return self.seggrid.vecgrid
 
     @property
-    def grid(self) -> Grid:
+    def ingrid(self) -> InGrid:
         """Reference to the Grid instance"""
-        return self.seggrid.grid
+        return self.seggrid.ingrid
 
     @property
     def length(self) -> int:
@@ -57,7 +58,7 @@ class VecTile(
         Pixel dimension of each vec-tile (width and height are equal).
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.dimension
             8192
         """
@@ -69,7 +70,7 @@ class VecTile(
         Shape of each vec-tile as (height, width).
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.shape
             (8192, 8192)
         """
@@ -81,7 +82,7 @@ class VecTile(
         X coordinate of vec-tile in vecgrid space.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.xtile
             xtile  ytile
             79320  96960    9915
@@ -101,7 +102,7 @@ class VecTile(
         Y coordinate of vec-tile in vecgrid space.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.ytile
             xtile  ytile
             79320  96960    12120
@@ -122,7 +123,7 @@ class VecTile(
         Integer identifier for each vec-tile.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.itile
             xtile  ytile
             79320  96960    0
@@ -195,7 +196,7 @@ class VecTile(
         MultiIndex of (xtile, ytile) for vec-tiles.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.index
             MultiIndex([(9915, 12120),
                         (9915, 12120)],
@@ -213,7 +214,7 @@ class VecTile(
         Row index within the vec-tile (0 to length-1).
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.row
             xtile  ytile
             79320  96960    0
@@ -242,7 +243,7 @@ class VecTile(
         Column index within the vec-tile (0 to length-1).
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.col
             xtile  ytile
             79320  96960    0
@@ -266,7 +267,7 @@ class VecTile(
         Path to polygon parquet file for this vec-tile.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.polygon
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
@@ -285,7 +286,7 @@ class VecTile(
 
         Example:
 
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.line
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
@@ -303,7 +304,7 @@ class VecTile(
         Affine transformation parameters for georeferencing each vec-tile.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.affine
             xtile  ytile
             79320  96960    Affine(1.341104507446289e-06, 0.0, -71.0719299316406...
@@ -323,7 +324,7 @@ class VecTile(
         Western boundary of vec-tile in projected coordinates (EPSG:3857).
         
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.lonmin
             xtile  ytile
             79320  96960    -71.0719299316406
@@ -341,7 +342,7 @@ class VecTile(
         Southern boundary of vec-tile in projected coordinates (EPSG:3857).
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.latmin
             xtile  ytile
             79320  96960    5.213617e+06
@@ -359,7 +360,7 @@ class VecTile(
         Eastern boundary of vec-tile in projected coordinates (EPSG:3857).
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.lonmax
             xtile  ytile
             79320  96960   -7.910315e+06
@@ -377,7 +378,7 @@ class VecTile(
         Northern boundary of vec-tile in projected coordinates (EPSG:3857).
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.latmax
             xtile  ytile
             79320  96960    5.214840e+06
@@ -396,7 +397,7 @@ class VecTile(
         Path to polygon parquet file for this vec-tile.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.polygon_file
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
@@ -414,7 +415,7 @@ class VecTile(
         Path to network line parquet file for this vec-tile.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.network_file
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
@@ -432,7 +433,7 @@ class VecTile(
         Padding pixels applied to vec-tiles during vectorization.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.pad
             1
         """

@@ -10,7 +10,7 @@ from .. import frame
 if TYPE_CHECKING:
     from .seggrid import SegGrid
     from ..vecgrid.vecgrid import VecGrid
-    from ..grid import Grid
+    from ..ingrid import InGrid
 
 
 class VecTile(
@@ -20,7 +20,7 @@ class VecTile(
     Namespace for accessing vec-tile attributes aligned with seg-tiles.
 
     See usage:
-        >>> Grid.vectile
+        >>> InGrid.vectile
     """
 
     @property
@@ -39,9 +39,9 @@ class VecTile(
         return self.seggrid.vecgrid
 
     @property
-    def grid(self) -> Grid:
+    def grid(self) -> InGrid:
         """Reference to the Grid instance"""
-        return self.seggrid.grid
+        return self.seggrid.ingrid
 
     @property
     def length(self) -> int:
@@ -58,7 +58,7 @@ class VecTile(
         Pixel dimension of each vec-tile (width and height are equal).
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.dimension
             8192
         """
@@ -70,7 +70,7 @@ class VecTile(
         Shape of each vec-tile as (height, width).
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.shape
             (8192, 8192)
         """
@@ -82,7 +82,7 @@ class VecTile(
         Integer identifier for each vec-tile.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.itile
             xtile  ytile
             79320  96960    0
@@ -155,7 +155,7 @@ class VecTile(
         Path to polygon parquet file for this vec-tile.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.polygon
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
@@ -173,7 +173,7 @@ class VecTile(
         Path to network line parquet file for this vec-tile.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.line
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
@@ -192,7 +192,7 @@ class VecTile(
         Path to polygon parquet file for this vec-tile.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.polygon_file
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
@@ -210,7 +210,7 @@ class VecTile(
         Path to network line parquet file for this vec-tile.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.network_file
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...

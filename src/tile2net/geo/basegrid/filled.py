@@ -10,7 +10,7 @@ class Filled(
 ):
 
     @property
-    def grid(self):
+    def ingrid(self):
         return self.instance.grid
 
     @property

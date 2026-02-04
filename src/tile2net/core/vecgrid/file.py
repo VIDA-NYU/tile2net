@@ -12,7 +12,7 @@ from ..basegrid import file
 
 if TYPE_CHECKING:
     from .vecgrid import VecGrid
-    from ..grid import Grid
+    from ..ingrid import InGrid
 
 
 class File(
@@ -61,13 +61,13 @@ class File(
             pd.Series: File paths to line geometry parquet files for each vec-tile
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.vecgrid.file.network
             xtile  ytile
             9915   12120    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
         vecgrid = self.basegrid
-        files = vecgrid.grid.outdir.vecgrid.network.files(vecgrid)
+        files = vecgrid.ingrid.outdir.vecgrid.network.files(vecgrid)
         setattr(self, 'network', files)
         if (
             self
@@ -80,7 +80,7 @@ class File(
             .rsplit('.', 1)[-1]
         )
         path: str = (
-            vecgrid.grid.outdir
+            vecgrid.ingrid.outdir
             .__getattribute__(vecgrid.__name__)
             .__getattribute__(name)
             .dir
@@ -112,13 +112,13 @@ class File(
             pd.Series: File paths to polygon geometry parquet files for each vec-tile
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.vecgrid.file.polygons
             xtile  ytile
             9915   12120    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
         vecgrid = self.basegrid
-        files = vecgrid.grid.outdir.vecgrid.polygons.files(vecgrid)
+        files = vecgrid.ingrid.outdir.vecgrid.polygons.files(vecgrid)
         setattr(self, 'polygons', files)
         if (
             self
@@ -131,7 +131,7 @@ class File(
             .rsplit('.', 1)[-1]
         )
         path: str = (
-            vecgrid.grid.outdir
+            vecgrid.ingrid.outdir
             .__getattribute__(vecgrid.__name__)
             .__getattribute__(name)
             .dir
@@ -154,7 +154,7 @@ class File(
     def curbs(self) -> pd.Series:
         # todo: needs documentation
         vecgrid = self.basegrid
-        files = vecgrid.grid.outdir.vecgrid.curbs.files(vecgrid)
+        files = vecgrid.ingrid.outdir.vecgrid.curbs.files(vecgrid)
         setattr(self, 'curbs', files)
         if (
             self
@@ -167,7 +167,7 @@ class File(
             .rsplit('.', 1)[-1]
         )
         path: str = (
-            vecgrid.grid.outdir
+            vecgrid.ingrid.outdir
             .__getattribute__(vecgrid.__name__)
             .__getattribute__(name)
             .dir

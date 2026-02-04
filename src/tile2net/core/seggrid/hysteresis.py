@@ -163,7 +163,7 @@ class Hysteresis(PostProcess):
             missing_inputs = inputs[loc]
             missing_outputs = files[loc]
 
-            clip = grid.grid.dimension * grid.cfg.segmentation.pad
+            clip = grid.ingrid.dimension * grid.cfg.segmentation.pad
             tasks = [
                 (inp, out, clip)
                 for inp, out in zip(missing_inputs, missing_outputs)

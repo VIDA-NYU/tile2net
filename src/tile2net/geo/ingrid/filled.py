@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import *
 
 from tile2net.geo.basegrid import filled
-from tile2net.geo.grid.grid import Grid
+from tile2net.geo.ingrid.ingrid import InGrid
 
 if TYPE_CHECKING:
     from tile2net.core.seggrid.seggrid import SegGrid
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 class Filled(
     filled.Filled,
-    Grid,
+    InGrid,
 ):
     """
     Grid extension that fills in missing tiles to align with SegGrid boundaries.
@@ -23,11 +23,11 @@ class Filled(
     Handles lazy-loading of filled grid with padding:
     >>> Filled._get
     """
-    instance: Grid
+    instance: InGrid
 
     def _get(
             self,
-            instance: Grid,
+            instance: InGrid,
             owner,
     ) -> Self:
         """
@@ -41,7 +41,7 @@ class Filled(
             Filled instance with complete tile coverage for segmentation
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.filled
             Filled Grid with additional boundary tiles
         """
@@ -86,5 +86,5 @@ class Filled(
         return self.instance.filled
 
     @property
-    def grid(self) -> Grid:
-        return self.instance.grid
+    def ingrid(self) -> InGrid:
+        return self.instance.ingrid

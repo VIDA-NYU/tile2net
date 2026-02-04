@@ -1194,8 +1194,7 @@ class Cfg(
     UserDict,
     cmdline.Namespace
 ):
-    grid = None
-    grid: BaseGrid
+    grid: BaseGrid = None
     instance: BaseGrid = None
     owner: Type[BaseGrid] = None
     __name__ = ''

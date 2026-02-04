@@ -16,9 +16,9 @@ from tile2net.core.cfg.logger import logger
 from tile2net.core.dir.dir import Dir
 from tile2net.core.dir.outdir import Outdir
 from tile2net.core.dir.tempdir import TempDir
-from tile2net.core.grid.file import File
-from tile2net.core.grid.segtile import SegTile
-from tile2net.core.grid.vectile import VecTile
+from tile2net.core.ingrid.file import File
+from tile2net.core.ingrid.segtile import SegTile
+from tile2net.core.ingrid.vectile import VecTile
 from tile2net.core.seggrid.seggrid import SegGrid
 from tile2net.core.source.local import Local
 from tile2net.core.source.remote import Remote
@@ -26,7 +26,7 @@ from tile2net.core.source.source import Source
 from tile2net.core.vecgrid.vecgrid import VecGrid
 
 
-class Grid(
+class InGrid(
     BaseGrid
 ):
     """
@@ -34,7 +34,7 @@ class Grid(
     Each tile is an image from the source.
 
     Example construction:
-        >>> grid = Grid.from_location('Boston Common, MA')
+        >>> grid = InGrid.from_location('Boston Common, MA')
         Grid:
                              lonmin        latmax        lonmax        latmin
         xtile  ytile
@@ -63,13 +63,13 @@ class Grid(
         # todo: maybe we can also support a geo Grid.from_source which performs the pipeline on the entirety
         #   of the remote source
         if (
-            isinstance(source, str)
-            and '{i}' not in source
+                isinstance(source, str)
+                and '{i}' not in source
         ):
             source = os.path.join(source, '{i}')
         if (
-            isinstance(mask, str)
-            and '{i}' not in mask
+                isinstance(mask, str)
+                and '{i}' not in mask
         ):
             mask = os.path.join(mask, '{i}')
 
@@ -90,7 +90,7 @@ class Grid(
         Namespace container for files aligned with the tiles of a Grid.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.file.Static
             xtile   ytile
             317280  387840    /home/<user>/tile2net/ma/grid/static/20/31...
@@ -105,7 +105,7 @@ class Grid(
         available for performing vectorization on the stitched tiles.
 
         Example:
-            >>> Grid.vecgrid
+            >>> InGrid.vecgrid
             VecGrid:
                        lonmin        latmax        lonmax        latmin  \
             xtile ytile
@@ -131,7 +131,7 @@ class Grid(
         available for performing segmentation on the stitched tiles.
 
         Example:
-            >>> Grid.seggrid
+            >>> InGrid.seggrid
             SegGrid:
                            lonmin        latmax        lonmax        latmin  \
             xtile ytile
@@ -154,7 +154,7 @@ class Grid(
         Tile dimension in pixels.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.dimension
             256
         """
@@ -166,7 +166,7 @@ class Grid(
         Grid name; inferred from config, location, or input directory.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.name
             'Boston Common, MA'
         """
@@ -184,7 +184,7 @@ class Grid(
         Tile shape as (height, width) in pixels.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.shape
             (256, 256)
         """
@@ -196,19 +196,18 @@ class Grid(
         Namespace for static assets (e.g., placeholder images, weights).
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.Static.black
             >>> grid.Static.hrnet_checkpoint
             >>> grid.Static.snapshot
         """
-
 
     @Outdir
     def outdir(self):
         """
         Output in which the results, such as annotated images and geometry, will be stored:
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.outdir
             Outdir(
                 format='/home/<user>/tile2net/{z}/{x}_{y}',
@@ -218,7 +217,7 @@ class Grid(
             )
 
         Setting the output directory:
-        >>> grid: Grid
+        >>> grid: InGrid
         """
         return dict(
             i=self.index
@@ -230,7 +229,7 @@ class Grid(
         Directory for storing mask files aligned with the tiles of a Grid.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.mask
             Dir(
                 format='/home/<user>/tile2net/{z}/{x}_{y}',
@@ -240,7 +239,7 @@ class Grid(
             )
 
         Setting the mask directory:
-        >>> grid: Grid
+        >>> grid: InGrid
         """
         return dict(
             i=self.index
@@ -253,7 +252,7 @@ class Grid(
         See `Grid.set_remote()` to actually set a source.
 
         Automatically sets the source:
-        >>> grid: Grid
+        >>> grid: InGrid
         >>> grid = grid.set_source(...)
 
         See also:
@@ -268,7 +267,7 @@ class Grid(
         Temporary directory for intermediate processing files.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.tempdir
             Tempdir(
                 dir='/tmp/tile2net/ma/grid/static'
@@ -289,7 +288,7 @@ class Grid(
         Namespace for seg-tile properties aligned with in-tiles.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.segtile.xtile
             xtile   ytile
             317280  387840    79320
@@ -301,7 +300,7 @@ class Grid(
         Namespace for vec-tile properties aligned with in-tiles.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.vectile.xtile
             xtile   ytile
             317280  387840    9915
@@ -322,7 +321,7 @@ class Grid(
             Grid with remote and directories configured
 
         Example:
-            >>> grid: Grid = Grid.from_location('Boston Common, MA').set_source('ma')
+            >>> grid: InGrid = InGrid.from_location('Boston Common, MA').set_source('ma')
 
         See:
             >>> Source.__set__
@@ -420,7 +419,7 @@ class Grid(
         if outdir:
             rows.append(('Output directory', outdir))
 
-        rows.append(('Input imagery', _p(self.outdir.grid.Static.dir)))
+        rows.append(('Input imagery', _p(self.outdir.ingrid.Static.dir)))
         if self.cfg.segmentation.colorized:
             rows.append(('Segmentation (colorized)', _p(self.outdir.seggrid.colorized.dir)))
         if self.cfg.polygon.concat:
@@ -598,7 +597,7 @@ class Grid(
         if polygons:
             msg = (
                 f'Cleaning up the polygons for each tile from '
-                f'\n\t{self.grid.outdir.vecgrid.polygons.dir}'
+                f'\n\t{self.ingrid.outdir.vecgrid.polygons.dir}'
             )
             logger.info(msg)
             util.cleanup(self.vecgrid.file.polygons)
@@ -607,7 +606,7 @@ class Grid(
             msg = (
                 f'Cleaning up the lines for each tile from '
                 f'\n\t'
-                f'{self.grid.outdir.vecgrid.network.dir}'
+                f'{self.ingrid.outdir.vecgrid.network.dir}'
             )
             logger.info(msg)
             util.cleanup(self.vecgrid.file.network)
@@ -615,11 +614,11 @@ class Grid(
         if static:
             msg = (
                 f'Cleaning up previously downloaded imagery '
-                f'from {self.grid.indir.dir} and '
-                f'{self.grid.outdir.seggrid.Static.dir}'
+                f'from {self.ingrid.indir.dir} and '
+                f'{self.ingrid.outdir.seggrid.Static.dir}'
             )
             logger.info(msg)
-            util.cleanup(self.grid.file.Static)
+            util.cleanup(self.ingrid.file.Static)
             util.cleanup(self.seggrid.file.Static)
 
         if grayscale:
@@ -648,9 +647,8 @@ class Grid(
         return 0.
 
     @property
-    def grid(self) -> Grid:
+    def ingrid(self) -> InGrid:
         """Quick access for the Grid of a project."""
         return self
 
     __name__ = 'grid'
-

@@ -20,11 +20,11 @@ from tile2net.core.sampler.benchmark import Benchmark
 from tile2net.core.source.remote import Remote
 
 if TYPE_CHECKING:
-    from ..grid import Grid
+    from ..ingrid import InGrid
     from .seggrid import SegGrid
     from ..vecgrid.vecgrid import VecGrid
-    from ..grid import Grid
-    from ..grid import Grid
+    from ..ingrid import InGrid
+    from ..ingrid import InGrid
     from . import predict as predict_py
     from .minibatch import MiniBatch
 
@@ -69,9 +69,8 @@ class VecTile(
     @frame.column
     def grayscale(self) -> pd.Series:
         """seggrid.file broadcasted to grid"""
-        grid = self.grid
         result = (
-            grid.seggrid.broadcast.file.pred
+            self.ingrid.seggrid.broadcast.file.pred
             .loc[self.index]
             .values
         )
@@ -109,7 +108,7 @@ class Broadcast(
     >>> Broadcast._get
 
     See usage:
-    >>> Grid.broadcast
+    >>> InGrid.broadcast
     """
     instance: SegGrid
 
@@ -129,7 +128,7 @@ class Broadcast(
             Broadcast instance with expanded index including padding tiles
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.broadcast
             Broadcast with multiple rows per in-tile where overlaps occur
         """
@@ -191,8 +190,8 @@ class Broadcast(
         ...
 
     @property
-    def grid(self) -> Grid:
-        return self.instance.grid
+    def ingrid(self) -> InGrid:
+        return self.instance.ingrid
 
     @property
     def filled(self):
@@ -232,13 +231,13 @@ class Broadcast(
         Benchmarking is done in the parent process after subprocess completes.
 
         See the output files:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.file.pred
             >>> grid.seggrid.file.prob
             >>> grid.seggrid.file.unclipped_prob
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.predict(output='pred')
             Downloading weights for segmentation...
             Predicting seg-tiles: 100%|██████| 64/64 [02:15<00:00]
@@ -248,7 +247,7 @@ class Broadcast(
             return
         if output not in ('unclipped_prob', 'prob', 'pred'):
             raise ValueError(f"output must be 'unclipped_prob', 'prob', or 'pred', got {output!r}")
-        grid = self.grid.broadcast
+        grid = self.ingrid.broadcast
         force = ~grid.segtile.pred.map(os.path.exists)
         if output in ('prob', 'unclipped_prob'):
             force |= ~grid.segtile.prob.map(os.path.exists)
@@ -256,7 +255,7 @@ class Broadcast(
             force |= ~grid.segtile.unclipped_prob.map(os.path.exists)
         force |= self.cfg.force
 
-        msg = f'Predicting seg-tiles to \n\t{self.grid.outdir.seggrid.pred.dir}'
+        msg = f'Predicting seg-tiles to \n\t{self.ingrid.outdir.seggrid.pred.dir}'
         logger.info(msg)
 
         # Instantiate a custom DataFrame which wraps the metadata necessary for prediction
@@ -281,8 +280,8 @@ class Broadcast(
 
         padded_dimension = self.padded.dimension
         clipped_dimension = self.basegrid.dimension
-        stitched_dimension = self.padded.length * self.grid.dimension
-        tile_dimension = self.grid.dimension
+        stitched_dimension = self.padded.length * self.ingrid.dimension
+        tile_dimension = self.ingrid.dimension
 
         if self.cfg.segmentation.stream:
             if not isinstance(grid.source, Remote):
@@ -299,7 +298,7 @@ class Broadcast(
 
         if not self.cfg.segmentation.stream:
             assert (
-                self.grid.file.static
+                self.ingrid.file.static
                 .map(os.path.exists)
                 .all()
             )

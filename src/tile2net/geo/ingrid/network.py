@@ -23,7 +23,7 @@ from tile2net.core.explore import explore
 from tile2net.core.frame.framewrapper import FrameWrapper
 
 if TYPE_CHECKING:
-    from .grid import Grid
+    from .ingrid import InGrid
     import folium
 
 
@@ -37,14 +37,14 @@ class Network(
         >>> Network.__get__
 
     See usage:
-        >>> Grid.network
+        >>> InGrid.network
     """
     __name__ = 'network'
 
     def _get(
             self,
-            instance: Grid,
-            owner: type[Grid]
+            instance: InGrid,
+            owner: type[InGrid]
     ) -> Self:
         """
         Lazy-load factory method for accessing network for each feature, dissolved across tiles.
@@ -58,7 +58,7 @@ class Network(
             Network instance with dissolved features from all vecgrid tiles
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.network
             Network:
                                                         geometry
@@ -206,7 +206,7 @@ class Network(
     locals().update(__get__=_get)
 
     @property
-    def grid(self) -> Grid:
+    def ingrid(self) -> InGrid:
         """Reference to the Grid instance"""
         return self.instance
 
@@ -221,24 +221,23 @@ class Network(
         File at which the network are cached
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.network.file
             '/home/<user>/tile2net/ma/network/parquet/Boston Common, MA.parquet'
         """
-        return self.grid.file.network
-        # return self.grid.outdir.network.parquet
+        return self.ingrid.file.network
 
     def unlink(self):
         """Delete the network file."""
         file = self.file
         msg = (
-            f'Uncaching {self.grid.__name__}.{self.__name__} and '
+            f'Uncaching {self.ingrid.__name__}.{self.__name__} and '
             f'deleting file:\n\t{file}'
         )
         logger.info(msg)
         if os.path.exists(file):
             os.remove(file)
-        del self.grid
+        del self.ingrid
 
     def preview(
             self,
@@ -252,7 +251,7 @@ class Network(
     ) -> Image.Image:
 
         # use the grid's own imagery preview as a basemap
-        grid = self.grid
+        grid = self.ingrid
         mosaic: Image.Image = grid.preview(
             maxdim=maxdim,
             divider=divider,

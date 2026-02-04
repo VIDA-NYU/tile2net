@@ -5,10 +5,10 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from tile2net.core.frame import frame
-from tile2net.core.grid import segtile
+from tile2net.core.ingrid import segtile
 
 if TYPE_CHECKING:
-    from .grid import Grid
+    from .ingrid import InGrid
 
 
 class SegTile(
@@ -18,9 +18,9 @@ class SegTile(
     Namespace for accessing seg-tile attributes aligned with in-tiles.
 
     See usage:
-        >>> Grid.segtile
+        >>> InGrid.segtile
     """
-    grid: Grid
+    ingrid: InGrid
 
     @property
     def index(self):
@@ -33,7 +33,7 @@ class SegTile(
     @frame.column
     def xtile(self):
         """X tile coordinate of the SegGrid tile associated with the Grid tile."""
-        grid = self.grid
+        grid = self.ingrid
 
         seggrid = grid.seggrid.filled
         result: pd.Index = grid.xtile.__floordiv__(grid.segtile.length)
@@ -45,7 +45,7 @@ class SegTile(
     @frame.column
     def ytile(self):
         """Y tile coordinate of the SegGrid tile associated with the Grid tile."""
-        grid = self.grid
+        grid = self.ingrid
 
         seggrid = grid.seggrid.filled
         result: pd.Index = grid.ytile.__floordiv__(grid.segtile.length)
@@ -57,7 +57,7 @@ class SegTile(
     @frame.column
     def row(self) -> pd.Series:
         """Row index within the seg-tile (0 to length-1)."""
-        grid = self.grid
+        grid = self.ingrid
         result = (
             grid.ytile
             .to_series(index=grid.index)
@@ -70,7 +70,7 @@ class SegTile(
     @frame.column
     def col(self) -> pd.Series:
         """Column index within the seg-tile (0 to length-1)."""
-        grid = self.grid
+        grid = self.ingrid
         result = (
             grid.xtile
             .to_series(index=grid.index)
@@ -87,4 +87,4 @@ class SegTile(
 
         For example, if length is 4, each vec-tile is composed of 4x4 = 16 seg-tiles.
         """
-        return self.grid.seggrid.length
+        return self.ingrid.seggrid.length

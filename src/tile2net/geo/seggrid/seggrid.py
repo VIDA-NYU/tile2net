@@ -20,7 +20,7 @@ from tile2net.core.seggrid.file import File
 if TYPE_CHECKING:
     from .filled import Filled
     from .broadcast import Broadcast
-    from ..grid import Grid
+    from ..ingrid import InGrid
     from . import predict as predict_py
 
 
@@ -38,8 +38,8 @@ class SegGrid(
     predictions. Each seg-tile covers an area equivalent to multiple in-tiles.
 
     Example:
-        >>> grid: Grid
-        >>> grid.seggrid
+        >>> grid: InGrid
+        >>> ingrid.seggrid
         SegGrid:
                        lonmin        latmax        lonmax        latmin
         xtile ytile
@@ -55,15 +55,15 @@ class SegGrid(
         >>> SegGrid._get
 
     See usage:
-        >>> Grid.seggrid
+        >>> InGrid.seggrid
     """
     __name__ = 'seggrid'
-    instance: Grid
+    instance: InGrid
 
     def _get(
             self,
-            instance: Grid,
-            owner: type[Grid],
+            instance: InGrid,
+            owner: type[InGrid],
     ) -> SegGrid:
         """
         Lazy-load factory method for accessing SegGrid from Grid.
@@ -76,7 +76,7 @@ class SegGrid(
             SegGrid instance configured for segmentation operations
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid
             SegGrid:
                            lonmin        latmax        lonmax        latmin
@@ -120,11 +120,11 @@ class SegGrid(
         tile is 2^2 = 4 Grid tiles wide.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.length
             4
         """
-        grid = self.basegrid.grid
+        grid = self.basegrid.ingrid
         result = 2 ** (grid.scale - self.scale)
         return result
 
@@ -137,12 +137,12 @@ class SegGrid(
         segmentation tiles are 1024x1024 pixels.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.dimension
             1024
         """
         seggrid = self.basegrid
-        grid = seggrid.grid
+        grid = seggrid.ingrid
         result = grid.dimension * self.length
         return result
 
@@ -152,19 +152,19 @@ class SegGrid(
         return self.instance
 
     @property
-    def grid(self) -> Grid:
+    def ingrid(self) -> InGrid:
         """Reference to the parent Grid instance."""
         return self.instance
 
     @property
     def cfg(self):
         """Reference to the configuration object."""
-        return self.grid.cfg
+        return self.ingrid.cfg
 
     @property
     def static(self):
         """Reference to static assets."""
-        return self.grid.static
+        return self.ingrid.static
 
     @VecTile
     def vectile(self):
@@ -172,7 +172,7 @@ class SegGrid(
         Namespace for vec-tiles aligned with seg-tiles.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.xtile
             xtile  ytile
             79320  96960    9915
@@ -191,7 +191,7 @@ class SegGrid(
         Namespace container for files aligned with the tiles of a Grid.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.file.Colorized
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
@@ -220,7 +220,7 @@ class SegGrid(
         would otherwise cause issues during vectorization.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid
             64
             >>> grid.seggrid.filled
@@ -241,7 +241,7 @@ class SegGrid(
         membership gets its own row, enabling proper alignment for batch processing.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.broadcast
                            segtile.xtile  segtile.ytile  segtile.r  segtile.c
             xtile  ytile
@@ -261,7 +261,7 @@ class SegGrid(
         neural network inference. Padding is configurable via cfg.segmentation.pad.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.padded.Static
             >>> grid.seggrid.padded.length
         """
@@ -378,13 +378,13 @@ class SegGrid(
         Benchmarking is done in the parent process after subprocess completes.
 
         See the output files:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.file.pred
             >>> grid.seggrid.file.prob
             >>> grid.seggrid.file.unclipped_prob
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.predict(output='pred')
             Downloading weights for segmentation...
             Predicting seg-tiles: 100%|██████| 64/64 [02:15<00:00]

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Self, TYPE_CHECKING
 
-from tile2net.geo.grid.grid import Grid
+from tile2net.geo.ingrid.ingrid import InGrid
 from tile2net.core.frame import frame
 from . import segtile
 
@@ -45,12 +45,12 @@ class SegTile(
 
     @property
     def length(self) -> int:
-        return self.grid.seggrid.padded.length
+        return self.ingrid.seggrid.padded.length
 
     @frame.column
     def static(self):
         result = (
-            self.basegrid.grid.seggrid.padded.static
+            self.basegrid.ingrid.seggrid.padded.static
             .loc[self.index]
             .values
         )
@@ -58,7 +58,7 @@ class SegTile(
 
 
 class Broadcast(
-    Grid
+    InGrid
 ):
     """
     Grid extension with broadcasting to handle overlapping seg-tiles.
@@ -74,18 +74,18 @@ class Broadcast(
     See usage:
         >>> SegGrid.broadcast
     """
-    instance: Grid
+    instance: InGrid
 
     def _get(
             self,
-            instance: Grid,
+            instance: InGrid,
             owner,
     ) -> Self:
         if instance is None:
             result = self
             result.instance = instance
             return result
-        instance = instance.grid
+        instance = instance.ingrid
         self.instance = instance
         cache = instance.frame.__dict__
         key = self.__name__
@@ -97,10 +97,10 @@ class Broadcast(
             loc = ~seggrid.index.duplicated()
             seggrid = seggrid.loc[loc]
 
-            grid = instance.grid.filled
+            grid = instance.ingrid.filled
             pad = (
                 grid.segtile.pad
-                .__truediv__(grid.grid.dimension)
+                .__truediv__(grid.ingrid.dimension)
                 .__ceil__()
             )
 
@@ -151,8 +151,8 @@ class Broadcast(
         ...
 
     @property
-    def grid(self) -> Grid:
-        return self.instance.grid
+    def ingrid(self) -> InGrid:
+        return self.instance.ingrid
 
     @property
     def filled(self):

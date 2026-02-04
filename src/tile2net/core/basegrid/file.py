@@ -18,7 +18,7 @@ from ..cfg import cfg
 if TYPE_CHECKING:
     from tile2net.core.frame import column
     from tile2net.core.basegrid.basegrid import BaseGrid
-    from tile2net.core.grid import Grid
+    from tile2net.core.ingrid import InGrid
     from tile2net.core.dir.basegrid import Outputs
 
 from .. import frame
@@ -46,7 +46,7 @@ class File(
         to a semantic class.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.file.pred
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
@@ -61,7 +61,7 @@ class File(
         File-paths to color-coded segmentation masks for visualization.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.file.prob
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
@@ -78,7 +78,7 @@ class File(
         Lazily generated from prob and pred files already saved to disk.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.file.Colorized
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
@@ -126,7 +126,7 @@ class File(
             pd.Series: File paths to intensity representations for each seg-tile
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.file.intensity
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
@@ -175,7 +175,7 @@ class File(
             pd.Series: File paths to side-by-side composites for each seg-tile
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.file.sidebyside
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
@@ -224,7 +224,7 @@ class File(
             pd.Series: File paths to overlay images for each seg-tile
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.file.overlay
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
@@ -268,7 +268,7 @@ class File(
         Lazily generated from prob and pred files already saved to disk.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.file.error
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
@@ -277,7 +277,7 @@ class File(
         grid = self.obj
         name = grid.__name__
         FILES = (
-            getattr(grid.grid.outdir, name)
+            getattr(grid.ingrid.outdir, name)
             .error.files(grid)
         )
         setattr(self, 'error', FILES)

@@ -31,7 +31,7 @@ from tile2net.core.vecgrid.network import Network
 from tile2net.core.vecgrid.polygons import Polygons
 
 if TYPE_CHECKING:
-    from ..grid import Grid
+    from ..ingrid import InGrid
 
 
 class VectorizeTask(NamedTuple):
@@ -58,8 +58,8 @@ class VecGrid(BaseGrid):
     network generation.
 
     Example:
-        >>> grid: Grid
-        >>> grid.vecgrid
+        >>> grid: InGrid
+        >>> ingrid.vecgrid
         VecGrid:
                        lonmin        latmax        lonmax        latmin
         xtile ytile
@@ -71,7 +71,7 @@ class VecGrid(BaseGrid):
     - Padding tiles to reduce edge artifacts during vectorization
 
     See usage:
-        >>> Grid.vecgrid
+        >>> InGrid.vecgrid
 
     Handles lazy-loading of VecGrid from Grid:
         >>> VecGrid.__get__
@@ -80,7 +80,7 @@ class VecGrid(BaseGrid):
 
     def _get(
             self,
-            instance: Grid,
+            instance: InGrid,
             owner: type[BaseGrid],
     ) -> Self:
         """
@@ -94,7 +94,7 @@ class VecGrid(BaseGrid):
             VecGrid instance configured for vectorization operations
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.vecgrid
             VecGrid:
                        lonmin        latmax        lonmax        latmin
@@ -114,7 +114,7 @@ class VecGrid(BaseGrid):
             result = cache[key]
 
         else:
-            name = self.grid.__class__.__qualname__
+            name = self.ingrid.__class__.__qualname__
             msg = (
                 f'{name}.{self.__name__} '
                 f'has not been set. You may '
@@ -451,7 +451,7 @@ class VecGrid(BaseGrid):
         organized by tile coordinates.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.vecgrid.network
             Lines:
             feature                                              crosswalk
@@ -471,7 +471,7 @@ class VecGrid(BaseGrid):
         organized by tile coordinates.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.vecgrid.polygons
             Polygons:
             feature                                              crosswalk
@@ -494,7 +494,7 @@ class VecGrid(BaseGrid):
         each VecGrid tile is 2^2 = 4 SegGrid tiles wide.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.vecgrid.length
             4
         """
@@ -518,14 +518,14 @@ class VecGrid(BaseGrid):
         vec-tiles are 4096x4096 pixels.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.vecgrid.dimension
             4096
         """
         return self.seggrid.dimension * self.length
 
     @property
-    def grid(self) -> Grid:
+    def ingrid(self) -> InGrid:
         """
         Reference to the parent Grid instance.
 
@@ -533,9 +533,9 @@ class VecGrid(BaseGrid):
             Grid instance that this VecGrid belongs to
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> vecgrid = grid.vecgrid
-            >>> vecgrid.grid is grid
+            >>> vecgrid.ingrid is grid
             True
         """
         return self.instance

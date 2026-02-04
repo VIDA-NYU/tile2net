@@ -37,7 +37,7 @@ from tile2net.core.util import recursion_block
 from .mask2poly import Mask2Poly
 
 if TYPE_CHECKING:
-    from ..grid import Grid
+    from ..ingrid import InGrid
     from ..seggrid.seggrid import SegGrid
 
 
@@ -68,8 +68,8 @@ class VecGrid(
     network generation.
 
     Example:
-        >>> grid: Grid
-        >>> grid.vecgrid
+        >>> grid: InGrid
+        >>> ingrid.vecgrid
         VecGrid:
                        lonmin        latmax        lonmax        latmin
         xtile ytile
@@ -81,7 +81,7 @@ class VecGrid(
     - Padding tiles to reduce edge artifacts during vectorization
 
     See usage:
-        >>> Grid.vecgrid
+        >>> InGrid.vecgrid
 
     Handles lazy-loading of VecGrid from Grid:
         >>> VecGrid._get
@@ -108,7 +108,7 @@ class VecGrid(
             Corners object with xmin, ymin, xmax, ymax for each padded tile
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.vecgrid.padding
             Corners with expanded bounds for padding
         """
@@ -131,7 +131,7 @@ class VecGrid(
             Series of Affine objects, one per tile
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.vecgrid.affine_params
             xtile  ytile
             9915   12120    Affine(0.298..., 0.0, -7911538.18..., ...)
@@ -167,7 +167,7 @@ class VecGrid(
         each VecGrid tile is 2^2 = 4 SegGrid tiles wide.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.vecgrid.length
             4
         """
@@ -175,7 +175,7 @@ class VecGrid(
         return result
 
     @property
-    def grid(self) -> Grid:
+    def ingrid(self) -> InGrid:
         """
         Reference to the parent Grid instance.
 
@@ -183,9 +183,9 @@ class VecGrid(
             Grid instance that this VecGrid belongs to
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> vecgrid = grid.vecgrid
-            >>> vecgrid.grid is grid
+            >>> vecgrid.ingrid is grid
             True
         """
         return self.instance
@@ -508,12 +508,12 @@ class VecGrid(
 
         Returns:
             None. See output file paths:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.vecgrid.file.polygons
             >>> grid.vecgrid.file.network
 
         Example:
-            >>> grid: Grid = Grid.from_location('Boston Common, MA')
+            >>> grid: InGrid = InGrid.from_location('Boston Common, MA')
             >>> grid = grid.set_source().set_segmentation().set_vectorization()
             >>> grid.vecgrid.vectorize()
             Vectorizing to /home/<user>/tile2net/ma/vecgrid/polygons
@@ -522,7 +522,7 @@ class VecGrid(
         """
 
         dest = (
-            self.grid.outdir.vecgrid.polygons.dir
+            self.ingrid.outdir.vecgrid.polygons.dir
             .rpartition(os.sep)
             [0]
         )
@@ -578,7 +578,7 @@ class VecGrid(
             mininterval=10,
         )
 
-        with self.grid.cfg, bar, self.benchmark:
+        with self.ingrid.cfg, bar, self.benchmark:
             for minibatch in loader:
                 bar.update(len(minibatch))
 
@@ -604,7 +604,7 @@ class VecGrid(
             PIL Image containing the tile mosaic
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> img = grid.vecgrid.view(maxdim=4096, divider='red')
             >>> img.show()
         """

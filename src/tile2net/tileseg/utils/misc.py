@@ -53,7 +53,7 @@ from tile2net.core.cfg import cfg
 from tile2net.core.cfg.logger import logger
 
 if TYPE_CHECKING:
-    from ...grid import Tiles
+    from ...ingrid import Tiles
 
 
 def fmt_scale(

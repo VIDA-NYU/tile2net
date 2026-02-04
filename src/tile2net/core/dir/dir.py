@@ -15,7 +15,7 @@ from tile2net.core.frame.namespace import namespace
 
 if TYPE_CHECKING:
     from ..basegrid.basegrid import BaseGrid
-    from tile2net.core import Grid
+    from tile2net.core import InGrid
     from tile2net.core.basegrid.basegrid import BaseGrid
 
 

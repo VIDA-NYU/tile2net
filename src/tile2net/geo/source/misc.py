@@ -53,4 +53,3 @@ class AlamedaCounty(Remote):
         data = [box(-122.345118999, 37.451422681, -121.462793698, 37.912241999)]
         out = GeoSeries(data, crs='EPSG:4326')
         return out
-

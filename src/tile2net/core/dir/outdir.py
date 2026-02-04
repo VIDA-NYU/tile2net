@@ -15,7 +15,7 @@ from tile2net.core.source.remote import Remote
 if TYPE_CHECKING:
     from .seggrid import SegGrid
     from .vecgrid import VecGrid
-    from tile2net.core.grid import Grid
+    from tile2net.core.ingrid import InGrid
 
 
 class Probability(
@@ -76,7 +76,7 @@ class Outdir(
             instance: Grid,
             owner: type[Grid],
     ):
-        from tile2net.core.grid import Grid
+        from tile2net.core.ingrid import InGrid
         if instance is None:
             out = self
         elif isinstance(instance, Grid):
@@ -143,8 +143,8 @@ class Outdir(
         return self.project.seggrid
 
     @property
-    def grid(self) -> projectdir.Grid:
-        return self.project.grid
+    def ingrid(self) -> projectdir.InGrid:
+        return self.project.ingrid
 
     @ProjectDir
     def project(self):

@@ -37,7 +37,7 @@ class Padded(
         Pixel dimension of each seg-tile after it has been
         padded a number of in-tiles.
         """
-        out = self.instance.length * self.instance.grid.dimension
+        out = self.instance.length * self.instance.ingrid.dimension
         out += 2 * self.instance.cfg.segmentation.pad
         return out
 
@@ -52,11 +52,11 @@ class Padded(
         Stitches input files when seggrid.file is accessed.
         """
         seggrid = self.basegrid
-        files = seggrid.grid.outdir.seggrid.padded.static.files(seggrid)
+        files = seggrid.ingrid.outdir.seggrid.padded.static.files(seggrid)
 
         self.static = files
         if not files.map(os.path.exists).all():
-            grid = seggrid.grid.broadcast
+            grid = seggrid.ingrid.broadcast
             small_files = grid.file.static
             big_files = grid.segtile.static
             assert (

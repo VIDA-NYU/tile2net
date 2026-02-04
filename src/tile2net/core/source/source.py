@@ -16,7 +16,7 @@ from tile2net.logger import logger
 if TYPE_CHECKING:
     from .remote import Remote
     from .local import Local
-    from ..grid import Grid
+    from ..ingrid import InGrid
 
 
 class Source:
@@ -32,14 +32,14 @@ class Source:
     """Default dimension of the remote grid, e.g. 256 pixels."""
 
     @weak.property
-    def grid(self) -> Optional[Grid]:
+    def ingrid(self) -> Optional[InGrid]:
         """The Grid instance this source is attached to."""
         return None
 
     def __get__(
             self,
-            instance: Grid,
-            owner: type[Grid],
+            instance: InGrid,
+            owner: type[InGrid],
     ) -> Self | Remote | Local:
         """Return the remote object for the grid instance."""
         if instance is None:
@@ -75,7 +75,7 @@ class Source:
 
     def __set__(
             self,
-            instance: Grid,
+            instance: InGrid,
             value: Union[Source, str, None],
     ):
         if value is None:
@@ -95,7 +95,7 @@ class Source:
         value.__dict__ = self.__dict__ | value.__dict__
         instance.__dict__[self.__name__] = value
 
-    def __delete__(self, instance: Grid):
+    def __delete__(self, instance: InGrid):
         try:
             del instance.__dict__[self.__name__]
         except KeyError:

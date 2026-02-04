@@ -8,7 +8,7 @@ from tile2net.core.frame.namespace import namespace
 from .. import frame
 
 if TYPE_CHECKING:
-    from .grid import Grid
+    from .ingrid import InGrid
 
 
 class SegTile(
@@ -18,24 +18,23 @@ class SegTile(
     Namespace for accessing seg-tile attributes aligned with in-tiles.
 
     See usage:
-        >>> Grid.segtile
+        >>> InGrid.segtile
     """
-    grid: Grid
 
     @property
-    def grid(self) -> Grid:
+    def ingrid(self) -> InGrid:
         """Reference to the Grid instance."""
         return self.instance
 
     @property
-    def basegrid(self) -> Grid:
+    def basegrid(self) -> InGrid:
         """Reference to the parent Grid instance."""
-        return self.grid
+        return self.ingrid
 
     @property
     def dimension(self):
         """Pixel dimension of each seg-tile."""
-        return self.grid.dimension * self.length
+        return self.ingrid.dimension * self.length
 
     @property
     def shape(self) -> tuple[int, int]:
@@ -62,7 +61,7 @@ class SegTile(
     @frame.column
     def static(self) -> pd.Series:
         """Path to input file for this seg-tile."""
-        grid = self.grid
+        grid = self.ingrid
         result = (
             grid.seggrid.filled.file.static
             .loc[self.index]
@@ -73,7 +72,7 @@ class SegTile(
     @frame.column
     def pred(self) -> pd.Series:
         """Path to grayscale segmentation file for this tile."""
-        grid = self.grid
+        grid = self.ingrid
         seggrid = grid.seggrid.broadcast
         result = (
             seggrid.file.pred
@@ -86,7 +85,7 @@ class SegTile(
     @frame.column
     def prob(self) -> pd.Series:
         """Path to probability segmentation file for this tile."""
-        grid = self.grid
+        grid = self.ingrid
         seggrid = grid.seggrid.broadcast
         result = (
             seggrid.file.prob
@@ -99,7 +98,7 @@ class SegTile(
     @frame.column
     def unclipped_prob(self) -> pd.Series:
         """Path to unclipped probability segmentation file for this tile."""
-        grid = self.grid
+        grid = self.ingrid
         seggrid = grid.seggrid.broadcast
         result = (
             seggrid.file.unclipped_prob

@@ -6,8 +6,8 @@ import pytest
 import requests
 from PIL import Image
 
-from tile2net.xyz import util
-from tile2net.xyz.source.remote import Remote
+from tile2net.core import util
+from tile2net.geo.source.remote import Remote
 
 PROTOTYPES = {
     key: value
@@ -74,13 +74,11 @@ class TestPrototypes:
         except IOError:
             pytest.fail(f"Returned content from {url} is not a valid image.")
 
-
     def test_locations(self, prototype: Remote):
         # todo: include locations under the `test` parameter for each prototype in `servers.yaml`;
         #   each prototype will iterate across these locations and assure that Remote.from_location() returns a copy
         #   of that prototype
         """"""
-
 
 
 if __name__ == '__main__':

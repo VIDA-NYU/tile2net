@@ -40,7 +40,7 @@ from tile2net.core.util import recursion_block
 from tile2net.logger import logger
 
 if TYPE_CHECKING:
-    from tile2net.core.grid.grid import Grid
+    from tile2net.core.ingrid.ingrid import InGrid
 
 tls = threading.local()
 
@@ -250,7 +250,7 @@ class Remote(
 
     def get_urls(
             self,
-            grid: Grid = None,
+            grid: InGrid = None,
             **key2fill
     ) -> Iterator[str]:
         """
@@ -260,7 +260,7 @@ class Remote(
             **key2fill: Mapping of keys to iterables or scalars
         """
         if grid is None:
-            grid = self.grid
+            grid = self.ingrid
         fill_data = grid.tokens | key2fill
 
         iterables = {}
@@ -301,7 +301,7 @@ class Remote(
     @property
     def url(self) -> pd.Series:
         """Generate URLs for all tiles in the attached grid."""
-        grid = self.grid
+        grid = self.ingrid
         key = f'{self.__name__}.url'
         if key not in grid.columns:
             obj = self.get_urls()
@@ -316,14 +316,14 @@ class Remote(
     @url.setter
     def url(self, value: pd.Series):
         """Set the URLs for all tiles in the attached grid."""
-        grid = self.grid
+        grid = self.ingrid
         key = f'{self.__name__}.url'
         grid[key] = value
 
     @url.deleter
     def url(self):
         """Delete the URLs for all tiles in the attached grid."""
-        grid = self.grid
+        grid = self.ingrid
         key = f'{self.__name__}.url'
         try:
             del grid[key]
@@ -335,7 +335,7 @@ class Remote(
         Download a single tile for testing purposes.
         Uses context manager to avoid caching the static column.
         """
-        grid = self.grid
+        grid = self.ingrid
         with grid.file._static_peek():
             paths = grid.file.static
             urls = self.url
@@ -484,7 +484,7 @@ class Remote(
         Download all tiles from this remote source to the input directory.
         Handles 204 No Content by linking the placeholder tile.
         """
-        grid = self.grid
+        grid = self.ingrid
         paths = grid.file.static
         urls = self.url
 

@@ -22,7 +22,7 @@ from tile2net.core.explore import explore
 from tile2net.core.frame.framewrapper import FrameWrapper
 
 if TYPE_CHECKING:
-    from .grid import Grid
+    from .ingrid import InGrid
     import folium
 
 
@@ -36,14 +36,14 @@ class Polygons(
         >>> Polygons.__get__
 
     See usage:
-        >>> Grid.polygons
+        >>> InGrid.polygons
     """
     __name__ = 'polygons'
 
     def __get__(
             self,
-            instance: Grid,
-            owner: type[Grid]
+            instance: InGrid,
+            owner: type[InGrid]
     ) -> Polygons:
         """
         Lazy-load factory method for accessing polygons for each feature and region, dissolved across tiles.
@@ -56,7 +56,7 @@ class Polygons(
             Polygons instance with dissolved features from all vecgrid tiles
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.polygons
             Polygons:
                                                     geometry
@@ -144,7 +144,7 @@ class Polygons(
         return result
 
     @property
-    def grid(self) -> Grid:
+    def ingrid(self) -> InGrid:
         """Reference to the Ingrid instance."""
         return self.instance
 
@@ -154,13 +154,12 @@ class Polygons(
         File at which the polygons are cached.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.polygons.file
             '/home/<user>/tile2net/ma/polygons/parquet/Boston Common, MA.parquet'
 
         """
-        return self.grid.file.polygons
-        # return self.grid.outdir.polygons.parquet
+        return self.ingrid.file.polygons
 
     @property
     def feature(self):
@@ -171,13 +170,13 @@ class Polygons(
         """Delete the polygons file."""
         file = self.file
         msg = (
-            f'Uncaching {self.grid.__name__}.{self.__name__} and '
+            f'Uncaching {self.ingrid.__name__}.{self.__name__} and '
             f'deleting file:\n\t{file}'
         )
         logger.info(msg)
         if os.path.exists(file):
             os.remove(file)
-        del self.grid
+        del self.ingrid
 
     def explore(
             self,
@@ -230,10 +229,10 @@ class Polygons(
         """ View polygons over imagery as a PIL image. """
 
         # z-order per feature
-        z_map: dict[str, int] = self.grid.cfg.polygon.z_order
+        z_map: dict[str, int] = self.ingrid.cfg.polygon.z_order
 
         # basemap (must match exactly what preview() produces)
-        grid = self.grid
+        grid = self.ingrid
         mosaic: Image.Image = grid.preview(
             maxdim=maxdim,
             divider=divider,
@@ -289,10 +288,10 @@ class Polygons(
         )
 
         # stroke setup
-        label2color = self.grid.cfg.label2color
+        label2color = self.ingrid.cfg.label2color
         base_width = kwargs.get('width', max(1, long_side // 1400))
         # Use cfg.polygon.thickness if thickness is None
-        actual_thickness = thickness if thickness is not None else self.grid.cfg.polygon.thickness
+        actual_thickness = thickness if thickness is not None else self.ingrid.cfg.polygon.thickness
         line_w = max(1, int(round(float(base_width) * float(actual_thickness))))
         lw_hole = max(1, line_w // 2)
         coll_alpha = max(0.0, min(1.0, float(opacity)))

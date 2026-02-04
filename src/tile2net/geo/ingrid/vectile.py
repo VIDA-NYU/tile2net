@@ -4,10 +4,10 @@ import pandas as pd
 from typing import TYPE_CHECKING
 
 from tile2net.core import frame
-from tile2net.core.grid import vectile
+from tile2net.core.ingrid import vectile
 
 if TYPE_CHECKING:
-    from .grid import Grid
+    from .ingrid import InGrid
 
 
 class VecTile(
@@ -17,7 +17,7 @@ class VecTile(
     Namespace for accessing vec-tile attributes aligned with in-tiles.
 
     See usage:
-        >>> Grid.vectile
+        >>> InGrid.vectile
     """
 
     @frame.column
@@ -26,12 +26,12 @@ class VecTile(
         X coordinate of vec-tile in vecgrid space.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.xtile
             xtile  ytile
             79320  96960    9915
         """
-        grid = self.grid
+        grid = self.ingrid
 
         vecgrid = grid.vecgrid
         length = 2 ** (grid.scale - vecgrid.scale)
@@ -47,12 +47,12 @@ class VecTile(
         Y coordinate of vec-tile in vecgrid space.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.ytile
             xtile  ytile
             79320  96960    12120
         """
-        grid = self.grid
+        grid = self.ingrid
 
         vecgrid = grid.vecgrid
         length = 2 ** (grid.scale - vecgrid.scale)
@@ -68,7 +68,7 @@ class VecTile(
         MultiIndex of (xtile, ytile) for vec-tiles.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.vectile.index
             MultiIndex([(9915, 12120),
                         (9915, 12120),
@@ -88,4 +88,4 @@ class VecTile(
 
         For example, if length is 4, each vec-tile is composed of 4x4 = 16 seg-tiles.
         """
-        return self.grid.vecgrid.length
+        return self.ingrid.vecgrid.length

@@ -20,7 +20,7 @@ sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 
 if TYPE_CHECKING:
     from .seggrid import SegGrid
-    from ..grid import Grid
+    from ..ingrid import InGrid
 
 
 def sha256sum(path):
@@ -60,7 +60,7 @@ class File(
         A file for each seg-tile: the stitched input grid.
         Stitches input files when seggrid.file is accessed
         """
-        return self.basegrid.grid.file.static
+        return self.basegrid.ingrid.file.static
 
     @frame.column
     def pred(self) -> pd.Series:
@@ -71,7 +71,7 @@ class File(
         to a semantic class.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.file.pred
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
@@ -118,7 +118,7 @@ class File(
         File-paths to color-coded segmentation masks for visualization.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.file.prob
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
@@ -165,7 +165,7 @@ class File(
         File-paths to unclipped probability maps for postprocessing.
 
         Example:
-            >>> grid: Grid
+            >>> grid: InGrid
             >>> grid.seggrid.file.unclipped_prob
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
@@ -212,7 +212,7 @@ class File(
         A file for each seg-tile: the stitched mask from input grid.
         Stitches mask files when seggrid.file.mask is accessed.
         """
-        return self.basegrid.grid.file.mask
+        return self.basegrid.ingrid.file.mask
 
     @frame.column
     def disk_usage(self):

@@ -12,7 +12,7 @@ from tile2net.core.source import source
 from tile2net.core.source.exceptions import SourceParseError
 
 if TYPE_CHECKING:
-    from ..grid import Grid
+    from ..ingrid import InGrid
 
 
 class Source(
@@ -24,7 +24,7 @@ class Source(
     """
 
     @weak.property
-    def grid(self) -> Optional[Grid]:
+    def ingrid(self) -> Optional[InGrid]:
         """The Grid instance this source is attached to."""
         return None
 

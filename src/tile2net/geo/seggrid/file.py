@@ -101,7 +101,7 @@ class File(
             n = loc.sum()
             msg = f'{trace} found {n} missing files. Stitching to\n\t{path}'
             logger.info(msg)
-            grid = grid.grid
+            grid = grid.ingrid
             assert (
                 grid.file.static
                 .map(os.path.exists)
@@ -148,7 +148,7 @@ class File(
             n = loc.sum()
             msg = f'{trace} found {n} missing files. Stitching to\\n\\t{path}'
             logger.info(msg)
-            grid = grid.grid
+            grid = grid.ingrid
             assert (
                 grid.file.mask
                 .map(os.path.exists)

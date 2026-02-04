@@ -2,7 +2,7 @@ import os.path
 from dataclasses import dataclass
 from typing import *
 
-from tile2net.geo import Grid
+from tile2net.geo import InGrid
 from tile2net.core.cfg.logger import logger
 
 
@@ -66,11 +66,11 @@ from tile2net.core.cfg.logger import logger
 
 @dataclass
 class Process:
-    grid: Grid
+    ingrid: InGrid
 
     @property
     def cfg(self):
-        return self.grid.cfg
+        return self.ingrid.cfg
 
     def __enter__(self):
         self.before = self.existing
@@ -87,8 +87,8 @@ class Process:
 
     @property
     def arg2dir(self) -> dict[str, str]:
-        with self.grid.cfg, self:
-            grid = self.grid
+        with self.ingrid.cfg, self:
+            grid = self.ingrid
             seggrid = grid.seggrid
             vecgrid = grid.vecgrid
             cfg = self.cfg
@@ -97,31 +97,31 @@ class Process:
             mapping: dict[str, str] = {}
             if cfg.static:
                 _ = grid.file.static
-                mapping['static'] = outdir.grid.static.dir
+                mapping['static'] = outdir.ingrid.static.dir
             if cfg.prob:
                 _ = grid.file.prob
-                mapping['prob'] = outdir.grid.prob.dir
+                mapping['prob'] = outdir.ingrid.prob.dir
             if cfg.pred:
                 _ = grid.file.pred
-                mapping['pred'] = outdir.grid.pred.dir
+                mapping['pred'] = outdir.ingrid.pred.dir
             if cfg.colorized:
                 _ = grid.file.colorized
-                mapping['colorized'] = outdir.grid.colorized.dir
+                mapping['colorized'] = outdir.ingrid.colorized.dir
             if cfg.intensity:
                 _ = grid.file.intensity
-                mapping['intensity'] = outdir.grid.intensity.dir
+                mapping['intensity'] = outdir.ingrid.intensity.dir
             if cfg.sidebyside:
                 _ = grid.file.sidebyside
-                mapping['sidebyside'] = outdir.grid.sidebyside.dir
+                mapping['sidebyside'] = outdir.ingrid.sidebyside.dir
             if cfg.overlay:
                 _ = grid.file.overlay
-                mapping['overlay'] = outdir.grid.overlay.dir
+                mapping['overlay'] = outdir.ingrid.overlay.dir
             if cfg.error:
                 _ = grid.file.error
-                mapping['error'] = outdir.grid.error.dir
+                mapping['error'] = outdir.ingrid.error.dir
             if cfg.soft:
                 _ = grid.file.soft
-                mapping['soft'] = outdir.grid.soft.dir
+                mapping['soft'] = outdir.ingrid.soft.dir
             if cfg.network:
                 _ = grid.file.network
                 mapping['network'] = outdir.vecgrid.network.dir
@@ -199,7 +199,7 @@ class Process:
 
     @property
     def existing(self) -> set[str]:
-        grid = self.grid
+        grid = self.ingrid
         seggrid = grid.seggrid
         vecgrid = grid.vecgrid
         cfg = self.cfg
@@ -300,7 +300,7 @@ class Process:
 
 
 if __name__ == '__main__':
-    grid = Grid.from_cfg()
+    grid = InGrid.from_cfg()
     process = Process(grid)
     result = process.arg2dir
 

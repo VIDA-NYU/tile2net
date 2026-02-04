@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from tile2net.xyz import Grid
-from tile2net.tests.xyz.grid.locations import LOCATIONS
+from tile2net.geo import InGrid
+from tile2net.tests.geo.ingrid.locations import LOCATIONS
 
 
 class TestGridInstantiation:
@@ -13,19 +13,19 @@ class TestGridInstantiation:
         ids=LOCATIONS.keys()
     )
     def test_grid_is_instance(self, coords, zoom):
-        grid = Grid.from_location(coords, zoom=zoom)
-        assert isinstance(grid, Grid)
+        grid = InGrid.from_location(coords, zoom=zoom)
+        assert isinstance(grid, InGrid)
 
 
-class TestGridAttributes:
+class TestInGridAttributes:
     @pytest.mark.parametrize(
         "coords,zoom",
         LOCATIONS.values(),
         ids=LOCATIONS.keys()
     )
     def test_zoom(self, coords, zoom):
-        """Test that Grid.from_location preserves input zoom level."""
-        grid = Grid.from_location(coords, zoom=zoom)
+        """Test that InGrid.from_location preserves input zoom level."""
+        grid = InGrid.from_location(coords, zoom=zoom)
         assert grid.zoom == zoom
 
 

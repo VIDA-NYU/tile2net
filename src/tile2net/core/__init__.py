@@ -1,4 +1,4 @@
-from .grid import Grid
+from .ingrid import InGrid
 from .cfg.cfg import cfg
 from .cfg.logger import  logger
 # from .vecgrid.mask2poly import Mask2Poly

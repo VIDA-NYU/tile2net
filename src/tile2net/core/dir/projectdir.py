@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .basegrid import BaseGrid
 from .dir import Dir
-from .grid import Grid
+from .ingrid import InGrid
 from .seggrid import SegGrid
 from .vecgrid import VecGrid
 
@@ -61,9 +61,9 @@ class ProjectDir(
     def seggrid(self):
         return SegGrid.from_parent(self, 'seggrid')
 
-    @Grid
-    def grid(self):
-        return Grid.from_parent(self, 'grid')
+    @InGrid
+    def ingrid(self):
+        return InGrid.from_parent(self, 'ingrid')
 
     @Network
     def network(self):
@@ -73,6 +73,3 @@ class ProjectDir(
     def polygons(self):
         ...
 
-    @Grid
-    def grid(self):
-        return Grid.from_parent(self, 'grid')
