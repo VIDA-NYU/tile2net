@@ -11,14 +11,13 @@ from typing import Self
 import numpy as np
 import pandas as pd
 
-from tile2net.geo.seggrid import vectile
-from tile2net.geo.util import recursion_block
 from tile2net.core import frame
 from tile2net.core.cfg.logger import logger
 from tile2net.core.loaders.sample import SampleDataWrapper
 from tile2net.core.sampler.benchmark import Benchmark
 from tile2net.core.source.remote import Remote
-from tile2net.geo.seggrid import SegGrid
+from tile2net.geo.seggrid import vectile, SegGrid
+from tile2net.geo.util import recursion_block
 
 if TYPE_CHECKING:
     from ..ingrid import InGrid
@@ -258,9 +257,17 @@ class Broadcast(
         msg = f'Predicting seg-tiles to \n\t{self.ingrid.outdir.seggrid.pred.dir}'
         logger.info(msg)
 
+        if self.cfg.segmentation.stream:
+            if not isinstance(grid.source, Remote):
+                msg = f"Streaming mode requires a Remote source, got {type(grid.source)}"
+                raise TypeError(msg)
+            image_path = grid.source.url
+        else:
+            image_path = grid.file.static
+
         # Instantiate a custom DataFrame which wraps the metadata necessary for prediction
         wrapper_kwargs = dict(
-            image_path=grid.file.static,
+            image_path=image_path,
             index=grid.segtile.index,
             background=0,
             row=grid.segtile.row,
@@ -282,12 +289,6 @@ class Broadcast(
         clipped_dimension = self.grid.dimension
         stitched_dimension = self.padded.length * self.ingrid.dimension
         tile_dimension = self.ingrid.dimension
-
-        if self.cfg.segmentation.stream:
-            if not isinstance(grid.source, Remote):
-                msg = f"Streaming mode requires a Remote source, got {type(grid.source)}"
-                raise TypeError(msg )
-            wrapper_kwargs['image_path'] = grid.source.url
 
         with (
             tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as cfg_file,
