@@ -39,7 +39,7 @@ class VecTile(
         return self.seggrid.vecgrid
 
     @property
-    def grid(self) -> InGrid:
+    def ingrid(self) -> InGrid:
         """Reference to the Grid instance"""
         return self.seggrid.ingrid
 
