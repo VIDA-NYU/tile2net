@@ -164,8 +164,8 @@ class StreamStitchDataSet(
                 except Exception:
                     stats['failed'] += 1
 
-        # Handle crop/padding if configured
-        if self.padded_dimension is not None:
+        # Handle crop/padding
+        if self.padded_dimension:
             size = self.padded_dimension
             offset = (mosaic.shape[0] - size) // 2
             mosaic = mosaic[
@@ -173,7 +173,6 @@ class StreamStitchDataSet(
                 offset: offset + size
             ]
 
-        # Return dict for automatic torch collation
         return {
             'mosaic': mosaic,
             'success': stats['success'],
