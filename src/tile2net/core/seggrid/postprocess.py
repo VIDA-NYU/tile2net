@@ -11,20 +11,20 @@ import pandas as pd
 import tifffile
 
 from tile2net.core import frame
-from tile2net.core.basegrid import file
+from tile2net.core.grid import file
 from tile2net.core.dir.dir import Dir
 from tile2net.logger import logger
 
 if TYPE_CHECKING:
     from tile2net.core.seggrid import SegGrid
-    from tile2net.core.dir.basegrid import PostProcessedOutputs
+    from tile2net.core.dir.grid import PostProcessedOutputs
 
 
 class PostProcess(
     file.File
 ):
     instance: file.File
-    basegrid: SegGrid
+    grid: SegGrid
     """
     Namespace for work-in-progress postprocessing of segmentation results. 
     """
@@ -34,13 +34,13 @@ class PostProcess(
         return self.instance.static
 
     @property
-    def basegrid(self) -> SegGrid:
-        return self.instance.basegrid
+    def grid(self) -> SegGrid:
+        return self.instance.grid
 
     @frame.column
     def pred(self) -> pd.Series:
         probs: pd.Series = self.prob
-        files: pd.Series = self.dir.pred.files(self.basegrid)
+        files: pd.Series = self.dir.pred.files(self.grid)
 
         if not files.map(os.path.exists).all():
             def write(prob_path: str, pred_path: str):
@@ -91,7 +91,7 @@ class PostProcess(
         """
         Original colorized segmentation on the left and post-processed on the right.
         """
-        grid = self.basegrid
+        grid = self.grid
         dir: Dir = self.dir.colorized_sidebyside
 
         FILES = dir.files(grid)
@@ -211,7 +211,7 @@ class PostProcess(
         """
         Overlay of colorized files onto static imagery: before (left) vs after (right).
         """
-        grid = self.basegrid
+        grid = self.grid
         dir: Dir = self.dir.comparison
 
         FILES = dir.files(grid)

@@ -12,7 +12,7 @@ from tile2net.core.frame.framewrapper import FrameWrapper
 from tile2net.geo.util import xy2lonlat
 
 if TYPE_CHECKING:
-    from .basegrid import BaseGrid
+    from .grid import Grid
 
 
 class Corners(
@@ -125,10 +125,10 @@ class Corners(
         )
         return result
 
-    def to_grid(self, drop_duplicates=True) -> BaseGrid:
+    def to_grid(self, drop_duplicates=True) -> Grid:
         """Creates a ranlatmax of grid for each set of corner extrema"""
-        from .basegrid import BaseGrid
-        result = BaseGrid.from_ranges(
+        from .grid import Grid
+        result = Grid.from_ranges(
             xmin=self.xmin,
             ymin=self.ymin,
             xmax=self.xmax,

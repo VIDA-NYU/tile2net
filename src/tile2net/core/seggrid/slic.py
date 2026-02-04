@@ -6,7 +6,7 @@ from typing import *
 import pandas as pd
 
 from tile2net.core import frame
-from tile2net.core.basegrid import file
+from tile2net.core.grid import file
 from tile2net.core.seggrid.postprocess import PostProcess
 
 if TYPE_CHECKING:
@@ -17,7 +17,7 @@ class SLIC(
     PostProcess
 ):
     instance: file.File
-    basegrid: SegGrid
+    grid: SegGrid
     """
     Namespace for work-in-progress postprocessing of segmentation results. 
 
@@ -28,12 +28,12 @@ class SLIC(
     @frame.column
     def prob(self) -> pd.Series:
         """Segmentation masks, where each pixel is a class id"""
-        grid = self.basegrid
+        grid = self.grid
         probs = grid.file.prob
         files: pd.Series = (
-            self.basegrid.outdir.seggrid
+            self.grid.outdir.seggrid
             .__getattribute__(self.__name__)
-            .files(self.basegrid)
+            .files(self.grid)
         )
         if not files.map(os.path.exists).all():
             ...

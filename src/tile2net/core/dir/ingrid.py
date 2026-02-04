@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from .basegrid import BaseGrid
+from .grid import Grid
 
 
 class InGrid(
-    BaseGrid,
+    Grid,
 ):
     @property
     def static(self):
-        return self.basegrid.indir
+        return self.grid.indir

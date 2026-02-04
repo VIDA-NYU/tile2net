@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from typing import *
 
-import pandas as pd
-
 from tile2net.core.frame.namespace import namespace
 from .. import frame
 
@@ -29,7 +27,7 @@ class VecTile(
         return self.instance
 
     @property
-    def basegrid(self) -> SegGrid:
+    def grid(self) -> SegGrid:
         """Reference to the parent SegGrid instance"""
         return self.seggrid
 
@@ -88,7 +86,7 @@ class VecTile(
             79320  96960    0
         """
         result = (
-            self.basegrid.vecgrid.itile
+            self.grid.vecgrid.itile
             .loc[self.index]
             .values
         )
@@ -161,7 +159,7 @@ class VecTile(
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
         result = (
-            self.basegrid.vecgrid.file.polygons
+            self.grid.vecgrid.file.polygons
             .loc[self.index]
             .values
         )
@@ -179,7 +177,7 @@ class VecTile(
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
         result = (
-            self.basegrid.vecgrid.file.network
+            self.grid.vecgrid.file.network
             .loc[self.index]
             .values
         )
@@ -198,7 +196,7 @@ class VecTile(
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
         result = (
-            self.basegrid.vecgrid.file.polygons
+            self.grid.vecgrid.file.polygons
             .loc[self.index]
             .values
         )
@@ -216,7 +214,7 @@ class VecTile(
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
         result = (
-            self.basegrid.vecgrid.file.network
+            self.grid.vecgrid.file.network
             .loc[self.index]
             .values
         )

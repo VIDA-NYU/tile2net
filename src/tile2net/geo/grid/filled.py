@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import *
 
-from .basegrid import BaseGrid
+from .grid import Grid
 
 
 class Filled(
-    BaseGrid
+    Grid
 ):
 
     @property

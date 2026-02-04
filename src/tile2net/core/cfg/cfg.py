@@ -22,7 +22,7 @@ from tile2net.core.cfg import cmdline
 from tile2net.core.cfg.colormap import ColorMap
 
 if TYPE_CHECKING:
-    from ..basegrid.basegrid import BaseGrid
+    from ..grid.grid import Grid
 
 T = TypeVar('T')
 
@@ -712,7 +712,7 @@ class Model(cmdline.Namespace):
         """
         Path to HRNet checkpoint
         """
-        from tile2net.core.basegrid.static import Static
+        from tile2net.core.grid.static import Static
         return Static.hrnet_checkpoint
 
     @cmdline.property
@@ -720,7 +720,7 @@ class Model(cmdline.Namespace):
         """
         Path to the model snapshot
         """
-        from tile2net.core.basegrid.static import Static
+        from tile2net.core.grid.static import Static
         return Static.snapshot
 
     @cmdline.property
@@ -1194,9 +1194,9 @@ class Cfg(
     UserDict,
     cmdline.Namespace
 ):
-    grid: BaseGrid = None
-    instance: BaseGrid = None
-    owner: Type[BaseGrid] = None
+    grid: Grid = None
+    instance: Grid = None
+    owner: Type[Grid] = None
     __name__ = ''
     _active = True
 
@@ -1242,8 +1242,8 @@ class Cfg(
 
     def _get(
             self,
-            instance: BaseGrid,
-            owner: type[BaseGrid]
+            instance: Grid,
+            owner: type[Grid]
     ) -> Self:
         if instance is None:
             result = self

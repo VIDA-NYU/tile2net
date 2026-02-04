@@ -9,26 +9,26 @@ import gdown
 from PIL import Image
 
 if TYPE_CHECKING:
-    from tile2net.core.basegrid.basegrid import BaseGrid
+    from tile2net.core.grid.grid import Grid
 
 
 class Static:
-    basegrid: BaseGrid
+    grid: Grid
 
     def _get(
             self,
-            instance: BaseGrid,
-            owner: type[BaseGrid]
+            instance: Grid,
+            owner: type[Grid]
     ) -> Self:
         out = copy.copy(self)
-        out.basegrid = instance
+        out.grid = instance
         return out
 
     locals().update(__get__=_get)
 
     @cached_property
     def black(self):
-        dim = self.basegrid.dimension
+        dim = self.grid.dimension
         path = self.path.joinpath(str(dim), 'black.png')
         if not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)

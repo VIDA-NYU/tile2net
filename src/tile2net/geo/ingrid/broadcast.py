@@ -18,7 +18,7 @@ class SegTile(
     def row(self):
         """row within the segtile of this tile"""
 
-        ytile = self.basegrid.ytile.to_series()
+        ytile = self.grid.ytile.to_series()
         result = (
             ytile
             .groupby(self.ytile.values)
@@ -32,7 +32,7 @@ class SegTile(
     @frame.column
     def col(self):
         """column within the segtile of this tile"""
-        xtile = self.basegrid.xtile.to_series()
+        xtile = self.grid.xtile.to_series()
         result = (
             xtile
             .groupby(self.xtile.values)
@@ -50,7 +50,7 @@ class SegTile(
     @frame.column
     def static(self):
         result = (
-            self.basegrid.ingrid.seggrid.padded.static
+            self.grid.ingrid.seggrid.padded.static
             .loc[self.index]
             .values
         )

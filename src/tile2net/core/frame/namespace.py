@@ -8,7 +8,7 @@ from typing import *
 from .wrapper import Wrapper
 
 if TYPE_CHECKING:
-    from tile2net.core.basegrid.basegrid import BaseGrid
+    from tile2net.core.grid.grid import Grid
 
 
 class namespace:
@@ -69,13 +69,13 @@ class namespace:
 
     def __delete__(
             self,
-            instance: BaseGrid,
+            instance: Grid,
     ):
         del instance.__dict__[self.__name__]
 
     def __set__(
             self,
-            instance: BaseGrid,
+            instance: Grid,
             value: namespace,
     ):
         instance.__dict__[self.__name__] = value

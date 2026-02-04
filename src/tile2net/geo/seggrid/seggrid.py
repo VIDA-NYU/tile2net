@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import *
 from typing import TYPE_CHECKING
 
-from tile2net.geo.basegrid import basegrid
+from tile2net.geo.grid import grid
 from tile2net.geo.seggrid import delayed
 from tile2net.geo.seggrid.padded import Padded
 from tile2net.geo.seggrid.vectile import VecTile
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 class SegGrid(
     seggrid.SegGrid,
-    basegrid.BaseGrid,
+    grid.Grid,
 ):
     """
     "Segmentation Grid" (SegGrid), comprised of "Segmentation Tiles" (seg-tiles).
@@ -124,7 +124,7 @@ class SegGrid(
             >>> grid.seggrid.length
             4
         """
-        grid = self.basegrid.ingrid
+        grid = self.grid.ingrid
         result = 2 ** (grid.scale - self.scale)
         return result
 
@@ -141,13 +141,13 @@ class SegGrid(
             >>> grid.seggrid.dimension
             1024
         """
-        seggrid = self.basegrid
+        seggrid = self.grid
         grid = seggrid.ingrid
         result = grid.dimension * self.length
         return result
 
     @property
-    def basegrid(self):
+    def grid(self):
         """Reference to the parent instance."""
         return self.instance
 

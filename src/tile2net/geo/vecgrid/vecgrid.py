@@ -23,8 +23,8 @@ from affine import Affine
 from tqdm import tqdm
 from tqdm.auto import tqdm
 
-from tile2net.geo.basegrid import basegrid
-from tile2net.geo.basegrid.corners import Corners
+from tile2net.geo.grid import grid
+from tile2net.geo.grid.corners import Corners
 from tile2net.geo.vecgrid.file import File
 from tile2net.geo.vecgrid.padded import Padded
 from tile2net.core import vecgrid, frame
@@ -55,7 +55,7 @@ class VectorizeTask(NamedTuple):
 
 class VecGrid(
     vecgrid.VecGrid,
-    basegrid.BaseGrid,
+    grid.Grid,
 ):
     """
     "Vectorization Grid" (VecGrid), comprised of "vectorization tiles" (vec-tiles).

@@ -6,7 +6,7 @@ from functools import *
 from pathlib import Path
 from typing import *
 
-from tile2net.core.basegrid.basegrid import BaseGrid
+from tile2net.core.grid.grid import Grid
 from tile2net.core.cfg.logger import logger
 from tile2net.core.frame.namespace import namespace
 from tile2net.core.sampler.benchmark import Benchmark
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 
 class SegGrid(
-    BaseGrid,
+    Grid,
 ):
     """
     "Segmentation Grid" (SegGrid), comprised of "Segmentation Tiles" (seg-tiles).
@@ -118,7 +118,7 @@ class SegGrid(
             >>> grid.seggrid.length
             4
         """
-        grid = self.basegrid.ingrid
+        grid = self.grid.ingrid
         result = 2 ** (grid.scale - self.scale)
         return result
 
@@ -135,13 +135,13 @@ class SegGrid(
             >>> grid.seggrid.dimension
             1024
         """
-        seggrid = self.basegrid
+        seggrid = self.grid
         grid = seggrid.ingrid
         result = grid.dimension * self.length
         return result
 
     @property
-    def basegrid(self):
+    def grid(self):
         """Reference to the parent instance."""
         return self.instance
 

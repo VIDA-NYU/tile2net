@@ -37,7 +37,7 @@ class VecTile(
     def row(self):
         """row within the segtile of this tile"""
 
-        ytile = self.basegrid.ytile.to_series()
+        ytile = self.grid.ytile.to_series()
         result = (
             ytile
             .groupby(self.ytile.values)
@@ -51,7 +51,7 @@ class VecTile(
     @frame.column
     def col(self):
         """column within the segtile of this tile"""
-        xtile = self.basegrid.xtile.to_series()
+        xtile = self.grid.xtile.to_series()
         result = (
             xtile
             .groupby(self.xtile.values)
@@ -279,7 +279,7 @@ class Broadcast(
             return
 
         padded_dimension = self.padded.dimension
-        clipped_dimension = self.basegrid.dimension
+        clipped_dimension = self.grid.dimension
         stitched_dimension = self.padded.length * self.ingrid.dimension
         tile_dimension = self.ingrid.dimension
 

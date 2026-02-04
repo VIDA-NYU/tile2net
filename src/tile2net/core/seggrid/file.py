@@ -12,7 +12,7 @@ from .test import Test
 from .gac import GAC
 from .gmb import GMB
 from .. import frame
-from ..basegrid import file
+from ..grid import file
 from tile2net.core import util
 from .hysteresis import Hysteresis
 
@@ -34,7 +34,7 @@ def sha256sum(path):
 class File(
     file.File
 ):
-    basegrid: SegGrid
+    grid: SegGrid
 
     @Test
     def test(self) -> pd.Series:
@@ -60,7 +60,7 @@ class File(
         A file for each seg-tile: the stitched input grid.
         Stitches input files when seggrid.file is accessed
         """
-        return self.basegrid.ingrid.file.static
+        return self.grid.ingrid.file.static
 
     @frame.column
     def pred(self) -> pd.Series:
@@ -76,7 +76,7 @@ class File(
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
-        grid = self.basegrid.broadcast
+        grid = self.grid.broadcast
         files = grid.outdir.seggrid.pred.files(grid)
         loc = ~files.index.duplicated()
         files = files.loc[loc]
@@ -123,7 +123,7 @@ class File(
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
-        grid = self.basegrid.broadcast
+        grid = self.grid.broadcast
         files = grid.outdir.seggrid.prob.files(grid)
         loc = ~files.index.duplicated()
         files = files.loc[loc]
@@ -170,7 +170,7 @@ class File(
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
-        grid = self.basegrid.broadcast
+        grid = self.grid.broadcast
         files = grid.outdir.seggrid.unclipped_prob.files(grid)
         loc = ~files.index.duplicated()
         files = files.loc[loc]
@@ -212,7 +212,7 @@ class File(
         A file for each seg-tile: the stitched mask from input grid.
         Stitches mask files when seggrid.file.mask is accessed.
         """
-        return self.basegrid.ingrid.file.mask
+        return self.grid.ingrid.file.mask
 
     @frame.column
     def disk_usage(self):

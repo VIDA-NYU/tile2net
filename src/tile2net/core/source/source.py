@@ -6,7 +6,7 @@ from typing import *
 import geopandas as gpd
 import shapely
 
-from tile2net.core.basegrid.basegrid import BaseGrid
+from tile2net.core.grid.grid import Grid
 from tile2net.core.cfg.logger import logger
 from tile2net.core.dir.dir import Dir
 from tile2net.core.frame.weak import weak
@@ -60,11 +60,11 @@ class Source:
         if isinstance(out, Source):
             out.grid = instance
         if instance is None:
-            out.basegrid = None
-        elif isinstance(instance, BaseGrid):
-            out.basegrid = instance
+            out.grid = None
+        elif isinstance(instance, Grid):
+            out.grid = instance
         elif isinstance(instance, Dir):
-            out.basegrid = instance.basegrid
+            out.grid = instance.grid
         else:
             raise TypeError(instance)
         out.instance = instance
@@ -102,7 +102,7 @@ class Source:
             ...
 
     @classmethod
-    def from_grid(cls, value: BaseGrid) -> Self:
+    def from_grid(cls, value: Grid) -> Self:
         from .remote import Remote
         bbox_geom = shapely.geometry.box(*value.frame.total_bounds)
         out = (

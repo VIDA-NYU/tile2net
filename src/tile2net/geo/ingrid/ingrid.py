@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import *
 
 from tile2net.geo import util
-from tile2net.geo.basegrid import basegrid
+from tile2net.geo.grid import grid
 from tile2net.geo.geocode import GeoCode
 from tile2net.geo.ingrid import delayed
 from tile2net.geo.ingrid.file import File
@@ -25,7 +25,7 @@ from tile2net.geo.source.source import Source
 from tile2net.geo.util import assert_perfect_overlap
 from tile2net.geo.vecgrid.vecgrid import VecGrid
 from tile2net.core import InGrid
-from tile2net.core.basegrid.static import Static
+from tile2net.core.grid.static import Static
 from tile2net.core.cfg import cfg, Cfg
 from tile2net.core.cfg.logger import logger
 from tile2net.core.dir.dir import Dir
@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 
 class InGrid(
     grid.InGrid,
-    basegrid.BaseGrid,
+    grid.Grid,
 ):
 
 

@@ -18,7 +18,7 @@ from affine import Affine
 from tqdm import tqdm
 from tqdm.auto import tqdm
 
-from tile2net.core.basegrid.basegrid import BaseGrid
+from tile2net.core.grid.grid import Grid
 from tile2net.core.cfg.cfg import Cfg
 from tile2net.core.cfg.logger import logger
 from tile2net.core.pednet import PedNet
@@ -46,7 +46,7 @@ class VectorizeTask(NamedTuple):
     cfg: Cfg
 
 
-class VecGrid(BaseGrid):
+class VecGrid(Grid):
     """
     "Vectorization Grid" (VecGrid), comprised of "vectorization tiles" (vec-tiles).
     Each vec-tile is a large tile composed of one or more SegGrid tiles, used for
@@ -81,7 +81,7 @@ class VecGrid(BaseGrid):
     def _get(
             self,
             instance: InGrid,
-            owner: type[BaseGrid],
+            owner: type[Grid],
     ) -> Self:
         """
         Lazy-load factory method for accessing VecGrid from Grid

@@ -15,7 +15,7 @@ class SourceDir(
     def sample(self) -> str:
         """File path to a sample tile provided by the source."""
         dir = self.dir
-        source = self.basegrid.source
+        source = self.grid.source
         if not isinstance(source, Remote):
             msg = 'Sample tiles are only available for remote sources.'
             raise TypeError(msg)

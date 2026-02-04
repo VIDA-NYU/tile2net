@@ -18,7 +18,7 @@ from weakref import WeakKeyDictionary
 import pandas as pd
 
 if TYPE_CHECKING:
-    from .basegrid.basegrid import BaseGrid
+    from .grid.grid import Grid
 
 import geopy
 import math
@@ -419,7 +419,7 @@ class RecursionBlock:
     returns True if the function is currently being executed
     """
     __wrapped__: Callable[..., Any] = None
-    obj: BaseGrid = None
+    obj: Grid = None
     block: RecursionBlock = None
 
     def __init__(self, func: Callable[..., Any]):
@@ -495,8 +495,8 @@ else:
 
 
 def assert_perfect_overlap(
-        a: BaseGrid,
-        b: BaseGrid,
+        a: Grid,
+        b: Grid,
 ):
     scale = min(a.scale, b.scale)
     needles = (

@@ -88,7 +88,7 @@ class Outdir(
         else:
             raise TypeError(instance)
 
-        out.basegrid = instance
+        out.grid = instance
         return out
 
     locals().update(__get__=_get)
@@ -151,7 +151,7 @@ class Outdir(
         """Subdirectory named after the particular directory.
         Uses the passed name, location, or bounding box.
         """
-        grid = self.basegrid
+        grid = self.grid
         ymin, xmin, ymax, xmax = grid.lat_lon
         name = (
                 grid.cfg.name
@@ -163,7 +163,7 @@ class Outdir(
 
     @SourceDir
     def source(self):
-        source = self.basegrid.source
+        source = self.grid.source
         if isinstance(source, Remote):
             name = source.name
             return SourceDir.from_parent(self, name)

@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import *
 
 from tile2net.core import util
-from tile2net.core.basegrid.basegrid import BaseGrid
-from tile2net.core.basegrid.static import Static
+from tile2net.core.grid.grid import Grid
+from tile2net.core.grid.static import Static
 from tile2net.core.cfg.logger import logger
 from tile2net.core.dir.dir import Dir
 from tile2net.core.dir.outdir import Outdir
@@ -27,7 +27,7 @@ from tile2net.core.vecgrid.vecgrid import VecGrid
 
 
 class InGrid(
-    BaseGrid
+    Grid
 ):
     """
     "Input Grid" (Grid), comprised of "input tiles" (in-tiles).
@@ -81,7 +81,7 @@ class InGrid(
         )
         out.source = source
         out.mask = mask
-        assert out.source.basegrid is not None
+        assert out.source.grid is not None
         return out
 
     @File

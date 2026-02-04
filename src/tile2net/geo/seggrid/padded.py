@@ -42,7 +42,7 @@ class Padded(
         return out
 
     @property
-    def basegrid(self) -> SegGrid:
+    def grid(self) -> SegGrid:
         return self.instance
 
     @frame.column
@@ -51,7 +51,7 @@ class Padded(
         Padded input imagery file for each seg-tile.
         Stitches input files when seggrid.file is accessed.
         """
-        seggrid = self.basegrid
+        seggrid = self.grid
         files = seggrid.ingrid.outdir.seggrid.padded.static.files(seggrid)
 
         self.static = files

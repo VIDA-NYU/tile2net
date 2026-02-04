@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import *
 
-from tile2net.geo.basegrid import filled
+from tile2net.geo.grid import filled
 from tile2net.geo.ingrid.ingrid import InGrid
 
 if TYPE_CHECKING:

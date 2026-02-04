@@ -4,7 +4,7 @@ from typing import *
 from functools import singledispatch
 
 from tile2net.core import frame
-from tile2net.core.basegrid import file
+from tile2net.core.grid import file
 from tile2net.core.seggrid.postprocess import PostProcess
 from tile2net.core.seggrid.minibatch import clip_image
 
@@ -120,12 +120,12 @@ class GMB(PostProcess):
     NOTE: AI Generated
     """
     instance: file.File
-    basegrid: SegGrid
+    grid: SegGrid
 
     @frame.column
     def prob(self) -> pd.Series:
         print(f'Note: temporary AI Generated code in GMB.prob')
-        grid = self.basegrid
+        grid = self.grid
         inputs: pd.Series = grid.file.unclipped_prob
         dir = self.dir.prob
         files = dir.files(grid)

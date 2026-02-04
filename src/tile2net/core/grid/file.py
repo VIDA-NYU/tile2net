@@ -17,9 +17,9 @@ from ..cfg import cfg
 
 if TYPE_CHECKING:
     from tile2net.core.frame import column
-    from tile2net.core.basegrid.basegrid import BaseGrid
+    from tile2net.core.grid.grid import Grid
     from tile2net.core.ingrid import InGrid
-    from tile2net.core.dir.basegrid import Outputs
+    from tile2net.core.dir.grid import Outputs
 
 from .. import frame
 
@@ -27,14 +27,14 @@ from .. import frame
 class File(
     namespace
 ):
-    instance: BaseGrid
+    instance: Grid
 
     @frame.column
     def static(self):
         ...
 
     @property
-    def basegrid(self) -> BaseGrid:
+    def grid(self) -> Grid:
         return self.instance
 
     @frame.column
@@ -83,7 +83,7 @@ class File(
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
-        grid = self.basegrid
+        grid = self.grid
         FILES = self.dir.colorized.files(grid)
 
         if self:
@@ -94,7 +94,7 @@ class File(
         if loc.any():
             preds = self.pred[loc]
             files = FILES[loc]
-            max_workers = min(self.basegrid.cfg.compress_workers, len(files))
+            max_workers = min(self.grid.cfg.compress_workers, len(files))
             it = zip(preds, files)
             with ThreadPoolExecutor(max_workers=max_workers) as threads:
                 futures: dict[Future, str] = {
@@ -131,7 +131,7 @@ class File(
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
-        grid = self.basegrid
+        grid = self.grid
         FILES = self.dir.intensity.files(grid)
         if self:
             return FILES
@@ -143,7 +143,7 @@ class File(
             probs = self.prob.loc[loc]
             preds = self.pred.loc[loc]
 
-            max_workers = min(len(files), self.basegrid.cfg.compress_workers)
+            max_workers = min(len(files), self.grid.cfg.compress_workers)
             with ThreadPoolExecutor(max_workers=max_workers) as threads:
                 it = zip(probs, preds, files)
                 futures: dict[Future, str] = {
@@ -180,7 +180,7 @@ class File(
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
-        grid = self.basegrid
+        grid = self.grid
         FILES = self.dir.sidebyside.files(grid)
         if self:
             return FILES
@@ -192,7 +192,7 @@ class File(
             statics = self.static.loc[loc]
             colorized = self.colorized.loc[loc]
 
-            max_workers = min(len(files), self.basegrid.cfg.compress_workers)
+            max_workers = min(len(files), self.grid.cfg.compress_workers)
             with ThreadPoolExecutor(max_workers=max_workers) as threads:
                 it = zip(statics, colorized, files)
                 futures: dict[Future, str] = {
@@ -229,7 +229,7 @@ class File(
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
-        grid = self.basegrid
+        grid = self.grid
         FILES = self.dir.overlay.files(grid)
         if self:
             return FILES
@@ -241,7 +241,7 @@ class File(
             statics = self.static.loc[loc]
             colored = self.colored.loc[loc]
 
-            max_workers = min(len(files), self.basegrid.cfg.compress_workers)
+            max_workers = min(len(files), self.grid.cfg.compress_workers)
             with ThreadPoolExecutor(max_workers=max_workers) as threads:
                 it = zip(statics, colored, files)
                 futures: dict[Future, str] = {
@@ -316,7 +316,7 @@ class File(
 
         # todo: examples
         """
-        grid = self.basegrid
+        grid = self.grid
         FILES = self.dir.soft.files(grid)
         if self:
             return FILES
@@ -327,7 +327,7 @@ class File(
             files = FILES.loc[loc]
             probs = self.prob.loc[loc]
 
-            max_workers = min(len(files), self.basegrid.cfg.compress_workers)
+            max_workers = min(len(files), self.grid.cfg.compress_workers)
             with ThreadPoolExecutor(max_workers=max_workers) as threads:
                 futures: dict[Future, str] = {
                     threads.submit(self._compute_soft, prob, file): file
@@ -594,6 +594,6 @@ class File(
     @property
     def dir(self) -> Outputs:
         return (
-            self.basegrid.outdir
-            .__getattribute__(self.basegrid.__name__)
+            self.grid.outdir
+            .__getattribute__(self.grid.__name__)
         )

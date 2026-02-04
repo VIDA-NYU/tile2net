@@ -8,7 +8,7 @@ import pandas as pd
 
 from tile2net.logger import logger
 from .. import frame, util
-from ..basegrid import file
+from ..grid import file
 
 if TYPE_CHECKING:
     from .vecgrid import VecGrid
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 class File(
     file.File
 ):
-    basegrid: VecGrid
+    grid: VecGrid
 
     @property
     def static(self) -> pd.Series:
@@ -26,7 +26,7 @@ class File(
         A file for each seg-tile: the stitched input grid.
         Stitches input files when seggrid.file is accessed
         """
-        return self.basegrid.seggrid.file.static
+        return self.grid.seggrid.file.static
 
     @property
     def pred(self) -> pd.Series:
@@ -38,7 +38,7 @@ class File(
         to a semantic class.
 
         """
-        return self.basegrid.seggrid.file.pred
+        return self.grid.seggrid.file.pred
 
     @property
     def prob(self) -> pd.Series:
@@ -46,7 +46,7 @@ class File(
         File-paths to color-coded segmentation masks for visualization.
         # TODO: update
         """
-        return self.basegrid.seggrid.file.prob
+        return self.grid.seggrid.file.prob
 
     @frame.column
     def network(self) -> pd.Series:
@@ -66,7 +66,7 @@ class File(
             xtile  ytile
             9915   12120    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
-        vecgrid = self.basegrid
+        vecgrid = self.grid
         files = vecgrid.ingrid.outdir.vecgrid.network.files(vecgrid)
         setattr(self, 'network', files)
         if (
@@ -117,7 +117,7 @@ class File(
             xtile  ytile
             9915   12120    /home/<user>/tile2net/ma/Boston Common, MA/v...
         """
-        vecgrid = self.basegrid
+        vecgrid = self.grid
         files = vecgrid.ingrid.outdir.vecgrid.polygons.files(vecgrid)
         setattr(self, 'polygons', files)
         if (
@@ -153,7 +153,7 @@ class File(
     @frame.column
     def curbs(self) -> pd.Series:
         # todo: needs documentation
-        vecgrid = self.basegrid
+        vecgrid = self.grid
         files = vecgrid.ingrid.outdir.vecgrid.curbs.files(vecgrid)
         setattr(self, 'curbs', files)
         if (
@@ -192,7 +192,7 @@ class File(
         A file for each vec-tile: the stitched mask from seg-tiles.
         Stitches mask files when vecgrid.file.mask is accessed.
         """
-        return self.basegrid.seggrid.file.mask
+        return self.grid.seggrid.file.mask
 
     @frame.column
     def disk_usage(self):

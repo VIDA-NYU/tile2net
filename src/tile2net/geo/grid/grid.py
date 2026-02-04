@@ -17,10 +17,10 @@ from PIL import ImageColor, Image
 from geopandas import GeoDataFrame
 from pandas import MultiIndex, Series, Index
 
-from tile2net.geo.basegrid.corners import Corners
-from tile2net.geo.basegrid.file import File
+from tile2net.geo.grid.corners import Corners
+from tile2net.geo.grid.file import File
 from tile2net.core import frame, util
-from tile2net.core.basegrid import basegrid
+from tile2net.core.grid import grid
 from tile2net.core.cfg import cfg, Cfg
 from tile2net.core.cfg.logger import logger
 from tile2net.core.explore import explore
@@ -39,8 +39,8 @@ if TYPE_CHECKING:
     from tile2net.core.dir.outdir import Outdir
 
 
-class BaseGrid(
-    basegrid.BaseGrid
+class Grid(
+    grid.Grid
 ):
     ITILE: str = '{z}/{x}_{y}'
 
@@ -542,7 +542,7 @@ class BaseGrid(
     @classmethod
     def from_rescale(
             cls,
-            grid: BaseGrid,
+            grid: Grid,
             scale: int,
             fill: bool = True,
     ) -> Self:
@@ -630,7 +630,7 @@ class BaseGrid(
         Namespace container for configuration options of a Grid.
 
         Example:
-            >>> grid: BaseGrid
+            >>> grid: Grid
             # access zoom level config
             >>> grid.cfg.zoom
             20
@@ -1044,7 +1044,7 @@ class BaseGrid(
 
     def __delete__(
             self,
-            instance: BaseGrid,
+            instance: Grid,
     ):
         try:
             del instance.frame.__dict__[self.__name__]
@@ -1053,7 +1053,7 @@ class BaseGrid(
 
     def __set__(
             self,
-            instance: BaseGrid,
+            instance: Grid,
             value,
     ):
         # todo: maybe should be copy

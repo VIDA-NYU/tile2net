@@ -6,7 +6,7 @@ from tile2net.core.dir.dir import Dir
 class Outputs(
     Dir
 ):
-    basegrid: BaseGrid
+    grid: Grid
 
     @Dir
     def pred(self):
@@ -65,7 +65,7 @@ class PostProcessedOutputs(
         ...
 
 
-class BaseGrid(
+class Grid(
     Outputs
 ):
     padded: Padded
@@ -100,11 +100,11 @@ class BaseGrid(
 
 
 class Padded(
-    BaseGrid
+    Grid
 ):
     ...
 
 
 padded = Padded()
-BaseGrid.padded = padded
-padded.__set_name__(BaseGrid, 'padded')
+Grid.padded = padded
+padded.__set_name__(Grid, 'padded')

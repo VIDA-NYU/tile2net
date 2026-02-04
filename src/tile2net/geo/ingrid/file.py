@@ -12,7 +12,7 @@ from tile2net.core import frame
 from tile2net.geo.source import Local, Remote
 
 from tile2net.core.ingrid.file import File as GridFile
-from tile2net.geo.basegrid.file import File as BaseGridFile
+from tile2net.geo.grid.file import File as GridFile
 
 if TYPE_CHECKING:
     from tile2net.core.frame import column
@@ -21,15 +21,15 @@ if TYPE_CHECKING:
 
 class File(
     GridFile,
-    BaseGridFile,
+    GridFile,
 ):
     instance: InGrid
-    basegrid: InGrid
+    grid: InGrid
 
     @frame.column
     def static(self):
         """Static imagery from the source."""
-        grid = self.basegrid
+        grid = self.grid
         source = grid.source
         if isinstance(source, Remote):
             files = grid.outdir.source.static.files()
@@ -77,8 +77,8 @@ class File(
 
     @contextlib.contextmanager
     def _static_peek(self):
-        key = self.basegrid.__class__.file.static.key
-        grid = self.basegrid
+        key = self.grid.__class__.file.static.key
+        grid = self.grid
         delete = key not in grid.columns
         with self:
             yield
@@ -88,7 +88,7 @@ class File(
     @frame.property
     def sample(self) -> str:
         """A sample filepath from static; a singular saved file instead of a whole Series"""
-        grid = self.basegrid
+        grid = self.grid
         source = grid.source
         if not isinstance(source, Remote):
             raise TypeError(f"Unsupported source type: {type(source)}")
@@ -114,7 +114,7 @@ class File(
         # TODO: update
         """
 
-        grid = self.basegrid
+        grid = self.grid
         files = grid.outdir.project.pred.files()
         setattr(self, 'pred', files)
         if self:
@@ -155,7 +155,7 @@ class File(
         """
         File-paths to color-coded segmentation masks for visualization.
         """
-        grid = self.basegrid
+        grid = self.grid
         files = grid.outdir.project.prob.files()
         setattr(self, 'prob', files)
         if self:
@@ -193,16 +193,16 @@ class File(
 
     @frame.property
     def network(self):
-        file = self.basegrid.outdir.project.network.parquet
+        file = self.grid.outdir.project.network.parquet
         setattr(self, 'network', file)
         if not self:
-            _ = self.basegrid.network
+            _ = self.grid.network
         return file
 
     @frame.property
     def polygons(self):
-        file = self.basegrid.outdir.project.polygons.parquet
+        file = self.grid.outdir.project.polygons.parquet
         setattr(self, 'polygons', file)
         if not self:
-            _ = self.basegrid.polygons
+            _ = self.grid.polygons
         return file

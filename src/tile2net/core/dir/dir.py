@@ -14,9 +14,9 @@ import pyarrow as pa
 from tile2net.core.frame.namespace import namespace
 
 if TYPE_CHECKING:
-    from ..basegrid.basegrid import BaseGrid
+    from ..grid.grid import Grid
     from tile2net.core import InGrid
-    from tile2net.core.basegrid.basegrid import BaseGrid
+    from tile2net.core.grid.grid import Grid
 
 
 class Dir(namespace):
@@ -50,7 +50,7 @@ class Dir(namespace):
     """Iterable of required keys for this Dir instance."""
 
     @cached_property
-    def basegrid(self) -> Optional['BaseGrid']:
+    def grid(self) -> Optional['Grid']:
         """The Grid instance this directory is attached to."""
         return None
 
@@ -61,13 +61,13 @@ class Dir(namespace):
             instance: 'Dir',
             owner
     ) -> Self:
-        from tile2net.core.basegrid.basegrid import BaseGrid
+        from tile2net.core.grid.grid import Grid
         if instance is None:
             self.instance = instance
             return self
         else:
             out = self
-            out.basegrid = None
+            out.grid = None
             cache = instance.__dict__
             name = self.__name__
             if name not in cache:
@@ -75,7 +75,7 @@ class Dir(namespace):
                     value = self.__wrapped__(instance)
                 elif isinstance(instance, Dir):
                     value = self.from_parent(instance, name, self.extension)
-                elif isinstance(instance, BaseGrid):
+                elif isinstance(instance, Grid):
                     value = self
                 else:
                     raise TypeError(instance)
@@ -83,11 +83,11 @@ class Dir(namespace):
             out = cache[name]
 
         if instance is None:
-            out.basegrid = None
-        elif isinstance(instance, BaseGrid):
-            out.basegrid = instance
+            out.grid = None
+        elif isinstance(instance, Grid):
+            out.grid = instance
         elif isinstance(instance, Dir):
-            out.basegrid = instance.basegrid
+            out.grid = instance.grid
         else:
             raise TypeError(instance)
         out.instance = instance
@@ -97,7 +97,7 @@ class Dir(namespace):
 
     # @cached_property
     # def __wrapped__(self) -> Callable[
-    #     [BaseGrid],
+    #     [Grid],
     #     dict[str, Iterable]
     # ]:
     #     instance = self.instance
@@ -360,7 +360,7 @@ class Dir(namespace):
 
     def files(
             self,
-            grid: BaseGrid = None,
+            grid: Grid = None,
             dirname: str = '',
             makedirs: bool = True,
             **key2fill,
@@ -370,7 +370,7 @@ class Dir(namespace):
 
         Priority of keys:
         1. **key2fill arguments (explicit overrides)
-        2. self.__wrapped__(self.basegrid) (context from Grid method)
+        2. self.__wrapped__(self.grid) (context from Grid method)
         3. self._defaults (tokens found in the template string)
 
         Args:
@@ -380,12 +380,12 @@ class Dir(namespace):
         """
         # Initialize with defaults (keys found in the template, e.g. {x: 'x'})
         fill_data = self._defaults.copy()
-        from tile2net.core.basegrid.basegrid import BaseGrid
+        from tile2net.core.grid.grid import Grid
         if grid is None:
-            grid = self.basegrid
+            grid = self.grid
 
-        if not isinstance(grid, BaseGrid):
-            msg = f'Dir.files() requires a Grid instance as basegrid, got {type(grid)}'
+        if not isinstance(grid, Grid):
+            msg = f'Dir.files() requires a Grid instance as grid, got {type(grid)}'
             raise TypeError(msg)
 
         context_data = grid.tokens

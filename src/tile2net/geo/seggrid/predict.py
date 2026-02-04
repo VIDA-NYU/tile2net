@@ -18,7 +18,7 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 from tile2net.geo.seggrid.minibatch import MiniBatch
-from tile2net.core.basegrid.static import Static
+from tile2net.core.grid.static import Static
 from tile2net.core.cfg.cfg import Cfg
 from tile2net.core.cfg.logger import logger
 from tile2net.core.loaders.sample import SampleDataWrapper, SampleDataLoader, Sample

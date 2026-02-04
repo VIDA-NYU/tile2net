@@ -7,7 +7,7 @@ import os
 import pandas as pd
 
 from tile2net.core.seggrid.file import File as SegGridFile
-from tile2net.geo.basegrid.file import File as BaseGridFile
+from tile2net.geo.grid.file import File as GridFile
 from tile2net.core.cfg.logger import logger
 from tile2net.core import frame
 
@@ -17,10 +17,10 @@ if TYPE_CHECKING:
 
 class File(
     SegGridFile,
-    BaseGridFile,
+    GridFile,
 ):
     instance: SegGrid
-    basegrid: SegGrid
+    grid: SegGrid
 
     @frame.column
     def pred(self) -> pd.Series:
@@ -36,7 +36,7 @@ class File(
             xtile  ytile
             79320  96960    /home/<user>/tile2net/ma/Boston Common, MA/s...
         """
-        grid = self.basegrid.broadcast
+        grid = self.grid.broadcast
         files = grid.outdir.seggrid.pred.files(grid)
         assert files.index == grid.index
         loc = ~files.index.duplicated()
@@ -79,7 +79,7 @@ class File(
         A file for each seg-tile: the stitched input grid.
         Stitches input files when seggrid.file is accessed
         """
-        grid = self.basegrid
+        grid = self.grid
         files = self.dir.static.files(grid)
         setattr(self, 'static', files)
         if self:
@@ -126,7 +126,7 @@ class File(
         A file for each seg-tile: the stitched mask from input grid.
         Stitches mask files when seggrid.file.mask is accessed.
         """
-        grid = self.basegrid
+        grid = self.grid
         files = self.dir.mask.files(grid)
         setattr(self, 'mask', files)
         if self:

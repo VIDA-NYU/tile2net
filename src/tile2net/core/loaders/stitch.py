@@ -17,7 +17,7 @@ from tile2net.core.loaders.dataloader import BaseDataLoader
 from tile2net.core.loaders.datawrapper import DataWrapper
 
 if TYPE_CHECKING:
-    from tile2net.core.basegrid.basegrid import BaseGrid
+    from tile2net.core.grid.grid import Grid
 
 
 class StitchDataSet(
@@ -432,7 +432,7 @@ class StitchDataSet(
         Convenient constructor of a DataLoader for this dataset.
 
         See also:
-            >>> BaseGrid._stitch2file
+            >>> Grid._stitch2file
         """
         if batch_size is None:
             batch_size = os.cpu_count()

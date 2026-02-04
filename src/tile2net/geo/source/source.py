@@ -6,7 +6,7 @@ from typing import *
 import geopandas as gpd
 import shapely
 
-from tile2net.geo.basegrid.basegrid import BaseGrid
+from tile2net.geo.grid.grid import Grid
 from tile2net.core.frame.weak import weak
 from tile2net.core.source import source
 from tile2net.core.source.exceptions import SourceParseError
@@ -29,7 +29,7 @@ class Source(
         return None
 
     @classmethod
-    def from_grid(cls, value: BaseGrid) -> Self:
+    def from_grid(cls, value: Grid) -> Self:
         from .remote import Remote
         bbox_geom = shapely.geometry.box(*value.frame.total_bounds)
         out = (

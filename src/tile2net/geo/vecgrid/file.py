@@ -7,7 +7,7 @@ import os
 import pandas as pd
 
 from tile2net.core.vecgrid.file import File as VecGridFile
-from tile2net.geo.basegrid.file import File as BaseGridFile
+from tile2net.geo.grid.file import File as GridFile
 from tile2net.core.cfg.logger import logger
 from tile2net.core import frame
 
@@ -17,10 +17,10 @@ if TYPE_CHECKING:
 
 class File(
     VecGridFile,
-    BaseGridFile,
+    GridFile,
 ):
     instance: VecGrid
-    basegrid: VecGrid
+    grid: VecGrid
 
     @frame.column
     def static(self) -> pd.Series:
@@ -28,7 +28,7 @@ class File(
         A file for each seg-tile: the stitched input grid.
         Stitches input files when seggrid.file is accessed
         """
-        grid = self.basegrid
+        grid = self.grid
         files = self.dir.static.files(grid)
         setattr(self, 'static', files)
         if self:
@@ -75,7 +75,7 @@ class File(
         to a semantic class.
 
         """
-        grid = self.basegrid
+        grid = self.grid
         files = self.dir.pred.files(grid)
         setattr(self, 'pred', files)
         if self:
@@ -118,7 +118,7 @@ class File(
         File-paths to color-coded segmentation masks for visualization.
         # TODO: update
         """
-        grid = self.basegrid
+        grid = self.grid
         files = self.dir.prob.files(grid)
         setattr(self, 'prob', files)
         if self:
@@ -161,7 +161,7 @@ class File(
         A file for each vec-tile: the stitched mask from seg-tiles.
         Stitches mask files when vecgrid.file.mask is accessed.
         """
-        grid = self.basegrid
+        grid = self.grid
         files = self.dir.mask.files(grid)
         setattr(self, 'mask', files)
         if self:

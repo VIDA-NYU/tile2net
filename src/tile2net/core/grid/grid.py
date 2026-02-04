@@ -9,7 +9,7 @@ import pandas as pd
 from pandas import DataFrame, MultiIndex
 
 from tile2net.core import frame
-from tile2net.core.basegrid.file import File
+from tile2net.core.grid.file import File
 from tile2net.core.cfg import Cfg
 from tile2net.core.frame.framewrapper import FrameWrapper
 from tile2net.core.sampler.benchmark import Benchmark
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from tile2net.core.dir.outdir import Outdir
 
 
-class BaseGrid(
+class Grid(
     FrameWrapper,
 ):
     ITILE: str = '{i}'
@@ -119,7 +119,7 @@ class BaseGrid(
         Namespace container for configuration options of a Grid.
 
         Example:
-            >>> grid: BaseGrid
+            >>> grid: Grid
             # access zoom level config
             >>> grid.cfg.zoom
             20
@@ -200,7 +200,7 @@ class BaseGrid(
 
     def __delete__(
             self,
-            instance: BaseGrid,
+            instance: Grid,
     ):
         try:
             del instance.frame.__dict__[self.__name__]
@@ -209,7 +209,7 @@ class BaseGrid(
 
     def __set__(
             self,
-            instance: BaseGrid,
+            instance: Grid,
             value,
     ):
         # todo: maybe should be copy

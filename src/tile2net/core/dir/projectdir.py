@@ -5,7 +5,7 @@ import os.path
 import os.path
 from pathlib import Path
 
-from .basegrid import BaseGrid
+from .grid import Grid
 from .dir import Dir
 from .ingrid import InGrid
 from .seggrid import SegGrid
@@ -18,14 +18,14 @@ class Polygons(
 
     @property
     def parquet(self) -> str:
-        name = self.basegrid.name
+        name = self.grid.name
         filename = os.path.join(self.dir, 'parquet', f'{name}.parquet')
         Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
         return filename
 
     @property
     def preview(self) -> str:
-        name = self.basegrid.name
+        name = self.grid.name
         filename = os.path.join(self.dir, 'preview', f'{name}.png')
         Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
         return filename
@@ -37,21 +37,21 @@ class Network(
 
     @property
     def parquet(self) -> str:
-        name = self.basegrid.name
+        name = self.grid.name
         filename = os.path.join(self.dir, 'parquet', f'{name}.parquet')
         Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
         return filename
 
     @property
     def preview(self) -> str:
-        name = self.basegrid.name
+        name = self.grid.name
         filename = os.path.join(self.dir, 'preview', f'{name}.png')
         Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
         return filename
 
 
 class ProjectDir(
-    BaseGrid,
+    Grid,
 ):
     @VecGrid
     def vecgrid(self):

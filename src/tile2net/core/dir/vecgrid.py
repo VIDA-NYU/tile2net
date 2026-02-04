@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import os.path
 
-from .basegrid import BaseGrid
+from .grid import Grid
 from .dir import Dir
 
 
@@ -20,7 +20,7 @@ class Network(
 
 
 class VecGrid(
-    BaseGrid
+    Grid
 ):
 
     @Polygons

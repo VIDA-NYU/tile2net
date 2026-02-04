@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import *
 
-from .basegrid import BaseGrid
+from .grid import Grid
 
 if TYPE_CHECKING:
     from ..seggrid import seggrid
 
 class SegGrid(
-    BaseGrid,
+    Grid,
 ):
     @property
     def summary(self) -> str:
