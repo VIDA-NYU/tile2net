@@ -7,9 +7,9 @@ from typing import *
 
 from tile2net.core.dir import projectdir
 from tile2net.core.dir.dir import Dir
-from tile2net.core.dir.exceptions import XYNotFoundError
 from tile2net.core.dir.projectdir import ProjectDir
 from tile2net.core.dir.sourcedir import SourceDir
+from tile2net.core.grid.grid import Grid
 from tile2net.core.source.remote import Remote
 
 if TYPE_CHECKING:
@@ -76,7 +76,6 @@ class Outdir(
             instance: Grid,
             owner: type[Grid],
     ):
-        from tile2net.core.ingrid import InGrid
         if instance is None:
             out = self
         elif isinstance(instance, Grid):
@@ -153,7 +152,7 @@ class Outdir(
         """
         grid = self.grid
         ymin, xmin, ymax, xmax = grid.lat_lon
-        name = (
+        name = str(
                 grid.cfg.name
                 or grid.location
                 or f"{ymin:.2f},{xmin:.2f},{ymax:.2f},{xmax:.2f}"

@@ -9,9 +9,9 @@ import pandas as pd
 from pandas import DataFrame, MultiIndex
 
 from tile2net.core import frame
-from tile2net.core.grid.file import File
 from tile2net.core.cfg import Cfg
 from tile2net.core.frame.framewrapper import FrameWrapper
+from tile2net.core.grid.file import File
 from tile2net.core.sampler.benchmark import Benchmark
 
 if TYPE_CHECKING:

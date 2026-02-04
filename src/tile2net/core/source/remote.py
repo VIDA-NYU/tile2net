@@ -260,7 +260,7 @@ class Remote(
             **key2fill: Mapping of keys to iterables or scalars
         """
         if grid is None:
-            grid = self.ingrid
+            grid = self.grid
         fill_data = grid.tokens | key2fill
 
         iterables = {}
@@ -301,7 +301,7 @@ class Remote(
     @property
     def url(self) -> pd.Series:
         """Generate URLs for all tiles in the attached grid."""
-        grid = self.ingrid
+        grid = self.grid
         key = f'{self.__name__}.url'
         if key not in grid.columns:
             obj = self.get_urls()
@@ -316,14 +316,14 @@ class Remote(
     @url.setter
     def url(self, value: pd.Series):
         """Set the URLs for all tiles in the attached grid."""
-        grid = self.ingrid
+        grid = self.grid
         key = f'{self.__name__}.url'
         grid[key] = value
 
     @url.deleter
     def url(self):
         """Delete the URLs for all tiles in the attached grid."""
-        grid = self.ingrid
+        grid = self.grid
         key = f'{self.__name__}.url'
         try:
             del grid[key]
@@ -335,7 +335,7 @@ class Remote(
         Download a single tile for testing purposes.
         Uses context manager to avoid caching the static column.
         """
-        grid = self.ingrid
+        grid = self.grid
         with grid.file._static_peek():
             paths = grid.file.static
             urls = self.url
@@ -484,7 +484,7 @@ class Remote(
         Download all tiles from this remote source to the input directory.
         Handles 204 No Content by linking the placeholder tile.
         """
-        grid = self.ingrid
+        grid = self.grid
         paths = grid.file.static
         urls = self.url
 

@@ -18,10 +18,10 @@ from tile2net.core.cfg.logger import logger
 from tile2net.core.loaders.sample import SampleDataWrapper
 from tile2net.core.sampler.benchmark import Benchmark
 from tile2net.core.source.remote import Remote
+from tile2net.geo.seggrid import SegGrid
 
 if TYPE_CHECKING:
     from ..ingrid import InGrid
-    from .seggrid import SegGrid
     from ..vecgrid.vecgrid import VecGrid
     from ..ingrid import InGrid
     from ..ingrid import InGrid
