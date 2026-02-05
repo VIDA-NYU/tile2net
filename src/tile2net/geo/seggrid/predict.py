@@ -19,15 +19,14 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 from tile2net.core.cfg.cfg import Cfg
 from tile2net.core.cfg.logger import logger
 from tile2net.core.grid.static import Static
-from tile2net.core.loaders.sample import SampleDataWrapper, SampleDataLoader, Sample
+from tile2net.core.loaders.sample import SampleDataWrapper, SampleDataLoader, Sample, StreamSample
 from tile2net.core.loaders.sampler import DistributedSampler
-from tile2net.core.loaders.stream import StreamValDataSet
-from tile2net.core.loaders.val import ValDataSet, ValDataLoader
+from tile2net.core.loaders.val import StreamValDataSet, ValDataSet
 from tile2net.core.seggrid.gac import grayscale_area_closing
 from tile2net.core.seggrid.gmb import geodesic_masked_boosting
 from tile2net.core.seggrid.hysteresis import hysteresis_boost
+from tile2net.core.seggrid.minibatch import MiniBatch
 from tile2net.core.seggrid.submit import Submit
-from tile2net.geo.seggrid.minibatch import MiniBatch
 from tile2net.tileseg import network
 from tile2net.tileseg.datasets.sampler import DistributedSampler
 from tile2net.tileseg.loss.optimizer import get_optimizer, restore_net, restore_opt
@@ -66,16 +65,12 @@ class Predict:
             self,
             cfg: Cfg,
             wrapper: SampleDataWrapper,
-            padded_dimension: int,
-            clipped_dimension: int,
-            stitched_dimension: int = None,
+            padding: int,
             tile_dimension: int = None,
     ):
         self.cfg = cfg
         self.wrapper = wrapper
-        self.padded_dimension = padded_dimension
-        self.clipped_dimension = clipped_dimension
-        self.stitched_dimension = stitched_dimension
+        self.padding = padding
         self.tile_dimension = tile_dimension
         self._setup_done = False
         self._stream_stats = {
@@ -254,24 +249,18 @@ class Predict:
                     raise ValueError(f"Unknown eval mode: {cfg.model.eval}")
 
             if cfg.segmentation.stream:
-                if self.tile_dimension is None:
-                    raise ValueError("tile_dimension must be provided for streaming mode")
-                tile_shape = (self.tile_dimension, self.tile_dimension, 3)
-                logger.info(
-                    f'Using streaming mode: fetching tiles on-the-fly '
-                    f'(tile_shape={tile_shape}, stitched={self.stitched_dimension}px)'
-                )
                 dataset = StreamValDataSet(
                     wrapper=self.wrapper,
-                    tile_shape=tile_shape,
+                    tile_dimension=self.tile_dimension,
                     mode=mode,
-                    padded_dimension=self.padded_dimension,
+                    padding=self.padding,
                 )
             else:
                 dataset = ValDataSet(
                     wrapper=self.wrapper,
+                    tile_dimension=self.tile_dimension,
                     mode=mode,
-                    padded_dimension=self.padded_dimension,
+                    padding=self.padding,
                 )
         else:
             raise NotImplementedError("Training mode not implemented")
@@ -280,12 +269,9 @@ class Predict:
         return dataset
 
     @cached_property
-    def loader(self) -> ValDataLoader:
+    def loader(self):
         """
         Instantiate torch DataLoader for evaluation/prediction.
-
-        The ValDataLoader isn't interesting. The __iter__ type hints are just overridden:
-        >>> ValDataLoader.__iter__()
         """
         cfg = self.cfg
         dataset = self.dataset
@@ -300,13 +286,31 @@ class Predict:
         else:
             sampler = None
 
-        loader = SampleDataLoader(
+        # base configuration shared across all modes
+        loader_kwargs = dict(
             dataset=dataset,
             batch_size=cfg.validation.batch_size,
             shuffle=False,
             drop_last=False,
             sampler=sampler,
+            pin_memory=True,
+            persistent_workers=True,
         )
+
+        if cfg.segmentation.stream:
+            # streaming: high concurrency to mask http latency
+            loader = SampleDataLoader(
+                **loader_kwargs,
+                num_workers=16,
+                prefetch_factor=8,
+            )
+        else:
+            # local: moderate concurrency to match cpu core count for decoding
+            loader = SampleDataLoader(
+                **loader_kwargs,
+                num_workers=8,
+                prefetch_factor=2,
+            )
         return loader
 
     def __iter__(self) -> Iterator[MiniBatch]:
@@ -378,7 +382,7 @@ class Predict:
             pbar = stack.enter_context(pbar)
 
             for batch in loader:
-                batch: Sample
+                batch: Sample | StreamSample
                 submit.rotate()
 
                 if self.cfg.segmentation.stream:
@@ -386,7 +390,6 @@ class Predict:
                         if key in batch:
                             self._stream_stats[key] += int(batch[key].sum())
 
-                # instantiate MB from the dict; this will run the forward pass
                 kwargs = dict(
                     images=batch['image'],
                     masks=batch['mask'],
@@ -394,9 +397,8 @@ class Predict:
                     pred_paths=batch['pred_paths'],
                     prob_paths=batch['prob_paths'],
                     submit=submit,
-                    padded_dimension=self.padded_dimension,
-                    clipped_dimension=self.clipped_dimension,
                     postprocess=postprocess,
+                    padding=self.padding,
                 )
                 if 'unclipped_prob_paths' in batch:
                     kwargs['unclipped_prob_paths'] = batch['unclipped_prob_paths']
@@ -484,9 +486,7 @@ def main():
     parser = argparse.ArgumentParser(description="Semantic segmentation prediction subprocess")
     parser.add_argument("--cfg", type=str, required=True, help="Path to cfg JSON file")
     parser.add_argument("--wrapper", type=str, required=True, help="Path to wrapper Parquet file")
-    parser.add_argument("--padded-dimension", type=int, required=True, help="Dimension of padded mosaic")
-    parser.add_argument("--clipped-dimension", type=int, required=True, help="Dimension of clipped output")
-    parser.add_argument("--stitched-dimension", type=int, help="Dimension of full stitched mosaic")
+    parser.add_argument("--padding", type=int, help="Padding size for tiles")
     parser.add_argument("--tile-dimension", type=int, help="Dimension of individual tiles")
     parser.add_argument(
         "--output",
@@ -497,12 +497,9 @@ def main():
     )
 
     args: argparse.Namespace = parser.parse_args()
-
     cfg: Cfg = Cfg.from_json(args.cfg)
-    padded_dimension = args.padded_dimension
-    clipped_dimension = args.clipped_dimension
-    stitched_dimension = args.stitched_dimension
     tile_dimension = args.tile_dimension
+    padding = args.padding
     wrapper = SampleDataWrapper.from_parquet(args.wrapper)
     output = args.output
 
@@ -510,10 +507,8 @@ def main():
         predict = Predict(
             cfg=cfg,
             wrapper=wrapper,
-            padded_dimension=padded_dimension,
-            clipped_dimension=clipped_dimension,
-            stitched_dimension=stitched_dimension,
             tile_dimension=tile_dimension,
+            padding=padding,
         )
 
         match output:
