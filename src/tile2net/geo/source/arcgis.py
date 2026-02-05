@@ -62,15 +62,6 @@ class ArcGis(
         ]
 
     @cached_property
-    def zoom(self):
-        if not self.zooms:
-            out = 20
-        else:
-            out = max(self.zooms)
-            out = min(out, 20)
-        return out
-
-    @cached_property
     def dimension(self) -> int:
         rows = self.response['tileInfo']['rows']
         cols = self.response['tileInfo']['cols']

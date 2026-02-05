@@ -6,6 +6,7 @@ import threading
 import warnings
 from abc import ABC
 from dataclasses import dataclass
+from functools import *
 from pathlib import Path
 from typing import *
 from typing import Union
@@ -15,12 +16,12 @@ import yaml
 from geopandas import GeoDataFrame, GeoSeries
 from shapely import wkt
 
-from tile2net.geo.geocode import GeoCode
-from tile2net.geo.source.source import Source
 from tile2net.core.cfg import cfg
 from tile2net.core.cfg.logger import logger
 from tile2net.core.source import remote
 from tile2net.core.source.exceptions import InvalidLocation, InvalidRemoteName, SourceParseError, RemoteNotFound
+from tile2net.geo.geocode import GeoCode
+from tile2net.geo.source.source import Source
 
 tls = threading.local()
 
@@ -71,8 +72,14 @@ class Remote(
     All key-value pairs must match for the remote to be selected.
     """
 
-    zoom: int = 19
-    """Default XYZ zoom level for the remote."""
+    @cached_property
+    def zoom(self):
+        if not self.zooms:
+            out = 20
+        else:
+            out = max(self.zooms)
+            out = min(out, 20)
+        return out
 
     coverage: GeoSeries | GeoDataFrame
     """Geographic coverage area of the remote source."""
