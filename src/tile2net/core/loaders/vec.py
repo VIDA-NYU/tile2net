@@ -349,43 +349,6 @@ class VecDataSet(
         )
         return result
 
-    def loader(
-            self,
-            batch_size=None,
-            shuffle=False,
-            drop_last=False,
-            sampler=None,
-            num_workers=None,
-            pin_memory=True,
-            persistent_workers=None,
-            worker_init_fn=None,
-            cls=None,
-            **kwargs
-    ) -> VecDataLoader:
-        if batch_size is None:
-            batch_size = cfg.vectorization.batch_size
-        if num_workers is None:
-            num_workers = cfg.vectorization.load_workers
-        if persistent_workers is None:
-            persistent_workers = cfg.vectorization.persistent_workers
-        if worker_init_fn is None:
-            worker_init_fn = _worker_init
-        if cls is None:
-            cls = VecDataLoader
-
-        return super().loader(
-            batch_size=batch_size,
-            shuffle=shuffle,
-            drop_last=drop_last,
-            sampler=sampler,
-            num_workers=num_workers,
-            pin_memory=pin_memory,
-            persistent_workers=persistent_workers,
-            worker_init_fn=worker_init_fn,
-            cls=cls,
-            **kwargs
-        )
-
 
 class VecDataLoader(
     DataLoader

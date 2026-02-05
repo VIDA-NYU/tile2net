@@ -13,11 +13,11 @@ if TYPE_CHECKING:
 class SegTile(
     segtile.SegTile
 ):
+    grid: SegGrid
 
     @frame.column
     def row(self):
         """row within the segtile of this tile"""
-
         ytile = self.grid.ytile.to_series()
         result = (
             ytile

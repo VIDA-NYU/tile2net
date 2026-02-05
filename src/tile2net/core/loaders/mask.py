@@ -1,7 +1,6 @@
 from __future__ import annotations
-import torch
-from functools import *
 
+from functools import *
 from typing import *
 
 import numpy as np
@@ -9,7 +8,7 @@ import pandas as pd
 
 from .dataloader import DataLoader
 from .stitch import StitchDataSet
-from .datawrapper import DataWrapper
+from .stream import StreamStitchDataSet
 
 ArrayLike = Union[
     pd.Series,
@@ -22,26 +21,6 @@ ArrayLike = Union[
 class MaskDataSet(
     StitchDataSet
 ):
-    @classmethod
-    def from_columns(
-            cls,
-            *,
-            static: ArrayLike,
-            index: ArrayLike,
-            row: ArrayLike,
-            col: ArrayLike,
-            background: int = 0,
-    ) -> Self:
-        wrapper = DataWrapper.from_columns(
-            image_path=static,
-            index=index,
-            row=row,
-            col=col,
-            background=background,
-        )
-        result = cls(wrapper)
-        return result
-
     @cached_property
     def give_placeholders(self) -> bool:
         """
@@ -50,13 +29,13 @@ class MaskDataSet(
         If some mask paths are provided, we have an unexpected situation.
         """
         isna = self.wrapper.image_path.isna()
-        if not isna.any():
-            return False
-        elif isna.all():
+        if isna.all():
             return True
-        else:
+        elif isna.any():
             msg = f'Mask files must be all or nothing: only some were missing files.'
             raise ValueError(msg)
+        else:
+            return False
 
     def __getitem__(self, item) -> Union[int, np.ndarray]:
         if self.give_placeholders:
@@ -68,3 +47,13 @@ class MaskDataLoader(
     DataLoader
 ):
     ...
+
+
+class StreamMaskDataSet(
+    StreamStitchDataSet,
+    MaskDataSet,
+):
+    ...
+
+
+

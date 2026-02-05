@@ -5,9 +5,9 @@ from typing import *
 import numpy as np
 import pandas as pd
 
+from tile2net.core.loaders.stream import StreamStitchDataSet
 from .dataloader import DataLoader
 from .stitch import StitchDataSet
-from .datawrapper import DataWrapper
 
 ArrayLike = Union[
     pd.Series,
@@ -21,30 +21,18 @@ class ImageDataSet(
     StitchDataSet
 ):
 
-    @classmethod
-    def from_columns(
-            cls,
-            *,
-            static: ArrayLike,
-            index: ArrayLike,
-            row: ArrayLike,
-            col: ArrayLike,
-            background: int = 0,
-            **kwargs,
-    ) -> Self:
-        wrapper = DataWrapper.from_columns(
-            image_path=static,
-            index=index,
-            row=row,
-            col=col,
-            background=background,
-            **kwargs
-        )
-        result = cls(wrapper)
-        return result
+    ...
+
 
 
 class StaticDataLoader(
     DataLoader
+):
+    ...
+
+
+class StreamImageDataSet(
+    StreamStitchDataSet,
+    ImageDataSet,
 ):
     ...

@@ -10,10 +10,12 @@ from torchvision import transforms as standard_transforms
 
 import tile2net.tileseg.transforms.transforms as extended_transforms
 from tile2net.core import frame
+from tile2net.core.loaders.image import StreamImageDataSet
+from tile2net.core.loaders.mask import StreamMaskDataSet
 from tile2net.core.loaders.stitch import DataWrapper
 from .dataloader import TensorDataLoader
-from .mask import MaskDataSet
 from .image import ImageDataSet
+from .mask import MaskDataSet
 from .stitch import StitchDataSet
 
 if TYPE_CHECKING:
@@ -27,9 +29,7 @@ ArrayLike = Union[
 ]
 
 
-class SampleDataWrapper(
-    DataWrapper
-):
+class SampleDataWrapper(DataWrapper):
     @classmethod
     def from_columns(
             cls,
@@ -59,9 +59,7 @@ class SampleDataWrapper(
         ...
 
 
-class SampleDataSet(
-    StitchDataSet
-):
+class SampleDataSet(StitchDataSet):
     image: ImageDataSet
     """Yields the input image for each sample"""
 
@@ -165,20 +163,136 @@ class SampleDataSet(
             wrapper: SampleDataWrapper,
             mode: str | None = None,
             padded_dimension: int | None = None,
+            tile_dimension: int | None = None,
             *args,
             **kwargs,
     ):
         """Combines an ImageDataSet and MaskDataSet for sample loading. """
-        super().__init__(wrapper, mode, padded_dimension=padded_dimension, *args, **kwargs)
-        self.image = ImageDataSet(wrapper, padded_dimension=padded_dimension)
+        super().__init__(
+            wrapper,
+            mode=mode,
+            padded_dimension=padded_dimension,
+            tile_dimension=tile_dimension,
+            *args,
+            **kwargs
+        )
+        self.image = ImageDataSet(
+            wrapper,
+            padded_dimension=padded_dimension,
+            tile_dimension=tile_dimension,
+            mode=mode,
+            *args,
+            **kwargs
+        )
         # mask wrapper just uses `mask` instead of `static` as input
         wrapper = (
             wrapper.frame
             .assign(image_path=wrapper.mask)
             .pipe(wrapper.from_frame)
         )
-        self.mask = MaskDataSet(wrapper, padded_dimension=padded_dimension)
+        self.mask = MaskDataSet(
+            wrapper,
+            padded_dimension=padded_dimension,
+            tile_dimension=tile_dimension,
+            mode=mode,
+            *args,
+            **kwargs,
+            channels=1
+        )
         self.mode = mode
+
+
+class StreamSampleDataSet(SampleDataSet):
+    """SampleDataSet variant that handles streaming downloads with statistics tracking."""
+
+    def __getitem__(self, item: int) -> StreamSample:
+        """
+        Override to handle dict returns from StreamStitchDataSet instances.
+        Extracts mosaics and aggregates download statistics.
+        """
+        img_result = self.image[item]
+        mask_result = self.mask[item]
+
+        img = img_result['mosaic']
+        mask = mask_result['mosaic']
+
+        download_stats = {
+            'success': img_result['success'] + mask_result['success'],
+            'empty': img_result['empty'] + mask_result['empty'],
+            'not_found': img_result['not_found'] + mask_result['not_found'],
+            'failed': img_result['failed'] + mask_result['failed'],
+        }
+
+        pred_paths = self.image.pred_path[item]
+        prob_paths = self.image.prob_path[item]
+
+        i = item
+        scale = 1.
+
+        for xform in self.joint_transform_list:
+            img, mask, *extras = xform(img, mask)
+            if extras:
+                scale = extras[0]
+
+        if self.img_transform:
+            img = self.img_transform(img)
+
+        if (
+            isinstance(mask, torch.Tensor)
+            and self.label_transform
+        ):
+            mask = self.label_transform(mask)
+
+        out = StreamSample(
+            image=img,
+            mask=mask,
+            scale=scale,
+            i=i,
+            pred_paths=pred_paths,
+            prob_paths=prob_paths,
+            **download_stats,
+        )
+
+        unclipped_prob_path = self.image.unclipped_prob_path
+        if unclipped_prob_path is not None:
+            out['unclipped_prob_paths'] = unclipped_prob_path[item]
+
+        return out
+
+    def __init__(
+            self,
+            wrapper: SampleDataWrapper,
+            tile_dimension: int,
+            padding: int,
+            mode: str | None = None,
+            *args,
+            **kwargs,
+    ):
+        super().__init__(
+            wrapper,
+            mode,
+            tile_dimension=tile_dimension,
+            padding=padding,
+            *args,
+            **kwargs,
+        )
+        self.image = StreamImageDataSet(
+            wrapper,
+            padding=padding,
+            mode=mode,
+            tile_dimension=tile_dimension,
+            *args,
+            **kwargs,
+        )
+        self.mask = StreamMaskDataSet(
+            wrapper,
+            padding=padding,
+            mode=mode,
+            tile_dimension=tile_dimension,
+            *args,
+            **kwargs,
+        )
+
 
 
 class SampleDataLoader(
@@ -199,3 +313,11 @@ class Sample(TypedDict, total=False):
     pred_paths: str | list[str]
     prob_paths: str | list[str]
     unclipped_prob_paths: str | list[str]
+
+
+class StreamSample(Sample, total=False):
+    """Sample with streaming download statistics."""
+    success: int
+    empty: int
+    not_found: int
+    failed: int

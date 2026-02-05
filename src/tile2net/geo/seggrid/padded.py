@@ -37,6 +37,7 @@ class Padded(
         Pixel dimension of each seg-tile after it has been
         padded a number of in-tiles.
         """
+        raise NotImplementedError
         out = self.instance.length * self.instance.ingrid.dimension
         out += 2 * self.instance.cfg.segmentation.pad
         return out

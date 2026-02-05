@@ -28,19 +28,24 @@ class StitchDataSet(
     The columns from `DataWrapper` are reshaped into lists or lists of lists,
     so that __getitem__[int] can be performed efficiently.
     """
-
     wrapper: DataWrapper
     """Underlying DataWrapper instance."""
 
     def __init__(
             self,
             wrapper: DataWrapper,
-            padded_dimension: int | None = None,
+            tile_dimension: int,
+            mode: str = None,
+            padding: int = 0,
+            channels: int = 3,
             *args,
             **kwargs,
     ):
+        self.mode = mode
+        self.channels = channels
         self.wrapper = wrapper
-        self.padded_dimension = padded_dimension
+        self.tile_dimension = tile_dimension
+        self.padding = padding
 
     @cached_property
     def threads(self):
@@ -113,6 +118,7 @@ class StitchDataSet(
             .groupby(level=self.wrapper.frame.index.names, sort=False)
             .row
             .max()
+            + 1
         )
         if nrow.nunique() > 1:
             raise ValueError('mosaic rows must be identical')
@@ -127,6 +133,7 @@ class StitchDataSet(
             .groupby(level=self.wrapper.frame.index.names, sort=False)
             .col
             .max()
+            + 1
         )
         if ncol.nunique() > 1:
             raise ValueError('mosaic columns must be identical')
@@ -223,7 +230,7 @@ class StitchDataSet(
         except Exception:
             raise
         sample = self.read(path)
-        if sample.ndim != 3:
+        if sample.ndim != self.channels:
             raise ValueError(f'{path!s}: unexpected ndim {sample.ndim}')
         return sample
 
@@ -308,19 +315,19 @@ class StitchDataSet(
     @cached_property
     def h(self):
         """Height of the mosaic in pixels. This assumes all input tiles have the same shape."""
-        return (self.nrow + 1) * self.sample.shape[0]
+        return self.nrow * self.sample.shape[0]
 
     @cached_property
     def w(self):
         """Width of the mosaic in pixels. This assumes all input tiles have the same shape."""
-        return (self.ncol + 1) * self.sample.shape[1]
+        return self.ncol * self.sample.shape[1]
 
     @cached_property
     def _mosaic_pool(self):
         """Pre-allocated mosaic buffer pool for memory reuse.
         Improves performance by avoiding malloc and free under-the-hood.
         """
-        return np.empty((self.h, self.w, 3), dtype=np.uint8)
+        return np.empty((self.h, self.w, self.channels), dtype=np.uint8)
 
     @property
     def mosaic(self):
@@ -378,13 +385,15 @@ class StitchDataSet(
 
         out = mosaic
 
-        if self.padded_dimension is not None:
-            size = self.padded_dimension
-            offset = (out.shape[0] - size) // 2
-            out = out[
-                offset: offset + size,
-                offset: offset + size
-            ]
+        crop = (
+            self.tile_dimension
+            - self.padding
+            % self.tile_dimension
+        )
+        out = out[
+            crop:out.shape[0] - crop,
+            crop:out.shape[1] - crop,
+        ]
 
         return out
 
@@ -539,3 +548,4 @@ class StitchWriterDataSet(
         outp.parent.mkdir(parents=True, exist_ok=True)
         tifffile.imwrite(outp, arr)
         return str(outp)
+

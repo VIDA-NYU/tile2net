@@ -8,12 +8,13 @@ from typing import NamedTuple
 import imageio.v3 as iio
 import numpy as np
 import requests
+from requests.adapters import HTTPAdapter
 
 from tile2net.core.loaders.stitch import StitchDataSet, DataWrapper
 
-
 if TYPE_CHECKING:
-    from tile2net.core.loaders.sample import SampleDataWrapper
+    pass
+
 
 class FetchTileResult(NamedTuple):
     status: Literal['success', 'empty', 'not_found', 'failed'] | str
@@ -31,7 +32,9 @@ class StreamStitchDataSet(
     def __init__(
             self,
             wrapper: DataWrapper,
-            tile_shape: tuple[int, int, int],
+            tile_dimension: int,
+            mode: str,
+            padded_dimension: int = None,
             *args,
             **kwargs,
     ):
@@ -40,10 +43,24 @@ class StreamStitchDataSet(
         :param tile_shape: The (H, W, C) shape of individual tiles.
                            Required to initialize buffers if all sources are empty (204).
         """
-        super().__init__(wrapper, *args, **kwargs)
-        self.tile_shape = tile_shape
-        # Session for connection pooling (keep-alive)
+        self.mode = mode
+        super().__init__(
+            wrapper,
+            tile_dimension=tile_dimension,
+            mode=mode,
+            padded_dimension=padded_dimension,
+            *args,
+            **kwargs
+        )
+        self.tile_dimension = tile_dimension
+        self.padded_dimension = padded_dimension
         self.session = requests.Session()
+        adapter = HTTPAdapter(
+            pool_connections=20,
+            pool_maxsize=20,
+        )
+        self.session.mount('http://', adapter)
+        self.session.mount('https://', adapter)
 
     @cached_property
     def sample(self) -> np.ndarray:
@@ -51,7 +68,8 @@ class StreamStitchDataSet(
         Override to return dummy array based on init shape.
         Prevents base class from hitting disk to infer dimensions.
         """
-        return np.zeros(self.tile_shape, dtype=np.uint8)
+        shape = (self.tile_dimension, self.tile_dimension, self.channels)
+        return np.zeros(shape, dtype=np.uint8)
 
     @cached_property
     def threads(self):
@@ -140,13 +158,6 @@ class StreamStitchDataSet(
             'failed': 0,
         }
 
-        if not tasks:
-            # Return purely empty stats if no files
-            return {
-                'mosaic': mosaic,
-                **stats
-            }
-
         with cf.ThreadPoolExecutor(max_workers=self.threads) as ex:
             futures = {
                 ex.submit(self._fetch_tile, f): (r, c)
@@ -159,57 +170,29 @@ class StreamStitchDataSet(
                     status, arr = fut.result()
                     stats[status] += 1
 
-                    if status == 'success' and arr is not None:
+                    if (
+                        status == 'success'
+                        and arr is not None
+                    ):
                         self.paste(mosaic, arr, r, c)
                 except Exception:
                     stats['failed'] += 1
 
-        # Handle crop/padding
-        if self.padded_dimension:
-            size = self.padded_dimension
-            offset = (mosaic.shape[0] - size) // 2
-            mosaic = mosaic[
-                offset: offset + size,
-                offset: offset + size
-            ]
-
-        return {
-            'mosaic': mosaic,
-            'success': stats['success'],
-            'empty': stats['empty'],
-            'not_found': stats['not_found'],
-            'failed': stats['failed']
-        }
-
-class StreamValDataSet(StreamStitchDataSet):
-    """
-    Streaming validation dataset that fetches tiles from URLs.
-    Extends StreamStitchDataSet to support the validation dataset interface.
-    """
-
-    def __init__(
-            self,
-            wrapper: SampleDataWrapper,
-            tile_shape: tuple[int, int, int],
-            mode: str = None,
-            padded_dimension: int = None,
-    ):
-        super().__init__(
-            wrapper=wrapper,
-            tile_shape=tile_shape,
-            padded_dimension=padded_dimension,
+        a = (
+            self.tile_dimension
+            - self.padding
+            % self.tile_dimension
         )
-        self.mode = mode
+        mosaic = mosaic[
+            a:mosaic.shape[0] - a,
+            a:mosaic.shape[1] - a,
+        ]
 
-    def __getitem__(self, item):
-        result = super().__getitem__(item)
-
-        result['image'] = result.pop('mosaic')
-        result['mask'] = np.zeros_like(result['image'][:, :, 0], dtype=np.uint8)
-        result['pred_paths'] = self.pred_path[item]
-        result['prob_paths'] = self.prob_path[item]
-
-        if hasattr(self, 'unclipped_prob_path'):
-            result['unclipped_prob_paths'] = self.unclipped_prob_path[item]
-
-        return result
+        out = dict(
+            mosaic=mosaic,
+            success=stats['success'],
+            empty=stats['empty'],
+            not_found=stats['not_found'],
+            failed=stats['failed'],
+        )
+        return out

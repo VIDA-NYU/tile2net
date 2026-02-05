@@ -13,8 +13,8 @@ import torch
 from torch.nn.parallel import DataParallel
 
 from tile2net.core.cfg import cfg
+from tile2net.core.seggrid.submit import Submit
 from tile2net.tileseg.utils.misc import fast_hist
-from .submit import Submit
 
 if TYPE_CHECKING:
     from .predict import Predict
@@ -245,6 +245,8 @@ class MiniBatch:
     """File paths to save predicted probability scores."""
     unclipped_prob_paths: list[str] | None
     """File paths to save unclipped predicted probability scores."""
+    padding: int = 0
+    """Padding size applied during inference."""
 
     @classmethod
     def from_data(
@@ -255,9 +257,9 @@ class MiniBatch:
             pred_paths: list[str],
             prob_paths: list[str],
             submit: Submit,
-            clip: int = 0,
             unclipped_prob_paths: list[str] | None = None,
             postprocess: Callable[[torch.Tensor], torch.Tensor] | None = None,
+            padding: int = 0,
     ):
         """
         Perform inference on a minibatch of images.
@@ -336,15 +338,16 @@ class MiniBatch:
                 .div_(len(scales) * len(flips))
                 .softmax(dim=1)
             )
+
             if postprocess:
                 averaged = postprocess(averaged)
 
             if unclipped_prob_paths is not None:
                 unclipped_probs = averaged.clone()
-                probs = clip_image(averaged, clip)
+                probs = clip_image(averaged, padding)
             else:
                 unclipped_probs = None
-                probs = clip_image(averaged, clip)
+                probs = clip_image(averaged, padding)
 
             result = cls(
                 probs=probs,

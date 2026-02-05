@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from ..ingrid import InGrid
     from ..ingrid import InGrid
     from . import predict as predict_py
-    from .minibatch import MiniBatch
+    from tile2net.core.seggrid.minibatch import MiniBatch
 
 
 class VecTile(
@@ -285,9 +285,7 @@ class Broadcast(
             logger.info(msg)
             return
 
-        padded_dimension = self.padded.dimension
-        clipped_dimension = self.grid.dimension
-        stitched_dimension = self.padded.length * self.ingrid.dimension
+        padding = self.cfg.segmentation.pad
         tile_dimension = self.ingrid.dimension
 
         with (
@@ -320,10 +318,8 @@ class Broadcast(
             str(predict),
             "--cfg", cfg_path,
             "--wrapper", wrapper_path,
-            "--padded-dimension", str(padded_dimension),
-            "--clipped-dimension", str(clipped_dimension),
-            "--stitched-dimension", str(stitched_dimension),
             "--tile-dimension", str(tile_dimension),
+            '--padding', str(padding),
             "--output", output,
         ]
 
