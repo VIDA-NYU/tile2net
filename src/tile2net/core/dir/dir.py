@@ -237,7 +237,6 @@ class Dir(namespace):
             self,
             grid: Grid = None,
             dirname: str = '',
-            makedirs: bool = True,
             **key2fill,
     ) -> pd.Series:
         """
@@ -325,17 +324,6 @@ class Dir(namespace):
         out.name = self.__name__
         if grid is not None:
             out.index = grid.index
-
-        # 8. Create directories
-        if makedirs and not out.empty:
-            unique_parents = (
-                out.str.rsplit(os.sep, n=1)
-                .map(lambda x: x[0] if len(x) > 1 else '')
-                .unique()
-            )
-            for d in unique_parents:
-                if d:
-                    os.makedirs(d, exist_ok=True)
 
         return out
 
