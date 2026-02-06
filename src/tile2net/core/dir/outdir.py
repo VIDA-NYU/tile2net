@@ -157,6 +157,7 @@ class Outdir(
                 or grid.location
                 or f"{ymin:.2f},{xmin:.2f},{ymax:.2f},{xmax:.2f}"
         )
+        name = os.path.join('project', name)
         result = ProjectDir.from_parent(self, name)
         return result
 
@@ -164,7 +165,7 @@ class Outdir(
     def source(self):
         source = self.grid.source
         if isinstance(source, Remote):
-            name = source.name
+            name = os.path.join('source', source.name)
             return SourceDir.from_parent(self, name)
         else:
             msg = 'Outdir.source is only available for Remote sources.'
