@@ -438,9 +438,14 @@ class Predict:
             logger.debug(msg)
 
 
-def main():
+def run(
+        cfg: Cfg,
+        wrapper: SampleDataWrapper,
+        padding: int,
+        tile_dimension: int = None,
+):
     """
-    Parse arguments and run inference.
+    Run inference directly with provided configuration and wrapper.
 
     Setup:
         >>> Predict._setup()
@@ -452,18 +457,6 @@ def main():
     Iterate through minibatches:
         >>> Predict.__iter__()
     """
-    parser = argparse.ArgumentParser(description="Semantic segmentation prediction subprocess")
-    parser.add_argument("--cfg", type=str, required=True, help="Path to cfg JSON file")
-    parser.add_argument("--wrapper", type=str, required=True, help="Path to wrapper Parquet file")
-    parser.add_argument("--padding", type=int, help="Padding size for tiles")
-    parser.add_argument("--tile-dimension", type=int, help="Dimension of individual tiles")
-
-    args: argparse.Namespace = parser.parse_args()
-    cfg: Cfg = Cfg.from_json(args.cfg)
-    tile_dimension = args.tile_dimension
-    padding = args.padding
-    wrapper = SampleDataWrapper.from_parquet(args.wrapper)
-
     with cfg as cfg:
         predict = Predict(
             cfg=cfg,
@@ -478,6 +471,30 @@ def main():
         del predict, wrapper
         gc.collect()
         torch.cuda.empty_cache()
+
+
+def main():
+    """
+    Parse arguments and run inference.
+    """
+    parser = argparse.ArgumentParser(description="Semantic segmentation prediction subprocess")
+    parser.add_argument("--cfg", type=str, required=True, help="Path to cfg JSON file")
+    parser.add_argument("--wrapper", type=str, required=True, help="Path to wrapper Parquet file")
+    parser.add_argument("--padding", type=int, help="Padding size for tiles")
+    parser.add_argument("--tile-dimension", type=int, help="Dimension of individual tiles")
+
+    args: argparse.Namespace = parser.parse_args()
+    cfg: Cfg = Cfg.from_json(args.cfg)
+    tile_dimension = args.tile_dimension
+    padding = args.padding
+    wrapper = SampleDataWrapper.from_parquet(args.wrapper)
+
+    run(
+        cfg=cfg,
+        wrapper=wrapper,
+        padding=padding,
+        tile_dimension=tile_dimension,
+    )
 
 
 if __name__ == "__main__":

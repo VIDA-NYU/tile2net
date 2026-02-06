@@ -16,15 +16,14 @@ from tile2net.core.cfg.logger import logger
 from tile2net.core.loaders.sample import SampleDataWrapper
 from tile2net.core.sampler.benchmark import Benchmark
 from tile2net.core.source.remote import Remote
-from tile2net.geo.seggrid import vectile, SegGrid
 from tile2net.core.util import recursion_block
+from tile2net.geo.seggrid import SegGrid, vectile
 
 if TYPE_CHECKING:
     from ..ingrid import InGrid
     from ..vecgrid.vecgrid import VecGrid
     from ..ingrid import InGrid
     from ..ingrid import InGrid
-    from . import predict as predict_py
     from tile2net.core.seggrid.minibatch import MiniBatch
 
 
@@ -212,6 +211,7 @@ class Broadcast(
             unclipped_prob=False,
             colorized=False,
     ):
+        import tile2net.geo.seggrid.predict as predict
         """
         Run semantic segmentation prediction on all tiles in the grid using a subprocess.
 
@@ -293,13 +293,6 @@ class Broadcast(
         padding = self.cfg.segmentation.pad
         tile_dimension = self.ingrid.dimension
 
-        with (
-            tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as cfg_file,
-            tempfile.NamedTemporaryFile(mode='w', suffix='.parquet', delete=False) as wrapper_file,
-        ):
-            cfg_path = cfg_file.name
-            wrapper_path = wrapper_file.name
-
         if not self.cfg.segmentation.stream:
             assert (
                 self.ingrid.file.static
@@ -307,58 +300,74 @@ class Broadcast(
                 .all()
             )
 
-        # serialize
-        self.cfg.to_json(cfg_path)
-        wrapper.to_parquet(wrapper_path)
+        if self.cfg.segmentation.debug:
+            if self.cfg.segmentation.stream:
+                mode_desc = "streaming"
+            else:
+                mode_desc = "serialized"
+            logger.info(f"Running prediction directly in debug mode ({mode_desc})")
 
-        predict = (
-            Path(__file__)
-            .resolve()
-            .with_name('predict.py')
-            .__str__()
-        )
+            with self.benchmark:
+                predict.run(
+                    cfg=self.cfg,
+                    wrapper=wrapper,
+                    padding=padding,
+                    tile_dimension=tile_dimension,
+                )
 
-        cmd = [
-            sys.executable,
-            str(predict),
-            "--cfg", cfg_path,
-            "--wrapper", wrapper_path,
-            "--tile-dimension", str(tile_dimension),
-            '--padding', str(padding),
-        ]
-
-        if self.cfg.segmentation.stream:
-            mode_desc = "streaming"
+            self._write_benchmark_summary()
         else:
-            mode_desc = "serialized"
-        logger.info(f"Launching prediction subprocess ({mode_desc} mode)")
-        logger.debug(f"Command: {' '.join(cmd)}")
+            with (
+                tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as cfg_file,
+                tempfile.NamedTemporaryFile(mode='w', suffix='.parquet', delete=False) as wrapper_file,
+            ):
+                cfg_path = cfg_file.name
+                wrapper_path = wrapper_file.name
 
-        with self.benchmark:
-            process = subprocess.Popen(
-                cmd,
-                stdout=sys.stdout,
-                stderr=sys.stderr,
-                env=os.environ.copy(),
-            )
-            process.wait()
+            self.cfg.to_json(cfg_path)
+            wrapper.to_parquet(wrapper_path)
 
-        match process.returncode:
-            case 0:
-                logger.debug(f"Subprocess completed")
-            case 130:
-                raise KeyboardInterrupt("Prediction interrupted by user")
-            case _:
-                raise RuntimeError(f"Prediction subprocess failed (Exit Code {process.returncode}).")
 
-        self._write_benchmark_summary()
+            cmd = [
+                sys.executable,
+                str(predict.__file__),
+                "--cfg", cfg_path,
+                "--wrapper", wrapper_path,
+                "--tile-dimension", str(tile_dimension),
+                '--padding', str(padding),
+            ]
 
-        # cleanup
-        try:
-            os.unlink(cfg_path)
-            os.unlink(wrapper_path)
-            metadata_path = wrapper_path.replace('.parquet', '_metadata.json')
-            if os.path.exists(metadata_path):
-                os.unlink(metadata_path)
-        except Exception as exc:
-            logger.warning(f"Could not clean up temp files: {exc}")
+            if self.cfg.segmentation.stream:
+                mode_desc = "streaming"
+            else:
+                mode_desc = "serialized"
+            logger.info(f"Launching prediction subprocess ({mode_desc} mode)")
+            logger.debug(f"Command: {' '.join(cmd)}")
+
+            with self.benchmark:
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=sys.stdout,
+                    stderr=sys.stderr,
+                    env=os.environ.copy(),
+                )
+                process.wait()
+
+            match process.returncode:
+                case 0:
+                    logger.debug(f"Subprocess completed")
+                case 130:
+                    raise KeyboardInterrupt("Prediction interrupted by user")
+                case _:
+                    raise RuntimeError(f"Prediction subprocess failed (Exit Code {process.returncode}).")
+
+            self._write_benchmark_summary()
+
+            try:
+                os.unlink(cfg_path)
+                os.unlink(wrapper_path)
+                metadata_path = wrapper_path.replace('.parquet', '_metadata.json')
+                if os.path.exists(metadata_path):
+                    os.unlink(metadata_path)
+            except Exception as exc:
+                logger.warning(f"Could not clean up temp files: {exc}")
