@@ -19,7 +19,7 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 from tile2net.core.cfg.cfg import Cfg
 from tile2net.core.cfg.logger import logger
 from tile2net.core.grid.static import Static
-from tile2net.core.loaders.sample import SampleDataWrapper, SampleDataLoader, Sample, StreamSample
+from tile2net.core.loaders.sample import Sample, SampleDataLoader, SampleDataWrapper, StreamSample
 from tile2net.core.loaders.sampler import DistributedSampler
 from tile2net.core.loaders.val import StreamValDataSet, ValDataSet
 from tile2net.core.seggrid.gac import grayscale_area_closing
@@ -54,8 +54,6 @@ class Model:
     scheduler: torch.optim.lr_scheduler._LRScheduler
     criterion: torch.nn.Module
     criterion_val: torch.nn.Module
-
-
 
 
 class Predict:
@@ -181,7 +179,7 @@ class Predict:
 
         cfg.restore_net = True
         msg = "Loading weights from \n\t{}".format(cfg.model.snapshot)
-        logger.debug(msg)
+        logger.info(msg)
         if cfg.model.snapshot != Static.snapshot:
             logger.warning(
                 f'Weights are being loaded using weights_only=False. '
@@ -287,31 +285,42 @@ class Predict:
             sampler = None
 
         # base configuration shared across all modes
-        loader_kwargs = dict(
+        kwargs = dict(
             dataset=dataset,
             batch_size=cfg.validation.batch_size,
             shuffle=False,
             drop_last=False,
             sampler=sampler,
             pin_memory=True,
-            persistent_workers=True,
         )
 
-        if cfg.segmentation.stream:
-            # streaming: high concurrency to mask http latency
-            loader = SampleDataLoader(
-                **loader_kwargs,
-                num_workers=16,
+        cpu_count = os.cpu_count() or 1
+
+        if cfg.segmentation.debug:
+            # disable parallelism
+            logger.debug('Debug mode: disabling DataLoader workers')
+            kwargs.update(
+                num_workers=0,
+                persistent_workers=False,
+            )
+        elif cfg.segmentation.stream:
+            # high worker count to overlap I/O, capped at a reasonable upper bound
+            workers = min(32, cpu_count * 4)
+            logger.debug(f'Stream mode: using {workers} workers with prefetch_factor=8')
+            kwargs.update(
+                num_workers=workers,
                 prefetch_factor=8,
+                persistent_workers=True,
             )
         else:
-            # local: moderate concurrency to match cpu core count for decoding
-            loader = SampleDataLoader(
-                **loader_kwargs,
-                # num_workers=8,
-                # prefetch_factor=2,
-                num_workers=0,
+            # match compute resources for CPU-intensive decoding/transforms
+            logger.debug(f'Standard mode: using {cpu_count} workers with prefetch_factor=2')
+            kwargs.update(
+                num_workers=cpu_count,
+                prefetch_factor=2,
+                persistent_workers=True,
             )
+        loader = SampleDataLoader(**kwargs)
         return loader
 
     def __iter__(self) -> Iterator[MiniBatch]:
