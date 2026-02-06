@@ -25,6 +25,7 @@ class Grid(
     FrameWrapper,
 ):
     ITILE: str = '{i}'
+    _name: str
 
     @frame.index
     def itile(self):

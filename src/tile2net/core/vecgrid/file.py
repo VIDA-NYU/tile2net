@@ -81,7 +81,7 @@ class File(
         )
         path: str = (
             vecgrid.ingrid.outdir
-            .__getattribute__(vecgrid.__name__)
+            .__getattribute__(vecgrid._name)
             .__getattribute__(name)
             .dir
         )
@@ -132,7 +132,7 @@ class File(
         )
         path: str = (
             vecgrid.ingrid.outdir
-            .__getattribute__(vecgrid.__name__)
+            .__getattribute__(vecgrid._name)
             .__getattribute__(name)
             .dir
         )
@@ -168,7 +168,7 @@ class File(
         )
         path: str = (
             vecgrid.ingrid.outdir
-            .__getattribute__(vecgrid.__name__)
+            .__getattribute__(vecgrid._name)
             .__getattribute__(name)
             .dir
         )

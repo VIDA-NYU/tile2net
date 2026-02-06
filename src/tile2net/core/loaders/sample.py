@@ -151,6 +151,10 @@ class SampleDataSet(StitchDataSet):
         if unclipped_prob_path is not None:
             out['unclipped_prob_paths'] = unclipped_prob_path[item]
 
+        colorized_path = self.image.colorized_path
+        if colorized_path is not None:
+            out['colorized_paths'] = colorized_path[item]
+
         return out
 
     @cached_property
@@ -257,6 +261,10 @@ class StreamSampleDataSet(SampleDataSet):
         if unclipped_prob_path is not None:
             out['unclipped_prob_paths'] = unclipped_prob_path[item]
 
+        colorized_path = self.image.colorized_path
+        if colorized_path is not None:
+            out['colorized_paths'] = colorized_path[item]
+
         return out
 
     def __init__(
@@ -313,6 +321,7 @@ class Sample(TypedDict, total=False):
     pred_paths: str | list[str]
     prob_paths: str | list[str]
     unclipped_prob_paths: str | list[str]
+    colorized_paths: str | list[str]
 
 
 class StreamSample(Sample, total=False):

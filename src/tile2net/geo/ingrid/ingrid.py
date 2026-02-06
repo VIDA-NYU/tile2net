@@ -185,7 +185,7 @@ class InGrid(
 
         Example:
             >>> grid: InGrid
-            >>> grid.name
+            >>> grid._name
             'Boston Common, MA'
         """
         if self.cfg.name:

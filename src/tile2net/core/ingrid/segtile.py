@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from typing import *
 
 import pandas as pd
@@ -106,6 +107,25 @@ class SegTile(
             .loc[self.index]
             .values
         )
+        return result
+
+    @frame.column
+    def colorized(self) -> pd.Series:
+        """Path to colorizedability segmentation file for this tile."""
+        grid = self.ingrid
+        seggrid = grid.seggrid.broadcast
+
+        with (
+            seggrid.file
+            if self
+            else contextlib.nullcontext()
+        ):
+            result = (
+                seggrid.file.colorized
+                .loc[~seggrid.index.duplicated()]
+                .loc[self.index]
+                .values
+            )
         return result
 
     @property

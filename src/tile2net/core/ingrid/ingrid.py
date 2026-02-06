@@ -40,6 +40,7 @@ class InGrid(
         xtile  ytile
         317280 387840 -7.911538e+06  5.214840e+06 -7.911500e+06  5.214802e+06
     """
+    _name = 'ingrid'
 
     @classmethod
     def from_source(
@@ -167,7 +168,7 @@ class InGrid(
 
         Example:
             >>> grid: InGrid
-            >>> grid.name
+            >>> grid._name
             'Boston Common, MA'
         """
         name = (

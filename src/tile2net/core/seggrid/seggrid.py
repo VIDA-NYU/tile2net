@@ -6,12 +6,13 @@ from functools import *
 from pathlib import Path
 from typing import *
 
-from tile2net.core.grid.grid import Grid
 from tile2net.core.cfg.logger import logger
 from tile2net.core.frame.namespace import namespace
+from tile2net.core.grid.grid import Grid
 from tile2net.core.sampler.benchmark import Benchmark
 from tile2net.core.seggrid.file import File
 from tile2net.core.seggrid.vectile import VecTile
+from tile2net.core.util import recursion_block
 
 if TYPE_CHECKING:
     from ..dir import Outdir
@@ -51,7 +52,7 @@ class SegGrid(
     See usage:
         >>> InGrid.seggrid
     """
-    __name__ = 'seggrid'
+    _name = 'seggrid'
     instance: InGrid
 
     def _get(
@@ -292,21 +293,16 @@ class SegGrid(
         """Time spent on segmentation operations in seconds."""
         return 0.
 
+    @recursion_block
     def predict(
             self,
-            output: str = 'prob',
+            pred=False,
+            prob=False,
+            unclipped_prob=False,
+            colorized=False,
     ):
         """
         Run semantic segmentation prediction on all tiles in the grid using subprocess.
-
-        Args:
-            output:
-                'unclipped_prob':
-                    Serialize unclipped probabilities, clipped probabilities, and predictions.
-                'prob':
-                    Serialize clipped probabilities and predictions.
-                'pred':
-                    Serialize predictions only.
 
         See `predict.py` for the inference subprocess:
             >>> predict_py.main()
@@ -327,4 +323,9 @@ class SegGrid(
             Predicting seg-tiles: 100%|██████| 64/64 [02:15<00:00]
             Finished predicting 64 seg-tiles.
         """
-        return self.broadcast.predict(output=output)
+        return self.broadcast.predict(
+            pred=pred,
+            prob=prob,
+            unclipped_prob=unclipped_prob,
+            colorized=colorized,
+        )

@@ -20,14 +20,13 @@ class Column(
     """
     Wraps column operations (get, set, del) for Grid.grid
     """
-    test = None
 
     def __set_name__(self, owner, name):
         self.__name__ = name
 
     def _get(
             self,
-            instance: FrameWrapper,
+            instance: FrameWrapper | namespace,
             owner: type
     ) -> Self | pd.Series:
         # to avoid confusing IDE when self is overwritten
@@ -57,8 +56,15 @@ class Column(
             .__get__(instance, owner)
             .__call__()
         )
-        frame[key] = result
-        result = frame[key]
+        # if the namespace is truthy, do not cache it into the frame
+        if (
+            isinstance(instance, namespace)
+            and bool(namespace)
+        ):
+            result = pd.Series(result, index=frame.index, name=key)
+        else:
+            frame[key] = result
+            result = frame[key]
         return result
 
     locals().update(__get__=_get)
@@ -181,9 +187,7 @@ class Property(
         result = frame.__dict__[key]
         return result
 
-    locals().update(
-        __get__=_get
-    )
+    locals().update(__get__=_get)
 
     if False:
         def __get__(self, instance, owner) -> Union[

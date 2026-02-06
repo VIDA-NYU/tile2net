@@ -14,12 +14,12 @@ import shapely
 from PIL import Image
 from matplotlib.collections import LineCollection
 
-from tile2net.geo.vecgrid.mask2poly import Mask2Poly
 from tile2net.core.benchmark import benchmark
 from tile2net.core.cfg import cfg
 from tile2net.core.cfg.logger import logger
 from tile2net.core.explore import explore
 from tile2net.core.frame.framewrapper import FrameWrapper
+from tile2net.geo.vecgrid.mask2poly import Mask2Poly
 
 if TYPE_CHECKING:
     from .ingrid import InGrid
@@ -170,7 +170,7 @@ class Polygons(
         """Delete the polygons file."""
         file = self.file
         msg = (
-            f'Uncaching {self.ingrid.__name__}.{self.__name__} and '
+            f'Uncaching {self.ingrid._name}.{self.__name__} and '
             f'deleting file:\n\t{file}'
         )
         logger.info(msg)

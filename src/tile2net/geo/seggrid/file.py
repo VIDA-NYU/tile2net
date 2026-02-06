@@ -55,7 +55,7 @@ class File(
         )
         path: str = (
             grid.outdir
-            .__getattribute__(grid.__name__)
+            .__getattribute__(grid._name)
             .__getattribute__(name)
             .dir
         )

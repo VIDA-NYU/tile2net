@@ -76,7 +76,7 @@ class VecGrid(Grid):
     Handles lazy-loading of VecGrid from Grid:
         >>> VecGrid.__get__
     """
-    __name__ = 'vecgrid'
+    _name: str = 'vecgrid'
 
     def _get(
             self,

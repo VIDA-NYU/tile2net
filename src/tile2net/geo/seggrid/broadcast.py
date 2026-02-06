@@ -17,7 +17,7 @@ from tile2net.core.loaders.sample import SampleDataWrapper
 from tile2net.core.sampler.benchmark import Benchmark
 from tile2net.core.source.remote import Remote
 from tile2net.geo.seggrid import vectile, SegGrid
-from tile2net.geo.util import recursion_block
+from tile2net.core.util import recursion_block
 
 if TYPE_CHECKING:
     from ..ingrid import InGrid
@@ -207,19 +207,13 @@ class Broadcast(
     @recursion_block
     def predict(
             self,
-            output: str = 'prob',
+            pred=False,
+            prob=False,
+            unclipped_prob=False,
+            colorized=False,
     ):
         """
         Run semantic segmentation prediction on all tiles in the grid using a subprocess.
-
-        Args:
-            output:
-                'unclipped_prob':
-                    Serialize unclipped probabilities, clipped probabilities, and predictions.
-                'prob':
-                    Serialize clipped probabilities and predictions.
-                'pred':
-                    Serialize predictions only.
 
         See `predict.py` for the inference subprocess:
             >>> predict_py.main()
@@ -243,16 +237,11 @@ class Broadcast(
             Finished predicting 64 seg-tiles.
         """
         if not self.predict:
+            # prevent infinite recursion
             return
-        if output not in ('unclipped_prob', 'prob', 'pred'):
-            raise ValueError(f"output must be 'unclipped_prob', 'prob', or 'pred', got {output!r}")
+
         grid = self.ingrid.broadcast
-        force = ~grid.segtile.pred.map(os.path.exists)
-        if output in ('prob', 'unclipped_prob'):
-            force |= ~grid.segtile.prob.map(os.path.exists)
-        if output == 'unclipped_prob':
-            force |= ~grid.segtile.unclipped_prob.map(os.path.exists)
-        force |= self.cfg.force
+        force = self.cfg.force
 
         msg = f'Predicting seg-tiles to \n\t{self.ingrid.outdir.seggrid.pred.dir}'
         logger.info(msg)
@@ -266,19 +255,33 @@ class Broadcast(
             image_path = grid.file.static
 
         # Instantiate a custom DataFrame which wraps the metadata necessary for prediction
-        wrapper_kwargs = dict(
+        kwargs = dict(
             image_path=image_path,
             index=grid.segtile.index,
             background=0,
             row=grid.segtile.row,
             col=grid.segtile.col,
             force=force,
-            pred_path=grid.segtile.pred,
-            prob_path=grid.segtile.prob,
         )
-        if output == 'unclipped_prob':
-            wrapper_kwargs['unclipped_prob_path'] = grid.segtile.unclipped_prob
-        wrapper = SampleDataWrapper.from_columns(**wrapper_kwargs)
+        with grid.segtile:
+            if pred:
+                col = grid.segtile.pred
+                force |= ~col.map(os.path.exists)
+                kwargs['pred_path'] = col
+            if prob:
+                col = grid.segtile.prob
+                force |= ~col.map(os.path.exists)
+                kwargs['prob_path'] = col
+            if unclipped_prob:
+                col = grid.segtile.unclipped_prob
+                force |= ~col.map(os.path.exists)
+                kwargs['unclipped_prob_path'] = col
+            if colorized:
+                col = grid.file.colorized
+                force |= ~col.map(os.path.exists)
+                kwargs['colorized_path'] = col
+
+        wrapper = SampleDataWrapper.from_columns(**kwargs)
 
         if wrapper.empty:
             msg = f'All seg-tiles are already on disk.'
@@ -320,7 +323,6 @@ class Broadcast(
             "--wrapper", wrapper_path,
             "--tile-dimension", str(tile_dimension),
             '--padding', str(padding),
-            "--output", output,
         ]
 
         if self.cfg.segmentation.stream:

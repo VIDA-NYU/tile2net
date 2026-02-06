@@ -7,6 +7,7 @@ from functools import singledispatch, cached_property
 from pathlib import Path
 from typing import *
 
+import cv2
 import numpy as np
 import tifffile
 import torch
@@ -17,7 +18,7 @@ from tile2net.core.seggrid.submit import Submit
 from tile2net.tileseg.utils.misc import fast_hist
 
 if TYPE_CHECKING:
-    from .predict import Predict
+    from tile2net.geo.seggrid.predict import Predict
 
 
 def to_tiff(
@@ -34,6 +35,30 @@ def to_tiff(
 
     try:
         tifffile.imwrite(tmp_str, arr, compression='zlib')
+        os.replace(tmp_str, p_str)
+    except Exception:
+        try:
+            if os.path.exists(tmp_str):
+                os.unlink(tmp_str)
+        finally:
+            raise
+
+
+def to_image(
+        filename: str,
+        arr: np.ndarray,
+) -> None:
+    p = Path(filename)
+    parent = p.parent
+    parent.mkdir(parents=True, exist_ok=True)
+    tid = threading.get_ident()
+    tmp = parent / f'tmp.{tid}.{p.name}'
+    tmp_str = str(tmp)
+    p_str = str(p)
+
+    try:
+        if not cv2.imwrite(tmp_str, arr):
+            raise RuntimeError(f'cv2.imwrite failed for {filename}')
         os.replace(tmp_str, p_str)
     except Exception:
         try:
@@ -245,6 +270,8 @@ class MiniBatch:
     """File paths to save predicted probability scores."""
     unclipped_prob_paths: list[str] | None
     """File paths to save unclipped predicted probability scores."""
+    colorized_paths: list[str] | None
+    """File paths to save colorized segmentation masks."""
     padding: int = 0
     """Padding size applied during inference."""
 
@@ -254,10 +281,11 @@ class MiniBatch:
             images: torch.Tensor,
             masks: torch.Tensor,
             net: DataParallel | torch.nn.Module,
-            pred_paths: list[str],
-            prob_paths: list[str],
             submit: Submit,
+            pred_paths: list[str] = None,
+            prob_paths: list[str] = None,
             unclipped_prob_paths: list[str] | None = None,
+            colorized_paths: list[str] | None = None,
             postprocess: Callable[[torch.Tensor], torch.Tensor] | None = None,
             padding: int = 0,
     ):
@@ -355,6 +383,7 @@ class MiniBatch:
                 pred_paths=pred_paths,
                 prob_paths=prob_paths,
                 unclipped_prob_paths=unclipped_prob_paths,
+                colorized_paths=colorized_paths,
                 submit=submit,
             )
             return result
@@ -476,6 +505,9 @@ class MiniBatch:
         Uses CUDA event synchronization to ensure GPU->CPU transfer completes
         before dispatching parallel file writes to the I/O pool.
         """
+        if not self.prob_paths:
+            return
+
         probs = (
             self.probs
             .to(torch.float16)
@@ -508,6 +540,9 @@ class MiniBatch:
         Uses async GPU->CPU transfer and batched submission to avoid
         blocking the GPU pipeline during file I/O operations.
         """
+        if not self.pred_paths:
+            return
+
         preds = (
             self.max.pred
             .to(torch.uint8)
@@ -539,7 +574,7 @@ class MiniBatch:
         Uses CUDA event synchronization to ensure GPU->CPU transfer completes
         before dispatching parallel file writes to the I/O pool.
         """
-        if self.unclipped_probs is None or self.unclipped_prob_paths is None:
+        if not self.unclipped_prob_paths:
             return
 
         unclipped_probs = (
@@ -567,6 +602,47 @@ class MiniBatch:
                 future.result()
 
         submit.submit_batch(coordinate)
+
+    def submit_colorized(self):
+        """Submit colorized predictions for parallel writing to disk.
+
+        Uses CUDA event synchronization to ensure GPU->CPU transfer completes
+        before dispatching parallel file writes to the I/O pool.
+        """
+        if not self.colorized_paths:
+            return
+
+        colors = (
+            self.max.colors
+            .to(torch.uint8)
+            .to('cpu', non_blocking=True)
+        )
+        event = (
+            torch.cuda
+            .current_stream()
+            .record_event()
+        )
+        submit = self.submit
+
+        def coordinate():
+            # wait for gpu->cpu transfer to complete
+            event.synchronize()
+            it = zip(self.colorized_paths, colors.numpy())
+
+            futures = [
+                submit.submit_io(to_image, file, color)
+                for file, color in it
+            ]
+            for future in futures:
+                future.result()
+
+        submit.submit_batch(coordinate)
+
+    def submit_all(self):
+        self.submit_pred()
+        self.submit_prob()
+        self.submit_unclipped_prob()
+        self.submit_colorized()
 
     def __len__(self):
         return self.probs.size(0)

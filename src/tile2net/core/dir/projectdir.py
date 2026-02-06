@@ -18,14 +18,14 @@ class Polygons(
 
     @property
     def parquet(self) -> str:
-        name = self.grid.name
+        name = self.grid._name
         filename = os.path.join(self.dir, 'parquet', f'{name}.parquet')
         Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
         return filename
 
     @property
     def preview(self) -> str:
-        name = self.grid.name
+        name = self.grid._name
         filename = os.path.join(self.dir, 'preview', f'{name}.png')
         Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
         return filename
@@ -37,14 +37,14 @@ class Network(
 
     @property
     def parquet(self) -> str:
-        name = self.grid.name
+        name = self.grid._name
         filename = os.path.join(self.dir, 'parquet', f'{name}.parquet')
         Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
         return filename
 
     @property
     def preview(self) -> str:
-        name = self.grid.name
+        name = self.grid._name
         filename = os.path.join(self.dir, 'preview', f'{name}.png')
         Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
         return filename

@@ -394,16 +394,26 @@ class Predict:
                     images=batch['image'],
                     masks=batch['mask'],
                     net=self.model.net,
-                    pred_paths=batch['pred_paths'],
-                    prob_paths=batch['prob_paths'],
                     submit=submit,
                     postprocess=postprocess,
                     padding=self.padding,
                 )
-                if 'unclipped_prob_paths' in batch:
-                    kwargs['unclipped_prob_paths'] = batch['unclipped_prob_paths']
+
+                path_keys = [
+                    'pred_paths',
+                    'prob_paths',
+                    'unclipped_prob_paths',
+                    'colorized_paths',
+                ]
+
+                kwargs.update({
+                    key: batch[key]
+                    for key in path_keys
+                    if key in batch
+                })
 
                 mb = MiniBatch.from_data(**kwargs)
+                mb.submit_all()
 
                 yield mb
                 pbar.update(len(mb))
@@ -434,36 +444,6 @@ class Predict:
             )
             logger.debug(msg)
 
-    def submit_pred(self) -> Iterator[MiniBatch]:
-        """
-        Iterate through minibatches and submit only predictions.
-        This is useful when probability scores are not needed, such as simply generating networks for end-users.
-        """
-        for mb in self:
-            mb.submit_pred()
-            yield mb
-
-    def submit_prob(self) -> Iterator[MiniBatch]:
-        """
-        Iterate through minibatches and submit both predictions and probabilities.
-        This is useful when probability scores are needed, such as testing and visualization.
-        """
-        for mb in self:
-            mb.submit_pred()
-            mb.submit_prob()
-            yield mb
-
-    def submit_all(self) -> Iterator[MiniBatch]:
-        """
-        Iterate through minibatches and submit predictions, probabilities, and unclipped probabilities.
-        This is useful when unclipped probabilities are needed for postprocessing.
-        """
-        for mb in self:
-            mb.submit_pred()
-            mb.submit_prob()
-            mb.submit_unclipped_prob()
-            yield mb
-
 
 def main():
     """
@@ -478,30 +458,18 @@ def main():
         >>> Predict.loader
     Iterate through minibatches:
         >>> Predict.__iter__()
-    Submit predictions/probabilities:
-        >>> Predict.submit_pred()
-        >>> Predict.submit_prob()
-        >>> Predict.submit_all()
     """
     parser = argparse.ArgumentParser(description="Semantic segmentation prediction subprocess")
     parser.add_argument("--cfg", type=str, required=True, help="Path to cfg JSON file")
     parser.add_argument("--wrapper", type=str, required=True, help="Path to wrapper Parquet file")
     parser.add_argument("--padding", type=int, help="Padding size for tiles")
     parser.add_argument("--tile-dimension", type=int, help="Dimension of individual tiles")
-    parser.add_argument(
-        "--output",
-        type=str,
-        required=True,
-        choices=['unclipped_prob', 'prob', 'pred'],
-        help="Output mode: unclipped_prob (all 3), prob (prob+pred), or pred (pred only)"
-    )
 
     args: argparse.Namespace = parser.parse_args()
     cfg: Cfg = Cfg.from_json(args.cfg)
     tile_dimension = args.tile_dimension
     padding = args.padding
     wrapper = SampleDataWrapper.from_parquet(args.wrapper)
-    output = args.output
 
     with cfg as cfg:
         predict = Predict(
@@ -511,16 +479,8 @@ def main():
             padding=padding,
         )
 
-        match output:
-            case 'unclipped_prob':
-                for mb in predict.submit_all():
-                    del mb
-            case 'prob':
-                for mb in predict.submit_prob():
-                    del mb
-            case 'pred':
-                for mb in predict.submit_pred():
-                    del mb
+        for mb in predict:
+            del mb
 
         del predict, wrapper
         gc.collect()

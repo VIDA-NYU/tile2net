@@ -113,12 +113,12 @@ class StitchDataSet(
     def nrow(self) -> int:
         """Number of rows for the mosaic which the tile comprises."""
         nrow = (
-            self.wrapper
-            .frame
-            .groupby(level=self.wrapper.frame.index.names, sort=False)
-            .row
-            .max()
-            + 1
+                self.wrapper
+                .frame
+                .groupby(level=self.wrapper.frame.index.names, sort=False)
+                .row
+                .max()
+                + 1
         )
         if nrow.nunique() > 1:
             raise ValueError('mosaic rows must be identical')
@@ -128,12 +128,12 @@ class StitchDataSet(
     def ncol(self) -> int:
         """Number of columns for the mosaic which the tile comprises."""
         ncol = (
-            self.wrapper
-            .frame
-            .groupby(level=self.wrapper.frame.index.names, sort=False)
-            .col
-            .max()
-            + 1
+                self.wrapper
+                .frame
+                .groupby(level=self.wrapper.frame.index.names, sort=False)
+                .col
+                .max()
+                + 1
         )
         if ncol.nunique() > 1:
             raise ValueError('mosaic columns must be identical')
@@ -142,6 +142,8 @@ class StitchDataSet(
     @cached_property
     def image_path(self) -> list[list[str]]:
         """Input static imagery file path for each tile in each mosaic."""
+        if 'image_path' not in self.wrapper.frame.columns:
+            raise ValueError('image_path column is required in DataWrapper')
         result = (
             self.wrapper
             .frame
@@ -153,8 +155,25 @@ class StitchDataSet(
         return result
 
     @cached_property
+    def colorized_path(self) -> list[list[str]] | None:
+        """Colorized output file path for each tile in each mosaic."""
+        if 'colorized_path' not in self.wrapper.frame.columns:
+            return None
+        result = (
+            self.wrapper
+            .frame
+            .groupby(level=self.wrapper.frame.index.names, sort=False)
+            .colorized_path
+            .apply(list)
+            .tolist()
+        )
+        return result
+
+    @cached_property
     def pred_path(self) -> list[str]:
         """Prediction output file path for each mosaic."""
+        if 'pred_path' not in self.wrapper.frame.columns:
+            return None
         result = (
             self.wrapper
             .frame
@@ -168,6 +187,8 @@ class StitchDataSet(
     @cached_property
     def prob_path(self) -> list[str]:
         """Probability output file path for each mosaic."""
+        if 'prob_path' not in self.wrapper.frame.columns:
+            return None
         result = (
             self.wrapper
             .frame
@@ -386,9 +407,9 @@ class StitchDataSet(
         out = mosaic
 
         crop = (
-            self.tile_dimension
-            - self.padding
-            % self.tile_dimension
+                self.tile_dimension
+                - self.padding
+                % self.tile_dimension
         )
         out = out[
             crop:out.shape[0] - crop,
@@ -548,4 +569,3 @@ class StitchWriterDataSet(
         outp.parent.mkdir(parents=True, exist_ok=True)
         tifffile.imwrite(outp, arr)
         return str(outp)
-

@@ -81,7 +81,6 @@ class File(
         loc = ~files.index.duplicated()
         files = files.loc[loc]
         grid.file.pred = files
-        setattr(self, 'pred', files)
         if (
                 self
                 or bool(grid.predict)
@@ -94,7 +93,7 @@ class File(
         )
         path: str = (
             grid.outdir
-            .__getattribute__(grid.__name__)
+            .__getattribute__(grid._name)
             .__getattribute__(name)
             .dir
         )
@@ -105,7 +104,8 @@ class File(
             n = loc.sum()
             msg = f'{trace} found {n} missing files. Predicting to\n\t{path}'
             logger.info(msg)
-            grid.predict(output='pred')
+            setattr(self, 'pred', files)
+            grid.predict()
             assert files.map(os.path.exists).all()
         else:
             msg = f'{trace} found all {len(loc)} files already in \n\t{path}'
@@ -128,7 +128,6 @@ class File(
         loc = ~files.index.duplicated()
         files = files.loc[loc]
         grid.file.prob = files
-        setattr(self, 'prob', files)
         if (
                 self
                 or bool(grid.predict)
@@ -141,7 +140,7 @@ class File(
         )
         path: str = (
             grid.outdir
-            .__getattribute__(grid.__name__)
+            .__getattribute__(grid._name)
             .__getattribute__(name)
             .dir
         )
@@ -152,7 +151,8 @@ class File(
             n = loc.sum()
             msg = f'{trace} found {n} missing files. Predicting to\n\t{path}'
             logger.info(msg)
-            grid.predict(output='prob')
+            setattr(self, 'prob', files)
+            grid.predict(prob=True)
             assert files.map(os.path.exists).all()
         else:
             msg = f'{trace} found all {len(loc)} files already in \n\t{path}'
@@ -175,7 +175,6 @@ class File(
         loc = ~files.index.duplicated()
         files = files.loc[loc]
         grid.file.unclipped_prob = files
-        setattr(self, 'unclipped_prob', files)
         if (
                 self
                 or bool(grid.predict)
@@ -188,7 +187,7 @@ class File(
         )
         path: str = (
             grid.outdir
-            .__getattribute__(grid.__name__)
+            .__getattribute__(grid._name)
             .__getattribute__(name)
             .dir
         )
@@ -199,7 +198,8 @@ class File(
             n = loc.sum()
             msg = f'{trace} found {n} missing files. Predicting to\n\t{path}'
             logger.info(msg)
-            grid.predict(output='unclipped_prob')
+            setattr(self, 'unclipped_prob', files)
+            grid.predict(unclipped_prob=True)
             assert files.map(os.path.exists).all()
         else:
             msg = f'{trace} found all {len(loc)} files already in \n\t{path}'

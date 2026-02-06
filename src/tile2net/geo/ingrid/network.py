@@ -231,7 +231,7 @@ class Network(
         """Delete the network file."""
         file = self.file
         msg = (
-            f'Uncaching {self.ingrid.__name__}.{self.__name__} and '
+            f'Uncaching {self.ingrid._name}.{self.__name__} and '
             f'deleting file:\n\t{file}'
         )
         logger.info(msg)

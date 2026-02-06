@@ -7,15 +7,15 @@ from pathlib import Path
 from typing import *
 from typing import TYPE_CHECKING
 
-from tile2net.geo.grid import grid
-from tile2net.geo.seggrid import delayed
-from tile2net.geo.seggrid.padded import Padded
-from tile2net.geo.seggrid.vectile import VecTile
 from tile2net.core.cfg.logger import logger
 from tile2net.core.frame.namespace import namespace
 from tile2net.core.sampler.benchmark import Benchmark
 from tile2net.core.seggrid import seggrid
 from tile2net.core.seggrid.file import File
+from tile2net.geo.grid import grid
+from tile2net.geo.seggrid import delayed
+from tile2net.geo.seggrid.padded import Padded
+from tile2net.geo.seggrid.vectile import VecTile
 
 if TYPE_CHECKING:
     from .filled import Filled
@@ -357,8 +357,11 @@ class SegGrid(
 
     def predict(
             self,
-            output: Literal['unclipped_prob', 'prob', 'pred'] = 'pred',
-    ) -> None:
+            pred=False,
+            prob=False,
+            unclipped_prob=False,
+            colorized=False,
+    ):
         """
         Run semantic segmentation prediction on all tiles in the grid using subprocess.
 
@@ -390,4 +393,9 @@ class SegGrid(
             Predicting seg-tiles: 100%|██████| 64/64 [02:15<00:00]
             Finished predicting 64 seg-tiles.
         """
-        return self.broadcast.predict(output=output)
+        return self.broadcast.predict(
+            pred=pred,
+            prob=prob,
+            unclipped_prob=unclipped_prob,
+            colorized=colorized,
+        )

@@ -1,14 +1,14 @@
 from __future__ import annotations
-from typing import *
 
 import os
-import tifffile
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
+from typing import *
 
 import cv2
 import numpy as np
 import pandas as pd
+import tifffile
 import torch
 from PIL import Image
 
@@ -275,7 +275,7 @@ class File(
         """
         raise NotImplementedError('requires GT')
         grid = self.obj
-        name = grid.__name__
+        name = grid._name
         FILES = (
             getattr(grid.ingrid.outdir, name)
             .error.files(grid)
@@ -595,5 +595,5 @@ class File(
     def dir(self) -> Outputs:
         return (
             self.grid.outdir
-            .__getattribute__(self.grid.__name__)
+            .__getattribute__(self.grid._name)
         )
