@@ -60,11 +60,6 @@ class InGrid(
         >>> grid: InGrid
         >>> grid = grid.set_outdir('/path/to/output')
         """
-        return dict(
-            x=self.xtile,
-            y=self.ytile,
-            z=self.zoom
-        )
 
     """
     "Input Grid" (Grid), comprised of "input tiles" (in-tiles).
@@ -96,11 +91,6 @@ class InGrid(
         Setting the mask directory:
             >>> grid: InGrid
         """
-        return dict(
-            x=self.xtile,
-            y=self.ytile,
-            z=self.zoom
-        )
 
     @File
     def file(self):

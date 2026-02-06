@@ -10,12 +10,12 @@ from pathlib import Path
 from typing import *
 
 from tile2net.core import util
-from tile2net.core.grid.grid import Grid
-from tile2net.core.grid.static import Static
 from tile2net.core.cfg.logger import logger
 from tile2net.core.dir.dir import Dir
 from tile2net.core.dir.outdir import Outdir
 from tile2net.core.dir.tempdir import TempDir
+from tile2net.core.grid.grid import Grid
+from tile2net.core.grid.static import Static
 from tile2net.core.ingrid.file import File
 from tile2net.core.ingrid.segtile import SegTile
 from tile2net.core.ingrid.vectile import VecTile
@@ -220,9 +220,6 @@ class InGrid(
         Setting the output directory:
         >>> grid: InGrid
         """
-        return dict(
-            i=self.index
-        )
 
     @Dir
     def mask(self):
@@ -242,9 +239,6 @@ class InGrid(
         Setting the mask directory:
         >>> grid: InGrid
         """
-        return dict(
-            i=self.index
-        )
 
     @Source
     def source(self) -> Union[Remote, Local]:
