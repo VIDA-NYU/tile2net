@@ -400,29 +400,13 @@ class Predict:
                         if key in batch:
                             self._stream_stats[key] += int(batch[key].sum())
 
-                kwargs = dict(
-                    images=batch['image'],
-                    masks=batch['mask'],
+                mb = MiniBatch.from_data(
                     net=self.model.net,
                     submit=submit,
                     postprocess=postprocess,
                     padding=self.padding,
+                    **batch
                 )
-
-                path_keys = [
-                    'pred_paths',
-                    'prob_paths',
-                    'unclipped_prob_paths',
-                    'colorized_paths',
-                ]
-
-                kwargs.update({
-                    key: batch[key]
-                    for key in path_keys
-                    if key in batch
-                })
-
-                mb = MiniBatch.from_data(**kwargs)
                 mb.submit_all()
 
                 yield mb
@@ -445,7 +429,6 @@ class Predict:
         logger.debug(msg)
 
         if self.cfg.segmentation.stream:
-            total_tiles = sum(self._stream_stats.values())
             msg = (
                 f"Downloaded {self._stream_stats['success']:,} tiles "
                 f"({self._stream_stats['empty']} empty, "

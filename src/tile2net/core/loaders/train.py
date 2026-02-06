@@ -20,7 +20,7 @@ class TrainDataSet(
     SampleDataSet
 ):
     """ SampleDataSet for training """
-    mask: MaskDataSet
+    masks: MaskDataSet
     # todo: centroid, epoch, sampling
     raster: ImageDataSet
     centroid: dict

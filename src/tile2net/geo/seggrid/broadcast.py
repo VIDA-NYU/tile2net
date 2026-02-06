@@ -251,13 +251,13 @@ class Broadcast(
             if not isinstance(grid.source, Remote):
                 msg = f"Streaming mode requires a Remote source, got {type(grid.source)}"
                 raise TypeError(msg)
-            image_path = grid.source.url
+            image_paths = grid.source.url
         else:
-            image_path = grid.file.static
+            image_paths = grid.file.static
 
         # Instantiate a custom DataFrame which wraps the metadata necessary for prediction
         kwargs = dict(
-            image_path=image_path,
+            image_paths=image_paths,
             index=grid.segtile.index,
             background=0,
             row=grid.segtile.row,
@@ -267,19 +267,19 @@ class Broadcast(
             if pred:
                 col = grid.segtile.pred
                 force |= ~col.map(os.path.exists)
-                kwargs['pred_path'] = col
+                kwargs['pred_paths'] = col
             if prob:
                 col = grid.segtile.prob
                 force |= ~col.map(os.path.exists)
-                kwargs['prob_path'] = col
+                kwargs['prob_paths'] = col
             if unclipped_prob:
                 col = grid.segtile.unclipped_prob
                 force |= ~col.map(os.path.exists)
-                kwargs['unclipped_prob_path'] = col
+                kwargs['unclipped_prob_paths'] = col
             if colorized:
-                col = grid.file.colorized
+                col = grid.segtile.colorized
                 force |= ~col.map(os.path.exists)
-                kwargs['colorized_path'] = col
+                kwargs['colorized_paths'] = col
 
         kwargs['force'] = force
 
@@ -341,7 +341,6 @@ class Broadcast(
                 stderr=sys.stderr,
                 env=os.environ.copy(),
             )
-            logger.debug(f"Subprocess started with PID {process.pid}")
             process.wait()
 
         match process.returncode:

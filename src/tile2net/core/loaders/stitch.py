@@ -20,6 +20,45 @@ if TYPE_CHECKING:
     from tile2net.core.grid.grid import Grid
 
 
+class Propagate:
+    def __set_name__(self, owner: StitchDataSet, name):
+        owner.to_propagate.add(name)
+        setattr(owner, name, self.wrapped)
+        if hasattr(self.wrapped, '__set_name__'):
+            self.wrapped.__set_name__(owner, name)
+
+    def __init__(self, wrapped):
+        self.wrapped = wrapped
+
+
+class ToPropagate:
+    def __set_name__(self, owner, name):
+        self.__name__ = name
+        self.cache = {}
+
+    def __get__(
+            self,
+            instance,
+            owner: type[StitchDataSet]
+    ) -> set[str]:
+        if owner not in self.cache:
+            out = {
+                name
+                for base in owner.__bases__
+                if hasattr(base, self.__name__)
+                for name in base.to_propagate
+            }
+            self.cache[owner] = out
+        return self.cache[owner]
+
+    def __init__(
+            self,
+            *args,
+            **kwargs,
+    ):
+        ...
+
+
 class StitchDataSet(
     torch.utils.data.Dataset,
 ):
@@ -47,6 +86,10 @@ class StitchDataSet(
         self.tile_dimension = tile_dimension
         self.padding = padding
 
+    @ToPropagate
+    def to_propagate(self):
+        ...
+
     @cached_property
     def threads(self):
         """Number of threads to use for reading input tiles."""
@@ -58,7 +101,7 @@ class StitchDataSet(
             Path(file)
             .suffix
             .lower()
-            for file in self.wrapper.image_path.values
+            for file in self.wrapper.image_paths.values
             if file is not None
         )
         ext = next(it, None)
@@ -140,75 +183,79 @@ class StitchDataSet(
         return ncol.iloc[0]
 
     @cached_property
-    def image_path(self) -> list[list[str]]:
+    def image_paths(self) -> list[list[str]]:
         """Input static imagery file path for each tile in each mosaic."""
-        if 'image_path' not in self.wrapper.frame.columns:
+        if 'image_paths' not in self.wrapper.frame.columns:
             raise ValueError('image_path column is required in DataWrapper')
         result = (
             self.wrapper
             .frame
             .groupby(level=self.wrapper.frame.index.names, sort=False)
-            .image_path
+            .image_paths
             .apply(list)
             .tolist()
         )
         return result
 
+    @Propagate
     @cached_property
-    def colorized_path(self) -> list[list[str]] | None:
+    def colorized_paths(self) -> list[list[str]] | None:
         """Colorized output file path for each tile in each mosaic."""
-        if 'colorized_path' not in self.wrapper.frame.columns:
+        if 'colorized_paths' not in self.wrapper.frame.columns:
             return None
         result = (
             self.wrapper
             .frame
             .groupby(level=self.wrapper.frame.index.names, sort=False)
-            .colorized_path
+            .colorized_paths
             .apply(list)
             .tolist()
         )
         return result
 
+    @Propagate
     @cached_property
-    def pred_path(self) -> list[str]:
+    def pred_paths(self) -> list[str]:
         """Prediction output file path for each mosaic."""
-        if 'pred_path' not in self.wrapper.frame.columns:
+        if 'pred_paths' not in self.wrapper.frame.columns:
             return None
         result = (
             self.wrapper
             .frame
             .groupby(level=self.wrapper.frame.index.names, sort=False)
-            .pred_path
+            .pred_paths
             .first()
             .tolist()
         )
         return result
 
+    @Propagate
     @cached_property
-    def prob_path(self) -> list[str]:
+    def prob_paths(self) -> list[str]:
         """Probability output file path for each mosaic."""
-        if 'prob_path' not in self.wrapper.frame.columns:
+        if 'prob_paths' not in self.wrapper.frame.columns:
             return None
         result = (
             self.wrapper
             .frame
             .groupby(level=self.wrapper.frame.index.names, sort=False)
-            .prob_path
+            .prob_paths
             .first()
             .tolist()
         )
         return result
 
+    @Propagate
     @cached_property
-    def unclipped_prob_path(self) -> list[str] | None:
+    def unclipped_prob_paths(self) -> list[str] | None:
         """Unclipped probability output file path for each mosaic."""
-        if 'unclipped_prob_path' not in self.wrapper.frame.columns:
+        if 'unclipped_prob_paths' not in self.wrapper.frame.columns:
             return None
         result = (
             self.wrapper
             .frame
             .groupby(level=self.wrapper.frame.index.names, sort=False)
-            .unclipped_prob_path
+            .unclipped_prob_paths
             .first()
             .tolist()
         )
@@ -242,7 +289,7 @@ class StitchDataSet(
         try:
             path: str = next(
                 path
-                for paths in self.image_path
+                for paths in self.image_paths
                 for path in paths
                 if Path(path).is_file()
             )
@@ -363,7 +410,7 @@ class StitchDataSet(
         # composite tiles into a single RGB mosaic
 
         # pull grouped lists
-        files = self.image_path[item]
+        files = self.image_paths[item]
         rows = self.row[item]
         cols = self.col[item]
         index = self.index[item]

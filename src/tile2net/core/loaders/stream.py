@@ -138,7 +138,7 @@ class StreamStitchDataSet(
                 'failed': int
             }
         """
-        files = self.image_path[item]
+        files = self.image_paths[item]
         rows = self.row[item]
         cols = self.col[item]
 

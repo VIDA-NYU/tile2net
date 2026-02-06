@@ -86,7 +86,7 @@ class VecDataWrapper(
             **kwargs,
     ) -> Self:
         return super().from_columns(
-            image_path=static,
+            image_paths=static,
             index=index,
             row=row,
             col=col,

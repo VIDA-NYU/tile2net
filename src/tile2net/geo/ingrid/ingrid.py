@@ -80,7 +80,7 @@ class InGrid(
 
         Example:
             >>> grid: InGrid
-            >>> grid.mask
+            >>> grid.masks
             Dir(
                 format='/home/<user>/tile2net/mask/{z}/{x}_{y}.png',
                 dir='/home/<user>/tile2net/mask',

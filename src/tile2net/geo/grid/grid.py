@@ -924,7 +924,7 @@ class Grid(
             logger.info(msg)
 
             wrapper = DataWrapper.from_columns(
-                image_path=tiles,
+                image_paths=tiles,
                 index=mosaics,
                 row=row,
                 col=col,
@@ -1011,7 +1011,7 @@ class Grid(
             logger.info(msg)
 
             wrapper = UnstitchDataWrapper.from_columns(
-                image_path=mosaics,
+                image_paths=mosaics,
                 outfile=tiles,
                 index=mosaics,
                 row=row,
@@ -1189,7 +1189,7 @@ class Grid(
             scale = maxdim / m
 
         wrapper = DataWrapper.from_columns(
-            image_path=self.file.static,
+            image_paths=self.file.static,
             index=self.index,
             row=self.r,
             col=self.c,

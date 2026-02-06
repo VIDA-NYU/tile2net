@@ -34,7 +34,7 @@ class SampleDataWrapper(DataWrapper):
     def from_columns(
             cls,
             *,
-            image_path: ArrayLike,
+            image_paths: ArrayLike,
             index: ArrayLike,
             row: ArrayLike,
             col: ArrayLike,
@@ -44,7 +44,7 @@ class SampleDataWrapper(DataWrapper):
             **kwargs,
     ) -> Self:
         return super().from_columns(
-            image_path=image_path,
+            image_paths=image_paths,
             index=index,
             row=row,
             col=col,
@@ -60,10 +60,10 @@ class SampleDataWrapper(DataWrapper):
 
 
 class SampleDataSet(StitchDataSet):
-    image: ImageDataSet
+    images: ImageDataSet
     """Yields the input image for each sample"""
 
-    mask: MaskDataSet
+    masks: MaskDataSet
     """Yields the class mask for each sample"""
 
     joint_transform_list: list = []
@@ -106,25 +106,23 @@ class SampleDataSet(StitchDataSet):
         Returns a Sample containing the necessary data for training or inference.
 
         Delegates loading static imagery to the `self.static` StaticDataSet:
-            >>> self.image.__getitem__
+            >>> self.images.__getitem__
         Delegates loading ground truth masks to the `self.mask` MaskDataSet:
-            >>> self.mask.__getitem__
+            >>> self.masks.__getitem__
         See also:
             >>> Predict.__iter__
         """
 
-        img = self.image[item]
-        mask = self.mask[item]
-        pred_paths = self.image.pred_path[item]
-        prob_paths = self.image.prob_path[item]
+        img = self.images[item]
+        mask = self.masks[item]
 
-        i = item
-        scale = 1.
+        # i = item
+        # scale = 1.
 
         for xform in self.joint_transform_list:
             img, mask, *extras = xform(img, mask)
-            if extras:
-                scale = extras[0]
+            # if extras:
+            #     scale = extras[0]
 
         if self.img_transform:
             img = self.img_transform(img)
@@ -139,21 +137,16 @@ class SampleDataSet(StitchDataSet):
             mask = self.label_transform(mask)
 
         out = Sample(
-            image=img,
-            mask=mask,
-            scale=scale,
-            i=i,
-            pred_paths=pred_paths,
-            prob_paths=prob_paths,
+            images=img,
+            masks=mask,
+            # scales=scale,
+            # i=i,
         )
 
-        unclipped_prob_path = self.image.unclipped_prob_path
-        if unclipped_prob_path is not None:
-            out['unclipped_prob_paths'] = unclipped_prob_path[item]
-
-        colorized_path = self.image.colorized_path
-        if colorized_path is not None:
-            out['colorized_paths'] = colorized_path[item]
+        for name in self.images.to_propagate:
+            value = getattr(self.images, name)
+            if value is not None:
+                out[name] = value[item]
 
         return out
 
@@ -180,7 +173,7 @@ class SampleDataSet(StitchDataSet):
             *args,
             **kwargs
         )
-        self.image = ImageDataSet(
+        self.images = ImageDataSet(
             wrapper,
             padded_dimension=padded_dimension,
             tile_dimension=tile_dimension,
@@ -194,7 +187,7 @@ class SampleDataSet(StitchDataSet):
             .assign(image_path=wrapper.mask)
             .pipe(wrapper.from_frame)
         )
-        self.mask = MaskDataSet(
+        self.masks = MaskDataSet(
             wrapper,
             padded_dimension=padded_dimension,
             tile_dimension=tile_dimension,
@@ -227,8 +220,8 @@ class StreamSampleDataSet(SampleDataSet):
             'failed': img_result['failed'] + mask_result['failed'],
         }
 
-        pred_paths = self.image.pred_path[item]
-        prob_paths = self.image.prob_path[item]
+        pred_paths = self.image.pred_paths[item]
+        prob_paths = self.image.prob_paths[item]
 
         i = item
         scale = 1.
@@ -257,11 +250,11 @@ class StreamSampleDataSet(SampleDataSet):
             **download_stats,
         )
 
-        unclipped_prob_path = self.image.unclipped_prob_path
+        unclipped_prob_path = self.image.unclipped_prob_paths
         if unclipped_prob_path is not None:
             out['unclipped_prob_paths'] = unclipped_prob_path[item]
 
-        colorized_path = self.image.colorized_path
+        colorized_path = self.image.colorized_paths
         if colorized_path is not None:
             out['colorized_paths'] = colorized_path[item]
 
@@ -314,9 +307,9 @@ class SampleDataLoader(
 
 
 class Sample(TypedDict, total=False):
-    image: torch.Tensor
-    mask: torch.Tensor
-    scale: torch.Tensor
+    images: torch.Tensor
+    masks: torch.Tensor
+    scales: torch.Tensor
     i: torch.Tensor | int
     pred_paths: str | list[str]
     prob_paths: str | list[str]

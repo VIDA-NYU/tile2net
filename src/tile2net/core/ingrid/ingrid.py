@@ -228,7 +228,7 @@ class InGrid(
 
         Example:
             >>> grid: InGrid
-            >>> grid.mask
+            >>> grid.masks
             Dir(
                 format='/home/<user>/tile2net/{z}/{x}_{y}',
                 dir='/home/<user>/tile2net/mask',

@@ -28,7 +28,7 @@ class DataWrapper(
     """
 
     @frame.column
-    def image_path(self) -> pd.Series:
+    def image_paths(self) -> pd.Series:
         """Input image filepaths."""
 
     @frame.column
@@ -52,7 +52,7 @@ class DataWrapper(
     def from_columns(
             cls,
             *,
-            image_path: ArrayLike,
+            image_paths: ArrayLike,
             index: ArrayLike,
             row: ArrayLike,
             col: ArrayLike,
@@ -65,7 +65,7 @@ class DataWrapper(
         This gives us DataFrame operations for the metadata management.
 
         Args:
-            image_path:
+            image_paths:
                 series of input files
             index:
                 identifier for each tile
@@ -81,7 +81,7 @@ class DataWrapper(
                 additional columns to include in the DataFrame
         """
         data = dict(
-            image_path=image_path,
+            image_paths=image_paths,
             row=row,
             col=col,
             force=force,
