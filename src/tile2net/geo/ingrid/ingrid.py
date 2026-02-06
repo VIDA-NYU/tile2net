@@ -176,12 +176,12 @@ class InGrid(
         Priority order:
         1. Directly passed name (preserved as-is)
         2. Config name (preserved as-is)
-        3. Inferred from location type (lowercased):
+        3. Inferred from location type :
            - Address: first part before comma
            - Geographic coords: bbox rounded to 2 decimals
            - Tile coords: bbox as integers
-        4. Remote source name (lowercased)
-        5. Local directory name (lowercased)
+        4. Remote source name
+        5. Local directory name
 
         Example:
             >>> grid: InGrid
@@ -193,6 +193,7 @@ class InGrid(
         # 2. cfg name
         if self.cfg.name:
             name = self.cfg.name
+            logger.info(f"resolved grid name from config: '{name}'")
 
         # 3. infer from location
         elif self.location:
@@ -205,6 +206,7 @@ class InGrid(
                 # it must have been tile coordinates (integers)
                 x1, y1, x2, y2 = geocode.xtile_ytile
                 name = f"{x1},{y1},{x2},{y2}"
+                logger.info(f"resolved grid name from tile coordinates: '{name}'")
             elif (
                     'address' in geocode.__dict__
                     and geocode.address == geocode.passed
@@ -216,10 +218,12 @@ class InGrid(
                     [0]
                     .strip()
                 )
+                logger.info(f"resolved grid name from address: '{name}'")
             else:
                 # it must have been geographic coordinates (floats)
                 n, w, s, e = geocode.nwse
                 name = f"{n:.2f},{w:.2f},{s:.2f},{e:.2f}"
+                logger.info(f"resolved grid name from geographic coordinates: '{name}'")
 
 
         # 4. remote source name (fallback)
@@ -228,6 +232,7 @@ class InGrid(
                 and self.source.name
         ):
             name = self.source.name.lower()
+            logger.info(f"resolved grid name from remote source: '{name}'")
 
         # 5. local directory name (fallback)
         elif isinstance(self.source, Local):
@@ -237,6 +242,7 @@ class InGrid(
                 [-1]
                 .lower()
             )
+            logger.info(f"resolved grid name from local directory: '{name}'")
         else:
             raise ValueError('Could not infer Grid name.')
 
