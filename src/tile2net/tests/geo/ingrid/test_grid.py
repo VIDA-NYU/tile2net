@@ -17,7 +17,7 @@ class TestGridInstantiation:
         assert isinstance(grid, InGrid)
 
 
-class TestInGridAttributes:
+class TestGridAttributes:
     @pytest.mark.parametrize(
         "coords,zoom",
         LOCATIONS.values(),

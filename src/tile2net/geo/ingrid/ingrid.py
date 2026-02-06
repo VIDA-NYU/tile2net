@@ -181,29 +181,76 @@ class InGrid(
     @cached_property
     def name(self) -> str:
         """
-        Grid name; inferred from config, location, or input directory.
+        Grid name; inferred from passed name, config, location, or input directory.
+
+        Priority order:
+        1. Directly passed name (preserved as-is)
+        2. Config name (preserved as-is)
+        3. Inferred from location type (lowercased):
+           - Address: first part before comma
+           - Geographic coords: bbox rounded to 2 decimals
+           - Tile coords: bbox as integers
+        4. Remote source name (lowercased)
+        5. Local directory name (lowercased)
 
         Example:
             >>> grid: InGrid
-            >>> grid._name
-            'Boston Common, MA'
+            >>> grid.name
+            'boston common'
         """
+        # 1. passed name (InGrid.name already set, so this never runs)
+
+        # 2. cfg name
         if self.cfg.name:
-            # use name from config
-            return self.cfg.name
-        if (
+            name = self.cfg.name
+
+        # 3. infer from location
+        elif self.location:
+            geocode = self.geocode
+
+            if (
+                    'xtile_ytile' in geocode.__dict__
+                    and geocode.xtile_ytile
+            ):
+                # it must have been tile coordinates (integers)
+                x1, y1, x2, y2 = geocode.xtile_ytile
+                name = f"{x1},{y1},{x2},{y2}"
+            elif (
+                    'address' in geocode.__dict__
+                    and geocode.address == geocode.passed
+            ):
+                # it must have been an address
+                name = (
+                    geocode.passed
+                    .split(',')
+                    [0]
+                    .strip()
+                )
+            else:
+                # it must have been geographic coordinates (floats)
+                n, w, s, e = geocode.nwse
+                name = f"{n:.2f},{w:.2f},{s:.2f},{e:.2f}"
+
+
+        # 4. remote source name (fallback)
+        elif (
                 isinstance(self.source, Remote)
                 and self.source.name
         ):
-            # use remote name
-            return self.source.name
-        if self.location:
-            # use location string
-            return str(self.location)
-        if isinstance(self.source, Local):
-            # use input directory name
-            return self.source.dir.rsplit(os.sep, 1)[-1]
-        raise ValueError('Could not infer Grid name.')
+            name = self.source.name.lower()
+
+        # 5. local directory name (fallback)
+        elif isinstance(self.source, Local):
+            name = (
+                self.source.dir
+                .rsplit(os.sep, 1)
+                [-1]
+                .lower()
+            )
+        else:
+            raise ValueError('Could not infer Grid name.')
+
+        return name
 
     @property
     def shape(self):
@@ -878,6 +925,10 @@ class InGrid(
         result = Benchmark(include_gpu=True)
         return result
 
+    @cached_property
+    def geocode(self):
+        return GeoCode.from_inferred(self.location, self.zoom)
+
     @classmethod
     def from_location(
             cls,
@@ -896,6 +947,7 @@ class InGrid(
                 False
             ] = None,
             mask: str = None,
+            name: str = None,
     ) -> Self:
         """
         Instantiate a Grid from a geocoded location string or tile coordinates.
@@ -915,6 +967,8 @@ class InGrid(
                 - Required when location is 4 integers (xtile, ytile bounds)
                 - If not passed for lat/lon, defaults to zoom defined in cfg
             source: Tile Source instance or name/abbreviation.
+            mask: Optional mask path
+            name: Optional name for the grid. If provided, takes highest priority in name resolution.
 
         Returns:
             Grid instance covering the geocoded bounding box at the specified zoom level.
@@ -931,9 +985,15 @@ class InGrid(
 
             Create a grid from a tuple of tile coordinates:
             >>> grid = InGrid.from_location((317280, 387840, 317312, 387872), zoom=20)
+
+            Create a grid with a specific name:
+            >>> grid = InGrid.from_location('Times Square, New York', name='MyProject')
         """
 
-        geocode = GeoCode.from_inferred(location, zoom)
+        geocode = GeoCode.from_inferred(
+            obj=location,
+            zoom=zoom,
+        )
 
         # resolve source and zoom
         if source is None:
@@ -948,15 +1008,29 @@ class InGrid(
         ):
             zoom = source.zoom
 
-        geocode = GeoCode.from_inferred(location, zoom)
+        geocode = GeoCode.from_inferred(
+            obj=location,
+            zoom=zoom,
+        )
         if geocode.xtile_ytile:
-            out = cls.from_bounds(geocode.xtile_ytile, zoom, source)
+            out = cls.from_bounds(
+                bounds=geocode.xtile_ytile,
+                zoom=zoom,
+                source=source,
+                name=name,
+            )
         else:
-            out = cls.from_bounds(geocode.nwse, zoom, source)
+            out = cls.from_bounds(
+                bounds=geocode.nwse,
+                zoom=zoom,
+                source=source,
+                name=name,
+            )
 
         out.location = location
         if mask:
             out.mask = mask
+        out.geocode = geocode
 
         return out
 
@@ -1026,6 +1100,7 @@ class InGrid(
             ],
             zoom: int = None,
             source: str | Source = None,
+            name: str = None,
     ) -> Self:
         out = super().from_bounds(bounds, zoom)
         out.source = source
@@ -1035,6 +1110,8 @@ class InGrid(
                 .set_segmentation()
                 .set_vectorization()
             )
+        if name is not None:
+            out.name = name
         return out
 
     @property

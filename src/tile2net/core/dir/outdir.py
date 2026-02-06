@@ -71,6 +71,7 @@ class BestImages(
 class Outdir(
     Dir
 ):
+    grid: InGrid
     def _get(
             self,
             instance: Grid,
@@ -150,14 +151,7 @@ class Outdir(
         """Subdirectory named after the particular directory.
         Uses the passed name, location, or bounding box.
         """
-        grid = self.grid
-        ymin, xmin, ymax, xmax = grid.lat_lon
-        name = str(
-                grid.cfg.name
-                or grid.location
-                or f"{ymin:.2f},{xmin:.2f},{ymax:.2f},{xmax:.2f}"
-        )
-        name = os.path.join('project', name)
+        name = os.path.join('project', self.grid.name)
         result = ProjectDir.from_parent(self, name)
         return result
 
