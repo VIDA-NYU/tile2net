@@ -11,6 +11,7 @@ from tile2net.core.dir.projectdir import ProjectDir
 from tile2net.core.dir.sourcedir import SourceDir
 from tile2net.core.grid.grid import Grid
 from tile2net.core.source.remote import Remote
+from ..frame.namespace import namespace
 
 if TYPE_CHECKING:
     from .seggrid import SegGrid
@@ -79,7 +80,7 @@ class Outdir(
     ):
         if instance is None:
             out = self
-        elif isinstance(instance, Grid):
+        elif isinstance(instance, namespace):
             cache = instance.__dict__
             name = self.__name__
             if name not in cache:

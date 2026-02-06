@@ -308,8 +308,9 @@ class Predict:
             # local: moderate concurrency to match cpu core count for decoding
             loader = SampleDataLoader(
                 **loader_kwargs,
-                num_workers=8,
-                prefetch_factor=2,
+                # num_workers=8,
+                # prefetch_factor=2,
+                num_workers=0,
             )
         return loader
 

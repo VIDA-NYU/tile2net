@@ -240,6 +240,7 @@ class Broadcast(
             # prevent infinite recursion
             return
 
+
         grid = self.ingrid.broadcast
         force = self.cfg.force
 
@@ -261,7 +262,6 @@ class Broadcast(
             background=0,
             row=grid.segtile.row,
             col=grid.segtile.col,
-            force=force,
         )
         with grid.segtile:
             if pred:
@@ -280,6 +280,8 @@ class Broadcast(
                 col = grid.file.colorized
                 force |= ~col.map(os.path.exists)
                 kwargs['colorized_path'] = col
+
+        kwargs['force'] = force
 
         wrapper = SampleDataWrapper.from_columns(**kwargs)
 
