@@ -199,19 +199,11 @@ class InGrid(
         elif self.location:
             geocode = self.geocode
 
-            if (
-                    'xtile_ytile' in geocode.__dict__
-                    and geocode.xtile_ytile
-            ):
-                # it must have been tile coordinates (integers)
+            if geocode.constructed_from == 'xtile_ytile':
                 x1, y1, x2, y2 = geocode.xtile_ytile
                 name = f"{x1},{y1},{x2},{y2}"
                 logger.info(f"resolved grid name from tile coordinates: '{name}'")
-            elif (
-                    'address' in geocode.__dict__
-                    and geocode.address == geocode.passed
-            ):
-                # it must have been an address
+            elif geocode.constructed_from == 'address':
                 name = (
                     geocode.passed
                     .split(',')
@@ -219,11 +211,16 @@ class InGrid(
                     .strip()
                 )
                 logger.info(f"resolved grid name from address: '{name}'")
-            else:
+            elif (
+                geocode.constructed_from == 'latlon'
+                or geocode.constructed_from == 'lonlat'
+            ):
                 # it must have been geographic coordinates (floats)
                 n, w, s, e = geocode.nwse
                 name = f"{n:.2f},{w:.2f},{s:.2f},{e:.2f}"
                 logger.info(f"resolved grid name from geographic coordinates: '{name}'")
+            else:
+                raise NotImplementedError(f'Unknown geocode construction method: {geocode.constructed_from!r}')
 
 
         # 4. remote source name (fallback)
@@ -1026,7 +1023,7 @@ class InGrid(
         if geocode.constructed_from == 'address':
             msg = (
                 # f'{cls.__name__} constructed from geocoded address: "{geocode.address}". '
-                f'Consider passing the following to save time on geocoding:'
+                f'Consider passing the following to `Grid.from_location` and avoid geocoding:'
                 f'\n\t location={out.xtile_ytile}, zoom={out.zoom}'
             )
             logger.info(msg)
