@@ -53,6 +53,11 @@ class GeoCode:
     _round = staticmethod(functools.partial(round, ndigits=4))
     passed: object
     """Originally passed object to construct the class."""
+    constructed_from: str = None
+    """
+    Describes which method was used to construct the class:
+    'polygon', 'centroid', 'latlon', 'lonlat', 'xtile_ytile', 'geometry', 'osm', 'frame', 'address'
+    """
 
     @staticmethod
     def _match(obj: str) -> tuple[str, str, str, str]:
@@ -137,6 +142,7 @@ class GeoCode:
         w, s, e, n = polygon.bounds
         result.nwse = n, w, s, e
         cls.cache[polygon.bounds] = result
+        result.constructed_from = 'polygon'
         return result
 
     @classmethod
@@ -147,17 +153,19 @@ class GeoCode:
         result.passed = address
         result.address = address
         cls.cache[address] = result
+        result.constructed_from = 'address'
         return result
 
     @classmethod
     def from_point(cls, point: shapely.geometry.Point) -> Self:
-        centroid = (cls._round(point.y), cls._round(point.x))
+        centroid = cls._round(point.y), cls._round(point.x)
         if centroid in cls.cache:
             return cls.cache[centroid]
         result = cls()
         result.passed = point
         result.centroid = centroid
         cls.cache[centroid] = result
+        result.constructed_from = 'point'
         return result
 
     @classmethod
@@ -178,6 +186,7 @@ class GeoCode:
         s, n = min(lonlat[1], lonlat[3]), max(lonlat[1], lonlat[3])
         result.nwse = n, w, s, e
         cls.cache[lonlat] = result
+        result.constructed_from = 'lonlat'
         return result
 
     @classmethod
@@ -189,7 +198,9 @@ class GeoCode:
             ]
     ) -> Self:
         lonlat = [latlon[1], latlon[0], latlon[3], latlon[2]]
-        return cls.from_lonlat(lonlat)
+        result = cls.from_lonlat(lonlat)
+        result.constructed_from = 'latlon'
+        return result
 
     @classmethod
     def from_centroid(cls, centroid: tuple[float, float] | list[float]) -> Self:
@@ -201,6 +212,7 @@ class GeoCode:
         result.passed = original_centroid
         result.centroid = centroid
         cls.cache[centroid] = result
+        result.constructed_from = 'centroid'
         return result
 
     @classmethod
@@ -231,6 +243,7 @@ class GeoCode:
                 f"Could not infer geometry from '{geometry}'"
             )
         result.geometry = geometry
+        result.constructed_from = 'geometry'
         return result
 
     @classmethod
@@ -238,6 +251,7 @@ class GeoCode:
         geometry = osmnx.geocode_to_gdf(query)
         result = cls.from_frame(geometry)
         result.passed = query
+        result.constructed_from = 'osm'
         return result
 
     @classmethod
@@ -260,6 +274,7 @@ class GeoCode:
         result = cls()
         result.passed = original_frame
         result.geometry = frame
+        result.constructed_from = 'frame'
         return result
 
     @classmethod
@@ -276,6 +291,7 @@ class GeoCode:
         result.passed = xtile_ytile
         result.xtile_ytile = tuple(xtile_ytile)
         result.zoom = zoom
+        result.constructed_from = 'xtile_ytile'
         return result
 
     @cached_property

@@ -1008,7 +1008,7 @@ class InGrid(
             obj=location,
             zoom=zoom,
         )
-        if geocode.xtile_ytile:
+        if geocode.constructed_from == 'xtile_ytile':
             out = cls.from_bounds(
                 bounds=geocode.xtile_ytile,
                 zoom=zoom,
@@ -1022,6 +1022,14 @@ class InGrid(
                 source=source,
                 name=name,
             )
+
+        if geocode.constructed_from == 'address':
+            msg = (
+                # f'{cls.__name__} constructed from geocoded address: "{geocode.address}". '
+                f'Consider passing the following to save time on geocoding:'
+                f'\n\t location={out.xtile_ytile}, zoom={out.zoom}'
+            )
+            logger.info(msg)
 
         out.location = location
         if mask:
