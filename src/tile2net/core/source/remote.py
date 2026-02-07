@@ -242,7 +242,7 @@ class Remote(
     dimension: int = 256
     """Default dimension of the remote grid, e.g. 256 pixels."""
 
-    zoom: int = 19
+    zoom: int
     """Default XYZ zoom level for the remote."""
 
     coverage: GeoSeries | GeoDataFrame

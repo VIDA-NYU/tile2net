@@ -153,9 +153,7 @@ class Grid(
 
     @cached_property
     def zoom(self) -> int:
-        """
-        Zoom level of the tile.
-        """
+        """Zoom level of the tile."""
         return self.scale
 
     @property

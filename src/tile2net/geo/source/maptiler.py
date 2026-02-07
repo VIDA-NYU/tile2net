@@ -56,10 +56,10 @@ class MapTiler(
 
     @cached_property
     def zoom(self) -> int:
-        """
-        Returns the maximum supported zoom level from metadata.
-        """
-        return int(self.response.get('maxzoom', 21))
+        """Returns the maximum supported zoom level from metadata. """
+        out = int(self.response['maxzoom'])
+        out = min(out, 20)
+        return out
 
     @cached_property
     def dimension(self) -> int:

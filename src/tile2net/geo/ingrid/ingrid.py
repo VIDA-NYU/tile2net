@@ -212,8 +212,8 @@ class InGrid(
                 )
                 logger.info(f"resolved grid name from address: '{name}'")
             elif (
-                geocode.constructed_from == 'latlon'
-                or geocode.constructed_from == 'lonlat'
+                    geocode.constructed_from == 'latlon'
+                    or geocode.constructed_from == 'lonlat'
             ):
                 # it must have been geographic coordinates (floats)
                 n, w, s, e = geocode.nwse
@@ -633,8 +633,9 @@ class InGrid(
             rescale = math.ceil(rescale)
             scale = min(scale + rescale, seggrid.seggrid.scale)
             vecgrid = VecGrid.from_rescale(grid, scale, fill=fill)
-            msg = f"Optimized {VecGrid.__qualname__}: scale={scale} ({len(vecgrid)} tiles)."
-            logger.info(msg)
+            logger.debug(
+                f"Optimized {VecGrid.__qualname__}: scale={scale} ({len(vecgrid)} tiles)."
+            )
 
         if pad is not None:
             vecgrid.pad = pad
@@ -1006,14 +1007,14 @@ class InGrid(
             zoom=zoom,
         )
         if geocode.constructed_from == 'xtile_ytile':
-            out = cls.from_bounds(
+            grid = cls.from_bounds(
                 bounds=geocode.xtile_ytile,
                 zoom=zoom,
                 source=source,
                 name=name,
             )
         else:
-            out = cls.from_bounds(
+            grid = cls.from_bounds(
                 bounds=geocode.nwse,
                 zoom=zoom,
                 source=source,
@@ -1024,16 +1025,23 @@ class InGrid(
             msg = (
                 # f'{cls.__name__} constructed from geocoded address: "{geocode.address}". '
                 f'Consider passing the following to `Grid.from_location` and avoid geocoding:'
-                f'\n\t location={out.xtile_ytile}, zoom={out.zoom}'
+                f'\n\t location={grid.xtile_ytile}, zoom={grid.zoom}'
             )
             logger.info(msg)
 
-        out.location = location
-        if mask:
-            out.mask = mask
-        out.geocode = geocode
+        if grid.zoom > 20:
+            msg = f'{grid.zoom=}>20 may lead to poor segmentation. 19 is good and 20 is best.'
+            logger.warning(msg)
+        elif grid.zoom < 19:
+            msg = f'{grid.zoom=}<19 may lead to poor segmentation. 19 is good and 20 is best.'
+            logger.warning(msg)
 
-        return out
+        grid.location = location
+        if mask:
+            grid.mask = mask
+        grid.geocode = geocode
+
+        return grid
 
     @classmethod
     def from_cfg(
