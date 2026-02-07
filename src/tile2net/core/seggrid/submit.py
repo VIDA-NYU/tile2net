@@ -64,7 +64,7 @@ class Submit:
                 self._io_pool = None
 
     def _drain(self, futures: list[Future]) -> None:
-        """Drains a list of futures, collecting any exceptions."""
+        """Drains a list of futures, collecting and raising any exceptions."""
         if not futures:
             return
         done, _ = wait(futures)
@@ -74,6 +74,9 @@ class Submit:
             except BaseException as e:
                 self._errors.append(e)
         futures.clear()
+
+        if self._errors:
+            raise self._errors[0]
 
     def rotate(self) -> None:
         """

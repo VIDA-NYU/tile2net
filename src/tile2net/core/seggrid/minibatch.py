@@ -529,8 +529,13 @@ class MiniBatch:
                 submit.submit_io(to_tiff, file, prob)
                 for file, prob in it
             ]
-            for future in futures:
-                future.result()
+
+            it = zip(self.prob_paths, futures)
+            for path, future in it:
+                try:
+                    future.result()
+                except Exception as e:
+                    raise RuntimeError(f"Failed to write probability map to {path}") from e
 
         submit.submit_batch(coordinate)
 
@@ -563,8 +568,13 @@ class MiniBatch:
                 submit.submit_io(to_tiff, file, pred)
                 for file, pred in it
             ]
-            for future in futures:
-                future.result()
+
+            it = zip(self.pred_paths, futures)
+            for path, future in it:
+                try:
+                    future.result()
+                except Exception as e:
+                    raise RuntimeError(f"Failed to write prediction mask to {path}") from e
 
         submit.submit_batch(coordinate)
 
@@ -598,8 +608,13 @@ class MiniBatch:
                 submit.submit_io(to_tiff, file, prob)
                 for file, prob in it
             ]
-            for future in futures:
-                future.result()
+
+            it = zip(self.unclipped_prob_paths, futures)
+            for path, future in it:
+                try:
+                    future.result()
+                except Exception as e:
+                    raise RuntimeError(f"Failed to write unclipped probability map to {path}") from e
 
         submit.submit_batch(coordinate)
 
@@ -633,8 +648,13 @@ class MiniBatch:
                 submit.submit_io(to_image, file, color)
                 for file, color in it
             ]
-            for future in futures:
-                future.result()
+
+            it = zip(self.colorized_paths, futures)
+            for path, future in it:
+                try:
+                    future.result()
+                except Exception as e:
+                    raise RuntimeError(f"Failed to write colorized output to {path}") from e
 
         submit.submit_batch(coordinate)
 

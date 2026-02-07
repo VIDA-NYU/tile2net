@@ -184,7 +184,7 @@ class SampleDataSet(StitchDataSet):
         # mask wrapper just uses `mask` instead of `static` as input
         wrapper = (
             wrapper.frame
-            .assign(image_path=wrapper.mask)
+            .assign(image_paths=wrapper.mask)
             .pipe(wrapper.from_frame)
         )
         self.masks = MaskDataSet(
@@ -284,6 +284,11 @@ class StreamSampleDataSet(SampleDataSet):
             tile_dimension=tile_dimension,
             *args,
             **kwargs,
+        )
+        wrapper = (
+            wrapper.frame
+            .assign(image_paths=wrapper.mask)
+            .pipe(wrapper.from_frame)
         )
         self.mask = StreamMaskDataSet(
             wrapper,

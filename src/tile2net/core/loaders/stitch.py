@@ -208,7 +208,7 @@ class StitchDataSet(
             .frame
             .groupby(level=self.wrapper.frame.index.names, sort=False)
             .colorized_paths
-            .apply(list)
+            .first()
             .tolist()
         )
         return result
@@ -298,8 +298,10 @@ class StitchDataSet(
         except Exception:
             raise
         sample = self.read(path)
-        if sample.ndim != self.channels:
-            raise ValueError(f'{path!s}: unexpected ndim {sample.ndim}')
+        if sample.ndim < 3:
+            raise ValueError(f'{path!s}: expected 3D array (H, W, C), got ndim {sample.ndim}')
+        if sample.shape[-1] < 3:
+            raise ValueError(f'{path!s}: expected at least 3 channels, got {sample.shape[-1]}')
         return sample
 
     @staticmethod
@@ -474,7 +476,7 @@ class StitchDataSet(
     ) -> None:
         """
         Paste a tile into the mosaic at the given row/column position.
-        Uses alpha channel compositing: only pixels where alpha != 0 are copied.
+        Uses alpha channel compositing if available: only pixels where alpha != 0 are copied.
 
         Based on the original _paste implementation from __getitem__.
         """
@@ -486,11 +488,17 @@ class StitchDataSet(
         x0 = col * tile_w
         sl = np.s_[y0:y0 + tile_h, x0:x0 + tile_w, :]
 
-        # split channels and composite where alpha != 0
-        rgb = tile[..., :3]
-        a = tile[..., 3:4]
-        dst = mosaic[sl]
-        np.copyto(dst, rgb, where=(a != 0))
+        # handle tiles with or without alpha channel
+        if tile.shape[-1] >= 4:
+            # split channels and composite where alpha != 0
+            rgb = tile[..., :3]
+            a = tile[..., 3:4]
+            dst = mosaic[sl]
+            np.copyto(dst, rgb, where=(a != 0))
+        else:
+            # no alpha channel, direct copy
+            rgb = tile[..., :3]
+            mosaic[sl] = rgb
 
     def loader[T: BaseDataLoader](
             self,
