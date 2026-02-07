@@ -20,7 +20,7 @@ from tile2net.core.cfg import cfg
 from tile2net.core.cfg.logger import logger
 from tile2net.core.source import remote
 from tile2net.core.source.exceptions import InvalidLocation, InvalidRemoteName, SourceParseError, RemoteNotFound
-from tile2net.geo.geocode import GeoCode
+from tile2net.core.geocode import GeoCode
 from tile2net.geo.source.source import Source
 
 tls = threading.local()

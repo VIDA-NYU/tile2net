@@ -17,7 +17,7 @@ from tile2net.core.grid.static import Static
 from tile2net.core.ingrid.ingrid import InGrid as CoreInGrid
 from tile2net.core.sampler.benchmark import Benchmark
 from tile2net.geo import util
-from tile2net.geo.geocode import GeoCode
+from tile2net.core.geocode import GeoCode
 from tile2net.geo.grid.grid import Grid as GeoGrid
 from tile2net.geo.ingrid import delayed
 from tile2net.geo.ingrid.file import File
