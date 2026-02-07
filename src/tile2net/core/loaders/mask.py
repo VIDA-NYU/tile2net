@@ -28,7 +28,7 @@ class MaskDataSet(
         If no mask paths are provided, we return -1 to save memory.
         If some mask paths are provided, we have an unexpected situation.
         """
-        isna = self.wrapper.image_paths.isna()
+        isna = self.wrapper.input_paths.isna()
         if isna.all():
             return True
         elif isna.any():

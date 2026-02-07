@@ -34,7 +34,7 @@ class SampleDataWrapper(DataWrapper):
     def from_columns(
             cls,
             *,
-            image_paths: ArrayLike,
+            input_paths: ArrayLike,
             index: ArrayLike,
             row: ArrayLike,
             col: ArrayLike,
@@ -44,7 +44,7 @@ class SampleDataWrapper(DataWrapper):
             **kwargs,
     ) -> Self:
         return super().from_columns(
-            image_paths=image_paths,
+            input_paths=input_paths,
             index=index,
             row=row,
             col=col,
@@ -184,7 +184,7 @@ class SampleDataSet(StitchDataSet):
         # mask wrapper just uses `mask` instead of `static` as input
         wrapper = (
             wrapper.frame
-            .assign(image_paths=wrapper.mask)
+            .assign(input_paths=wrapper.mask)
             .pipe(wrapper.from_frame)
         )
         self.masks = MaskDataSet(
@@ -287,7 +287,7 @@ class StreamSampleDataSet(SampleDataSet):
         )
         wrapper = (
             wrapper.frame
-            .assign(image_paths=wrapper.mask)
+            .assign(input_paths=wrapper.mask)
             .pipe(wrapper.from_frame)
         )
         self.mask = StreamMaskDataSet(

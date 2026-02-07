@@ -101,7 +101,7 @@ class StitchDataSet(
             Path(file)
             .suffix
             .lower()
-            for file in self.wrapper.image_paths.values
+            for file in self.wrapper.input_paths.values
             if file is not None
         )
         ext = next(it, None)
@@ -183,15 +183,15 @@ class StitchDataSet(
         return ncol.iloc[0]
 
     @cached_property
-    def image_paths(self) -> list[list[str]]:
+    def input_paths(self) -> list[list[str]]:
         """Input static imagery file path for each tile in each mosaic."""
-        if 'image_paths' not in self.wrapper.frame.columns:
+        if 'input_paths' not in self.wrapper.frame.columns:
             raise ValueError('image_path column is required in DataWrapper')
         result = (
             self.wrapper
             .frame
             .groupby(level=self.wrapper.frame.index.names, sort=False)
-            .image_paths
+            .input_paths
             .apply(list)
             .tolist()
         )
@@ -289,7 +289,7 @@ class StitchDataSet(
         try:
             path: str = next(
                 path
-                for paths in self.image_paths
+                for paths in self.input_paths
                 for path in paths
                 if Path(path).is_file()
             )
@@ -412,7 +412,7 @@ class StitchDataSet(
         # composite tiles into a single RGB mosaic
 
         # pull grouped lists
-        files = self.image_paths[item]
+        files = self.input_paths[item]
         rows = self.row[item]
         cols = self.col[item]
         index = self.index[item]

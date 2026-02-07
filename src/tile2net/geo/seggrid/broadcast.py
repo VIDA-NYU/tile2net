@@ -251,13 +251,13 @@ class Broadcast(
             if not isinstance(grid.source, Remote):
                 msg = f"Streaming mode requires a Remote source, got {type(grid.source)}"
                 raise TypeError(msg)
-            image_paths = grid.source.url
+            input_paths = grid.source.url
         else:
-            image_paths = grid.file.static
+            input_paths = grid.file.static
 
         # Instantiate a custom DataFrame which wraps the metadata necessary for prediction
         kwargs = dict(
-            image_paths=image_paths,
+            input_paths=input_paths,
             index=grid.segtile.index,
             background=0,
             row=grid.segtile.row,
