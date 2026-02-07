@@ -125,7 +125,11 @@ class namespace:
                 isinstance(instance, namespace)
                 and instance._trace
             ):
-                trace = f'{instance._trace}.{self.__name__}'
+                parent_trace = instance._trace
+                if parent_trace:
+                    trace = f'{parent_trace}.{self.__name__}'
+                else:
+                    trace = self.__name__
             else:
                 trace = self.__name__
             instance.__dict__[key] = trace

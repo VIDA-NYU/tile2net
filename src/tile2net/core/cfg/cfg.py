@@ -1199,12 +1199,10 @@ class Cfg(
     owner: Type[Grid] = None
     __name__ = ''
     _active = True
-
     _default = _Default()
-
-    # _default: Self = None
     _context: Self = None
     _backup: Self = None
+    _context_stack: list[tuple[Self, dict]] = []
 
     def _lookup(self, trace: str):
         # try local
@@ -2131,27 +2129,16 @@ class Cfg(
         return self
 
     def __enter__(self):
-        context = Cfg._context
-        self._backup = context
-        if context is not None:
-            result = context.copy()
-            result.update(self)
-        else:
-            result = self.copy()
-        Cfg._context = result
-        return result
+        item = Cfg._context, dict(self.data)
+        self._context_stack.append(item)
+        Cfg._context = self
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # restore context first, regardless of exception
-        if Cfg._context is self:
-            Cfg._context = self._backup
-
-        # let exception propagate naturally by returning False
-        # don't re-raise explicitly - that interferes with ExitStack
-        if exc_type is not None:
-            return False
-
-        # Always let exceptions propagate
+        context, data = self._context_stack.pop()
+        Cfg._context = context
+        self.data.clear()
+        self.data.update(data)
         return False
 
     @property
