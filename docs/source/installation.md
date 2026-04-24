@@ -2,13 +2,6 @@
 
 <!-- In-depth installation details - including environment creation and interaction with high-performance computing clusters -->
 
-```{warning}
-Under construction - thank you for your patience!
-```
-
-```{contents}
-    :local:
-```
 
 ## Requirements
 
@@ -28,12 +21,11 @@ cd tile2net
 
 ## Step 2: Activate a Virtual Environment
 
-It is highly recommended to create a virtual environment using either pip or conda to install Tile2Net and its
-dependencies. The following commands create an environment with conda and python version 3.11
+It is highly recommended to create a virtual environment to install Tile2Net and its dependencies. The following commands use [uv](https://docs.astral.sh/uv/) to create an environment with Python 3.11:
 
 ```
-conda create --name venv python=3.11
-conda activate venv
+uv venv --python 3.11
+source .venv/bin/activate
 ```
 
 ## Step 3: Install Tile2Net Dependencies
@@ -89,28 +81,27 @@ HPC architectures and job schedulers can vary widely, so you should refer to you
 
 #### Step 1: Creating your environment
 
-You may need to load some modules including conda and CUDA before installing Tile2Net. In the login node:
+You may need to load CUDA before installing Tile2Net. In the login node:
 
 ```
-module load <anaconda module>
 module load <cuda module>
 ```
 ```{note}
 You can use `module avail` to see which modules you can load!
 ```
 
-Then, create your conda environment as you normally would, and install all of Tile2Net's dependencies
+Then, create a virtual environment with [uv](https://docs.astral.sh/uv/) and install all of Tile2Net's dependencies:
 
 ```
-conda create --name testenv python=3.11
-conda activate testenv
-python -m pip install -e .
+uv venv --python 3.11
+source .venv/bin/activate
+uv pip install -e .
 ```
 
 #### Step 2: Request a compute node
 
 ```{warning}
-deactivate your current environment at this point with `conda deactivate` before activating your new one, to reduce the chances of environment issues.
+Deactivate your current environment at this point with `deactivate` before activating your new one, to reduce the chances of environment issues.
 ```
 
 Access a compute node using `srun`. The line below uses slurm to request 1 node with 1 gpu called `gpu:volta` from the partition named `partition_name`, and then runs a bash command line in that node

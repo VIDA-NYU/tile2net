@@ -6,10 +6,6 @@
 Under construction - thank you for your patience!
 ```
 
-```{contents}
-    :local:
-```
-
 If you are preparing your own tile images to use with `tile2net`, follow these data requirements.
 
 ## Tile Images

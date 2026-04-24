@@ -6,10 +6,6 @@
 Under construction - thank you for your patience!
 ```
 
-```{contents}
-    :local:
-```
-
 ## Prepare your Project
 
 To create the sidewalk networks for your area of interest, please ensure the following requirements are met:
@@ -30,14 +26,20 @@ data, but at this moment, we only support inference.
 
 ### Supported Regions
 
-| Country | State/Province | Entire State/ Province | County Data   | City/Town Data |
-|---------|----------------|-----------------------|---------------|----------------|
-| USA     | CA             | FALSE                 |               | LA             |
-| USA     | DC             | TRUE                  |               | DC             |
-| USA     | MA             | TRUE                  |               |                |
-| USA     | NY             | TRUE                  |               | NYC            |
-| USA     | NJ             | TRUE                  |               |                |
-| USA     | WA             | FALSE                 | KING          |                |
+| Country | State | Region             | Coverage Level | Imagery Year                              |
+|---------|-------|--------------------|----------------|-------------------------------------------|
+| USA     | CA    | Los Angeles        | City           | 2014                                      |
+| USA     | CA    | Alameda County     | County         | 2023                                      |
+| USA     | CA    | San Francisco      | City           | 2014, 2017, 2018, 2019, 2020, 2023, 2024 |
+| USA     | DC    | Washington DC      | City           | 2023                                      |
+| USA     | MA    | Massachusetts      | State          | 2021                                      |
+| USA     | ME    | Maine              | State          | —                                         |
+| USA     | NJ    | New Jersey         | State          | 2020                                      |
+| USA     | NY    | New York State     | State          | 2024                                      |
+| USA     | NY    | New York City      | City           | 2024                                      |
+| USA     | TN    | Spring Hill        | City           | 2020                                      |
+| USA     | VA    | Virginia           | State          | —                                         |
+| USA     | WA    | King County        | County         | 2023                                      |
 
 
 ## Basic Concepts:
