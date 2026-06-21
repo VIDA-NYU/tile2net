@@ -116,7 +116,7 @@ read [this.](https://github.com/VIDA-NYU/tile2net/blob/main/BASICS.md)
 `inference` will then run the semantic segmentation model on the prepared tiles (or your own tile data which should be
 prepared following the guidelines [here](https://github.com/VIDA-NYU/tile2net/blob/main/DATA_PREPARE.md)), detect roads,
 sidewalks, footpaths, and crosswalks in your image data
-and outputs the polygons and network data for your region. All output maps are in WGS 84 Web Mercator (espg:4326), to
+and outputs the polygons and network data for your region. All output maps are in WGS84 (lat/lon degrees - espg:4326), to
 best integrate with world-wide industry platforms such as Google Maps, Mapbox and Esri.
 
 The weights used by the semantic segmentation model are available on
