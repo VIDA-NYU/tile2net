@@ -41,13 +41,22 @@ extensions = [
     "sphinx_rtd_theme",
 ]
 
+myst_enable_extensions = [
+    "colon_fence",
+]
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = []
+exclude_patterns = [
+    '_build',
+    'Thumbs.db',
+    '.DS_Store',
+    '**.ipynb_checkpoints',
+]
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -55,16 +64,25 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'furo'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
+#html_css_files = ['custom.css']
 
 nbsphinx_thumbnails = {
     'notebooks/ridgewood_0.ipynb': 'notebooks/ridgewood_schools_paths.png',
 }
 
 nbsphinx_allow_errors = True
+
+def remove_copyright(app, what, name, obj, options, lines):
+    first = next((l for l in lines if l.strip()), "")
+    if first.strip().startswith("Copyright") and "Nvidia" in "\n".join(lines):
+        lines.clear()
+
+def setup(app):
+    app.connect("autodoc-process-docstring", remove_copyright)

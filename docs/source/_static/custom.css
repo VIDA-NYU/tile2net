@@ -1,0 +1,106 @@
+/* ── All light mode surfaces ── */
+body[data-theme="light"],
+:root:not([data-theme="dark"]) {
+
+    /* Main content background */
+    --color-background-primary: rgb(241, 237, 228);
+    --color-background-secondary: rgb(241, 237, 228);
+
+    /* Sidebar */
+    --color-sidebar-background: rgb(241, 237, 228);
+    --color-sidebar-background-border: rgb(210, 204, 192);
+    --color-sidebar-link-text: rgb(74, 74, 74);
+    --color-sidebar-link-text--top-level: rgb(74, 74, 74);
+    --color-sidebar-item-background--current: rgb(220, 214, 202);
+    --color-sidebar-item-background--hover: rgb(228, 222, 210);
+
+    /* Top header bar */
+    --color-header-background: rgb(241, 237, 228);
+    --color-header-border: rgb(210, 204, 192);
+    --color-header-text: rgb(60, 40, 20);
+
+    /* Brand / links */
+    --color-brand-primary: rgb(188, 102, 45);
+    --color-brand-content: rgb(188, 102, 45);
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+    color: rgb(188, 102, 45) !important;
+}
+
+
+/* Topbar direct override  */
+.mobile-header,
+header.mobile-header,
+.sidebar-drawer,
+.sidebar-container,
+.sidebar-scroll,
+nav.sidebar-tree {
+    background-color: rgb(241, 237, 228) !important;
+}
+
+/* Right sidebar ("ON THIS PAGE") */
+.toc-drawer,
+.toc-scroll,
+.toc-tree {
+    background-color: rgb(241, 237, 228) !important;    
+}
+
+/* top content area / page wrapper */
+.page,
+.content,
+.main,
+div[role="main"],
+.bd-main,
+article.bd-article {
+    background-color: rgb(241, 237, 228) !important;
+}
+
+/* Announcement / warning banner area at top */
+.announcement,
+.announcement-content {
+    background-color: rgb(241, 237, 228) !important;
+}
+
+/* Scrollable body itself */
+html, body {
+    background-color: rgb(241, 237, 228) !important;
+}
+
+/* Sidebar title / project name */
+.sidebar-brand-text,
+.sidebar-brand {
+    color: rgb(74, 74, 74) !important;
+}
+
+/* Sidebar nav links (all levels) */
+.sidebar-tree a,
+.sidebar-tree .reference,
+.toctree-l1 > a,
+.toctree-l2 > a,
+.toctree-l3 > a {
+    color: rgb(74, 74, 74) !important;
+}
+
+/* "CONTENTS:" label */
+.sidebar-tree .caption-text,
+.sidebar-tree p.caption {
+    color: rgb(74, 74, 74) !important;
+}
+
+a[href^="#"] {
+    color: rgb(188, 102, 45) !important;
+}
+
+a[href^="./"],
+a[href^="../"] {
+    color: rgb(188, 102, 45) !important;
+}
+
+.sidebar-tree button svg,
+.sidebar-tree .icon svg {
+    color: rgb(107, 114, 60) !important;
+    fill: rgb(107, 114, 60) !important;
+    stroke: rgb(107, 114, 60) !important;
+}
