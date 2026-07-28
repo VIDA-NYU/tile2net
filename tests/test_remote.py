@@ -34,6 +34,7 @@ def test_sources():
             continue
         # assert querying by the polygon returns the same source
         # assert Source[cls.coverage.unary_union] == cls
+        # NOTE: this is the failing test
         assert Source[cls.coverage.union_all()] == cls
         # assert querying by the keyword returns the same source
         if isinstance(cls.keyword, str):
