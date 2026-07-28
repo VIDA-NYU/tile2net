@@ -130,7 +130,13 @@ class SourceMeta(ABCMeta):
                 raise SourceNotFound
         matches = matches.loc[loc]
 
-        # to resolve discrepancies, select where keyword is in the address
+        # NOTE:
+        # For geometry inputs, spatial filtering has already identified the
+        # candidate coverages. Reverse-geocoding the geometry may return an
+        # address (e.g. "New York") that does not contain the source keyword
+        # (e.g. "New York City"), causing the geometry-selected source to be
+        # discarded. Confirm whether keyword filtering is intended for geometry
+        # lookups.
         loc = []
         for name in matches.index:
             keyword: str | tuple[str]
