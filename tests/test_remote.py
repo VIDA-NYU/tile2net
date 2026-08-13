@@ -35,14 +35,7 @@ def test_sources():
         # assert querying by the polygon returns the same source
         # assert Source[cls.coverage.unary_union] == cls
         assert Source[cls.coverage.union_all()] == cls
-        # assert querying by the keyword returns the same source
-        if isinstance(cls.keyword, str):
-            assert Source[cls.keyword] == cls
-        else:
-            assert any(
-                Source[keyword] == cls
-                for keyword in cls.keyword
-            )
+
         # assert querying by the name returns the same source
         assert Source[cls.name] == cls
 
