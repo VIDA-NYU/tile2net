@@ -105,5 +105,5 @@ def test_sources():
 
 
 if __name__ == '__main__':
-    test_small()
     test_sources()
+    test_small()
