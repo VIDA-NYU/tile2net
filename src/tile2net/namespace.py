@@ -51,6 +51,9 @@ import toolz
 from tile2net.logger import logger
 from tile2net.raster.project import Project
 
+if 'DATASET' not in cfg and 'DATASETS' in cfg:
+    cfg['DATASET'] = cfg['DATASETS']
+
 
 def torch_version_float():
     version_str = torch.__version__
@@ -346,10 +349,12 @@ class Namespace(
     options = Options()
     train = Train()
     dataset = Dataset()
+    datasets = dataset
     loss = Loss()
     model = Model()
 
     eval_folder: str = None
+    active_tile_ids: list[int] | None = None
 
     _assets_path: str = None
 
@@ -463,6 +468,7 @@ class Namespace(
     immutable: False
 
     dump_percent: int = None
+    vector_format = None
 
     # torch_version = torch_version_float()
     interactive: bool = False
@@ -525,6 +531,9 @@ class Namespace(
                 with open(self.city_info_path) as f:
                     city_info = json.load(f)
                 project = city_info['project']
+
+        if 'active_tile_ids' in city_info:
+            self.active_tile_ids = city_info['active_tile_ids']
 
         for key, value in city_info.items():
             if key not in self.__dict__:
@@ -721,11 +730,9 @@ while equivalents:
                 continue
             setattr(equivalent.right, right_key, left)
 
-for v in not_found:
-    logger.error(v)
-for v in mismatch:
-    logger.error(v)
-assert (
-        not not_found
-        and not mismatch
-)
+configuration_errors = [*not_found, *mismatch]
+if configuration_errors:
+    details = '\n'.join(configuration_errors)
+    raise RuntimeError(
+        f'TileSeg configuration does not match Namespace:\n{details}'
+    )

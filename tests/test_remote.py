@@ -1,11 +1,13 @@
 import abc
 
 import pytest
-import tile2net.raster.source
-from tile2net.raster.raster import Raster
+
+pytestmark = pytest.mark.remote
 
 
 def test_small():
+    from tile2net.raster.raster import Raster
+
     raster = Raster(
         location='Washington Square Park, New York, NY, USA',
         zoom=19,
@@ -20,7 +22,8 @@ def test_small():
 
 
 def test_sources():
-    import tile2net.raster.source as source
+    import tile2net.raster.source
+    from tile2net.raster import source
     from tile2net.raster.source import Source
     for key in dir(tile2net.raster.source):
         cls = getattr(tile2net.raster.source, key)

@@ -22,29 +22,36 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 """
-from __future__ import annotations, absolute_import, division
+from __future__ import absolute_import, annotations, division
 
-import argh
 import concurrent.futures
 import copy
-import geopandas as gpd
+import hashlib
 import logging
+import os
+import sys
+import tempfile
+import time
+from pathlib import Path
+from typing import TYPE_CHECKING, Optional
+
+import argh
+import geopandas as gpd
 import numpy
 import numpy as np
-import os
 import pandas as pd
-import sys
 import torch
 import torch.distributed as dist
 from geopandas import GeoDataFrame
+from PIL import Image
 from torch.utils.data import DataLoader
-from typing import Optional
-
 
 import tile2net.tileseg.network.ocrnet
 from tile2net.logger import logger
 from tile2net.namespace import Namespace
+from tile2net.raster.formats import VectorFormat
 from tile2net.raster.pednet import PedNet
+from tile2net.raster.project import Project
 from tile2net.tileseg import datasets
 from tile2net.tileseg import network
 from tile2net.tileseg.config import assert_and_infer_cfg, cfg
@@ -54,10 +61,11 @@ from tile2net.tileseg.loss.utils import get_loss
 from tile2net.tileseg.utils.misc import AverageMeter, prep_experiment
 from tile2net.tileseg.utils.misc import ThreadedDumper
 from tile2net.tileseg.utils.trnval_utils import eval_minibatch
-from tile2net.raster.project import Project
-if False:
+
+if TYPE_CHECKING:
     from tile2net.raster.raster import Raster
-import hashlib
+    from tile2net.raster.tile import Tile
+
 
 def sha256sum(path):
     h = hashlib.sha256()
@@ -66,9 +74,90 @@ def sha256sum(path):
             h.update(chunk)
     return h.hexdigest()
 
+
+def write_segmentation_png(
+        path: str | os.PathLike[str],
+        image: np.ndarray,
+) -> Path:
+    """Atomically persist a lossless, user-viewable segmentation image."""
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+            dir=destination.parent,
+            prefix=f'.{destination.name}.',
+            suffix='.tmp',
+            delete=False,
+    ) as temporary:
+        temporary_path = Path(temporary.name)
+
+    try:
+        Image.fromarray(np.asarray(image, dtype=np.uint8)).save(
+            temporary_path,
+            format='PNG',
+        )
+        temporary_path.replace(destination)
+    except BaseException:
+        temporary_path.unlink(missing_ok=True)
+        raise
+    return destination
+
+
+def read_segmentation_png(path: str | os.PathLike[str]) -> np.ndarray:
+    """Read a persisted RGB segmentation image into memory."""
+    with Image.open(path) as image:
+        return np.array(image.convert('RGB'), dtype=np.uint8, copy=True)
+
 sys.path.append(os.environ.get('SUBMIT_SCRIPTS', '.'))
 AutoResume = None
 
+
+_INFERENCE_EVAL_MODES = ('test', 'folder')
+
+
+def normalize_inference_eval_mode(value: str | None) -> str:
+    """Return a supported inference mode with a deterministic default."""
+    if value is None:
+        return 'test'
+    if not isinstance(value, str):
+        raise TypeError(
+            f'Inference mode must be a string, got {type(value).__name__}.'
+        )
+
+    normalized = value.strip().lower()
+    if not normalized:
+        return 'test'
+    if normalized not in _INFERENCE_EVAL_MODES:
+        expected = ', '.join(_INFERENCE_EVAL_MODES)
+        raise ValueError(
+            f'Unsupported inference mode {value!r}; expected one of: {expected}.'
+        )
+    return normalized
+
+
+def build_pedestrian_network(
+        grid: Raster,
+        poly_network: gpd.GeoDataFrame,
+        output_format: VectorFormat = VectorFormat.PARQUET,
+) -> PedNet | None:
+    """Save polygon output and build a network only when features exist."""
+    output_format = VectorFormat(output_format)
+    polygons = grid.save_ntw_polygons(
+        poly_network,
+        output_format=output_format,
+    )
+    if polygons.empty:
+        logger.warning(
+            'No pedestrian polygons were produced; skipping network creation.'
+        )
+        return None
+
+    network = PedNet(
+        poly=polygons,
+        project=grid.project,
+        output_format=output_format,
+    )
+    network.convert_whole_poly2line()
+    return network
 
 
 class Inference:
@@ -76,6 +165,10 @@ class Inference:
 
     def __init__(self, args: Namespace):
         self.args = args
+        args.model.eval = normalize_inference_eval_mode(args.model.eval)
+        cfg.MODEL.EVAL = args.model.eval
+        if not 0 <= args.dump_percent <= 100:
+            raise ValueError('dump_percent must be between 0 and 100.')
         if args.dump_percent:
             if not os.path.exists(args.result_dir):
                 # os.mkdir(args.result_dir, )
@@ -112,6 +205,11 @@ class Inference:
             args.max_epoch = 2
 
         num_gpus = torch.cuda.device_count()
+        if not torch.cuda.is_available() or num_gpus < 1:
+            raise RuntimeError(
+                'Tile2Net inference requires a CUDA-capable PyTorch runtime. '
+                'Run generation separately on CPU or request a GPU compute node.'
+            )
         if num_gpus > 1:
             if args.model.eval == 'test':
                 # Single GPU setup
@@ -134,12 +232,9 @@ class Inference:
             # Single GPU setup
             args.local_rank = 0
             torch.cuda.set_device(args.local_rank)
-            logger.info('Using a single GPU.')
-        else:
-            # CPU setup
-            # print('Using CPU.')
-            logger.info('Using CPU. This is not recommended for inference.')
-            args.local_rank = -1  # Indicating CPU usage
+            logger.info(
+                f'Using CUDA device 0: {torch.cuda.get_device_name(0)}.'
+            )
 
         assert args.result_dir is not None, 'need to define result_dir arg'
 
@@ -184,6 +279,9 @@ class Inference:
         optim, scheduler = get_optimizer(args, net)
 
         net = network.wrap_network_in_dataparallel(args, net)
+        if not next(net.parameters()).is_cuda:
+            raise RuntimeError('Model parameters were not placed on CUDA.')
+        logger.info('CUDA model placement verified.')
         if args.restore_optimizer:
             restore_opt(optim, checkpoint)
         if args.restore_net:
@@ -226,7 +324,9 @@ class Inference:
                 return 0
 
             case _:
-                raise 'unknown eval option {}'.format(args.model.eval)
+                raise ValueError(
+                    f'Unsupported inference mode {args.model.eval!r}.'
+                )
 
     def validate(
             self,
@@ -313,16 +413,12 @@ class Inference:
                     poly_network = pd.concat(gdfs)
                 del gdfs
 
-                grid.save_ntw_polygons(poly_network)
-                polys = grid.ntw_poly
-                net = PedNet(poly=polys, project=grid.project)
-                net.convert_whole_poly2line()
+                build_pedestrian_network(
+                    grid,
+                    poly_network,
+                    output_format=args.vector_format,
+                )
 
-
-
-if False:
-    class Tile(Tile):
-        segmentation: str
 
 
 class LocalDumper(ThreadedDumper):
@@ -331,10 +427,15 @@ class LocalDumper(ThreadedDumper):
             tile: Tile,
             src_img: np.ndarray,
             img_array=True,
+            save_segmentation: bool = False,
     ) -> Optional[GeoDataFrame]:
-        # write the segmentation to assets
-        future = self.threads.submit(np.save, tile.segmentation, src_img)
-        self.futures.append(future)
+        if save_segmentation:
+            future = self.threads.submit(
+                write_segmentation_png,
+                tile.segmentation,
+                src_img,
+            )
+            self.futures.append(future)
         result = super().map_features(tile, src_img, img_array=img_array)
         for future in self.futures:
             future.result()
@@ -345,13 +446,13 @@ class LocalInference(Inference):
     Dumper = LocalDumper
 
     def validate(self, *args, grid: Raster, **kwargs):
-        # as a temporary solution just assign the segmentation path to the tile
-        # grid.project.resources.segmentation.path.mkdir(exist_ok=True, parents=True)
-        for segmentation, tile in zip(
-                grid.project.resources.segmentation.files(),
-                grid.tiles.ravel(),
-        ):
-            tile.segmentation = segmentation
+        if self.args.dump_percent:
+            grid.project.segmentation.path.mkdir(exist_ok=True, parents=True)
+            for segmentation, tile in zip(
+                    grid.project.segmentation.files(),
+                    grid.tiles.flat,
+            ):
+                tile.segmentation = segmentation
         return super().validate(*args, grid=grid, **kwargs)
 
 
@@ -360,13 +461,21 @@ class RemoteInference(Inference):
         from tile2net.raster.raster import Raster
         grid = Raster.from_info(cfg.CITY_INFO_PATH)
         threads = concurrent.futures.ThreadPoolExecutor()
-        paths = list(grid.project.resources.segmentation.files())
-        it_exists = threads.map(os.path.exists, paths)
-        predictions = threads.map(np.load, paths)
+        tile_paths = [
+            (tile, path)
+            for tile, path in zip(
+                grid.tiles.flat,
+                grid.project.segmentation.files(),
+            )
+            if os.path.exists(path)
+        ]
+        predictions = threads.map(
+            read_segmentation_png,
+            (path for _, path in tile_paths),
+        )
         it_polygons = (
                 self.Dumper.map_features(tile, prediction, img_array=True)
-                for tile, prediction, exists in zip(grid.tiles.ravel(), predictions, it_exists)
-                if exists
+                for (tile, _), prediction in zip(tile_paths, predictions)
         )
 
         gdfs = [
@@ -387,11 +496,13 @@ class RemoteInference(Inference):
             poly_network = pd.concat(gdfs)
         del gdfs
 
-        grid.save_ntw_polygons(poly_network)
-        polys = grid.ntw_poly
-        net = PedNet(poly=polys, project=grid.project)
-        net.convert_whole_poly2line()
-        logger.debug(f'{len(net.complete_net)=}')
+        network = build_pedestrian_network(
+            grid,
+            poly_network,
+            output_format=self.args.vector_format,
+        )
+        if network is not None:
+            logger.debug(f'{len(network.complete_net)=}')
 
 
 @commandline
@@ -402,7 +513,19 @@ def inference(args: Namespace):
         inference = RemoteInference(args)
     else:
         inference = Inference(args)
-    return inference.inference()
+    torch.cuda.reset_peak_memory_stats()
+    started = time.perf_counter()
+    result = inference.inference()
+    elapsed = time.perf_counter() - started
+    allocated = torch.cuda.max_memory_allocated() / 2 ** 20
+    reserved = torch.cuda.max_memory_reserved() / 2 ** 20
+    logger.info(
+        f'CUDA_METRICS device={torch.cuda.get_device_name(args.local_rank)!r} '
+        f'elapsed_seconds={elapsed:.3f} '
+        f'peak_allocated_mib={allocated:.1f} '
+        f'peak_reserved_mib={reserved:.1f}'
+    )
+    return result
 
 
 if __name__ == '__main__':
