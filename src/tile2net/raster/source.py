@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 import json
+import os
 import pathlib
 import warnings
 import xml.etree.ElementTree as ET
@@ -23,6 +24,7 @@ from urllib3.util.retry import Retry
 
 from tile2net.logger import logger
 from tile2net.raster.geocode import GeoCode
+from tile2net.raster.http import redact_url
 
 if False:
     from tile2net.raster.tile import Tile
@@ -416,12 +418,15 @@ class WashingtonDC(ArcGis):
 
     def __getitem__(self, item: Iterator[Tile]):
         for tile in item:
-            top, left, bottom, right = tile.transformProject(tile.crs, 3857)
-            yield (
-                f'https://imagery.dcgis.dc.gov/dcgis/rest/services/Ortho/Ortho_2021/ImageServer'
-                f'/exportImage?f=image&bbox={bottom}%2C{right}%2C{top}%2C{left}'
-                f'&imageSR=102100&bboxSR=102100&size=512%2C512'
-            )
+            left, bottom, right, top = tile.transformProject(tile.crs, 3857)
+            query = urlencode({
+                'f': 'image',
+                'bbox': f'{left},{bottom},{right},{top}',
+                'imageSR': 3857,
+                'bboxSR': 3857,
+                'size': f'{self.tilesize},{self.tilesize}',
+            })
+            yield f'{self.server}/exportImage?{query}'
 
     @class_attr
     @property
@@ -622,7 +627,8 @@ class VexCel(Source, ABC):
     prefer_layers: Iterable[str] = ('wide-area', 'urban', 'urban-r', 'graysky')
     server: str = 'https://api.vexcelgroup.com/v2/ortho'
     base: str = 'https://api.vexcelgroup.com/v2/ortho/wmts'
-    api_key: str = None
+    api_key: str | None = None
+    api_key_env: str | None = None
     timeout: int = 10
     extension = 'png'
 
@@ -640,7 +646,7 @@ class VexCel(Source, ABC):
             total=5,
             backoff_factor=0.4,
             status_forcelist=(429, 500, 502, 503, 504),
-            allowed_methods=frozenset("GET", ),
+            allowed_methods=frozenset({'GET'}),
             raise_on_status=False,
         )
         s.mount('https://', HTTPAdapter(max_retries=retry))
@@ -648,21 +654,32 @@ class VexCel(Source, ABC):
         return s
 
     @classmethod
+    def _get_api_key(cls) -> str:
+        """Resolve the provider key without storing it in source code."""
+        if cls.api_key:
+            return cls.api_key
+        if cls.api_key_env:
+            api_key = os.environ.get(cls.api_key_env)
+            if api_key:
+                return api_key
+            raise RuntimeError(
+                f'{cls.name} imagery requires the {cls.api_key_env} '
+                'environment variable.'
+            )
+        raise RuntimeError(f'{cls.name} does not define a Vexcel API key source.')
+
+    @classmethod
     def _raise_http(
             cls,
             r: requests.Response,
             url: str,
     ) -> None:
-        """ Raise an HTTPError with details from the response."""
+        """Raise an HTTP error without copying response data or secrets."""
         ctype = r.headers.get('Content-Type', '')
-        if ctype.startswith('text/'):
-            body = r.text[:800]
-        else:
-            body = f'<{len(r.content):,} bytes binary>'
         raise requests.HTTPError(
-            f"{r.status_code} {r.reason or ''} for {url}\n"
+            f"{r.status_code} {r.reason or ''} for {redact_url(url)}\n"
             f"CT: {ctype}\n"
-            f"Body: {body}"
+            f"Response body: <{len(r.content):,} bytes omitted>"
         )
 
     @class_attr
@@ -676,7 +693,7 @@ class VexCel(Source, ABC):
             SERVICE='WMTS',
             REQUEST='GetCapabilities',
             VERSION='1.0.0',
-            api_key=self.api_key,
+            api_key=self._get_api_key(),
         )
         url = f"{self.base}?{urlencode(query)}"
 
@@ -727,7 +744,7 @@ class VexCel(Source, ABC):
         query = {
             'layer': self.layer,
             'image-format': self.extension,
-            'api_key': self.api_key,
+            'api_key': self._get_api_key(),
         }
         q = urlencode(query)
         q += '&tile-x={x}&tile-y={y}&zoom={z}'
@@ -738,7 +755,7 @@ class VexCel(Source, ABC):
 class Maine(VexCel):
     # https://www.maine.gov/geolib/data/index.html
     name = 'maine'
-    api_key = "vfa_JkRqdw7HHOis.37zZe0OHVVqPlIY91FsT9arC9uGrDalMqwMW1AX4OgcfsiwtQoxDLed9OEIxKy3Ys2lMCam9C2swLrUwNqX2KrlegBRev8MRDpkqHkbSEn0fP1aEqvoDBdePjAOO9h91.4256792737"
+    api_key_env = 'TILE2NET_VEXCEL_API_KEY'
     keyword = 'Maine'
     coverage = wkt.loads(
         "MULTIPOLYGON (((-70.64573401557249 43.09008331966716, "

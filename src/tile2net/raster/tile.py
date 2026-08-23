@@ -17,7 +17,6 @@ from rasterio.transform import from_bounds
 from rasterio import features
 
 from tile2net.raster.tile_utils.genutils import num2deg
-from tile2net.raster.tile_utils.topology import fill_holes, replace_convexhull
 from tile2net.raster.tile_utils.geodata_utils import _reduce_geom_precision, list_to_affine, _check_skimage_im_load, \
     to_metric
 
@@ -79,27 +78,34 @@ class Tile:
     def get_coordinates(self):
         return num2deg(self.xtile, self.ytile, self.zoom)
 
-    def transformProject(self, src_crs, dest_crs):
+    def transformProject(
+            self,
+            src_crs: int | str,
+            dest_crs: int | str,
+    ) -> tuple[float, float, float, float]:
         """
-        Reproject the lat long to another crs to be used for tile acquisition.
+        Transform this tile's bounds to another coordinate reference system.
 
         Parameters
         ----------
-        src_crs : int
-            current projection
-        dest_crs : int
-            desired projection
+        src_crs
+            Coordinate reference system of the tile bounds.
+        dest_crs
+            Destination coordinate reference system.
         
         Returns
         -------
         tuple(float, float, float, float)
-            new coordinates top_latitude, left_longitude, bottom_latitude, right_longitue
+            Destination bounds as ``(left, bottom, right, top)``.
         """
-        transformer = Transformer.from_crs(src_crs, dest_crs)
         self.setLatlon()
-        top_new, left_new = transformer.transform(self.top, self.left)
-        bottom_new, right_new = transformer.transform(self.bottom, self.right)
-        return top_new, left_new, bottom_new, right_new
+        transformer = Transformer.from_crs(src_crs, dest_crs, always_xy=True)
+        return transformer.transform_bounds(
+            self.left,
+            self.bottom,
+            self.right,
+            self.top,
+        )
 
     def setLatlon(self):
         """
@@ -144,32 +150,26 @@ class Tile:
         blck = Image.fromarray(np.uint8(im)).convert('RGB')
         return blck
 
-    def tile2poly(self, *bounds):
+    def tile2poly(self, *bounds: float) -> Polygon:
         """
-        Create a polygon geometry for the tile
+        Create a polygon from explicit bounds or this tile's exact bounds.
 
         Parameters
         ----------
-        bounds : tuple, optional
-            A tuple containing the left, bottom, right, and top bounds of the tile.
-            If not provided, the function will use the `left`, `bottom`, `right`,
-            and `top` attributes of the `self` object.
+        bounds
+            Optional ``(left, bottom, right, top)`` bounds. When omitted, use
+            the bounds calculated from the tile's XYZ index.
 
         Returns
         -------
-        polygon : shapely.geometry.Polygon
-            A polygon geometry object representing the tile bounds.
+        shapely.geometry.Polygon
+            Polygon representing the supplied or calculated bounds.
         """
         self.setLatlon()
-        if len(bounds) > 0:
+        if bounds:
             left, bottom, right, top = bounds
-            poly = Polygon.from_bounds(left, bottom, right, top)
-        else:
-            # fix the rounding issues in plotting
-            poly = Polygon.from_bounds(self.left, self.bottom - 0.00001, self.right,
-                                       self.top - 0.00001)
-        # poly.set_crs(epsg=crs)
-        return poly
+            return Polygon.from_bounds(left, bottom, right, top)
+        return Polygon.from_bounds(self.left, self.bottom, self.right, self.top)
 
     def tile2gdf(self, *bounds):
         """
@@ -278,18 +278,34 @@ class Tile:
         if has_class is not False:
             geoms_class: gpd.GeoDataFrame = self.mask_to_poly_geojson(f_class)
             if not geoms_class.empty:
-                geoms_class['geometry'] = geoms_class['geometry'].apply(self.convert_poly_coords, affine_obj=tfm_)
+                geoms_class.geometry = [
+                    self.convert_poly_coords(geometry, affine_obj=tfm_)
+                    for geometry in geoms_class.geometry.array
+                ]
                 geoms_class = geoms_class.set_crs(epsg=str(self.crs))
                 geoms_class['f_type'] = class_name
                 geoms_class = geoms_class[geoms_class['geometry'].notna()]
-                geoms_class = geoms_class[geoms_class['geometry'].apply(lambda x: x.is_valid)]
+                geoms_class = geoms_class.loc[geoms_class.geometry.is_valid]
 
                 if class_hole_size is not None:
-                    goems_class_met = to_metric(geoms_class).explode().reset_index(drop=True)
-                    goems_class_filtered = goems_class_met[~goems_class_met["geometry"].isna()]
-                    goems_class_filtered["geometry"] = \
-                        goems_class_filtered.apply(fill_holes, args=(class_hole_size,), axis=1)
-                    simplified = replace_convexhull(goems_class_filtered)
+                    from tile2net.raster.tile_utils.topology import (
+                        fill_holes,
+                        replace_convexhull,
+                    )
+
+                    geoms_class_metric = (
+                        to_metric(geoms_class)
+                        .explode(index_parts=False)
+                        .reset_index(drop=True)
+                    )
+                    geoms_class_filtered = geoms_class_metric.loc[
+                        geoms_class_metric.geometry.notna()
+                    ].copy()
+                    geoms_class_filtered.geometry = [
+                        fill_holes(geometry, class_hole_size)
+                        for geometry in geoms_class_filtered.geometry.array
+                    ]
+                    simplified = replace_convexhull(geoms_class_filtered)
                     simplified.to_crs(self.crs, inplace=True)
                     return simplified
                 else:

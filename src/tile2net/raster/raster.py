@@ -30,6 +30,7 @@ from tqdm import tqdm
 
 from tile2net.raster import util
 from tile2net.raster.grid import Grid
+from tile2net.raster.http import redact_url
 from tile2net.raster.input_dir import InputDir
 from tile2net.raster.project import Project
 from tile2net.raster.source import Source
@@ -150,6 +151,8 @@ class Raster(Grid):
             inspect.signature(cls.__init__).parameters.__contains__, kwargs
         )
         res = cls(**relevant)
+        if 'active_tile_ids' in kwargs:
+            res.set_active_ids(kwargs['active_tile_ids'])
         return res
 
     @classmethod
@@ -205,7 +208,7 @@ class Raster(Grid):
             zoom: int = None,
             crs: int = 4326,
             tile_step: int = 1,
-            boundary_path: str = None,  # path to a shapefile to filter out of boundary tiles
+            boundary_path: PathLike | None = None,
             padding=True,
             # extension: str = 'png',
             source: Source | Type[Source] = None,
@@ -316,16 +319,12 @@ class Raster(Grid):
         self.class_order = []
         self.dest = ""
         self.name = name
-        self.boundary_path = ""
+        self.boundary_path = boundary_path
         self.input_dir = input_dir
         self.source = source
         self.dump_percent = dump_percent
         self.batch = -1
         self.debug = debug
-
-        if boundary_path:
-            self.boundary_path = boundary_path
-            self.get_in_boundary(path=boundary_path)
 
         super().__init__(
             location=location,
@@ -336,10 +335,11 @@ class Raster(Grid):
             tile_step=tile_step,
             padding=padding,
             output_dir=output_dir,
+            boundary_path=boundary_path,
         )
 
     def __repr__(self):
-        if self.boundary_path != "":
+        if self.boundary_path is not None:
             tiles_within = f"{(self.num_inside / self.num_tiles) * 100:.1f}"
             return (
                 f"{self.name} Data Constructor. \nCoordinate reference system (CRS): {self.crs} \n"
@@ -425,6 +425,8 @@ class Raster(Grid):
         self.stitch_step = step
         self.calculate_padding()
         self.update_tiles()
+        if self.boundary_path is not None:
+            self.get_in_boundary(path=self.boundary_path)
         self.download()
         self.project.tiles.stitched.path.mkdir(parents=True, exist_ok=True)
         if not (self.source or self.input_dir):
@@ -647,7 +649,10 @@ class Raster(Grid):
                     response = session.head(url, timeout=10)
                     return response.status_code
                 except requests.exceptions.RequestException as e:
-                    logger.error(f"Request to {url} failed: {e}")
+                    logger.error(
+                        f'Request to {redact_url(url)} failed: '
+                        f'{type(e).__name__}'
+                    )
                     return -1
 
             # futures = threads.map(lambda url: session.head(url).status_code, urls)
@@ -751,13 +756,13 @@ class Raster(Grid):
                 if retry:
                     logger.error(
                         f"{len(failed_paths):,} tiles failed to serialize, one of which is "
-                        f"{failed_paths[0]} from {url}. Trying again."
+                        f"{failed_paths[0]} from {redact_url(url)}. Trying again."
                     )
                     self.download(retry=False)
                 else:
                     raise FileNotFoundError(
                         f"{len(failed_paths):,} tiles failed to serialize, one of which is "
-                        f"{failed_paths[0]} from {url}."
+                        f"{failed_paths[0]} from {redact_url(url)}."
                     )
             logger.info(
                 f"All {self.tiles.size} tiles are on disk.",
@@ -783,6 +788,7 @@ class Raster(Grid):
             zoom=self.zoom,
             crs=self.crs,
             tile_step=self.tile_step,
+            padding=self.padding,
             project=dict(self.project.structure),
             debug=self.debug,
         )
@@ -798,6 +804,22 @@ class Raster(Grid):
         if "new_tstep" in kwargs:
             city_info["size"] = self.tile_size * kwargs["new_tstep"]
             city_info["tile_step"] = kwargs["new_tstep"]
+
+        if self.boundary_path is not None:
+            active_grid = self
+            if city_info['tile_step'] != self.tile_step:
+                active_grid = Grid(
+                    name=self.name,
+                    location=self.location,
+                    zoom=self.zoom,
+                    crs=self.crs,
+                    base_tilesize=self.base_tilesize,
+                    tile_step=city_info['tile_step'],
+                    padding=self.padding,
+                    output_dir=self.output_dir,
+                    boundary_path=self.boundary_path,
+                )
+            city_info['active_tile_ids'] = active_grid.active_tile_ids
 
         if "return_dict" in kwargs and kwargs["return_dict"]:
             city_info.update(city_info["project"])
@@ -865,7 +887,7 @@ class Raster(Grid):
             no_default=True,
         )
         args = [
-            "python",
+            sys.executable,
             "-m",
             "tile2net",
             "inference",
