@@ -106,6 +106,7 @@ python -m pip install -e .
 
 ## Create Your First Project
 
+
 Tile2Net exposes two commands, `generate` and `inference`, both backed by the
 `Raster` module.
 
@@ -140,7 +141,7 @@ affect polygon or network generation.
 
 The published model artifacts are identified by the versioned Figshare DOIs
 `10.6084/m9.figshare.33315570.v1` and
-`10.6084/m9.figshare.33315558.v1`.
+`10.6084/m9.figshare.33315558.v1`
 
 ## Run Our Example
 
