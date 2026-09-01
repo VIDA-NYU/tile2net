@@ -13,7 +13,6 @@ from shapely.geometry import LineString, Point, MultiLineString, Polygon
 import operator
 from tile2net.raster.tile_utils.geodata_utils import geo2geodf
 import collections
-from functools import reduce
 from tile2net.raster.tile_utils.momepy_shapes import *
 
 METRIC_CRS = 'EPSG:3857'
@@ -391,35 +390,19 @@ def put_poly_together(poly, deg_tol=5):
     simple_poly = simple_shell.difference(shapely.ops.unary_union(simple_holes))
     return simple_poly
 
-def fill_holes(gs: gpd.GeoSeries, max_area):
-    """
-    finds holes in the polygons
-    Parameters
-    ----------
-    gs: gpd.GeoSeries
-        the GeoSeries of Shapely Polygons to be filled
-    max_area: int
-        maximum area of holes to be filled
-
-    Returns
-    -------
-    newgeom: list[shapely.geometry.Polygon]
-        list of polygons with holes filled
-    """
-    newgeom = None
-    rings = [i for i in gs["geometry"].interiors]  # List all interior rings
-    if len(rings) > 0:  # If there are any rings
-        to_fill = [shapely.geometry.Polygon(ring) for ring in rings if
-                   shapely.geometry.Polygon(ring).area < max_area]  # List the ones to fill
-        if len(to_fill) > 0:  # If there are any to fill
-            newgeom = reduce(lambda geom1, geom2: geom1.union(geom2),
-                             [gs["geometry"]] + to_fill)  # Union the original geometry with all holes
-    if newgeom:
-
-        return newgeom
-    else:
-
-        return gs["geometry"]
+def fill_holes(
+        geometry: shapely.geometry.Polygon,
+        max_area: float,
+) -> shapely.geometry.Polygon:
+    """Fill polygon holes smaller than ``max_area``."""
+    holes = []
+    for ring in geometry.interiors:
+        hole = Polygon(ring)
+        if hole.area < max_area:
+            holes.append(hole)
+    if not holes:
+        return geometry
+    return shapely.union_all([geometry, *holes])
 
 def calculate_bearing(lat1, lng1, lat2, lng2):
     """
@@ -1298,4 +1281,3 @@ def line_to_line(gdf, target, tolerance, extension):
         gpd.GeoDataFrame({df.geometry.name: final}, geometry=df.geometry.name),
         ignore_index=True,
     )
-

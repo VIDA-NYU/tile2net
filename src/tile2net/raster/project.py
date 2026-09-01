@@ -11,13 +11,14 @@ from pathlib import Path
 from typing import Iterator, Union
 from weakref import WeakKeyDictionary
 
-import gdown
 import numpy as np
 import psutil
 import toolz.curried
 from more_itertools import *
 from numpy import ndarray
 from toolz.curried import *
+
+from tile2net.raster.weights import ensure_weights, weights_directory
 
 if False:
     from tile2net.raster.raster import Raster
@@ -160,14 +161,12 @@ class Weights(Directory):
     hrnetv2_w48_imagenet_pretrained = File('.pth')
 
     @staticmethod
-    def download():
-        url = 'https://drive.google.com/drive/folders/1cu-MATHgekWUYqj9TFr12utl6VB-XKSu'
-        Project.resources.assets.weights.path.mkdir(parents=True, exist_ok=True)
-        gdown.download_folder(
-            url=url,
-            quiet=True,
-            output=Project.resources.assets.weights.__fspath__(),
-        )
+    def download() -> dict[str, Path]:
+        """Download and validate the pinned checkpoints in the user cache."""
+        return ensure_weights()
+
+    def __fspath__(self) -> str:
+        return os.fspath(weights_directory())
 
     def __get__(self, instance, owner) -> 'Weights':
         # noinspection PyTypeChecker
@@ -193,7 +192,7 @@ class Segmentation(Directory):
             np.arange(tiles.shape[1]),
             indexing='ij'
         )
-        extension = 'npy'
+        extension = 'png'
         for i, (r, c) in enumerate(zip(R.flat, C.flat)):
             yield os.path.join(path, f'{r}_{c}_{i}.{extension}')
 

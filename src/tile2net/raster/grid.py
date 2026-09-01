@@ -4,9 +4,7 @@ import warnings
 import os
 import numpy as np
 import pandas as pd
-import datetime
 import tempfile
-from typing import Dict, Any, Union
 import shapely
 import rasterio
 from affine import Affine
@@ -15,21 +13,20 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from geopy.geocoders import Nominatim
 
-from tile2net.raster.tile_utils.topology import fill_holes, replace_convexhull
 from concurrent.futures import ThreadPoolExecutor, Future, as_completed
-import shutil
 
 os.environ['USE_PYGEOS'] = '0'
 import geopandas as gpd
 from tile2net.raster.tile import Tile
+from tile2net.raster.formats import VectorFormat
 from tile2net.raster.tile_utils.genutils import (
     deg2num, num2deg, createfolder,
 )
 from tile2net.raster.tile_utils.geodata_utils import (
     _reduce_geom_precision, list_to_affine, read_gdf, buff_dfs,
+    write_vector,
 )
 import logging
-from tile2net.raster.project import Project
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 from tile2net.logger import logger
@@ -215,6 +212,7 @@ class Grid(BaseGrid):
         tempfile.gettempdir(),
         'tile2net'
     ), repr=False)
+    boundary_path: str | os.PathLike[str] | None = field(default=None, repr=False)
 
     def __post_init__(self):
         super().__post_init__()
@@ -239,7 +237,9 @@ class Grid(BaseGrid):
             self.allow_pad = True
         # initialize the attribute values
         self.create_grid()
-        self.num_active = len(self.tiles)
+        self.num_active = self.tiles.size
+        if self.boundary_path is not None:
+            self.get_in_boundary(path=self.boundary_path)
 
     def __repr__(self):
         return f"{self.name} Grid. \nCRS: {self.crs} \n" \
@@ -357,6 +357,10 @@ class Grid(BaseGrid):
                 * self.stitch_step
         )
 
+    def invalidate_spatial_cache(self) -> None:
+        """Invalidate arrays after any tile geometry field is changed."""
+        self.__dict__.pop('_grid_array_cache', None)
+
     def update_tiles(self):
         """
         Update the tiles and their positions based on the new height/width values.
@@ -368,6 +372,7 @@ class Grid(BaseGrid):
             Nothing is returned.
         """
         logger.debug(f'update_tiles()')
+        self.invalidate_spatial_cache()
         self.update_hw()
         if self.tile_step > 1:
             self.tiles = np.array([[Tile(self.xtile + col_idx,
@@ -451,7 +456,129 @@ class Grid(BaseGrid):
         x, y = self.tilexy2pos(xtile, ytile)
         return self.pos2id(x, y)
 
-    def _create_info_dict(self, df: bool = False) -> dict | pd.DataFrame:
+    def _active_mask_array(self) -> np.ndarray:
+        """Return current tile activity as a one-dimensional Boolean array."""
+        flat_tiles = self.tiles.ravel()
+        return np.fromiter(
+            (tile.active for tile in flat_tiles),
+            dtype=np.bool_,
+            count=flat_tiles.size,
+        )
+
+    @staticmethod
+    def _unique_tile_edges(
+            edges: np.ndarray,
+            zoom: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Return unique tile edges, their zooms, and reconstruction indices."""
+        if np.all(zoom == zoom[0]):
+            unique_edges, inverse = np.unique(edges, return_inverse=True)
+            unique_zooms = np.full_like(unique_edges, zoom[0])
+            return unique_edges, unique_zooms, inverse
+
+        unique_pairs, inverse = np.unique(
+            np.column_stack((edges, zoom)),
+            axis=0,
+            return_inverse=True,
+        )
+        return unique_pairs[:, 0], unique_pairs[:, 1], inverse
+
+    @cached_property
+    def _grid_array_cache(self) -> dict[str, np.ndarray]:
+        """Materialize stable tile coordinates and geometries with NumPy."""
+        flat_tiles = self.tiles.ravel()
+        count = flat_tiles.size
+        idd = np.fromiter(
+            (tile.idd for tile in flat_tiles),
+            dtype=np.int64,
+            count=count,
+        )
+        zoom = np.fromiter(
+            (tile.zoom for tile in flat_tiles),
+            dtype=np.int64,
+            count=count,
+        )
+        xtile = np.fromiter(
+            (tile.xtile for tile in flat_tiles),
+            dtype=np.int64,
+            count=count,
+        )
+        ytile = np.fromiter(
+            (tile.ytile for tile in flat_tiles),
+            dtype=np.int64,
+            count=count,
+        )
+        tile_step = np.fromiter(
+            (tile.tile_step for tile in flat_tiles),
+            dtype=np.int64,
+            count=count,
+        )
+
+        x_edges = np.concatenate((xtile, xtile + tile_step))
+        y_edges = np.concatenate((ytile, ytile + tile_step))
+        edge_zooms = np.concatenate((zoom, zoom))
+
+        unique_x, x_zooms, x_inverse = self._unique_tile_edges(
+            x_edges,
+            edge_zooms,
+        )
+        unique_y, y_zooms, y_inverse = self._unique_tile_edges(
+            y_edges,
+            edge_zooms,
+        )
+        longitude = np.fromiter(
+            (
+                num2deg(int(x), 0, int(z))[1]
+                for x, z in zip(unique_x, x_zooms, strict=True)
+            ),
+            dtype=np.float64,
+            count=len(unique_x),
+        )[x_inverse]
+        latitude = np.fromiter(
+            (
+                num2deg(0, int(y), int(z))[0]
+                for y, z in zip(unique_y, y_zooms, strict=True)
+            ),
+            dtype=np.float64,
+            count=len(unique_y),
+        )[y_inverse]
+        left, right = np.split(longitude, 2)
+        top, bottom = np.split(latitude, 2)
+
+        geometry = np.asarray(
+            shapely.box(left, bottom, right, top, ccw=False),
+            dtype=object,
+        )
+        return {
+            'idd': idd,
+            'zoom': zoom,
+            'xtile': xtile,
+            'ytile': ytile,
+            'topleft_x': left,
+            'topleft_y': top,
+            'bottomright_x': right,
+            'bottomright_y': bottom,
+            'geometry': geometry,
+        }
+
+    def _tile_arrays(
+            self,
+            *,
+            active_only: bool,
+    ) -> dict[str, np.ndarray]:
+        """Return cached full-grid arrays or active-only array views."""
+        arrays = self._grid_array_cache
+        if not active_only:
+            return arrays
+        active_mask = self._active_mask_array()
+        return {key: values[active_mask] for key, values in arrays.items()}
+
+    def _create_info_dict(
+            self,
+            df: bool = False,
+            *,
+            active_only: bool = True,
+    ) -> dict[str, dict[str, int | float]] | pd.DataFrame:
         """
 
         Parameters
@@ -464,20 +591,27 @@ class Grid(BaseGrid):
         dict | pd.DataFrame
 
         """
-        tileinfo: Dict[str, Dict[Union[str, Any], Union[Union[int, str], Any]]] = {}
-        for c, t in enumerate(self.tiles.flatten()):
-            t.setLatlon
-            if t.active:
-                tileinfo.update(
-                    {f'id{c}': dict(idd=c, zoom=t.zoom, xtile=t.xtile, ytile=t.ytile, topleft_x=t.left, topleft_y=t.top,
-                                    bottomright_x=t.right, bottomright_y=t.bottom)})
+        arrays = self._tile_arrays(active_only=active_only)
+        data = {
+            key: values
+            for key, values in arrays.items()
+            if key != 'geometry'
+        }
         if df:
-            tileinfo_df = pd.DataFrame.from_dict(tileinfo, orient='index')
-            return tileinfo_df
-        else:
-            return tileinfo
+            index = np.char.add('id', data['idd'].astype(str))
+            return pd.DataFrame(data, index=index)
 
-    def _create_pseudo_tiles(self) -> list:
+        tileinfo: dict[str, dict[str, int | float]] = {}
+        keys = tuple(data)
+        for values in zip(*(data[key] for key in keys), strict=True):
+            record = {
+                key: value.item()
+                for key, value in zip(keys, values, strict=True)
+            }
+            tileinfo[f"id{record['idd']}"] = record
+        return tileinfo
+
+    def _create_pseudo_tiles(self, *, active_only: bool = False) -> list:
         """
         Creates the polygon representation of the grid of tiles
         ----------
@@ -486,11 +620,7 @@ class Grid(BaseGrid):
         list
             shapely polygons
         """
-        poly = []
-        for c, t in enumerate(self.tiles.flatten()):
-            t.setLatlon
-            poly.append(t.tile2poly())
-        return poly
+        return self._tile_arrays(active_only=active_only)['geometry'].tolist()
 
     def create_grid_gdf(self):
         """
@@ -501,11 +631,17 @@ class Grid(BaseGrid):
         :class:`GeoDataFrame`
             Geopandas :class:`GeoDataFrame` of the grid with its tiles
         """
-        tileinfo_df = self._create_info_dict(df=True)
-        poly = self._create_pseudo_tiles()
-        gdf_grid = gpd.GeoDataFrame(tileinfo_df, geometry=poly, crs=self.crs)
-        gdf_grid = gdf_grid.reset_index(drop=True)
-        return gdf_grid
+        arrays = self._tile_arrays(active_only=False)
+        data = {
+            key: values
+            for key, values in arrays.items()
+            if key != 'geometry'
+        }
+        return gpd.GeoDataFrame(
+            data,
+            geometry=arrays['geometry'].copy(),
+            crs=self.crs,
+        )
 
     def save_shapefile(self, dst_path: str = None) -> None:
         """
@@ -515,7 +651,7 @@ class Grid(BaseGrid):
             dst_path = self.project.tiles.path
             if not os.path.exists(dst_path):
                 os.makedirs(dst_path)
-        poly = self._create_pseudo_tiles()
+        poly = self._create_pseudo_tiles(active_only=True)
         tileinfo_df = self._create_info_dict(df=True)
         gdf_grid = gpd.GeoDataFrame(tileinfo_df, geometry=poly, crs=self.crs)
         gdf_grid.to_file(
@@ -532,7 +668,12 @@ class Grid(BaseGrid):
         tileinfo_df = self._create_info_dict(df=True)
         tileinfo_df.to_csv(os.path.join(dst_path, f'{self.name}_{self.tile_size}_info.csv'))
 
-    def get_boundary(self, city: str = None, address: str = None, path: str = None):
+    def get_boundary(
+            self,
+            city: str | None = None,
+            address: str | None = None,
+            path: str | os.PathLike[str] | None = None,
+    ) -> gpd.GeoDataFrame:
         if city:
             # define the place query
             query = {'city': city}
@@ -551,7 +692,13 @@ class Grid(BaseGrid):
             else:
                 raise ValueError("You must pass a textual address or name of the region")
 
-    def get_in_boundary(self, clipped: bool = None, city: str = None, address: str = None, path: str = None):
+    def get_in_boundary(
+            self,
+            clipped: bool = False,
+            city: str | None = None,
+            address: str | None = None,
+            path: str | os.PathLike[str] | None = None,
+    ) -> gpd.GeoDataFrame | None:
         """
         Makes the tiles outside the boundary defined by the city or address inactive. 
         This is used to speed up analysis, especially when a region has a shape that results
@@ -567,8 +714,8 @@ class Grid(BaseGrid):
             The city to create a boundary around (e.g. "Boston", "New Delhi") 
         address : str
             The address to create a boundary around (e.g. "77 Massachusetts Ave, Cambridge MA, USA") 
-        path : str 
-            filepath to the city/region boundary file
+        path : str | os.PathLike[str]
+            Path to a supported vector boundary file, including GeoParquet.
 
         Returns
         -------
@@ -576,23 +723,74 @@ class Grid(BaseGrid):
             The new pseudo tiles clipped by the boundary or None if not clipped
         """
 
-        # create the pseudo tiles for the grid
-        g = self.create_grid_gdf()
-        # get the boundary shapefile
-        bound = self.get_boundary(city, address, path)
-        if bound.crs != self.crs:
-            bound.to_crs(g.crs, inplace=True)
-        # clip the pseudo tiles with boundary
-        new = gpd.clip(g, bound).copy()
-        self.num_inside = len(new)
-        inactive = g[~(g.idd.isin(new.idd))].copy()
-        self.make_inactive(list(inactive.loc[:, 'idd']))
-        if clipped:
-            return new
+        boundary = self.get_boundary(city, address, path)
+        if boundary.empty:
+            raise ValueError('Boundary dataset contains no geometries.')
+        if boundary.crs is None:
+            raise ValueError('Boundary dataset must define a CRS.')
+        if boundary.crs != self.crs:
+            boundary = boundary.to_crs(self.crs)
 
-    def make_inactive(self, lst: list[int]):
+        boundary_geometry = shapely.union_all(boundary.geometry.array)
+        if boundary_geometry.is_empty:
+            raise ValueError('Boundary geometry is empty.')
+
+        active_mask = np.asarray(
+            shapely.intersects(
+                self._grid_array_cache['geometry'],
+                boundary_geometry,
+            ),
+            dtype=np.bool_,
+        )
+        self.set_active_mask(active_mask)
+        self.num_inside = self.num_active
+
+        if not clipped:
+            return None
+
+        grid = self.create_grid_gdf()
+        clipped_grid = grid.loc[active_mask].copy()
+        clipped_grid.geometry = shapely.intersection(
+            clipped_grid.geometry.array,
+            boundary_geometry,
+        )
+        return clipped_grid
+
+    def set_active_mask(self, mask: np.ndarray) -> None:
+        """Set each tile's active state without changing grid shape or tile IDs."""
+        active_mask = np.asarray(mask, dtype=np.bool_)
+        flat_tiles = self.tiles.ravel()
+        if active_mask.shape != (flat_tiles.size,):
+            raise ValueError(
+                f'Active mask must have shape {(flat_tiles.size,)}, '
+                f'not {active_mask.shape}.'
+            )
+
+        for tile, active in zip(flat_tiles, active_mask, strict=True):
+            tile.active = bool(active)
+        self.num_active = int(np.count_nonzero(active_mask))
+
+    @property
+    def active_tile_ids(self) -> list[int]:
+        """Return active tile IDs in stable grid order."""
+        return [int(tile.idd) for tile in self.tiles.ravel() if tile.active]
+
+    def set_active_ids(self, tile_ids: list[int]) -> None:
+        """Restore an active mask from persisted tile IDs."""
+        indices = np.asarray(tile_ids, dtype=np.intp)
+        flat_tiles = self.tiles.ravel()
+        if np.any((indices < 0) | (indices >= flat_tiles.size)):
+            raise IndexError('Active tile ID is outside the grid.')
+
+        active_mask = np.zeros(flat_tiles.size, dtype=np.bool_)
+        active_mask[np.unique(indices)] = True
+        self.set_active_mask(active_mask)
+        self.num_inside = self.num_active
+
+    def make_inactive(self, lst: list[int]) -> None:
         """
-        make the listed tiles inactive.
+        Make the listed tile IDs inactive.
+
         Used for setting the boundaries around a region or excluding certain regions.
 
         Parameters
@@ -600,29 +798,52 @@ class Grid(BaseGrid):
         lst : list[int]
             list of tile ids to exclude
         """
-        for pos in lst:
-            self.tiles.flatten()[int(pos)].active = False
-        self.num_active = self.num_tiles - len(lst)
+        indices = np.asarray(lst, dtype=np.intp)
+        if indices.size == 0:
+            return
+
+        flat_tiles = self.tiles.ravel()
+        if np.any((indices < 0) | (indices >= flat_tiles.size)):
+            raise IndexError('Tile ID is outside the grid.')
+
+        active_mask = np.fromiter(
+            (tile.active for tile in flat_tiles),
+            dtype=np.bool_,
+            count=flat_tiles.size,
+        )
+        active_mask[np.unique(indices)] = False
+        self.set_active_mask(active_mask)
 
     # noinspection PyTypeChecker
     @cached_property
     def project(self):
+        from tile2net.raster.project import Project
+
         return Project(
             name=self.name,
             outdir=self.output_dir,
             raster=self,
         )
 
-    def save_ntw_polygon(self, crs_metric: int = 3857):
+    def save_ntw_polygon(
+            self,
+            crs_metric: int = 3857,
+            output_format: VectorFormat = VectorFormat.PARQUET,
+    ):
         """
         Collects the polygons of all tiles created in the segmentation process
-        and saves them as a shapefile
+        and saves them as GeoParquet
 
         Parameters
         ----------
         crs_metric : int
             The desired coordinate reference system to save the network polygon with.
         """
+        from tile2net.raster.tile_utils.topology import (
+            fill_holes,
+            replace_convexhull,
+        )
+
         poly_fold = self.project.polygons.path
         createfolder(poly_fold)
         gdf: list[gpd.GeoDataFrame] = [
@@ -641,27 +862,29 @@ class Grid(BaseGrid):
         unioned = buff_dfs(poly_network)
         unioned.geometry = unioned.geometry.simplify(0.9)
         unioned = unioned[unioned.geometry.notna()]
-        unioned['geometry'] = unioned.apply(fill_holes, args=(25,), axis=1)
+        unioned.geometry = [fill_holes(geometry, 25) for geometry in unioned.geometry]
         simplified = replace_convexhull(unioned)
         simplified = simplified[simplified.geometry.notna()]
         simplified = simplified[['geometry', 'f_type']]
         simplified.to_crs(self.crs, inplace=True)
 
         self.ntw_poly = simplified
-        path = os.path.join(poly_fold, f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H_%M")}')
-        if os.path.exists(path):
-            shutil.rmtree(path)
-        simplified.to_file(path)
-        logging.info('Polygons are generated and saved!')
+        path = write_vector(
+            simplified,
+            poly_fold / f'{self.name}-polygons',
+            output_format,
+        )
+        logging.info('Polygons are generated and saved to %s', path)
 
     def save_ntw_polygons(
             self,
             poly_network: gpd.GeoDataFrame,
             crs_metric: int = 3857,
-    ):
+            output_format: VectorFormat = VectorFormat.PARQUET,
+    ) -> gpd.GeoDataFrame:
         """
         Collects the polygons of all tiles created in the segmentation process
-        and saves them as a shapefile
+        and saves them as GeoParquet
 
         Parameters
         ----------
@@ -670,31 +893,57 @@ class Grid(BaseGrid):
         crs_metric : int
             The desired coordinate reference system to save the network polygon with.
         """
+        from tile2net.raster.tile_utils.topology import (
+            fill_holes,
+            replace_convexhull,
+        )
+
         poly_fold = self.project.polygons.path
         createfolder(poly_fold)
+        if poly_network.empty:
+            empty = gpd.GeoDataFrame(
+                {'f_type': []},
+                geometry=[],
+                crs=self.crs,
+            )
+            self.ntw_poly = empty
+            logger.warning(
+                'No polygon features were produced; skipping polygon file output.'
+            )
+            return empty
+        if 'geometry' not in poly_network.columns:
+            raise ValueError(
+                'A nonempty polygon result must contain a geometry column.'
+            )
+
+        poly_network = gpd.GeoDataFrame(
+            poly_network.copy(),
+            geometry='geometry',
+            crs=getattr(poly_network, 'crs', None) or self.crs,
+        )
         poly_network.reset_index(drop=True, inplace=True)
-        poly_network.set_crs(self.crs, inplace=True)
+        if poly_network.crs is None:
+            poly_network.set_crs(self.crs, inplace=True)
         if poly_network.crs != crs_metric:
             poly_network.to_crs(crs_metric, inplace=True)
         poly_network.geometry = poly_network.simplify(0.6)
         unioned = buff_dfs(poly_network)
         unioned.geometry = unioned.geometry.simplify(0.9)
         unioned = unioned[unioned.geometry.notna()]
-        unioned['geometry'] = unioned.apply(fill_holes, args=(25,), axis=1)
+        unioned.geometry = [fill_holes(geometry, 25) for geometry in unioned.geometry]
         simplified = replace_convexhull(unioned)
         simplified = simplified[simplified.geometry.notna()]
         simplified = simplified[['geometry', 'f_type']]
         simplified.to_crs(self.crs, inplace=True)
 
         self.ntw_poly = simplified
-        path = os.path.join(
-            poly_fold,
-            f'{self.name}-Polygons-{datetime.datetime.now().strftime("%d-%m-%Y_%H_%M")}'
+        path = write_vector(
+            simplified,
+            poly_fold / f'{self.name}-polygons',
+            output_format,
         )
-        if os.path.exists(path):
-            shutil.rmtree(path)
-        simplified.to_file(path)
-        logging.info('Polygons are generated and saved!')
+        logging.info('Polygons are generated and saved to %s', path)
+        return simplified
 
     def prepare_class_gdf(self, class_name: str, crs: int = 3857) -> object:
 

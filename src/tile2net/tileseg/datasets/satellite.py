@@ -89,7 +89,8 @@ class Loader(BaseLoader):
     color_mapping = []
 
     def __init__(self, mode, quality='semantic', joint_transform_list=None,
-                 img_transform=None, label_transform=None, eval_folder=None):
+                 img_transform=None, label_transform=None, eval_folder=None,
+                 active_tile_ids=None):
 
         super(Loader, self).__init__(quality=quality,
                                      mode=mode,
@@ -108,9 +109,16 @@ class Loader(BaseLoader):
         # Assemble image lists
         ######################################################################
         if mode == 'folder':
-            self.all_imgs = make_dataset_folder(eval_folder)
+            self.all_imgs = make_dataset_folder(
+                eval_folder,
+                active_tile_ids=active_tile_ids,
+            )
         elif mode =='test':
-            self.all_imgs = make_dataset_folder(eval_folder, testing=True)
+            self.all_imgs = make_dataset_folder(
+                eval_folder,
+                testing=True,
+                active_tile_ids=active_tile_ids,
+            )
         else:
             splits = {'train': 'train',
                       'val': 'val',
@@ -147,6 +155,5 @@ class Loader(BaseLoader):
         for i in range(zero_pad):
             palette.append(0)
         self.color_mapping = palette
-
 
 
