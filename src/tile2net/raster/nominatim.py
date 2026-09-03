@@ -46,7 +46,7 @@ class Nominatim(_Nominatim):
 
     _use_json: bool = False
     _use_sqlite: bool = True
-    _json_path: Path = Path(__file__, '../..', 'source', 'nominatim.json').resolve()
+    _json_path: Path = Path(__file__, '../', 'nominatim.json').resolve()
     _json_fields = ('display_name', 'boundingbox')
     _lock = threading.Lock()
     _json_cache: Optional[dict[str, dict]] = None
