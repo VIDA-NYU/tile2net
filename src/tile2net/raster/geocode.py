@@ -11,7 +11,7 @@ import geopandas as gpd
 import osmnx
 import shapely
 from geopandas import GeoDataFrame, GeoSeries
-from geopy.geocoders import Nominatim
+from geopy.geocoders import Nominatim, Photon
 
 from tile2net.logger import logger
 
@@ -186,20 +186,37 @@ class GeoCode:
             f"Geocoding {self.address}, this may take a while..."
         )
         # noinspection PyTypeChecker
-        nom = (
-            Nominatim(user_agent='tile2net')
+        nom = None
+        try:
+            nom = (
+                Nominatim(user_agent='tile2net')
+                .geocode(self.address, timeout=None)
+            )
+        except Exception as e:
+            logger.debug(f"Nominatim geocoding failed: {e}, trying Photon")
+
+        if nom is not None:
+            logger.info(
+                f"Geocoded '{self.address}' to\n\t"
+                f"'{nom.raw['display_name']}'"
+            )
+            raw = map(float, nom.raw['boundingbox'])
+            s, n, w, e = map(self._round, raw)
+            return n, w, s, e
+
+        # noinspection PyTypeChecker
+        photon = (
+            Photon(user_agent='tile2net')
             .geocode(self.address, timeout=None)
         )
-        if nom is None:
+        if photon is None:
             raise ValueError(f"Could not geocode '{self.address}'")
         logger.info(
             f"Geocoded '{self.address}' to\n\t"
-            f"'{nom.raw['display_name']}'"
+            f"'{photon.raw['properties'].get('name', self.address)}'"
         )
-        raw = map(float, nom.raw['boundingbox'])
-        s, n, w, e = map(self._round, raw)
-        value = n, w, s, e
-        return value
+        w, s, e, n = map(self._round, photon.raw['properties']['extent'])
+        return n, w, s, e
 
     @cached_property
     def wsen(self):
@@ -209,13 +226,27 @@ class GeoCode:
     @cached_property
     def address(self) -> str:
         # noinspection PyTypeChecker
+        reverse = None
+        try:
+            reverse = (
+                Nominatim(user_agent='tile2net')
+                .reverse(self.centroid, timeout=None)
+            )
+        except Exception as e:
+            logger.debug(f"Nominatim reverse geocoding failed: {e}, trying Photon")
+
+        if reverse is not None:
+            result = reverse.raw['display_name']
+            return result
+
+        # noinspection PyTypeChecker
         reverse = (
-            Nominatim(user_agent='tile2net', )
+            Photon(user_agent='tile2net')
             .reverse(self.centroid, timeout=None)
         )
         if reverse is None:
             raise ValueError(f"Could not geocode '{self.centroid}'")
-        result = reverse.raw['display_name']
+        result = reverse.address
         return result
 
     @cached_property

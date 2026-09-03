@@ -132,7 +132,12 @@ class SourceMeta(ABCMeta):
                 raise SourceNotFound
         matches = matches.loc[loc]
 
-        # to resolve discrepancies, select where keyword is in the address
+        # For geometry inputs, spatial filtering has already identified the
+        # candidate coverages. Reverse-geocoding the geometry may return an
+        # address (e.g. "New York") that does not contain the source keyword
+        # (e.g. "New York City"), causing the geometry-selected source to be
+        # discarded. For such cases, it seems best to include a city's counties
+        # in the keyword list.
         loc = []
         for name in matches.index:
             keyword: str | tuple[str]
@@ -371,7 +376,16 @@ Note: sometimes we get something like Spring Hill, Maury County,
 class NewYorkCity(ArcGis):
     server = 'https://tiles.arcgis.com/tiles/yG5s3afENB5iO9fj/arcgis/rest/services/NYC_Orthos_2024/MapServer'
     name = 'nyc'
-    keyword = 'New York City', 'City of New York'
+    keyword = (
+        'New York City',
+        'Manhattan',
+        'Brooklyn',
+        'Queens',
+        'Bronx',
+        'Staten Island',
+        'Kings County',
+        'Richmond County',
+    )
     year = 2024
     coverage = wkt.loads("POLYGON ((-73.69048 40.4889, -73.69048 40.92834, -74.27615 40.92834, -74.27615 40.4889, -73.69048 40.4889))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
@@ -399,7 +413,14 @@ class Massachusetts(ArcGis):
 class KingCountyWashington(ArcGis):
     server = 'https://gismaps.kingcounty.gov/arcgis/rest/services/BaseMaps/KingCo_Aerial_2023/MapServer'
     name = 'king'
-    keyword = 'King County, Washington', 'King County'
+    keyword = (
+        'King County',
+        'Seattle',
+        'Bellevue',
+        'Redmond',
+        'Renton',
+        'Kent',
+    )
     year = 2023
     coverage = wkt.loads("POLYGON ((-121.03559 47.04875, -121.03559 47.96618, -122.56958 47.96618, -122.56958 47.04875, -121.03559 47.04875))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
@@ -411,7 +432,10 @@ class WashingtonDC(ArcGis):
     name = 'dc'
     tilesize = 512
     extension = 'jpeg'
-    keyword = 'District of Columbia', 'DC'
+    keyword = (
+        'District of Columbia',
+        'Washington',
+    )
     year = 2023
     coverage = wkt.loads("POLYGON ((-76.90102 38.7855, -76.90072 39.0017, -77.12237 39.00168, -77.122 38.78548, -76.90102 38.7855))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
@@ -487,7 +511,11 @@ class NewJersey(ArcGis):
 class SpringHillTN(ArcGis):
     server = 'https://tiles.arcgis.com/tiles/tF0XsRR9ptiKNVW2/arcgis/rest/services/Spring_Hill_Imagery_WGS84/MapServer'
     name = 'sh_tn'
-    keyword = 'Spring Hill, Tennessee', 'Spring Hill'
+    keyword = (
+        'Spring Hill',
+        'Maury County',
+        'Williamson County',
+    )
     year = 2020
     coverage = wkt.loads("POLYGON ((-86.75604 35.58884, -86.75604 35.85806, -87.13095 35.85806, -87.13095 35.58884, -86.75604 35.58884))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
@@ -509,7 +537,18 @@ class AlamedaCounty(
     # ignore = True
     name = 'al'
     extension = 'png'
-    keyword = 'Alameda County', 'California'
+    keyword = (
+        'Alameda County',
+        'Oakland',
+        'Berkeley',
+        'Fremont',
+        'Hayward',
+        'Alameda',
+        'Albany',
+        'San Leandro',
+        'Pleasanton',
+        'Livermore',
+    )
     year = 2023
     server = (
         'https://svc.pictometry.com/Image/'
