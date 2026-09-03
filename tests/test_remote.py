@@ -25,6 +25,8 @@ def test_sources():
     import tile2net.raster.source
     from tile2net.raster import source
     from tile2net.raster.source import Source
+    from tile2net.raster.nominatim import Nominatim
+    Nominatim._use_json = True
     for key in dir(tile2net.raster.source):
         cls = getattr(tile2net.raster.source, key)
         if (

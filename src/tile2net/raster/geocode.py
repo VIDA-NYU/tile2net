@@ -11,9 +11,10 @@ import geopandas as gpd
 import osmnx
 import shapely
 from geopandas import GeoDataFrame, GeoSeries
-from geopy.geocoders import Nominatim, Photon
+from geopy.geocoders import Photon
 
 from tile2net.logger import logger
+from tile2net.raster.nominatim import Nominatim
 
 
 class cached:

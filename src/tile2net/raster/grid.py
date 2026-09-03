@@ -6,17 +6,14 @@ import numpy as np
 import pandas as pd
 import tempfile
 import shapely
-import rasterio
 from affine import Affine
 import osmnx as ox
 from dataclasses import dataclass, field
 from functools import cached_property
-from geopy.geocoders import Nominatim
-
-from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 
 os.environ['USE_PYGEOS'] = '0'
 import geopandas as gpd
+from tile2net.raster.nominatim import Nominatim
 from tile2net.raster.tile import Tile
 from tile2net.raster.formats import VectorFormat
 from tile2net.raster.tile_utils.genutils import (

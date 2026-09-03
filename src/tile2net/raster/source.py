@@ -23,11 +23,13 @@ from shapely import box, wkt
 from urllib3.util.retry import Retry
 
 from tile2net.logger import logger
+from tile2net.raster.nominatim import Nominatim
 from tile2net.raster.geocode import GeoCode
 from tile2net.raster.http import redact_url
 
+
 if False:
-    from tile2net.raster.tile import Tile
+    pass
 
 
 class Coverage:
@@ -854,6 +856,7 @@ def print_coverages(
 
 
 if __name__ == '__main__':
+    Nominatim._use_json = True
     assert Source['Portland, Maine'] == Maine
     assert Source['Maine'] == Maine
     assert Source['New Brunswick, New Jersey'] == NewJersey
