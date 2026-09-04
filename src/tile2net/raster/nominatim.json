@@ -1,4 +1,22 @@
 {
+  "33.98835,-118.1873": {
+    "boundingbox": [
+      "33.9883204",
+      "33.9884204",
+      "-118.1873556",
+      "-118.1872556"
+    ],
+    "display_name": "4407, East 58th Street, Maywood, Los Angeles County, California, 90270, United States"
+  },
+  "34.0462,-118.08495": {
+    "boundingbox": [
+      "34.0458973",
+      "34.0459973",
+      "-118.0849896",
+      "-118.0848896"
+    ],
+    "display_name": "8471, Sarah Street, South San Gabriel, Rosemead, Los Angeles County, California, 91770, United States"
+  },
   "34.059325,-118.295195": {
     "boundingbox": [
       "34.0599179",
@@ -71,6 +89,15 @@
     ],
     "display_name": "Mansfield Road West, Hedding, Mansfield Township, Burlington County, New Jersey, 08505, United States"
   },
+  "40.52855,-74.3879": {
+    "boundingbox": [
+      "40.5280429",
+      "40.5315471",
+      "-74.3901926",
+      "-74.3855104"
+    ],
+    "display_name": "FexEx Ground, Talmadge Road, Lincoln Park, Edison, Middlesex County, New Jersey, 08817, United States"
+  },
   "40.708619999999996,-73.983315": {
     "boundingbox": [
       "40.7095493",
@@ -98,6 +125,15 @@
     ],
     "display_name": "Luisaviaroma, 1, Bond Street, NoHo, Manhattan, New York County, New York, 10012, United States"
   },
+  "40.730850000000004,-73.9976": {
+    "boundingbox": [
+      "40.7296307",
+      "40.7321463",
+      "-73.9995207",
+      "-73.9956656"
+    ],
+    "display_name": "Greenwich Village, Manhattan, New York County, New York, 10012, United States"
+  },
   "40.744749999999996,-74.0291": {
     "boundingbox": [
       "40.7448510",
@@ -106,6 +142,15 @@
       "-74.0290146"
     ],
     "display_name": "106, 7th Street, Uptown, Hoboken, Hudson County, New Jersey, 07030, United States"
+  },
+  "415, Erie Street, Far Westside, City of Syracuse, Onondaga County, New York, 13204, United States": {
+    "boundingbox": [
+      "43.0506752",
+      "43.0507752",
+      "-76.1951907",
+      "-76.1950907"
+    ],
+    "display_name": "415, Erie Street, Far Westside, City of Syracuse, Onondaga County, New York, 13204, United States"
   },
   "42.059245000000004,-71.72222500000001": {
     "boundingbox": [
@@ -124,6 +169,15 @@
       "-76.4935640"
     ],
     "display_name": "Sherwood Road, Sherwood Equal Rights Historic District, Sherwood, Village of Aurora, Town of Scipio, Cayuga County, New York, 13118, United States"
+  },
+  "43.05052202494481,-76.19505424681927": {
+    "boundingbox": [
+      "43.0506752",
+      "43.0507752",
+      "-76.1951907",
+      "-76.1950907"
+    ],
+    "display_name": "415, Erie Street, Far Westside, City of Syracuse, Onondaga County, New York, 13204, United States"
   },
   "45.26390412045713,-69.02473999999998": {
     "boundingbox": [
@@ -224,6 +278,24 @@
     ],
     "display_name": "Massachusetts, United States"
   },
+  "Maywood, CA": {
+    "boundingbox": [
+      "33.9800039",
+      "33.9966700",
+      "-118.2045954",
+      "-118.1700018"
+    ],
+    "display_name": "Maywood, Los Angeles County, California, 90270, United States"
+  },
+  "Maywood, California": {
+    "boundingbox": [
+      "33.9800039",
+      "33.9966700",
+      "-118.2045954",
+      "-118.1700018"
+    ],
+    "display_name": "Maywood, Los Angeles County, California, 90270, United States"
+  },
   "New Brunswick, New Jersey": {
     "boundingbox": [
       "40.4679520",
@@ -296,6 +368,15 @@
     ],
     "display_name": "Spring Hill, Maury County, Middle Tennessee, Tennessee, United States"
   },
+  "Spring Hill, Tennessee": {
+    "boundingbox": [
+      "35.6898830",
+      "35.7949730",
+      "-86.9906790",
+      "-86.8565770"
+    ],
+    "display_name": "Spring Hill, Maury County, Middle Tennessee, Tennessee, United States"
+  },
   "Virginia": {
     "boundingbox": [
       "36.5407896",
@@ -305,6 +386,15 @@
     ],
     "display_name": "Virginia, United States"
   },
+  "Washington Square Park, New York, NY, USA": {
+    "boundingbox": [
+      "40.7296307",
+      "40.7321463",
+      "-73.9995207",
+      "-73.9956656"
+    ],
+    "display_name": "Washington Square Park, Manhattan, New York County, New York, United States"
+  },
   "Washington, DC": {
     "boundingbox": [
       "38.7916303",
@@ -313,5 +403,14 @@
       "-76.9093660"
     ],
     "display_name": "Washington, District of Columbia, United States"
+  },
+  "new jersey": {
+    "boundingbox": [
+      "38.7911303",
+      "41.3576501",
+      "-75.5633860",
+      "-73.8936280"
+    ],
+    "display_name": "New Jersey, United States"
   }
 }

@@ -216,7 +216,14 @@ class GeoCode:
             f"Geocoded '{self.address}' to\n\t"
             f"'{photon.raw['properties'].get('name', self.address)}'"
         )
-        w, s, e, n = map(self._round, photon.raw['properties']['extent'])
+        extent = photon.raw['properties'].get('extent')
+        if extent is None:
+            # point-type Photon results (e.g. individual POIs) have no
+            # extent; fall back to a small box around the point
+            lon = photon.raw['geometry']['coordinates'][0]
+            lat = photon.raw['geometry']['coordinates'][1]
+            extent = [lon - 1e-4, lat + 1e-4, lon + 1e-4, lat - 1e-4]
+        w, n, e, s = map(self._round, extent)
         return n, w, s, e
 
     @cached_property
