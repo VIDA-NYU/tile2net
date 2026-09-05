@@ -3,6 +3,7 @@ import argparse
 import argh
 
 from tile2net.namespace import Namespace
+from tile2net.raster.formats import VectorFormat
 
 arg = argparse.ArgumentParser().add_argument
 globals()['arg'] = argh.arg
@@ -27,10 +28,22 @@ commandline = compose_left(
         '--result_dir', type=str,
     ),
     arg(
+        '--vector-format',
+        '--vector_format',
+        dest='vector_format',
+        type=VectorFormat,
+        choices=tuple(VectorFormat),
+        default=VectorFormat.PARQUET,
+        help='Vector output format; defaults to GeoParquet.',
+    ),
+    arg(
         '--dump_percent',
         type=int,
         default=0,
-        help='The percentage of segmentation results to save. 100 means all, 0 means none.',
+        help=(
+            'Percentage of segmentation masks and previews to save; '
+            '100 means all and 0 means none. Vector outputs are unaffected.'
+        ),
     ),
     arg(
         '--assets_path', type=str,
@@ -150,8 +163,9 @@ commandline = compose_left(
 
     arg(
         '--eval', type=str,
-        # default='test',
-        help='just run evaluation, can be set to val or trn, test or folder',
+        default='test',
+        choices=('test', 'folder'),
+        help='inference input mode',
         dest='model.eval',
     ),
     arg(
@@ -329,5 +343,3 @@ commandline = compose_left(
         '--remote', action='store_true'
     ),
 )
-
-

@@ -83,8 +83,8 @@ Aside from that, we have updated the code to work with the most recent, stable v
 
 ## Semantic Segmentation Requirements
 
-- Hardware: ==1 CUDA-enabled GPU for inference
-- Software:  ***CUDA==11.7, Python==3.10.9, pytorch==2.0.0***
+- Hardware: one CUDA-enabled GPU for inference
+- Software: Python 3.11 through 3.14 and a CUDA-compatible PyTorch installation
 
 ## Installation
 
@@ -106,66 +106,98 @@ python -m pip install -e .
 
 ## Create Your First Project
 
-In general, you will interact with the tool through two main components, `generate` and `inference`, both of which work
-with the Raster module.
-`generate`, as its name indicates, generates the project structure, downloads the weights and in case your region of
-interest is supported by Tile2Net, also prepares the image tiles, and finally outputs a JSON text regarding the raster
-specifications and the paths to the various resources. To know more about the basic concepts behind the tool, please
-read [this.](https://github.com/VIDA-NYU/tile2net/blob/main/BASICS.md)
 
-`inference` will then run the semantic segmentation model on the prepared tiles (or your own tile data which should be
-prepared following the guidelines [here](https://github.com/VIDA-NYU/tile2net/blob/main/DATA_PREPARE.md)), detect roads,
-sidewalks, footpaths, and crosswalks in your image data
-and outputs the polygons and network data for your region.
-The final vector outputs are provided in WGS84, EPSG:4326, with coordinates expressed in longitude and latitude degrees. 
-This format supports straightforward integration with common GIS and web-mapping platforms such as Google Maps, Mapbox, and Esri.
+Tile2Net exposes two commands, `generate` and `inference`, both backed by the
+`Raster` module.
 
-The weights used by the semantic segmentation model are available on
-the [Google Drive](https://drive.google.com/drive/folders/1cu-MATHgekWUYqj9TFr12utl6VB-XKSu).
+`generate` creates the project structure, downloads and verifies the two model
+checkpoints, downloads supported imagery or reads user-provided tiles, stitches
+the inference inputs, and writes project metadata. The final JSON emitted to
+standard output can be piped directly to `inference`. See
+[BASICS.md](https://github.com/VIDA-NYU/tile2net/blob/main/BASICS.md) for the
+underlying concepts and supported imagery sources.
+
+Model checkpoints are cached outside the installed package at
+`~/.cache/tile2net/weights` by default. Set `TILE2NET_WEIGHTS_DIR` to use a
+different location, such as a shared read-only model directory on an HPC
+system. Downloads are installed only after their byte size and SHA-256 digest
+match the pinned manifest.
+
+`inference` runs the semantic segmentation model on the prepared tiles, or on
+user imagery prepared according to
+[DATA_PREPARE.md](https://github.com/VIDA-NYU/tile2net/blob/main/DATA_PREPARE.md).
+It extracts roads, sidewalks, footpaths, and crosswalks, then creates polygon
+and pedestrian-network outputs. Vector outputs default to GeoParquet;
+Shapefile is available explicitly with `--vector-format shapefile`.
+
+Final vector outputs use WGS 84 geographic coordinates (EPSG:4326), expressed
+as longitude and latitude degrees. EPSG:4326 is not Web Mercator; Web Mercator
+is EPSG:3857.
+
+Segmentation PNGs and side-by-side previews are optional. Use
+`--dump_percent 0` to save none, `--dump_percent 100` to save all, or an
+intermediate percentage for a deterministic sample. This option does not
+affect polygon or network generation.
+
+The published model artifacts are identified by the versioned Figshare DOIs
+`10.6084/m9.figshare.33315570.v1` and
+`10.6084/m9.figshare.33315558.v1`
 
 ## Run Our Example
 
-An [example.sh](https://github.com/VIDA-NYU/tile2net/blob/main/examples/example.sh) script is also available, which
-will prompt the user for a path where the project should be created and saved. It will then download the tiles
-corresponding to Boston Commons and Public Garden, creates larger tiles (stitched together) for inference, run
-inference, create the polygon and network of this region. The sample area is small, just so you can test your
-environment settings and GPU, and see what to look for.
+The [example.sh](https://github.com/VIDA-NYU/tile2net/blob/main/examples/example.sh)
+script prompts for an output directory and runs the complete Boston Common and
+Public Garden example. It downloads and verifies the model checkpoints,
+downloads the imagery, stitches the inference tiles, runs CUDA inference, and
+creates segmentation previews, polygons, and a pedestrian network. The area is
+deliberately small so that the command can validate the environment and GPU.
 
 To run that, open your terminal and run:
 
-```
-bash ./examples/example.sh 
+```bash
+bash ./examples/example.sh
 ```
 
 ## Running in the Terminal
 
-To run the model in the terminal, you need to pass three main arguments:  _location_ -l, _name_ -n, and _output_dir_ -o.
-There are other default parameters that you can modify, such as zoom level, tile_step, stitch_step, but the first three
-are required to create a `Raster` object for your region.
+`generate` requires `--location` and `--name`. `--output` is optional but is
+recommended so that the project location is explicit. Other options include
+the zoom level, tile step, stitch step, boundary dataset, and imagery source.
 
-Currently `python -m tile2net generate` and `python -m tile2net inference` are supported. The tool also supports
-piping results e.g. `python -m tile2net generate <args> | python -m tile2net inference` to allow for the whole process to be
-run in a single command.
+Run generation with:
 
-To run the program in the terminal you can use the following command (replace <> with the appropriate information):
-
-```
-python -m tile2net generate -l <coordinate or address> -n <project name> -o <path to output directory>
-```
-
-Once that command is run and generate the respective files, use the command below to run inference and get the polygons
-and network. You can find the path to your city_info JSON file from the output of generate command above, look for the
-path printed in front of `INFO       Dumping to`:
-
-```
-python -m tile2net inference --city_info <path to your region info json>
+```bash
+uv run python -m tile2net generate \
+  --location "<coordinate bounding box or address>" \
+  --name "<project-name>" \
+  --output "<output-directory>"
 ```
 
+The command writes the city-information JSON path after `INFO Dumping to`. Run
+local CUDA inference from that metadata with:
 
-Or, you can pip the whole process and run it using only one line of code! (note that in piping scenario, you don't need to pass `city_info` argument. 
-
+```bash
+uv run python -m tile2net inference \
+  --city_info "<path-to-project-info.json>" \
+  --local \
+  --eval test \
+  --dump_percent 0
 ```
-python -m tile2net generate -l <coordinate or address> -n <project name> -o <path to output directory> | python -m tile2net inference
+
+The complete pipeline can be connected with a shell pipe; `--city_info` is not
+needed because `inference` reads the JSON emitted by `generate`:
+
+```bash
+set -o pipefail
+
+uv run python -m tile2net generate \
+  --location "<coordinate bounding box or address>" \
+  --name "<project-name>" \
+  --output "<output-directory>" \
+  | uv run python -m tile2net inference \
+      --local \
+      --eval test \
+      --dump_percent 0
 ```
 
 ## Running Interactively
@@ -180,4 +212,3 @@ This tool is currently in early development and is not yet ready for production 
 To see more, there is an [inference.ipynb](https://github.com/VIDA-NYU/tile2net/blob/main/examples/inference.ipynb)
 interactive notebook to demonstrate
 how to run the inference process interactively.
-
