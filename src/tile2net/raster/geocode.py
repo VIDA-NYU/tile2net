@@ -51,6 +51,16 @@ class GeoCode:
     cache: dict[object, GeoCode] = {}
     _round = functools.partial(round, ndigits=4)
 
+    def __repr__(self) -> str:
+        fields = ',\n    '.join(
+            f'{name}={self.__dict__[name]!r}'
+            for name in ('address', 'centroid', 'nwse')
+            if name in self.__dict__
+        )
+        if not fields:
+            return f'{type(self).__name__}()'
+        return f'{type(self).__name__}(\n    {fields}\n)'
+
     @classmethod
     def from_inferred(cls, obj: str | Any) -> Self:
         if isinstance(obj, shapely.Polygon):
