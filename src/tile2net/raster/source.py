@@ -856,7 +856,8 @@ def print_coverages(
 
 
 if __name__ == '__main__':
-    Nominatim._use_json = True
+    Nominatim.json.read = True
+    Nominatim.json.write = True
     assert Source['Portland, Maine'] == Maine
     assert Source['Maine'] == Maine
     assert Source['New Brunswick, New Jersey'] == NewJersey

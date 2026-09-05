@@ -1,149 +1,5 @@
 {
-  "33.98835,-118.1873": {
-    "boundingbox": [
-      "33.9883204",
-      "33.9884204",
-      "-118.1873556",
-      "-118.1872556"
-    ],
-    "display_name": "4407, East 58th Street, Maywood, Los Angeles County, California, 90270, United States"
-  },
-  "34.0462,-118.08495": {
-    "boundingbox": [
-      "34.0458973",
-      "34.0459973",
-      "-118.0849896",
-      "-118.0848896"
-    ],
-    "display_name": "8471, Sarah Street, South San Gabriel, Rosemead, Los Angeles County, California, 91770, United States"
-  },
-  "34.059325,-118.295195": {
-    "boundingbox": [
-      "34.0599179",
-      "34.0604652",
-      "-118.2952797",
-      "-118.2948597"
-    ],
-    "display_name": "Park Catalina Apartment Building, 690, South Catalina Street, Koreatown, Los Angeles, Los Angeles County, California, 90005, United States"
-  },
-  "35.72345,-86.943495": {
-    "boundingbox": [
-      "35.7230287",
-      "35.7230675",
-      "-86.9408658",
-      "-86.9403994"
-    ],
-    "display_name": "Southern Springs, Spring Hill, Maury County, Middle Tennessee, Tennessee, 37174, United States"
-  },
-  "37.68183234,-121.9039563485": {
-    "boundingbox": [
-      "37.6818935",
-      "37.6818947",
-      "-121.9040394",
-      "-121.9038310"
-    ],
-    "display_name": "West Las Positas Boulevard, Hacienda, Pleasanton, Alameda County, California, 94588, United States"
-  },
-  "37.770223,-122.43585250000001": {
-    "boundingbox": [
-      "37.7701309",
-      "37.7703952",
-      "-122.4359111",
-      "-122.4357554"
-    ],
-    "display_name": "733;735;737;739;741;743, Waller Street, Lower Haight, Western Addition, San Francisco, California, 94143, United States"
-  },
-  "38.00335,-79.42085": {
-    "boundingbox": [
-      "38.0056893",
-      "38.0167060",
-      "-79.4236683",
-      "-79.4138759"
-    ],
-    "display_name": "Iroquois Trail, Rockbridge County, Virginia, United States"
-  },
-  "38.89359,-77.01154500000001": {
-    "boundingbox": [
-      "38.8935757",
-      "38.8935788",
-      "-77.0115909",
-      "-77.0111933"
-    ],
-    "display_name": "C Street Northwest, Downtown East, Ward 6, Washington, District of Columbia, 20534, United States"
-  },
-  "38.90277706745021,-77.03617656372798": {
-    "boundingbox": [
-      "38.9031276",
-      "38.9032276",
-      "-77.0358449",
-      "-77.0357449"
-    ],
-    "display_name": "The Tax Law Firm of Charles A. Ray, Jr., 1001, 16th Street Northwest, Golden Triangle, Ward 2, Washington, District of Columbia, 20036, United States"
-  },
-  "40.1053,-74.72762": {
-    "boundingbox": [
-      "40.1017798",
-      "40.1093792",
-      "-74.7346356",
-      "-74.7262676"
-    ],
-    "display_name": "Mansfield Road West, Hedding, Mansfield Township, Burlington County, New Jersey, 08505, United States"
-  },
-  "40.52855,-74.3879": {
-    "boundingbox": [
-      "40.5280429",
-      "40.5315471",
-      "-74.3901926",
-      "-74.3855104"
-    ],
-    "display_name": "FexEx Ground, Talmadge Road, Lincoln Park, Edison, Middlesex County, New Jersey, 08817, United States"
-  },
-  "40.708619999999996,-73.983315": {
-    "boundingbox": [
-      "40.7095493",
-      "40.7101585",
-      "-73.9842789",
-      "-73.9835151"
-    ],
-    "display_name": "Pier 36, Two Bridges, Manhattan Community Board 3, Manhattan, New York County, New York, 10002, United States"
-  },
-  "40.71525,-74.06864999999999": {
-    "boundingbox": [
-      "40.7152233",
-      "40.7153233",
-      "-74.0687551",
-      "-74.0686551"
-    ],
-    "display_name": "739, Grand Street, Communipaw, Jersey City, Hudson County, New Jersey, 07304, United States"
-  },
-  "40.72663613847755,-73.99494276578649": {
-    "boundingbox": [
-      "40.7266667",
-      "40.7267667",
-      "-73.9947694",
-      "-73.9946694"
-    ],
-    "display_name": "Luisaviaroma, 1, Bond Street, NoHo, Manhattan, New York County, New York, 10012, United States"
-  },
-  "40.730850000000004,-73.9976": {
-    "boundingbox": [
-      "40.7296307",
-      "40.7321463",
-      "-73.9995207",
-      "-73.9956656"
-    ],
-    "display_name": "Greenwich Village, Manhattan, New York County, New York, 10012, United States"
-  },
-  "40.744749999999996,-74.0291": {
-    "boundingbox": [
-      "40.7448510",
-      "40.7449510",
-      "-74.0291146",
-      "-74.0290146"
-    ],
-    "display_name": "106, 7th Street, Uptown, Hoboken, Hudson County, New Jersey, 07030, United States"
-  },
-  "415, Erie Street, Far Westside, City of Syracuse, Onondaga County, New York, 13204, United States": {
+  "geocode|415, Erie Street, Far Westside, City of Syracuse, Onondaga County, New York, 13204, United States": {
     "boundingbox": [
       "43.0506752",
       "43.0507752",
@@ -152,52 +8,7 @@
     ],
     "display_name": "415, Erie Street, Far Westside, City of Syracuse, Onondaga County, New York, 13204, United States"
   },
-  "42.059245000000004,-71.72222500000001": {
-    "boundingbox": [
-      "42.0201744",
-      "42.0615590",
-      "-71.7926345",
-      "-71.6136134"
-    ],
-    "display_name": "Southern New England Trunkline Trail, East Douglas Station, East Douglas, Douglas, Worcester County, Massachusetts, 01516, United States"
-  },
-  "42.761359999999996,-76.517155": {
-    "boundingbox": [
-      "42.7576530",
-      "42.7652479",
-      "-76.7035990",
-      "-76.4935640"
-    ],
-    "display_name": "Sherwood Road, Sherwood Equal Rights Historic District, Sherwood, Village of Aurora, Town of Scipio, Cayuga County, New York, 13118, United States"
-  },
-  "43.05052202494481,-76.19505424681927": {
-    "boundingbox": [
-      "43.0506752",
-      "43.0507752",
-      "-76.1951907",
-      "-76.1950907"
-    ],
-    "display_name": "415, Erie Street, Far Westside, City of Syracuse, Onondaga County, New York, 13204, United States"
-  },
-  "45.26390412045713,-69.02473999999998": {
-    "boundingbox": [
-      "45.2551685",
-      "45.2653700",
-      "-69.0227430",
-      "-69.0144341"
-    ],
-    "display_name": "Carver Road, Milo, Piscataquis County, Maine, 04463, United States"
-  },
-  "47.507464999999996,-121.802585": {
-    "boundingbox": [
-      "47.5082366",
-      "47.5083366",
-      "-121.8020740",
-      "-121.8019740"
-    ],
-    "display_name": "1604, Bendigo Boulevard North, North Bend, King County, Washington, 98045, United States"
-  },
-  "Berkeley, California": {
+  "geocode|Berkeley, California": {
     "boundingbox": [
       "37.8356877",
       "37.9066896",
@@ -206,7 +17,7 @@
     ],
     "display_name": "Berkeley, Alameda County, California, United States"
   },
-  "Fremont, California": {
+  "geocode|Fremont, California": {
     "boundingbox": [
       "37.4539161",
       "37.6066394",
@@ -215,7 +26,7 @@
     ],
     "display_name": "Fremont, Alameda County, California, United States"
   },
-  "Hoboken": {
+  "geocode|Hoboken": {
     "boundingbox": [
       "40.7303906",
       "40.7590990",
@@ -224,7 +35,7 @@
     ],
     "display_name": "Hoboken, Hudson County, New Jersey, 07030, United States"
   },
-  "Jersey City": {
+  "geocode|Jersey City": {
     "boundingbox": [
       "40.6616220",
       "40.7689376",
@@ -233,7 +44,7 @@
     ],
     "display_name": "Jersey City, Hudson County, New Jersey, United States"
   },
-  "King County, Washington": {
+  "geocode|King County, Washington": {
     "boundingbox": [
       "47.0840894",
       "47.7803281",
@@ -242,7 +53,7 @@
     ],
     "display_name": "King County, Washington, United States"
   },
-  "Los Angeles": {
+  "geocode|Los Angeles": {
     "boundingbox": [
       "33.6595410",
       "34.3373060",
@@ -251,7 +62,7 @@
     ],
     "display_name": "Los Angeles, Los Angeles County, California, United States"
   },
-  "Luisaviaroma, 1, Bond Street, NoHo, Manhattan, New York County, New York, 10012, United States": {
+  "geocode|Luisaviaroma, 1, Bond Street, NoHo, Manhattan, New York County, New York, 10012, United States": {
     "boundingbox": [
       "40.7266667",
       "40.7267667",
@@ -260,7 +71,7 @@
     ],
     "display_name": "Luisaviaroma, 1, Bond Street, NoHo, Manhattan, New York County, New York, 10012, United States"
   },
-  "Maine": {
+  "geocode|Maine": {
     "boundingbox": [
       "42.9222206",
       "47.4598397",
@@ -269,7 +80,7 @@
     ],
     "display_name": "Maine, United States"
   },
-  "Massachusetts": {
+  "geocode|Massachusetts": {
     "boundingbox": [
       "41.1888589",
       "42.8867783",
@@ -278,7 +89,7 @@
     ],
     "display_name": "Massachusetts, United States"
   },
-  "Maywood, CA": {
+  "geocode|Maywood, CA": {
     "boundingbox": [
       "33.9800039",
       "33.9966700",
@@ -287,7 +98,7 @@
     ],
     "display_name": "Maywood, Los Angeles County, California, 90270, United States"
   },
-  "Maywood, California": {
+  "geocode|Maywood, California": {
     "boundingbox": [
       "33.9800039",
       "33.9966700",
@@ -296,7 +107,7 @@
     ],
     "display_name": "Maywood, Los Angeles County, California, 90270, United States"
   },
-  "New Brunswick, New Jersey": {
+  "geocode|New Brunswick, New Jersey": {
     "boundingbox": [
       "40.4679520",
       "40.5095330",
@@ -305,7 +116,7 @@
     ],
     "display_name": "New Brunswick, Middlesex County, New Jersey, United States"
   },
-  "New Jersey": {
+  "geocode|New Jersey": {
     "boundingbox": [
       "38.7911303",
       "41.3576501",
@@ -314,7 +125,7 @@
     ],
     "display_name": "New Jersey, United States"
   },
-  "New York": {
+  "geocode|New York": {
     "boundingbox": [
       "40.4765780",
       "40.9176300",
@@ -323,7 +134,7 @@
     ],
     "display_name": "New York, United States"
   },
-  "New York City": {
+  "geocode|New York City": {
     "boundingbox": [
       "40.4765780",
       "40.9176300",
@@ -332,7 +143,7 @@
     ],
     "display_name": "New York, United States"
   },
-  "Oakland, California": {
+  "geocode|Oakland, California": {
     "boundingbox": [
       "37.6301063",
       "37.8854257",
@@ -341,7 +152,7 @@
     ],
     "display_name": "Oakland, Alameda County, California, United States"
   },
-  "Portland, Maine": {
+  "geocode|Portland, Maine": {
     "boundingbox": [
       "43.5443477",
       "43.7276965",
@@ -350,7 +161,7 @@
     ],
     "display_name": "Portland, Cumberland County, Maine, United States"
   },
-  "San Francisco, California": {
+  "geocode|San Francisco, California": {
     "boundingbox": [
       "37.6403143",
       "37.9296678",
@@ -359,7 +170,7 @@
     ],
     "display_name": "San Francisco, California, United States"
   },
-  "Spring Hill, TN": {
+  "geocode|Spring Hill, TN": {
     "boundingbox": [
       "35.6898830",
       "35.7949730",
@@ -368,7 +179,7 @@
     ],
     "display_name": "Spring Hill, Maury County, Middle Tennessee, Tennessee, United States"
   },
-  "Spring Hill, Tennessee": {
+  "geocode|Spring Hill, Tennessee": {
     "boundingbox": [
       "35.6898830",
       "35.7949730",
@@ -377,7 +188,7 @@
     ],
     "display_name": "Spring Hill, Maury County, Middle Tennessee, Tennessee, United States"
   },
-  "Virginia": {
+  "geocode|Virginia": {
     "boundingbox": [
       "36.5407896",
       "39.4660120",
@@ -386,7 +197,7 @@
     ],
     "display_name": "Virginia, United States"
   },
-  "Washington Square Park, New York, NY, USA": {
+  "geocode|Washington Square Park, New York, NY, USA": {
     "boundingbox": [
       "40.7296307",
       "40.7321463",
@@ -395,7 +206,7 @@
     ],
     "display_name": "Washington Square Park, Manhattan, New York County, New York, United States"
   },
-  "Washington, DC": {
+  "geocode|Washington, DC": {
     "boundingbox": [
       "38.7916303",
       "38.9959680",
@@ -404,7 +215,7 @@
     ],
     "display_name": "Washington, District of Columbia, United States"
   },
-  "new jersey": {
+  "geocode|new jersey": {
     "boundingbox": [
       "38.7911303",
       "41.3576501",
@@ -412,5 +223,194 @@
       "-73.8936280"
     ],
     "display_name": "New Jersey, United States"
+  },
+  "reverse|33.98835,-118.1873|addressdetails=True": {
+    "boundingbox": [
+      "33.9883204",
+      "33.9884204",
+      "-118.1873556",
+      "-118.1872556"
+    ],
+    "display_name": "4407, East 58th Street, Maywood, Los Angeles County, California, 90270, United States"
+  },
+  "reverse|34.0462,-118.08495|addressdetails=True": {
+    "boundingbox": [
+      "34.0458973",
+      "34.0459973",
+      "-118.0849896",
+      "-118.0848896"
+    ],
+    "display_name": "8471, Sarah Street, South San Gabriel, Rosemead, Los Angeles County, California, 91770, United States"
+  },
+  "reverse|34.059325,-118.295195|addressdetails=True": {
+    "boundingbox": [
+      "34.0599179",
+      "34.0604652",
+      "-118.2952797",
+      "-118.2948597"
+    ],
+    "display_name": "Park Catalina Apartment Building, 690, South Catalina Street, Koreatown, Los Angeles, Los Angeles County, California, 90005, United States"
+  },
+  "reverse|35.72345,-86.943495|addressdetails=True": {
+    "boundingbox": [
+      "35.7230287",
+      "35.7230675",
+      "-86.9408658",
+      "-86.9403994"
+    ],
+    "display_name": "Southern Springs, Spring Hill, Maury County, Middle Tennessee, Tennessee, 37174, United States"
+  },
+  "reverse|37.68183234,-121.9039563485|addressdetails=True": {
+    "boundingbox": [
+      "37.6818935",
+      "37.6818947",
+      "-121.9040394",
+      "-121.9038310"
+    ],
+    "display_name": "West Las Positas Boulevard, Hacienda, Pleasanton, Alameda County, California, 94588, United States"
+  },
+  "reverse|37.770223,-122.43585250000001|addressdetails=True": {
+    "boundingbox": [
+      "37.7701309",
+      "37.7703952",
+      "-122.4359111",
+      "-122.4357554"
+    ],
+    "display_name": "733;735;737;739;741;743, Waller Street, Lower Haight, Western Addition, San Francisco, California, 94143, United States"
+  },
+  "reverse|38.00335,-79.42085|addressdetails=True": {
+    "boundingbox": [
+      "38.0056893",
+      "38.0167060",
+      "-79.4236683",
+      "-79.4138759"
+    ],
+    "display_name": "Iroquois Trail, Rockbridge County, Virginia, United States"
+  },
+  "reverse|38.89359,-77.01154500000001|addressdetails=True": {
+    "boundingbox": [
+      "38.8935757",
+      "38.8935788",
+      "-77.0115909",
+      "-77.0111933"
+    ],
+    "display_name": "C Street Northwest, Downtown East, Ward 6, Washington, District of Columbia, 20534, United States"
+  },
+  "reverse|38.90277706745021,-77.03617656372798|addressdetails=True": {
+    "boundingbox": [
+      "38.9031276",
+      "38.9032276",
+      "-77.0358449",
+      "-77.0357449"
+    ],
+    "display_name": "The Tax Law Firm of Charles A. Ray, Jr., 1001, 16th Street Northwest, Golden Triangle, Ward 2, Washington, District of Columbia, 20036, United States"
+  },
+  "reverse|40.1053,-74.72762|addressdetails=True": {
+    "boundingbox": [
+      "40.1017798",
+      "40.1093792",
+      "-74.7346356",
+      "-74.7262676"
+    ],
+    "display_name": "Mansfield Road West, Hedding, Mansfield Township, Burlington County, New Jersey, 08505, United States"
+  },
+  "reverse|40.52855,-74.3879|addressdetails=True": {
+    "boundingbox": [
+      "40.5280429",
+      "40.5315471",
+      "-74.3901926",
+      "-74.3855104"
+    ],
+    "display_name": "FexEx Ground, Talmadge Road, Lincoln Park, Edison, Middlesex County, New Jersey, 08817, United States"
+  },
+  "reverse|40.708619999999996,-73.983315|addressdetails=True": {
+    "boundingbox": [
+      "40.7095493",
+      "40.7101585",
+      "-73.9842789",
+      "-73.9835151"
+    ],
+    "display_name": "Pier 36, Two Bridges, Manhattan Community Board 3, Manhattan, New York County, New York, 10002, United States"
+  },
+  "reverse|40.71525,-74.06864999999999|addressdetails=True": {
+    "boundingbox": [
+      "40.7152233",
+      "40.7153233",
+      "-74.0687551",
+      "-74.0686551"
+    ],
+    "display_name": "739, Grand Street, Communipaw, Jersey City, Hudson County, New Jersey, 07304, United States"
+  },
+  "reverse|40.72663613847755,-73.99494276578649|addressdetails=True": {
+    "boundingbox": [
+      "40.7266667",
+      "40.7267667",
+      "-73.9947694",
+      "-73.9946694"
+    ],
+    "display_name": "Luisaviaroma, 1, Bond Street, NoHo, Manhattan, New York County, New York, 10012, United States"
+  },
+  "reverse|40.730850000000004,-73.9976|addressdetails=True": {
+    "boundingbox": [
+      "40.7296307",
+      "40.7321463",
+      "-73.9995207",
+      "-73.9956656"
+    ],
+    "display_name": "Greenwich Village, Manhattan, New York County, New York, 10012, United States"
+  },
+  "reverse|40.744749999999996,-74.0291|addressdetails=True": {
+    "boundingbox": [
+      "40.7448510",
+      "40.7449510",
+      "-74.0291146",
+      "-74.0290146"
+    ],
+    "display_name": "106, 7th Street, Uptown, Hoboken, Hudson County, New Jersey, 07030, United States"
+  },
+  "reverse|42.059245000000004,-71.72222500000001|addressdetails=True": {
+    "boundingbox": [
+      "42.0201744",
+      "42.0615590",
+      "-71.7926345",
+      "-71.6136134"
+    ],
+    "display_name": "Southern New England Trunkline Trail, East Douglas Station, East Douglas, Douglas, Worcester County, Massachusetts, 01516, United States"
+  },
+  "reverse|42.761359999999996,-76.517155|addressdetails=True": {
+    "boundingbox": [
+      "42.7576530",
+      "42.7652479",
+      "-76.7035990",
+      "-76.4935640"
+    ],
+    "display_name": "Sherwood Road, Sherwood Equal Rights Historic District, Sherwood, Village of Aurora, Town of Scipio, Cayuga County, New York, 13118, United States"
+  },
+  "reverse|43.05052202494481,-76.19505424681927|addressdetails=True": {
+    "boundingbox": [
+      "43.0506752",
+      "43.0507752",
+      "-76.1951907",
+      "-76.1950907"
+    ],
+    "display_name": "415, Erie Street, Far Westside, City of Syracuse, Onondaga County, New York, 13204, United States"
+  },
+  "reverse|45.26390412045713,-69.02473999999998|addressdetails=True": {
+    "boundingbox": [
+      "45.2551685",
+      "45.2653700",
+      "-69.0227430",
+      "-69.0144341"
+    ],
+    "display_name": "Carver Road, Milo, Piscataquis County, Maine, 04463, United States"
+  },
+  "reverse|47.507464999999996,-121.802585|addressdetails=True": {
+    "boundingbox": [
+      "47.5082366",
+      "47.5083366",
+      "-121.8020740",
+      "-121.8019740"
+    ],
+    "display_name": "1604, Bendigo Boulevard North, North Bend, King County, Washington, 98045, United States"
   }
 }
