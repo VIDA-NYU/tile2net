@@ -268,7 +268,7 @@ class Raster(Grid):
             raise ValueError("Cannot specify both source and input_dir")
         if input_dir is None:
             if source is None:
-                source = Source[location]
+                source = Source.from_inferred(location)
                 if source is None:
                     ...
                 else:
@@ -278,7 +278,7 @@ class Raster(Grid):
             elif isinstance(source, type):
                 source = source()
             elif isinstance(source, str):
-                source = Source[source]
+                source = Source.from_inferred(source)
             elif isinstance(source, Source):
                 ...
             else:

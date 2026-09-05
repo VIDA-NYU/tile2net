@@ -6,7 +6,7 @@ import os
 import pathlib
 import warnings
 import xml.etree.ElementTree as ET
-from abc import ABC, ABCMeta
+from abc import ABC
 from functools import cached_property, wraps
 from typing import Iterator, Optional, Type, Iterable, TypeVar
 from urllib.parse import urlencode
@@ -39,7 +39,7 @@ class Coverage:
             __file__, '..', '..', 'resources', 'coverage.feather'
         ).resolve()
 
-    def __get__(self, instance, owner: SourceMeta) -> GeoSeries:
+    def __get__(self, instance, owner: Type[Source]) -> GeoSeries:
         if self.file.exists():
             coverage = gpd.read_feather(self.file)
             # if not coverage.index.symmetric_difference(owner.catalog.keys()):
@@ -102,21 +102,34 @@ def not_found_none(func: T) -> T:
     return wrapper
 
 
-class SourceMeta(ABCMeta):
-    catalog: dict[str, Type[Source]] = {}
-    coverage = Coverage()
+class Source(ABC):
+    name: str = None  # name of the source
+    coverage: GeoSeries = None  # coverage that contains a polygon representing the coverage
+    zoom: int = None  # xyz tile zoom level
+    extension = 'png'
+    tiles: str = None
+    tilesize: int = 256  # pixels per tile side
+    keyword: str  # required match when reverse geolocating address from point
+    dropword: str = None  # if result contains this word, it is not a match
+    year: int = None  # year of the data
+    outdated: bool = False
 
+    catalog: dict[str, Type['Source']] = {}
+    _coverage_index = Coverage()
+
+    @classmethod
     @not_found_none
-    def __getitem__(
-            cls: Type[Source],
+    def from_inferred(
+            cls: Type['Source'],
             item: list[float] | str | shapely.geometry.base.BaseGeometry,
     ) -> Optional['Source']:
+        """Resolve item (address, coordinates, geometry, or name) to a Source instance."""
         # todo: index index for which sources contain keyword
         if item in cls.catalog:
             return cls.catalog[item]()
         # select where geometry intersects the coverage
 
-        matches: GeoSeries = SourceMeta.coverage.geometry
+        matches: GeoSeries = Source._coverage_index.geometry
         geocode = GeoCode.from_inferred(item)
         loc = matches.intersects(geocode.polygon)
         if (
@@ -213,28 +226,6 @@ class SourceMeta(ABCMeta):
             raise TypeError(f'Invalid type {type(item)} for {item}')
         return source()
 
-    # def __init__(self: Type[Source], name, bases, attrs, **kwargs):
-    #     super().__init__(name, bases, attrs)
-    #     if not getattr(self, 'ignore', False):
-    #         if self.name is None:
-    #             raise ValueError(f'{self} must have a name')
-    #         if self.name in self.catalog:
-    #             raise ValueError(f'{self} name already in use')
-    #         self.catalog[self.name] = self
-
-
-class Source(ABC, metaclass=SourceMeta):
-    name: str = None  # name of the source
-    coverage: GeoSeries = None  # coverage that contains a polygon representing the coverage
-    zoom: int = None  # xyz tile zoom level
-    extension = 'png'
-    tiles: str = None
-    tilesize: int = 256  # pixels per tile side
-    keyword: str  # required match when reverse geolocating address from point
-    dropword: str = None  # if result contains this word, it is not a match
-    year: int = None  # year of the data
-    outdated: bool = False
-
     def __getitem__(self, item: Iterator[Tile]):
         tiles = self.tiles
         result = [
@@ -267,7 +258,7 @@ class Source(ABC, metaclass=SourceMeta):
     def __eq__(self, other):
         if (
                 isinstance(other, Source)
-                or isinstance(other, SourceMeta)
+                or (isinstance(other, type) and issubclass(other, Source))
         ):
             return self.name == other.name
         if isinstance(other, str):
@@ -280,7 +271,7 @@ class class_attr:
     cache = WeakKeyDictionary()
 
     @classmethod
-    def relevant_to(cls, item: SourceMeta) -> set[class_attr]:
+    def relevant_to(cls, item: Type[Source]) -> set[class_attr]:
         res = {
             attr
             for subclass in item.mro()
@@ -289,7 +280,7 @@ class class_attr:
         }
         return res
 
-    def __get__(self, instance, owner: Source | SourceMeta):
+    def __get__(self, instance, owner: Type[Source]):
         result = self.func(owner)
         type.__setattr__(owner, self.name, result)
         return result
@@ -837,7 +828,7 @@ def print_coverages(
 ) -> None:
     # utility function to print all coverages to be hard-coded
     # get the canonical coverage series; ensure EPSG:4326 for consistency
-    coverages = SourceMeta.coverage
+    coverages = Source._coverage_index
     # coerce to integer decimals if provided
     decimals: Optional[int] = None
     if simplify is not None:
@@ -858,20 +849,20 @@ def print_coverages(
 if __name__ == '__main__':
     Nominatim.json.read = True
     Nominatim.json.write = True
-    assert Source['Portland, Maine'] == Maine
-    assert Source['Maine'] == Maine
-    assert Source['New Brunswick, New Jersey'] == NewJersey
-    assert Source['New York City'] == NewYorkCity
-    assert Source['New York'] in (NewYorkCity, NewYork)
-    assert Source['Massachusetts'] == Massachusetts
-    assert Source['King County, Washington'] == KingCountyWashington
-    assert Source['Washington, DC'] == WashingtonDC
-    assert Source['Los Angeles'] == LosAngeles
-    assert Source['Jersey City'] == NewJersey
-    assert Source['Hoboken'] == NewJersey
-    assert Source["Spring Hill, TN"] == SpringHillTN
-    assert Source['Virginia'] == Virginia
-    assert Source['Berkeley, California'] == AlamedaCounty
-    assert Source['Fremont, California'] == AlamedaCounty
-    assert Source['Oakland, California'] == AlamedaCounty
-    assert Source['San Francisco, California'] == SanFrancisco2024
+    assert Source.from_inferred('Portland, Maine') == Maine
+    assert Source.from_inferred('Maine') == Maine
+    assert Source.from_inferred('New Brunswick, New Jersey') == NewJersey
+    assert Source.from_inferred('New York City') == NewYorkCity
+    assert Source.from_inferred('New York') in (NewYorkCity, NewYork)
+    assert Source.from_inferred('Massachusetts') == Massachusetts
+    assert Source.from_inferred('King County, Washington') == KingCountyWashington
+    assert Source.from_inferred('Washington, DC') == WashingtonDC
+    assert Source.from_inferred('Los Angeles') == LosAngeles
+    assert Source.from_inferred('Jersey City') == NewJersey
+    assert Source.from_inferred('Hoboken') == NewJersey
+    assert Source.from_inferred("Spring Hill, TN") == SpringHillTN
+    assert Source.from_inferred('Virginia') == Virginia
+    assert Source.from_inferred('Berkeley, California') == AlamedaCounty
+    assert Source.from_inferred('Fremont, California') == AlamedaCounty
+    assert Source.from_inferred('Oakland, California') == AlamedaCounty
+    assert Source.from_inferred('San Francisco, California') == SanFrancisco2024
