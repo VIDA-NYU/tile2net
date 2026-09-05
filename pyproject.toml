@@ -60,7 +60,7 @@ exclude = ["tile2net.tileseg.tests*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = ["--strict-markers", "-m", "not integration and not remote"]
+addopts = ["--strict-markers", "-m", "not integration"]
 markers = [
     "gpu: end-to-end tests requiring a CUDA device and model inference",
     "integration: local end-to-end tests that run segmentation inference",
