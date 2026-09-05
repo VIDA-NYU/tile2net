@@ -20,6 +20,20 @@ def test_small():
     raster.generate(2)
     raster.inference('--remote', '--debug')
 
+def test_nominatim():
+    # Test querying Nominatim actually works
+    from tile2net.raster import source
+    from tile2net.raster.source import Source
+    from tile2net.raster.nominatim import Nominatim
+    Nominatim.json.read = False
+    Nominatim.json.write = False
+    Nominatim.sqlite.read = False
+    Nominatim.sqlite.write = False
+    assert Source['New York'] == source.NewYork
+    assert Source['New York City'] == source.NewYorkCity
+    assert Source['New Jersey'] == source.NewJersey
+
+
 
 def test_sources():
     import tile2net.raster.source
@@ -104,5 +118,6 @@ def test_sources():
 
 
 if __name__ == '__main__':
+    test_nominatim()
     test_sources()
     test_small()
