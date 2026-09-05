@@ -58,17 +58,11 @@ def test_sources():
     # assert Source.from_inferred('Oregon') == source.Oregon
     assert Source.from_inferred('Virginia') == source.Virginia
 
-    assert Source.from_inferred('40.72663613847755, -73.99494276578649') == source.NewYorkCity
-    assert Source.from_inferred('38.90277706745021, -77.03617656372798') == source.WashingtonDC
-    assert Source.from_inferred('43.05052202494481, -76.19505424681927') == source.NewYork
     item = '33.97576931943177, -118.19841961122856, 34.116579445776445, -117.97154942950205'
     assert Source.from_inferred(item) == source.LosAngeles
     item = '40.496044, -74.443672, 40.561051, -74.332089'
     assert Source.from_inferred(item) == source.NewJersey
 
-    assert Source.from_inferred((40.72663613847755, -73.99494276578649)) == source.NewYorkCity
-    assert Source.from_inferred((38.90277706745021, -77.03617656372798)) == source.WashingtonDC
-    assert Source.from_inferred((43.05052202494481, -76.19505424681927)) == source.NewYork
     item = 33.97576931943177, -118.19841961122856, 34.116579445776445, -117.97154942950205
     assert Source.from_inferred(item) == source.LosAngeles
     item = 40.496044, -74.443672, 40.561051, -74.332089

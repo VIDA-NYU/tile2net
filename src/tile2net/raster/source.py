@@ -121,16 +121,22 @@ class Source(ABC):
     @not_found_none
     def from_inferred(
             cls: Type['Source'],
-            item: list[float] | str | shapely.geometry.base.BaseGeometry,
+            item: (
+                    list[float]
+                    | tuple[float, ...]
+                    | str
+                    | shapely.geometry.base.BaseGeometry
+            ),
     ) -> Optional['Source']:
-        """Resolve item (address, coordinates, geometry, or name) to a Source instance."""
+        """Resolve an address, bounding box, geometry, or name to a Source."""
         # todo: index index for which sources contain keyword
-        if item in cls.catalog:
+        if isinstance(item, str) and item in cls.catalog:
             return cls.catalog[item]()
         # select where geometry intersects the coverage
 
-        matches: GeoSeries = Source._coverage_index.geometry
         geocode = GeoCode.from_inferred(item)
+
+        matches: GeoSeries = Source._coverage_index.geometry
         loc = matches.intersects(geocode.polygon)
         if (
                 not loc.any()
