@@ -1,4 +1,25 @@
 from __future__ import annotations
+import numpy as np
+from geopy.geocoders.base import DEFAULT_SENTINEL
+from numpy import ndarray
+from geopandas import GeoDataFrame, GeoSeries
+from pandas import IndexSlice as idx, Series, DataFrame, Index, MultiIndex, Categorical, CategoricalDtype
+import pandas as pd
+from pandas.core.groupby import DataFrameGroupBy, SeriesGroupBy
+import geopandas as gpd
+from functools import cache, cached_property, lru_cache, partial, partialmethod, update_wrapper, wraps
+from collections import UserDict, UserList, UserString, defaultdict, deque, namedtuple, defaultdict, deque
+from functools import cached_property, lru_cache, partial, partialmethod, reduce, singledispatch, singledispatchmethod, \
+    update_wrapper, wraps
+from typing import Any, Callable, Optional, Union, Type, TypeVar, Generic, Protocol, Annotated, Literal, Final, \
+    ClassVar, TypeAlias, NamedTuple, TypedDict, Iterable, Iterator, Generator, cast, overload, TYPE_CHECKING, Self
+from shapely import Point, LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon, GeometryCollection, box
+from dataclasses import dataclass, field
+from concurrent.futures import ThreadPoolExecutor, Future, as_completed
+from pathlib import Path
+from pandas.api.extensions import ExtensionArray
+
+import copy
 
 import json
 import os
@@ -10,6 +31,8 @@ from typing import Any, Optional
 
 from geopy.geocoders import Nominatim as _Nominatim
 from geopy.location import Location
+
+import geopy.geocoders
 
 CACHE_DIRECTORY_ENV = 'TILE2NET_CACHE_DIR'
 SQLITE_PATH_ENV = 'TILE2NET_NOMINATIM_CACHE'
@@ -26,156 +49,166 @@ def cache_directory() -> Path:
         cache_root = Path(xdg_cache).expanduser()
     elif sys.platform == 'darwin':
         cache_root = Path.home() / 'Library' / 'Caches'
-    # elif os.name == 'nt' and os.environ.get('LOCALAPPDATA'):
     elif (
-        os.name == 'nt'
-        and os.environ.get('LOCALAPPDATA')
+            os.name == 'nt'
+            and os.environ.get('LOCALAPPDATA')
     ):
         cache_root = Path(os.environ['LOCALAPPDATA'])
     else:
         cache_root = Path.home() / '.cache'
     return cache_root / 'tile2net'
 
-class Nominatim(_Nominatim):
-    """
-    Extends geopy's Nominatim geocoder with a lookup cache consulted
-    before hitting the Nominatim servers: a repo-tracked JSON file of
-    known test locations, and a per-user SQLite database populated as
-    new locations are queried. See github.com/VIDA-NYU/tile2net#92.
-    """
 
-    _use_json: bool = False
-    _use_sqlite: bool = True
-    _json_path: Path = Path(__file__, '../', 'nominatim.json').resolve()
-    _json_fields = ('display_name', 'boundingbox')
-    _lock = threading.Lock()
-    _json_cache: Optional[dict[str, dict]] = None
+class Cache:
+    parent: Optional[Nominatim]
 
-    @classmethod
-    def _sqlite_path(cls) -> Path:
-        """Resolve the per-user sqlite cache path, honoring the override env var."""
-        configured = os.environ.get(SQLITE_PATH_ENV)
-        if configured:
-            return Path(configured).expanduser()
-        return cache_directory() / 'nominatim.sqlite'
+    def __set_name__(self, owner, name):
+        self.__name__ = name
+        self._singleton: Self = self
 
-    @classmethod
-    def _load_json(cls) -> dict[str, dict]:
-        """Load and memoize the tracked json cache from disk."""
-        if cls._json_cache is None:
-            if cls._json_path.exists():
-                with open(cls._json_path) as f:
-                    cls._json_cache = json.load(f)
-            else:
-                cls._json_cache = {}
-        return cls._json_cache
-
-    @classmethod
-    def _dump_json(cls) -> None:
-        """Persist the in-memory json cache back to disk."""
-        cls._json_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(cls._json_path, 'w') as f:
-            json.dump(cls._json_cache, f, indent=2, sort_keys=True)
-            f.write('\n')
-
-    @classmethod
-    def _connect(cls) -> sqlite3.Connection:
-        """Open a sqlite connection to the cache db, creating the table if needed."""
-        path = cls._sqlite_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(path)
-        sql = 'CREATE TABLE IF NOT EXISTS nominatim (key TEXT PRIMARY KEY, raw TEXT)'
-        conn.execute(sql)
-        return conn
-
-    @classmethod
-    def _sqlite_get(cls, key: str) -> Optional[dict]:
-        """Fetch a cached raw response by key, or None if absent."""
-        with cls._lock, cls._connect() as conn:
-            row = conn.execute(
-                'SELECT raw FROM nominatim WHERE key = ?', (key,)
-            ).fetchone()
-        if row is None:
-            return None
-        return json.loads(row[0])
-
-    @classmethod
-    def _sqlite_set(cls, key: str, raw: dict) -> None:
-        """Upsert a raw response into the sqlite cache."""
-        sql = 'INSERT OR REPLACE INTO nominatim (key, raw) VALUES (?, ?)'
-        parameters = key, json.dumps(raw)
-        with cls._lock, cls._connect() as conn:
-            conn.execute(sql, parameters)
-
-    @staticmethod
-    def _normalize(query: Any) -> str:
-        """Stringify a geocode/reverse query into a stable cache key."""
-        if hasattr(query, 'latitude') and hasattr(query, 'longitude'):
-            return f'{query.latitude},{query.longitude}'
-        if isinstance(query, (tuple, list)):
-            return ','.join(str(value) for value in query)
-        return str(query)
-
-    @staticmethod
-    def _to_location(raw: dict) -> Location:
-        """Reconstruct a geopy Location from a cached raw response."""
-        address = raw.get('display_name', '')
-        lat = float(raw.get('lat', 0.0))
-        lon = float(raw.get('lon', 0.0))
-        return Location(address, (lat, lon), raw)
-
-    @classmethod
-    def _to_json_value(cls, raw: dict) -> dict:
-        """Trim a raw response down to the fields tracked in json."""
-        return {
-            field: raw[field]
-            for field in cls._json_fields
-            if field in raw
-        }
-
-    def _cached(
+    def __get__(
             self,
-            query: Any,
-            exactly_one: bool,
-            fetch,
-    ) -> Optional[Location]:
-        """Check json/sqlite caches before falling back to fetch, caching new results."""
-        if not exactly_one:
-            # list results aren't cached; this codebase only ever
-            # requests exactly_one geocodes/reverses
-            return fetch()
+            instance: Optional[Nominatim],
+            owner
+    ) -> Self:
+        out = copy.copy(self)
+        out.parent = instance
+        return out
 
-        key = self._normalize(query)
-        # json ships with the library as a fixed set of known
-        # locations for quick testing, so it's checked before the
-        # per-user, dynamically populated sqlite cache
-        if self._use_json:
-            raw = self._load_json().get(key)
-            if raw is not None:
-                return self._to_location(raw)
+    def __init__(
+            self,
+            func=None,
+            read=True,
+            write=False,
+    ):
+        self.read = read
+        self.write = write
 
-        if self._use_sqlite:
-            raw = self._sqlite_get(key)
-            if raw is not None:
-                return self._to_location(raw)
+    def _write(self):
+        ...
 
-        result = fetch()
-        if result is not None:
-            if self._use_sqlite:
-                self._sqlite_set(key, result.raw)
-            if self._use_json:
-                self._load_json()[key] = self._to_json_value(result.raw)
-                self._dump_json()
-        return result
+    def _read(self):
+        ...
 
-    def geocode(self, query, *, exactly_one=True, **kwargs):
-        """Cache-aware wrapper around Nominatim.geocode."""
-        def fetch():
-            return super(Nominatim, self).geocode( query, exactly_one=exactly_one, **kwargs)
-        return self._cached(query, exactly_one, fetch)
+    def geocode(self):
+        ...
 
-    def reverse(self, query, *, exactly_one=True, **kwargs):
-        """Cache-aware wrapper around Nominatim.reverse."""
-        def fetch():
-            return super(Nominatim, self).reverse( query, exactly_one=exactly_one, **kwargs)
-        return self._cached(query, exactly_one, fetch)
+    def reverse(self):
+        ...
+
+
+class JSON(Cache):
+    _singleton: Self
+
+    @property
+    def path(self):
+        configured = os.environ.get(SQLITE_PATH_ENV)
+        if self._singleton is not self:
+            return self._singleton.path
+        path = Path(__file__, '../', 'nominatim.json').resolve()
+        self._path = path
+        return path
+
+    def __init__(
+            self,
+            func=None,
+            read=True,
+            write=False,
+    ):
+        super().__init__(func, read, write)
+
+    def _write(self):
+        ...
+
+    def _read(self):
+        ...
+
+    def geocode(self):
+        ...
+
+    def reverse(self):
+        ...
+
+
+class SQLite:
+    _singleton: Self
+
+    @property
+    def path(self):
+        configured = os.environ.get(SQLITE_PATH_ENV)
+        if self._singleton is not self:
+            return self._singleton.path
+        if configured:
+            path = Path(configured).expanduser()
+        else:
+            path = cache_directory() / 'nominatim.sqlite'
+        self._path = path
+        return path
+
+
+    def __init__(
+            self,
+            func=None,
+            read=True,
+            write=True,
+    ):
+        super().__init__(func, read, write)
+
+    def _write(self):
+        ...
+
+    def _read(self):
+        ...
+
+    def geocode(self):
+        ...
+
+    def reverse(self):
+        ...
+
+
+class Nominatim(geopy.geocoders.Nominatim):
+    @JSON
+    def json(self):
+        return Cache().__get__(self, type(self))
+
+    @SQLite
+    def sqlite(self):
+        return Cache().__get__(self, type(self))
+
+    def geocode(
+            self,
+            query,
+            *,
+            exactly_one=True,
+            timeout=DEFAULT_SENTINEL,
+            limit=None,
+            addressdetails=False,
+            language=False,
+            geometry=None,
+            extratags=False,
+            country_codes=None,
+            viewbox=None,
+            bounded=False,
+            featuretype=None,
+            namedetails=False
+    ):
+        ...
+
+    def reverse(
+            self,
+            query,
+            *,
+            exactly_one=True,
+            timeout=DEFAULT_SENTINEL,
+            language=False,
+            addressdetails=True,
+            zoom=None,
+            namedetails=False,
+    ):
+        ...
+
+
+
+if __name__ == '__main__':
+    ...
