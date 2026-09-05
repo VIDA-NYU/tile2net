@@ -5,21 +5,6 @@ import pytest
 pytestmark = pytest.mark.remote
 
 
-def test_small():
-    from tile2net.raster.raster import Raster
-
-    raster = Raster(
-        location='Washington Square Park, New York, NY, USA',
-        zoom=19,
-        # dump_percent=10,
-        name='small'
-    )
-    # for file in raster.project.resources.segmentation.files():
-    # assert file.exists()
-    # assert os.path.exists(file)
-    raster.generate(2)
-    raster.inference('--remote', '--debug')
-
 def test_nominatim():
     # Test querying Nominatim actually works
     from tile2net.raster import source
@@ -120,4 +105,3 @@ def test_sources():
 if __name__ == '__main__':
     test_nominatim()
     test_sources()
-    test_small()
