@@ -1,21 +1,24 @@
 import os
+import tempfile
+import warnings
+from pathlib import Path
 
 import affine
-from tile2net.logger import logger
-import shapely
-from geopandas import GeoDataFrame, read_file, sjoin
-import pandas as pd
+import geopandas as gpd
 import numpy as np
+import pandas as pd
 import rasterio
-from shapely.geometry import mapping, shape
+import shapely
 import skimage
 from affine import Affine
+from geopandas import GeoDataFrame, read_file, sjoin
+from shapely.geometry import mapping, shape
 
-import warnings
+from tile2net.logger import logger
+from tile2net.raster.formats import VectorFormat
 
 
-
-def read_gdf(path):
+def read_gdf(path: str | os.PathLike[str]) -> GeoDataFrame:
     """
     Read a GeoDataFrame from a file
     Parameters
@@ -27,8 +30,53 @@ def read_gdf(path):
     -------
     gdf: GeoDataFrame
     """
-    gdf = read_file(path)
-    return gdf
+    suffix = Path(path).suffix.casefold()
+    if suffix in {".parquet", ".geoparquet"}:
+        return gpd.read_parquet(path)
+    if suffix in {".arrow", ".feather"}:
+        return gpd.read_feather(path)
+    return read_file(path)
+
+
+def write_geoparquet(
+    gdf: GeoDataFrame,
+    path: str | os.PathLike[str],
+) -> Path:
+    """Atomically write a GeoDataFrame as GeoParquet on the destination filesystem."""
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        dir=destination.parent,
+        prefix=f".{destination.name}.",
+        suffix=".tmp",
+        delete=False,
+    ) as temporary:
+        temporary_path = Path(temporary.name)
+
+    try:
+        gdf.to_parquet(temporary_path, index=False)
+        temporary_path.replace(destination)
+    except BaseException:
+        temporary_path.unlink(missing_ok=True)
+        raise
+    return destination
+
+
+def write_vector(
+    gdf: GeoDataFrame,
+    path_stem: str | os.PathLike[str],
+    output_format: VectorFormat = VectorFormat.PARQUET,
+) -> Path:
+    """Write a vector result in the requested user-facing format."""
+    output_format = VectorFormat(output_format)
+    stem = Path(path_stem)
+    destination = stem.parent / f"{stem.name}{output_format.suffix}"
+    if output_format is VectorFormat.PARQUET:
+        return write_geoparquet(gdf, destination)
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    gdf.to_file(destination, driver="ESRI Shapefile", index=False)
+    return destination
 
 
 def set_gdf_crs(gdf, crs):
@@ -92,18 +140,21 @@ def _reduce_geom_precision(geom, precision=2):
     geom: shapely.geometry
     """
     geojson = mapping(geom)
-    geojson['coordinates'] = np.round(
-        np.array(geojson['coordinates']),
-        precision
-    )
+    geojson["coordinates"] = np.round(np.array(geojson["coordinates"]), precision)
     return shape(geojson)
 
 
 def affine_to_list(affine_obj: affine.Affine):
     """Convert a :class:`affine.Affine` instance to a list for Shapely."""
-    return [affine_obj.a, affine_obj.b,
-            affine_obj.d, affine_obj.e,
-            affine_obj.xoff, affine_obj.yoff]
+    return [
+        affine_obj.a,
+        affine_obj.b,
+        affine_obj.d,
+        affine_obj.e,
+        affine_obj.xoff,
+        affine_obj.yoff,
+    ]
+
 
 def list_to_affine(xform_mat: list):
     """Create an Affine from a list or array-formatted [a, b, d, e, xoff, yoff]
@@ -134,9 +185,7 @@ def _check_rasterio_im_load(im):
     elif isinstance(im, rasterio.DatasetReader):
         return im
     else:
-        raise ValueError(
-            "{} is not an accepted image format for rasterio.".format(im)
-        )
+        raise ValueError("{} is not an accepted image format for rasterio.".format(im))
 
 
 def _check_skimage_im_load(im):
@@ -162,7 +211,7 @@ def prepare_class_gdf(polys, class_name) -> GeoDataFrame:
         class specific GeoDataFrame in metric projection
     """
 
-    nt = polys[polys.f_type == f'{class_name}'].copy()
+    nt = polys[polys.f_type == f"{class_name}"].copy()
     nt.geometry = nt.geometry.to_crs(3857)
     return nt
 
@@ -182,7 +231,7 @@ def prepare_gdf(gdf, **cols):
     """
     # TODO: Add other operations like !
     k = list(cols.keys())[0]
-    print(f'k, {k}', f'cols {len(cols[k])}')
+    print(f"k, {k}", f"cols {len(cols[k])}")
     if isinstance(cols[k], list):
         f_gdf = gdf[gdf[k].isin(cols[k])]
     else:
@@ -212,13 +261,15 @@ def read_dataframe(src_path, geo=True, cols=None):
 
 
 def unary_multi(gdf: GeoDataFrame) -> GeoDataFrame:
-    # handles the errors with multipolygon
-    loc = ~gdf.is_valid.values
-    # logger.warning(f'Number of invalid geometries: {loc.sum()} out of {len(gdf)}')
-    count = loc.sum()
+    """Repair invalid geometries, dissolve overlaps, and explode multipart output."""
+    invalid = ~gdf.geometry.is_valid.to_numpy()
+    count = int(np.count_nonzero(invalid))
     if count:
-        logger.warning(f'Number of invalid geometries: {count} out of {len(gdf)}')
-    gdf.geometry.loc[loc] = shapely.make_valid(gdf.geometry.loc[loc])
+        logger.warning(f"Number of invalid geometries: {count} out of {len(gdf)}")
+        geometry_column = gdf.geometry.name
+        gdf.loc[invalid, geometry_column] = shapely.make_valid(
+            gdf.loc[invalid, geometry_column].array
+        )
     result = (
         gdf
         # dissolve overlapping geometries
@@ -254,8 +305,15 @@ def buffer_union(gdf, buff, simp1, simp2):
     return gdf_uni
 
 
-def buffer_union_erode(gdf: GeoDataFrame, buff: float, erode: float, simp1: float, simp2: float, simp3: float):
-    """ Buffer, union, erode, simplify the polygons in a GeoDataFrame to create elongated polygons
+def buffer_union_erode(
+    gdf: GeoDataFrame,
+    buff: float,
+    erode: float,
+    simp1: float,
+    simp2: float,
+    simp3: float,
+):
+    """Buffer, union, erode, simplify the polygons in a GeoDataFrame to create elongated polygons
     Parameters
     ----------
     gdf: GeoDataFrame
@@ -281,7 +339,10 @@ def buffer_union_erode(gdf: GeoDataFrame, buff: float, erode: float, simp1: floa
     gdf_uni = unary_multi(gdf_erode)
     gdf_uni.geometry = gdf_uni.geometry.set_crs(3857)
     gdf_uni.geometry = gdf_uni.geometry.simplify(simp3)
-    gdf_uni = gdf_uni[(gdf_uni.geometry.geom_type == 'MultiPolygon') | (gdf_uni.geometry.geom_type == 'Polygon')]
+    gdf_uni = gdf_uni[
+        (gdf_uni.geometry.geom_type == "MultiPolygon")
+        | (gdf_uni.geometry.geom_type == "Polygon")
+    ]
 
     return gdf_uni
 
@@ -337,13 +398,13 @@ def merge_dfs(gdf1: GeoDataFrame, gdf2: GeoDataFrame, crs: int = 4326):
         gdf1.to_crs(crs, inplace=True)
         gdf2.to_crs(crs, inplace=True)
 
-    df1sw = prepare_class_gdf(gdf1, 'sidewalk')
-    df1cw = prepare_class_gdf(gdf1, 'crosswalk')
-    df1rd = prepare_class_gdf(gdf1, 'road')
+    df1sw = prepare_class_gdf(gdf1, "sidewalk")
+    df1cw = prepare_class_gdf(gdf1, "crosswalk")
+    df1rd = prepare_class_gdf(gdf1, "road")
 
-    df2sw = prepare_class_gdf(gdf2, 'sidewalk')
-    df2cw = prepare_class_gdf(gdf2, 'crosswalk')
-    df2rd = prepare_class_gdf(gdf2, 'road')
+    df2sw = prepare_class_gdf(gdf2, "sidewalk")
+    df2cw = prepare_class_gdf(gdf2, "crosswalk")
+    df2rd = prepare_class_gdf(gdf2, "road")
 
     concsw = pd.concat([df1sw, df2sw])
     conccw = pd.concat([df1cw, df2cw])
@@ -352,17 +413,17 @@ def merge_dfs(gdf1: GeoDataFrame, gdf2: GeoDataFrame, crs: int = 4326):
     unionsw = unary_multi(concsw)
     unionsw = unionsw.explode().reset_index(drop=True)
     unionsw.geometry = unionsw.geometry.set_crs(crs)
-    unionsw['f_type'] = 'sidewalk'
+    unionsw["f_type"] = "sidewalk"
 
     unioncw = unary_multi(conccw)
 
     unioncw.geometry = unioncw.geometry.set_crs(crs)
-    unioncw['f_type'] = 'crosswalk'
+    unioncw["f_type"] = "crosswalk"
 
     unionrd = unary_multi(concrd)
 
     unionrd.geometry = unionrd.geometry.set_crs(crs)
-    unionrd['f_type'] = 'road'
+    unionrd["f_type"] = "road"
 
     merged = pd.concat([unionrd, unionsw, unioncw])
     merged.geometry = merged.geometry.set_crs(crs)
@@ -371,7 +432,7 @@ def merge_dfs(gdf1: GeoDataFrame, gdf2: GeoDataFrame, crs: int = 4326):
 
 
 def create_stats(gdf: GeoDataFrame):
-    """ Creates summary statistics of the polygons
+    """Creates summary statistics of the polygons
     Parameters
     ----------
     gdf: GeoDataFrame
@@ -384,9 +445,9 @@ def create_stats(gdf: GeoDataFrame):
         copy of the input GeoDataFrame with additional columns of the summary statistics
     """
     cgdf = gdf.copy()
-    cgdf['primeter'] = cgdf.length
-    cgdf['area'] = cgdf.area
-    cgdf['ar_pratio'] = cgdf.area / cgdf.length
+    cgdf["primeter"] = cgdf.length
+    cgdf["area"] = cgdf.area
+    cgdf["ar_pratio"] = cgdf.area / cgdf.length
     # get the summary statics of the polygons
     ss = cgdf.quantile([0.25, 0.5, 0.75])
     return ss, cgdf
@@ -410,20 +471,20 @@ def buff_dfs(gdf: GeoDataFrame):
     """
 
     gdf.geometry = gdf.simplify(0.2)
-    dfsw = prepare_class_gdf(gdf, 'sidewalk')
-    dfcw = prepare_class_gdf(gdf, 'crosswalk')
-    dfrd = prepare_class_gdf(gdf, 'road')
+    dfsw = prepare_class_gdf(gdf, "sidewalk")
+    dfcw = prepare_class_gdf(gdf, "crosswalk")
+    dfrd = prepare_class_gdf(gdf, "road")
 
     buffersw = buffer_union_erode(dfsw, 0.3, -0.3, 0.2, 0.3, 0.3)
 
-    buffersw['f_type'] = 'sidewalk'
+    buffersw["f_type"] = "sidewalk"
 
     buffercw = buffer_union_erode(dfcw, 0.3, -0.25, 0.2, 0.3, 0.3)
 
-    buffercw['f_type'] = 'crosswalk'
+    buffercw["f_type"] = "crosswalk"
 
     bufferrd = buffer_union_erode(dfrd, 0.4, -0.4, 0.2, 0.3, 0.3)
-    bufferrd['f_type'] = 'road'
+    bufferrd["f_type"] = "road"
 
     merged = pd.concat([buffercw, buffersw, bufferrd])
     merged.geometry = merged.geometry.set_crs(gdf.crs)

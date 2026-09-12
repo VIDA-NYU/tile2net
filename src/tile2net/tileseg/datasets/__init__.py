@@ -123,22 +123,22 @@ def setup_loaders(args):
 
     target_train_transform = extended_transforms.MaskToTensor()
 
-    if cfg.MODEL.EVAL == 'folder':
-        val_joint_transform_list = None
-    else:
-        val_joint_transform_list = None
-
-    if cfg.MODEL.EVAL is None or cfg.MODEL.EVAL == 'val':
-        val_name = 'val'
-    elif cfg.MODEL.EVAL == 'trn':
-        val_name = 'train'
-    elif cfg.MODEL.EVAL == 'folder':
-        val_name = 'folder'
-    elif cfg.MODEL.EVAL == 'test':
-        val_name = 'test'
-
-    else:
-        raise 'unknown eval mode {}'.format(cfg.MODEL.EVAL)
+    val_joint_transform_list = None
+    eval_to_split = {
+        None: 'val',
+        'val': 'val',
+        'trn': 'train',
+        'folder': 'folder',
+        'test': 'test',
+    }
+    try:
+        val_name = eval_to_split[cfg.MODEL.EVAL]
+    except (KeyError, TypeError) as error:
+        expected = ', '.join(repr(mode) for mode in eval_to_split)
+        raise ValueError(
+            f'Unsupported dataset evaluation mode {cfg.MODEL.EVAL!r}; '
+            f'expected one of: {expected}.'
+        ) from error
 
     ######################################################################
     # Create loaders
@@ -148,7 +148,8 @@ def setup_loaders(args):
         joint_transform_list=val_joint_transform_list,
         img_transform=val_input_transform,
         label_transform=target_transform,
-        eval_folder=cfg.EVAL_FOLDER)
+        eval_folder=cfg.EVAL_FOLDER,
+        active_tile_ids=args.active_tile_ids)
         # eval_folder=cfg.MODEL.EVAL_FOLDER)
 
     update_dataset_inst(dataset_inst=val_set)

@@ -7,6 +7,10 @@ import re
 from collections import defaultdict
 from functools import *
 
+import pytest
+
+pytest.importorskip("torch")
+
 from tile2net.namespace import Namespace
 
 

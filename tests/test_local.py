@@ -1,6 +1,11 @@
-from tile2net.raster.raster import Raster
+import pytest
+
+pytestmark = pytest.mark.integration
+
 
 def test_small():
+    from tile2net.raster.raster import Raster
+
     raster = Raster(
         location='Washington Square Park, New York, NY, USA',
         zoom=19,

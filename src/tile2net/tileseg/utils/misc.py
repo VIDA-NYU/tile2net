@@ -338,12 +338,12 @@ class ImageDumper:
 
     dump_percent = 100  # first one always dumps if args.dump_percent != 0
 
-    def create_composite_image(self, input_image, prediction_pil, img_name):
+    def create_composite_image(self, input_image, prediction_pil, img_name) -> bool:
         if not self.args.dump_percent:
-            return
+            return False
         self.dump_percent += self.args.dump_percent
         if self.dump_percent < 100:
-            return
+            return False
         self.dump_percent -= 100
         parent = os.path.dirname(self.save_dir)
         os.makedirs(parent, exist_ok=True)
@@ -354,6 +354,7 @@ class ImageDumper:
         composited_fn = os.path.join(self.save_dir, composited_fn)
         print(f'saving {composited_fn}')
         composited.save(composited_fn)
+        return True
 
     def get_dump_assets(self, dump_dict, img_name, idx, colorize_mask_fn, to_tensorboard):
         if self.dump_assets:
@@ -400,28 +401,18 @@ class ImageDumper:
             gt_pil = colorize_mask_fn(gt_image.cpu().numpy())
 
             if testing:
-                alpha = False
-                all_pix = (np.array(input_image).shape[0] * np.array(input_image).shape[1])
-                if np.array(input_image).shape[-1] == 3:
-                    black = np.count_nonzero(np.all(np.array(input_image) == [0, 0, 0], axis=2))
-                elif np.array(input_image).shape[-1] == 4:
-                    black = np.count_nonzero(np.all(np.array(input_image) == [0, 0, 0, 0], axis=-1))
-                    alpha = True
-                ratio = black / all_pix
+                prediction_pil = colorize_mask_fn(prediction).convert('RGB')
+                self.create_composite_image(input_image, prediction_pil, img_name)
 
-                if ratio > 0.25 or alpha:
-                    continue
-
-                else:
-                    prediction_pil = colorize_mask_fn(prediction)
-                    prediction_pil = prediction_pil.convert('RGB')
-                    self.create_composite_image(input_image, prediction_pil, img_name)
-
-                    if grid:
-                        idd_ = img_name.split('_')[-1]
-                        save_dir = os.path.join(cfg.RESULT_DIR, 'seg_results')
-                        self.save_dir = save_dir
-                        grid.tiles[grid.pose_dict[int(idd_)]].map_features(np.array(prediction_pil), img_array=True)
+                if grid:
+                    idd_ = int(img_name.rsplit('_', maxsplit=1)[-1])
+                    tile = grid.tiles[grid.pose_dict[idd_]]
+                    if tile.active:
+                        self.save_dir = os.path.join(cfg.RESULT_DIR, 'seg_results')
+                        tile.map_features(
+                            np.asarray(prediction_pil),
+                            img_array=True,
+                        )
             else:
                 # gt_fn = '{}_gt.png'.format(img_name)
                 gt_pil = colorize_mask_fn(gt_image.cpu().numpy())
@@ -602,29 +593,24 @@ class ThreadedDumper(ImageDumper):
             gt_pil = colorize_mask_fn(gt_image.cpu().numpy())
 
             if testing:
-                alpha = False
-                all_pix = (np.array(input_image).shape[0] * np.array(input_image).shape[1])
-                if np.array(input_image).shape[-1] == 3:
-                    black = np.count_nonzero(np.all(np.array(input_image) == [0, 0, 0], axis=2))
-                elif np.array(input_image).shape[-1] == 4:
-                    black = np.count_nonzero(np.all(np.array(input_image) == [0, 0, 0, 0], axis=-1))
-                    alpha = True
-                ratio = black / all_pix
+                prediction_pil = colorize_mask_fn(prediction).convert('RGB')
+                save_segmentation = self.create_composite_image(
+                    input_image,
+                    prediction_pil,
+                    img_name,
+                )
 
-                if ratio > 0.25 or alpha:
-                    continue
-
-                else:
-                    prediction_pil = colorize_mask_fn(prediction)
-                    prediction_pil = prediction_pil.convert('RGB')
-                    self.create_composite_image(input_image, prediction_pil, img_name)
-
-                    if grid:
-                        idd_ = img_name.split('_')[-1]
-                        save_dir = os.path.join(cfg.RESULT_DIR, 'seg_results')
-                        self.save_dir = save_dir
-                        tile = grid.tiles[grid.pose_dict[int(idd_)]]
-                        polygons = self.map_features(tile, np.array(prediction_pil), img_array=True)
+                if grid:
+                    idd_ = int(img_name.rsplit('_', maxsplit=1)[-1])
+                    tile = grid.tiles[grid.pose_dict[idd_]]
+                    if tile.active:
+                        self.save_dir = os.path.join(cfg.RESULT_DIR, 'seg_results')
+                        polygons = self.map_features(
+                            tile,
+                            np.asarray(prediction_pil),
+                            img_array=True,
+                            save_segmentation=save_segmentation,
+                        )
                         if polygons is not None:
                             yield polygons
             else:
@@ -650,14 +636,14 @@ class ThreadedDumper(ImageDumper):
             for future in self.futures:
                 future.result()
 
-    def create_composite_image(self, input_image, prediction_pil, img_name):
+    def create_composite_image(self, input_image, prediction_pil, img_name) -> bool:
         threads = self.threads
         futures = self.futures
         if not self.args.dump_percent:
-            return
+            return False
         self.dump_percent += self.args.dump_percent
         if self.dump_percent < 100:
-            return
+            return False
         self.dump_percent -= 100
         parent = os.path.dirname(self.save_dir)
         os.makedirs(parent, exist_ok=True)
@@ -671,6 +657,7 @@ class ThreadedDumper(ImageDumper):
         # composited.save(composited_fn)
         future = threads.submit(composited.save, composited_fn)
         futures.append(future)
+        return True
 
     def get_dump_assets(self, dump_dict, img_name, idx, colorize_mask_fn, to_tensorboard):
         threads = self.threads
@@ -729,6 +716,7 @@ class ThreadedDumper(ImageDumper):
             tile: Tile,
             src_img: np.ndarray,
             img_array=True,
+            save_segmentation: bool = False,
     ) -> Optional[GeoDataFrame]:
         """Converts a raster mask to a GeoDataFrame of polygons
         Parameters
@@ -785,9 +773,6 @@ class PushDumper(ThreadedDumper):
         threads = self.threads
         futures = self.futures
         return super().create_composite_image(input_image, prediction_pil, img_name)
-
-
-
 
 
 

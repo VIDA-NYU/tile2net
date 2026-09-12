@@ -68,7 +68,10 @@ commandline = compose_left(
         '--dump_percent',
         type=int,
         default=0,
-        help='The percentage of segmentation results to save. 100 means all, 0 means none.',
+        help=(
+            'Percentage of segmentation masks and previews to save; '
+            '100 means all and 0 means none. Vector outputs are unaffected.'
+        ),
     ),
     arg(
         '--debug' '-d', action='store_true', default=False, dest='debug'

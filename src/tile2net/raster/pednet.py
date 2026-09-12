@@ -1,7 +1,6 @@
 import logging
-import datetime
-import shutil
 import warnings
+from pathlib import Path
 
 import pandas as pd
 import os
@@ -12,22 +11,25 @@ import geopandas as gpd
 pd.options.mode.chained_assignment = None
 
 from tile2net.raster.tile_utils.topology import *
-from tile2net.raster.tile_utils.geodata_utils import set_gdf_crs, geo2geodf, buffer_union_erode
+from tile2net.raster.tile_utils.geodata_utils import (
+    buffer_union_erode,
+    geo2geodf,
+    set_gdf_crs,
+    write_vector,
+)
 from tile2net.raster.tile_utils.topology import morpho_atts
 from tile2net.raster.project import Project
+from tile2net.raster.formats import VectorFormat
 
 
 class PedNet:
-    """
-    Create network from polygons
-=======
-class PedNet():
-    """
+    """Create a pedestrian network from classified polygons."""
 
     def __init__(
             self,
             poly: gpd.GeoDataFrame,
-            project: Project
+            project: Project,
+            output_format: VectorFormat = VectorFormat.PARQUET,
     ):
 
         self.polygons = poly
@@ -39,6 +41,7 @@ class PedNet():
         self.crosswalk = -1
         self.complete_net = -1
         self.project = project
+        self.output_format = VectorFormat(output_format)
 
     def prepare_class_gdf(self, class_name) -> object:
         """
@@ -58,6 +61,11 @@ class PedNet():
 
         nt.geometry = nt.geometry.to_crs(3857)
         return nt
+
+    def save_network(self, network: gpd.GeoDataFrame) -> Path:
+        """Persist the pedestrian network in the configured vector format."""
+        path_stem = self.project.network.path / f'{self.project.name}-network'
+        return write_vector(network, path_stem, self.output_format)
 
     def find_medianisland(self, swp, cwp, max_area=230):
         """
@@ -449,12 +457,6 @@ class PedNet():
         combined = combined[~combined.geometry.isna()]
         combined.drop_duplicates(subset='geometry', inplace=True)
         combined.reset_index(drop=True, inplace=True)
-        path = self.project.network.path
-
-        path.mkdir(parents=True, exist_ok=True)
-        path = path.joinpath(f'{self.project.name}-Network-{datetime.datetime.now().strftime("%d-%m-%Y_%H_%M")}')
-        if os.path.exists(path):
-            shutil.rmtree(path)
-        combined.to_file(path)
+        self.save_network(combined)
 
         self.complete_net = combined

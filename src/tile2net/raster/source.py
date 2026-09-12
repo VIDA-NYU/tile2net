@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import functools
 import json
+import os
 import pathlib
 import warnings
 import xml.etree.ElementTree as ET
-from abc import ABC, ABCMeta
+from abc import ABC
 from functools import cached_property, wraps
 from typing import Iterator, Optional, Type, Iterable, TypeVar
 from urllib.parse import urlencode
@@ -22,10 +23,13 @@ from shapely import box, wkt
 from urllib3.util.retry import Retry
 
 from tile2net.logger import logger
+from tile2net.raster.nominatim import Nominatim
 from tile2net.raster.geocode import GeoCode
+from tile2net.raster.http import redact_url
+
 
 if False:
-    from tile2net.raster.tile import Tile
+    pass
 
 
 class Coverage:
@@ -35,7 +39,7 @@ class Coverage:
             __file__, '..', '..', 'resources', 'coverage.feather'
         ).resolve()
 
-    def __get__(self, instance, owner: SourceMeta) -> GeoSeries:
+    def __get__(self, instance, owner: Type[Source]) -> GeoSeries:
         if self.file.exists():
             coverage = gpd.read_feather(self.file)
             # if not coverage.index.symmetric_difference(owner.catalog.keys()):
@@ -98,22 +102,41 @@ def not_found_none(func: T) -> T:
     return wrapper
 
 
-class SourceMeta(ABCMeta):
-    catalog: dict[str, Type[Source]] = {}
-    coverage = Coverage()
+class Source(ABC):
+    name: str = None  # name of the source
+    coverage: GeoSeries = None  # coverage that contains a polygon representing the coverage
+    zoom: int = None  # xyz tile zoom level
+    extension = 'png'
+    tiles: str = None
+    tilesize: int = 256  # pixels per tile side
+    keyword: str  # required match when reverse geolocating address from point
+    dropword: str = None  # if result contains this word, it is not a match
+    year: int = None  # year of the data
+    outdated: bool = False
 
+    catalog: dict[str, Type['Source']] = {}
+    _coverage_index = Coverage()
+
+    @classmethod
     @not_found_none
-    def __getitem__(
-            cls: Type[Source],
-            item: list[float] | str | shapely.geometry.base.BaseGeometry,
+    def from_inferred(
+            cls: Type['Source'],
+            item: (
+                    list[float]
+                    | tuple[float, ...]
+                    | str
+                    | shapely.geometry.base.BaseGeometry
+            ),
     ) -> Optional['Source']:
+        """Resolve an address, bounding box, geometry, or name to a Source."""
         # todo: index index for which sources contain keyword
-        if item in cls.catalog:
+        if isinstance(item, str) and item in cls.catalog:
             return cls.catalog[item]()
         # select where geometry intersects the coverage
 
-        matches: GeoSeries = SourceMeta.coverage.geometry
         geocode = GeoCode.from_inferred(item)
+
+        matches: GeoSeries = Source._coverage_index.geometry
         loc = matches.intersects(geocode.polygon)
         if (
                 not loc.any()
@@ -130,7 +153,12 @@ class SourceMeta(ABCMeta):
                 raise SourceNotFound
         matches = matches.loc[loc]
 
-        # to resolve discrepancies, select where keyword is in the address
+        # For geometry inputs, spatial filtering has already identified the
+        # candidate coverages. Reverse-geocoding the geometry may return an
+        # address (e.g. "New York") that does not contain the source keyword
+        # (e.g. "New York City"), causing the geometry-selected source to be
+        # discarded. For such cases, it seems best to include a city's counties
+        # in the keyword list.
         loc = []
         for name in matches.index:
             keyword: str | tuple[str]
@@ -204,28 +232,6 @@ class SourceMeta(ABCMeta):
             raise TypeError(f'Invalid type {type(item)} for {item}')
         return source()
 
-    # def __init__(self: Type[Source], name, bases, attrs, **kwargs):
-    #     super().__init__(name, bases, attrs)
-    #     if not getattr(self, 'ignore', False):
-    #         if self.name is None:
-    #             raise ValueError(f'{self} must have a name')
-    #         if self.name in self.catalog:
-    #             raise ValueError(f'{self} name already in use')
-    #         self.catalog[self.name] = self
-
-
-class Source(ABC, metaclass=SourceMeta):
-    name: str = None  # name of the source
-    coverage: GeoSeries = None  # coverage that contains a polygon representing the coverage
-    zoom: int = None  # xyz tile zoom level
-    extension = 'png'
-    tiles: str = None
-    tilesize: int = 256  # pixels per tile side
-    keyword: str  # required match when reverse geolocating address from point
-    dropword: str = None  # if result contains this word, it is not a match
-    year: int = None  # year of the data
-    outdated: bool = False
-
     def __getitem__(self, item: Iterator[Tile]):
         tiles = self.tiles
         result = [
@@ -258,7 +264,7 @@ class Source(ABC, metaclass=SourceMeta):
     def __eq__(self, other):
         if (
                 isinstance(other, Source)
-                or isinstance(other, SourceMeta)
+                or (isinstance(other, type) and issubclass(other, Source))
         ):
             return self.name == other.name
         if isinstance(other, str):
@@ -271,7 +277,7 @@ class class_attr:
     cache = WeakKeyDictionary()
 
     @classmethod
-    def relevant_to(cls, item: SourceMeta) -> set[class_attr]:
+    def relevant_to(cls, item: Type[Source]) -> set[class_attr]:
         res = {
             attr
             for subclass in item.mro()
@@ -280,7 +286,7 @@ class class_attr:
         }
         return res
 
-    def __get__(self, instance, owner: Source | SourceMeta):
+    def __get__(self, instance, owner: Type[Source]):
         result = self.func(owner)
         type.__setattr__(owner, self.name, result)
         return result
@@ -369,9 +375,19 @@ Note: sometimes we get something like Spring Hill, Maury County,
 class NewYorkCity(ArcGis):
     server = 'https://tiles.arcgis.com/tiles/yG5s3afENB5iO9fj/arcgis/rest/services/NYC_Orthos_2024/MapServer'
     name = 'nyc'
-    keyword = 'New York City', 'City of New York'
+    keyword = (
+        'New York City',
+        'Manhattan',
+        'Brooklyn',
+        'Queens',
+        'Bronx',
+        'Staten Island',
+        'Kings County',
+        'Richmond County',
+    )
     year = 2024
-    coverage = wkt.loads("POLYGON ((-73.69048 40.4889, -73.69048 40.92834, -74.27615 40.92834, -74.27615 40.4889, -73.69048 40.4889))")
+    coverage = wkt.loads(
+        "POLYGON ((-73.69048 40.4889, -73.69048 40.92834, -74.27615 40.92834, -74.27615 40.4889, -73.69048 40.4889))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
@@ -380,7 +396,8 @@ class NewYork(ArcGis):
     name = 'ny'
     keyword = 'New York'
     year = 2024
-    coverage = wkt.loads("POLYGON ((-73.25509 40.48341, -73.25509 45.03931, -79.77922 45.03931, -79.77922 40.48341, -73.25509 40.48341))")
+    coverage = wkt.loads(
+        "POLYGON ((-73.25509 40.48341, -73.25509 45.03931, -79.77922 45.03931, -79.77922 40.48341, -73.25509 40.48341))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
@@ -390,16 +407,25 @@ class Massachusetts(ArcGis):
     keyword = 'Massachusetts'
     extension = 'jpg'
     year = 2021
-    coverage = wkt.loads("POLYGON ((-69.92466 41.2265, -69.92466 42.89199, -73.51979 42.89199, -73.51979 41.2265, -69.92466 41.2265))")
+    coverage = wkt.loads(
+        "POLYGON ((-69.92466 41.2265, -69.92466 42.89199, -73.51979 42.89199, -73.51979 41.2265, -69.92466 41.2265))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
 class KingCountyWashington(ArcGis):
     server = 'https://gismaps.kingcounty.gov/arcgis/rest/services/BaseMaps/KingCo_Aerial_2023/MapServer'
     name = 'king'
-    keyword = 'King County, Washington', 'King County'
+    keyword = (
+        'King County',
+        'Seattle',
+        'Bellevue',
+        'Redmond',
+        'Renton',
+        'Kent',
+    )
     year = 2023
-    coverage = wkt.loads("POLYGON ((-121.03559 47.04875, -121.03559 47.96618, -122.56958 47.96618, -122.56958 47.04875, -121.03559 47.04875))")
+    coverage = wkt.loads(
+        "POLYGON ((-121.03559 47.04875, -121.03559 47.96618, -122.56958 47.96618, -122.56958 47.04875, -121.03559 47.04875))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
@@ -409,19 +435,27 @@ class WashingtonDC(ArcGis):
     name = 'dc'
     tilesize = 512
     extension = 'jpeg'
-    keyword = 'District of Columbia', 'DC'
+    keyword = (
+        'District of Columbia',
+        'Washington',
+        'DC',
+    )
     year = 2023
-    coverage = wkt.loads("POLYGON ((-76.90102 38.7855, -76.90072 39.0017, -77.12237 39.00168, -77.122 38.78548, -76.90102 38.7855))")
+    coverage = wkt.loads(
+        "POLYGON ((-76.90102 38.7855, -76.90072 39.0017, -77.12237 39.00168, -77.122 38.78548, -76.90102 38.7855))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
 
     def __getitem__(self, item: Iterator[Tile]):
         for tile in item:
-            top, left, bottom, right = tile.transformProject(tile.crs, 3857)
-            yield (
-                f'https://imagery.dcgis.dc.gov/dcgis/rest/services/Ortho/Ortho_2021/ImageServer'
-                f'/exportImage?f=image&bbox={bottom}%2C{right}%2C{top}%2C{left}'
-                f'&imageSR=102100&bboxSR=102100&size=512%2C512'
-            )
+            left, bottom, right, top = tile.transformProject(tile.crs, 3857)
+            query = urlencode({
+                'f': 'image',
+                'bbox': f'{left},{bottom},{right},{top}',
+                'imageSR': 3857,
+                'bboxSR': 3857,
+                'size': f'{self.tilesize},{self.tilesize}',
+            })
+            yield f'{self.server}/exportImage?{query}'
 
     @class_attr
     @property
@@ -434,7 +468,8 @@ class LosAngeles(ArcGis):
     name = 'la'
     keyword = 'Los Angeles'
     year = 2014
-    coverage = wkt.loads("POLYGON ((-117.63102 33.28853, -117.63102 34.83012, -118.95937 34.83012, -118.95937 33.28853, -117.63102 33.28853))")
+    coverage = wkt.loads(
+        "POLYGON ((-117.63102 33.28853, -117.63102 34.83012, -118.95937 34.83012, -118.95937 33.28853, -117.63102 33.28853))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
 
     # to test case where a source raises an error due to metadata failure
@@ -473,18 +508,24 @@ class LosAngeles(ArcGis):
 class NewJersey(ArcGis):
     server = 'https://maps.nj.gov/arcgis/rest/services/Basemap/Orthos_Natural_2020_NJ_WM/MapServer'
     name = 'nj'
-    keyword = 'New Jersey'
+    keyword = 'New Jersey', 'NJ'
     year = 2020
-    coverage = wkt.loads("POLYGON ((-73.85543 38.824, -73.85543 41.3866, -75.59981 41.3866, -75.59981 38.824, -73.85543 38.824))")
+    coverage = wkt.loads(
+        "POLYGON ((-73.85543 38.824, -73.85543 41.3866, -75.59981 41.3866, -75.59981 38.824, -73.85543 38.824))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
 class SpringHillTN(ArcGis):
     server = 'https://tiles.arcgis.com/tiles/tF0XsRR9ptiKNVW2/arcgis/rest/services/Spring_Hill_Imagery_WGS84/MapServer'
     name = 'sh_tn'
-    keyword = 'Spring Hill, Tennessee', 'Spring Hill'
+    keyword = (
+        'Spring Hill',
+        'Maury County',
+        'Williamson County',
+    )
     year = 2020
-    coverage = wkt.loads("POLYGON ((-86.75604 35.58884, -86.75604 35.85806, -87.13095 35.85806, -87.13095 35.58884, -86.75604 35.58884))")
+    coverage = wkt.loads(
+        "POLYGON ((-86.75604 35.58884, -86.75604 35.85806, -87.13095 35.85806, -87.13095 35.58884, -86.75604 35.58884))")
     coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
@@ -504,7 +545,18 @@ class AlamedaCounty(
     # ignore = True
     name = 'al'
     extension = 'png'
-    keyword = 'Alameda County', 'California'
+    keyword = (
+        'Alameda County',
+        'Oakland',
+        'Berkeley',
+        'Fremont',
+        'Hayward',
+        'Alameda',
+        'Albany',
+        'San Leandro',
+        'Pleasanton',
+        'Livermore',
+    )
     year = 2023
     server = (
         'https://svc.pictometry.com/Image/'
@@ -543,7 +595,7 @@ class SanFranciscoBase(
 ):
     outdated = True
     extension = 'png'
-    keyword = ('San Francisco', 'California')
+    keyword = 'San Francisco', 'California', 'SF'
     zoom = 20
     server: str
     tilesize = 512
@@ -622,7 +674,8 @@ class VexCel(Source, ABC):
     prefer_layers: Iterable[str] = ('wide-area', 'urban', 'urban-r', 'graysky')
     server: str = 'https://api.vexcelgroup.com/v2/ortho'
     base: str = 'https://api.vexcelgroup.com/v2/ortho/wmts'
-    api_key: str = None
+    api_key: str | None = None
+    api_key_env: str | None = None
     timeout: int = 10
     extension = 'png'
 
@@ -640,7 +693,7 @@ class VexCel(Source, ABC):
             total=5,
             backoff_factor=0.4,
             status_forcelist=(429, 500, 502, 503, 504),
-            allowed_methods=frozenset("GET", ),
+            allowed_methods=frozenset({'GET'}),
             raise_on_status=False,
         )
         s.mount('https://', HTTPAdapter(max_retries=retry))
@@ -648,21 +701,32 @@ class VexCel(Source, ABC):
         return s
 
     @classmethod
+    def _get_api_key(cls) -> str:
+        """Resolve the provider key without storing it in source code."""
+        if cls.api_key:
+            return cls.api_key
+        if cls.api_key_env:
+            api_key = os.environ.get(cls.api_key_env)
+            if api_key:
+                return api_key
+            raise RuntimeError(
+                f'{cls.name} imagery requires the {cls.api_key_env} '
+                'environment variable.'
+            )
+        raise RuntimeError(f'{cls.name} does not define a Vexcel API key source.')
+
+    @classmethod
     def _raise_http(
             cls,
             r: requests.Response,
             url: str,
     ) -> None:
-        """ Raise an HTTPError with details from the response."""
+        """Raise an HTTP error without copying response data or secrets."""
         ctype = r.headers.get('Content-Type', '')
-        if ctype.startswith('text/'):
-            body = r.text[:800]
-        else:
-            body = f'<{len(r.content):,} bytes binary>'
         raise requests.HTTPError(
-            f"{r.status_code} {r.reason or ''} for {url}\n"
+            f"{r.status_code} {r.reason or ''} for {redact_url(url)}\n"
             f"CT: {ctype}\n"
-            f"Body: {body}"
+            f"Response body: <{len(r.content):,} bytes omitted>"
         )
 
     @class_attr
@@ -676,7 +740,7 @@ class VexCel(Source, ABC):
             SERVICE='WMTS',
             REQUEST='GetCapabilities',
             VERSION='1.0.0',
-            api_key=self.api_key,
+            api_key=self._get_api_key(),
         )
         url = f"{self.base}?{urlencode(query)}"
 
@@ -727,7 +791,7 @@ class VexCel(Source, ABC):
         query = {
             'layer': self.layer,
             'image-format': self.extension,
-            'api_key': self.api_key,
+            'api_key': self._get_api_key(),
         }
         q = urlencode(query)
         q += '&tile-x={x}&tile-y={y}&zoom={z}'
@@ -738,7 +802,7 @@ class VexCel(Source, ABC):
 class Maine(VexCel):
     # https://www.maine.gov/geolib/data/index.html
     name = 'maine'
-    api_key = "vfa_JkRqdw7HHOis.37zZe0OHVVqPlIY91FsT9arC9uGrDalMqwMW1AX4OgcfsiwtQoxDLed9OEIxKy3Ys2lMCam9C2swLrUwNqX2KrlegBRev8MRDpkqHkbSEn0fP1aEqvoDBdePjAOO9h91.4256792737"
+    api_key_env = 'TILE2NET_VEXCEL_API_KEY'
     keyword = 'Maine'
     coverage = wkt.loads(
         "MULTIPOLYGON (((-70.64573401557249 43.09008331966716, "
@@ -765,13 +829,12 @@ class Maine(VexCel):
     coverage = GeoSeries(coverage, crs='epsg:4326')
 
 
-
 def print_coverages(
         simplify: Optional[float] = 5,
 ) -> None:
     # utility function to print all coverages to be hard-coded
     # get the canonical coverage series; ensure EPSG:4326 for consistency
-    coverages = SourceMeta.coverage
+    coverages = Source._coverage_index
     # coerce to integer decimals if provided
     decimals: Optional[int] = None
     if simplify is not None:
@@ -789,22 +852,23 @@ def print_coverages(
         print(txt)
 
 
-
 if __name__ == '__main__':
-    assert Source['Portland, Maine'] == Maine
-    assert Source['Maine'] == Maine
-    assert Source['New Brunswick, New Jersey'] == NewJersey
-    assert Source['New York City'] == NewYorkCity
-    assert Source['New York'] in (NewYorkCity, NewYork)
-    assert Source['Massachusetts'] == Massachusetts
-    assert Source['King County, Washington'] == KingCountyWashington
-    assert Source['Washington, DC'] == WashingtonDC
-    assert Source['Los Angeles'] == LosAngeles
-    assert Source['Jersey City'] == NewJersey
-    assert Source['Hoboken'] == NewJersey
-    assert Source["Spring Hill, TN"] == SpringHillTN
-    assert Source['Virginia'] == Virginia
-    assert Source['Berkeley, California'] == AlamedaCounty
-    assert Source['Fremont, California'] == AlamedaCounty
-    assert Source['Oakland, California'] == AlamedaCounty
-    assert Source['San Francisco, California'] == SanFrancisco2024
+    Nominatim.json.read = True
+    Nominatim.json.write = True
+    assert Source.from_inferred('Portland, Maine') == Maine
+    assert Source.from_inferred('Maine') == Maine
+    assert Source.from_inferred('New Brunswick, New Jersey') == NewJersey
+    assert Source.from_inferred('New York City') == NewYorkCity
+    assert Source.from_inferred('New York') in (NewYorkCity, NewYork)
+    assert Source.from_inferred('Massachusetts') == Massachusetts
+    assert Source.from_inferred('King County, Washington') == KingCountyWashington
+    assert Source.from_inferred('Washington, DC') == WashingtonDC
+    assert Source.from_inferred('Los Angeles') == LosAngeles
+    assert Source.from_inferred('Jersey City') == NewJersey
+    assert Source.from_inferred('Hoboken') == NewJersey
+    assert Source.from_inferred("Spring Hill, TN") == SpringHillTN
+    assert Source.from_inferred('Virginia') == Virginia
+    assert Source.from_inferred('Berkeley, California') == AlamedaCounty
+    assert Source.from_inferred('Fremont, California') == AlamedaCounty
+    assert Source.from_inferred('Oakland, California') == AlamedaCounty
+    assert Source.from_inferred('San Francisco, California') == SanFrancisco2024

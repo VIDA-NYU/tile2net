@@ -51,7 +51,8 @@ cfg = __C
 __C.GLOBAL_RANK = 0
 __C.EPOCH = 0
 # Absolute path to a location to keep some large files.
-__C.ASSETS_PATH = None
+__C.ASSETS_PATH = "./assets"
+__C.DATASETS = AttrDict()
 
 __C.CITY_INFO_PATH = None
 

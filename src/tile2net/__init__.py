@@ -1,18 +1,34 @@
-__all__ = 'Grid Raster Tile PedNet Artifacts Project'.split()
-import os
-import warnings
+from __future__ import annotations
+
+from importlib import import_module
+from typing import Any
+
+__all__ = ("Grid", "PedNet", "Project", "Raster", "Source", "Tile")
+
+_EXPORTS = {
+    "Grid": ("tile2net.raster.grid", "Grid"),
+    "Raster": ("tile2net.raster.raster", "Raster"),
+    "Tile": ("tile2net.raster.tile", "Tile"),
+    "PedNet": ("tile2net.raster.pednet", "PedNet"),
+    "Project": ("tile2net.raster.project", "Project"),
+    "Source": ("tile2net.raster.source", "Source"),
+    "logger": ("tile2net.logger", "logger"),
+}
 
 
-warnings.filterwarnings('ignore', '.*initial implementation of Parquet.*', FutureWarning)
-warnings.filterwarnings("ignore", '.*Shapely GEOS version.*', UserWarning)
-warnings.filterwarnings('ignore', '.*Shapely 2.0.*', UserWarning)
+def __getattr__(name: str) -> Any:
+    """Load public objects only when callers request them."""
+    try:
+        module_name, attribute_name = _EXPORTS[name]
+    except KeyError as error:
+        raise AttributeError(
+            f"module {__name__!r} has no attribute {name!r}"
+        ) from error
+
+    value = getattr(import_module(module_name), attribute_name)
+    globals()[name] = value
+    return value
 
 
-# os.environ['USE_PYGEOS'] = '0'
-from tile2net.raster.grid import Grid
-from tile2net.raster.raster import Raster
-from tile2net.raster.tile import Tile
-from tile2net.raster.pednet import PedNet
-from tile2net.raster.project import Project
-from tile2net.logger import logger
-from tile2net.raster.source import Source
+def __dir__() -> list[str]:
+    return sorted((*globals(), *_EXPORTS))

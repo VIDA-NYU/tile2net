@@ -2,9 +2,10 @@ import os
 import numpy as np
 from PIL import Image
 from tile2net.logger import logger
+from tile2net.raster.manifest import filter_paths_by_tile_ids
 
 
-def make_dataset_folder(folder, testing=None):
+def make_dataset_folder(folder, testing=None, active_tile_ids=None):
     """
     Create Filename list for images in the provided path
 
@@ -13,7 +14,10 @@ def make_dataset_folder(folder, testing=None):
    
     returns: items list with None filled for mask path
     """
-    items = os.listdir(folder)
+    items = filter_paths_by_tile_ids(
+        os.listdir(folder),
+        active_tile_ids,
+    )
     if testing:
                 
         items = [(os.path.join(folder, f), '') for f in items]

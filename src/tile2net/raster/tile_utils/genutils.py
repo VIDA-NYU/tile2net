@@ -4,7 +4,6 @@ import glob
 import math
 import shutil
 from PIL import Image
-import psutil
 import random
 
 
@@ -321,6 +320,8 @@ def get_free_space_bytes(dirname):
     -------
     free space in bytes
     """
+    import psutil
+
     usage = psutil.disk_usage(dirname)
     return usage.free
 

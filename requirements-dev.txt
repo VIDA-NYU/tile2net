@@ -12,7 +12,7 @@ pyogrio
 rasterio
 scikit-image
 scikit-learn
-shapely==2.0.1
+shapely>=2.0.7,<3
 tqdm
 torch
 torchvision
@@ -25,7 +25,7 @@ torchaudio
 runx
 toolz
 more-itertools
-gdown
+requests>=2.32,<3
 pytest
 imageio
 
@@ -36,4 +36,4 @@ nbsphinx
 pandoc
 sphinx-autobuild
 sphinx-copybutton
-numpy<2.0
+numpy>=1.26,<3
